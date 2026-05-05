@@ -118,9 +118,9 @@ const RazorpaySMSModal = ({
     const displayAmount = parseFloat(amount) + parseFloat(paidExamFee || 0) + parseFloat(paidAdditionalThings || 0);
 
     return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className={`border w-full max-w-md rounded-[3rem] overflow-hidden shadow-2xl flex flex-col transition-all duration-500 ${isDarkMode ? 'bg-[#0d0f11] border-gray-800 shadow-orange-500/10' : 'bg-white border-gray-200'}`}>
-                <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-orange-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all duration-300">
+            <div className={`border w-full max-w-md rounded-[3rem] overflow-hidden shadow-2xl flex flex-col transition-all duration-500 ${isDarkMode ? 'bg-[#0f1215] border-gray-800 shadow-orange-500/10' : 'bg-white border-gray-200'}`}>
+                <div className={`p-8 border-b flex justify-between items-center transition-all ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-orange-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
                     <div>
                         <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Razorpay <span className="text-orange-500">SMS PAY</span></h2>
                         <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">{admissionType} Admission Support</div>
@@ -177,7 +177,7 @@ const RazorpaySMSModal = ({
                             <h3 className={`text-2xl font-black uppercase italic tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Link <span className="text-orange-500">Sent!</span></h3>
                             <p className={`text-sm mb-6 uppercase font-bold tracking-tighter ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Waiting for student to complete payment...</p>
                             
-                            <div className={`w-full border rounded-2xl p-4 mb-6 relative group ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className={`w-full border rounded-2xl p-4 mb-6 relative group transition-all ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 block text-left">Payment URL</div>
                                 <div className="flex items-center gap-3">
                                     <FaLink className="text-orange-500 text-xs flex-shrink-0" />

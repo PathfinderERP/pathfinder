@@ -238,7 +238,7 @@ const MarketingCRM = () => {
                                                 placeholder="SEARCH MARKETING TEAM..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className={`w-full pl-12 pr-4 py-3 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 text-gray-900 focus:border-orange-500 shadow-sm'}`}
+                                                className={`w-full pl-12 pr-4 py-3 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 text-gray-900 focus:border-orange-500 shadow-sm'}`}
                                             />
                                         </div>
                                     </div>
@@ -272,7 +272,7 @@ const MarketingCRM = () => {
                                                     setFilters(nf);
                                                     fetchAllPerformance(timePeriod, nf);
                                                 }}
-                                                className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 text-gray-900 focus:border-orange-500 shadow-sm'}`}
+                                                className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 text-gray-900 focus:border-orange-500 shadow-sm'}`}
                                             />
                                             <span className="text-gray-500">→</span>
                                             <input
@@ -283,7 +283,7 @@ const MarketingCRM = () => {
                                                     setFilters(nf);
                                                     fetchAllPerformance(timePeriod, nf);
                                                 }}
-                                                className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 text-gray-900 focus:border-orange-500 shadow-sm'}`}
+                                                className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 text-gray-900 focus:border-orange-500 shadow-sm'}`}
                                             />
                                             <button
                                                 onClick={resetFilters}
@@ -530,7 +530,7 @@ const MarketingCRM = () => {
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                         {marketingPerformance.map((p, idx) => (
-                                            <div key={idx} className={`p-4 rounded-[4px] border transition-all hover:border-orange-500/50 ${isDarkMode ? 'bg-[#0f1216] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div key={idx} className={`p-4 rounded-[4px] border transition-all hover:border-orange-500/50 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                                 <div className="flex items-center gap-3 mb-4">
                                                     <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 font-black">
                                                         {p.name.charAt(0)}

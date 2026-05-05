@@ -72,6 +72,7 @@ import { FaBars, FaSignOutAlt, FaUser, FaCheckCircle, FaBell, FaTimes, FaCircle 
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import ThemeToggle from "../ThemeToggle";
+import { useTheme } from "../../context/ThemeContext";
 import io from "socket.io-client";
 
 const getSocketURL = () => {
@@ -266,6 +267,8 @@ const Header = ({ toggleSidebar }) => {
         return role.charAt(0).toUpperCase() + role.slice(1);
     };
 
+    const { theme, toggleTheme, isDarkMode } = useTheme();
+
     return (
         <>
             {/* Full Screen Glow Effect for Unread Notifications */}
@@ -273,7 +276,8 @@ const Header = ({ toggleSidebar }) => {
                 <div className="fixed inset-0 pointer-events-none z-[9998] shadow-[inset_0_0_100px_rgba(6,182,212,0.4)] animate-pulse border-[3px] border-cyan-500/30 transition-opacity duration-1000" />
             )}
             
-            <header className="flex items-center justify-between p-4 bg-white dark:bg-[#1a1f24] border-b border-gray-200 dark:border-gray-800 transition-colors relative z-40">
+            <header className={`flex items-center justify-between p-4 border-b transition-colors relative z-40 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+
                 <div className="flex items-center gap-4">
                     <button onClick={toggleSidebar} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-xl">
                         <FaBars />
@@ -289,37 +293,46 @@ const Header = ({ toggleSidebar }) => {
                     <ThemeToggle />
 
                     {userRole === "superAdmin" ? (
-                        <div onClick={() => navigate("/profile")} className="hidden sm:flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 p-2 rounded-lg transition-colors">
-                            <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden">
+                        <div onClick={() => navigate("/profile")} className={`hidden sm:flex items-center gap-3 text-sm cursor-pointer p-1.5 pr-4 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 hover:bg-white/10' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 shadow-sm'}`}>
+                            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center overflow-hidden shadow-lg ${isDarkMode ? 'bg-cyan-950 border-cyan-500/30' : 'bg-cyan-600 border-cyan-400'}`}>
                                 {userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? (
                                     <img src={userInfo.profileImage.startsWith('http') ? userInfo.profileImage : `${import.meta.env.VITE_API_URL}${userInfo.profileImage}`} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                                 ) : null}
-                                <span className={`text-cyan-400 font-bold ${userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? 'hidden' : ''}`}>{userName.charAt(0).toUpperCase()}</span>
+                                <span className={`font-black text-lg ${isDarkMode ? 'text-cyan-400' : 'text-white'} ${userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? 'hidden' : ''}`}>{userName.charAt(0).toUpperCase()}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
+                                <span className={`font-black tracking-tight leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{userName}</span>
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-500/80' : 'text-cyan-600'}`}>{getRoleDisplayName(userRole)}</span>
                             </div>
                         </div>
                     ) : (
-                        <div className="hidden sm:flex items-center gap-2 text-sm p-2">
-                            <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden">
+                        <div className={`hidden sm:flex items-center gap-3 text-sm p-1.5 pr-4 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-200 shadow-sm'}`}>
+                            <div className={`w-10 h-10 rounded-xl border flex items-center justify-center overflow-hidden shadow-lg ${isDarkMode ? 'bg-cyan-950 border-cyan-500/30' : 'bg-cyan-600 border-cyan-400'}`}>
                                 {userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? (
                                     <img src={userInfo.profileImage.startsWith('http') ? userInfo.profileImage : `${import.meta.env.VITE_API_URL}${userInfo.profileImage}`} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                                 ) : null}
-                                <span className={`text-cyan-400 font-bold ${userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? 'hidden' : ''}`}>{userName.charAt(0).toUpperCase()}</span>
+                                <span className={`font-black text-lg ${isDarkMode ? 'text-cyan-400' : 'text-white'} ${userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? 'hidden' : ''}`}>{userName.charAt(0).toUpperCase()}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
+                                <span className={`font-black tracking-tight leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{userName}</span>
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-500/80' : 'text-cyan-600'}`}>{getRoleDisplayName(userRole)}</span>
                             </div>
                         </div>
                     )}
 
-                    <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/50 rounded-lg text-sm font-semibold hover:bg-red-100 dark:hover:bg-red-500/30">
+
+                    <button
+                        onClick={handleLogout}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 ${
+                            isDarkMode 
+                            ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20' 
+                            : 'bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 shadow-sm shadow-rose-500/5'
+                        }`}
+                    >
                         <FaSignOutAlt />
-                        <span className="hidden sm:inline">Logout</span>
+                        <span className="hidden sm:inline">Terminate Session</span>
                     </button>
+
                 </div>
 
                 {/* Notifications - Centered */}

@@ -7,7 +7,7 @@ import { saveAs } from "file-saver";
 import { useTheme } from "../../context/ThemeContext";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, Legend, Label,
+    PieChart, Pie, Cell, Legend,
     BarChart, Bar, AreaChart, Area, ComposedChart
 } from 'recharts';
 import { motion, AnimatePresence } from "framer-motion";
@@ -460,18 +460,7 @@ const AdmissionReport = () => {
     ];
     const totalStatus = reportData.status.admitted + reportData.status.inCounselling;
 
-    // Custom Label for Pie Chart
-    const resultLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-        const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-        const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-
-        return (
-            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-                {`${(percent * 100).toFixed(1)}%`}
-            </text>
-        );
-    };
+    // Removed inline resultLabel to prevent overlap with center overlay div
 
     // Mini Pie Chart Component for Rows/Cards
     const MiniStatusPie = ({ admitted, counselling, size = 60 }) => {
@@ -1391,40 +1380,52 @@ const AdmissionReport = () => {
                         </h3>
 
                     <div className="flex flex-col lg:flex-row items-center justify-around gap-12">
-                        <div className="w-[320px] h-[320px] relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={statusData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={120}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        stroke="none"
-                                        label={resultLabel}
-                                        labelLine={false}
-                                        animationDuration={1500}
-                                    >
-                                        {statusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
-                                            borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                                            borderRadius: '16px',
-                                            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                                            fontWeight: 900
-                                        }}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Aggregate</p>
-                                <h4 className={`text-4xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalStatus}</h4>
+                        <div className="w-[320px] h-[360px] relative flex flex-col items-center">
+                            <div className="relative w-full flex-1">
+                                <ResponsiveContainer width="100%" height={280}>
+                                    <PieChart>
+                                        <Pie
+                                            data={statusData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={80}
+                                            outerRadius={120}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            stroke="none"
+                                            animationDuration={1500}
+                                        >
+                                            {statusData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
+                                                borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                                                borderRadius: '16px',
+                                                boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                                                fontWeight: 900
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                {/* Center overlay — sits on top of the donut hole */}
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Aggregate</p>
+                                    <span className={`text-4xl font-black leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalStatus.toLocaleString()}</span>
+                                </div>
+                            </div>
+                            {/* Clean legend below the chart */}
+                            <div className="flex items-center gap-6 mt-2">
+                                {statusData.map((entry, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: COLORS[index] }} />
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            {entry.name} — <span className="font-black" style={{ color: COLORS[index] }}>{totalStatus > 0 ? ((entry.value / totalStatus) * 100).toFixed(1) : 0}%</span>
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 

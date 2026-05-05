@@ -163,7 +163,7 @@ const BoardReport = () => {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate(-1)}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500"
+                            className={`p-2 rounded-full transition-colors text-gray-500 ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
                             title="Go Back"
                         >
                             <FaChevronLeft size={18} />
@@ -172,7 +172,7 @@ const BoardReport = () => {
                         {selectedBoards.length > 0 && (
                             <button
                                 onClick={() => setSelectedBoards([])}
-                                className="bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full text-xs font-black flex items-center gap-2 hover:bg-blue-200 transition-all shadow-sm"
+                                className={`px-3 py-1 rounded-full text-xs font-black flex items-center gap-2 transition-all shadow-sm ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
                             >
                                 <FaFilter size={8} /> CLEAR BOARD FILTER
                             </button>
@@ -248,7 +248,7 @@ const BoardReport = () => {
                                     }`}>
                                     {centres.map(c => (
                                         <div key={c._id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer group transition-all ${isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'}`} onClick={() => setSelectedCentres(prev => prev.includes(c._id) ? prev.filter(id => id !== c._id) : [...prev, c._id])}>
-                                            <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className="rounded border-gray-300 dark:border-gray-700 text-cyan-600 w-4 h-4" />
+                                            <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className={`rounded text-cyan-600 w-4 h-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`} />
                                             <span className={`text-xs font-bold uppercase group-hover:text-cyan-500 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{c.centreName}</span>
                                         </div>
                                     ))}
@@ -272,7 +272,7 @@ const BoardReport = () => {
                                     }`}>
                                     {boards.map(b => (
                                         <div key={b._id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer group transition-all ${isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'}`} onClick={() => setSelectedBoards(prev => prev.includes(b._id) ? prev.filter(id => id !== b._id) : [...prev, b._id])}>
-                                            <input type="checkbox" checked={selectedBoards.includes(b._id)} readOnly className="rounded border-gray-300 dark:border-gray-700 text-purple-600 w-4 h-4" />
+                                            <input type="checkbox" checked={selectedBoards.includes(b._id)} readOnly className={`rounded text-purple-600 w-4 h-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`} />
                                             <span className={`text-xs font-bold uppercase group-hover:text-purple-500 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{b.boardCourse}</span>
                                         </div>
                                     ))}
@@ -281,7 +281,7 @@ const BoardReport = () => {
                         </div>
 
                         <div className={`flex items-center gap-2 border rounded-xl p-1 px-3 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-300 shadow-sm'}`}>
-                            <select value={timePeriod} onChange={(e) => setTimePeriod(e.target.value)} className="bg-transparent border-none text-[10px] font-black uppercase outline-none text-gray-500 dark:text-gray-400">
+                            <select value={timePeriod} onChange={(e) => setTimePeriod(e.target.value)} className={`bg-transparent border-none text-[10px] font-black uppercase outline-none ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                 <option value="This Year">This Year</option>
                                 <option value="Last Year">Last Year</option>
                                 <option value="Custom">Custom</option>

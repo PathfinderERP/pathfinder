@@ -67,8 +67,8 @@ const MarketingPage = () => {
         }
     };
 
-    const cardBg = isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white shadow-sm border border-gray-100';
-    const inputBg = isDarkMode ? 'bg-[#131619] border border-gray-700 text-white focus:border-orange-500' : 'bg-gray-50 border border-gray-200 text-gray-900 focus:border-orange-500';
+    const cardBg = isDarkMode ? 'bg-white/5 border border-gray-800' : 'bg-white shadow-sm border border-gray-100';
+    const inputBg = isDarkMode ? 'bg-white/5 border border-gray-700 text-white focus:border-orange-500' : 'bg-gray-50 border border-gray-200 text-gray-900 focus:border-orange-500';
 
     return (
         <Layout activePage="Operations">

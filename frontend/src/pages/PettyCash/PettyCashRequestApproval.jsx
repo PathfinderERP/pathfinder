@@ -4,6 +4,7 @@ import { FaCheck, FaTimes, FaSearch, FaEye } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
+import { useTheme } from '../../context/ThemeContext';
 
 const PettyCashRequestApproval = () => {
     const [requests, setRequests] = useState([]);
@@ -14,6 +15,8 @@ const PettyCashRequestApproval = () => {
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [approvedAmount, setApprovedAmount] = useState("");
     const [remarks, setRemarks] = useState("");
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canApprove = hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'approve');
@@ -81,8 +84,8 @@ const PettyCashRequestApproval = () => {
 
     return (
         <Layout activePage="Petty Cash Management">
-            <div className="flex-1 bg-[#131619] p-6 text-white min-h-screen">
-                <ToastContainer theme="dark" />
+            <div className={`flex-1 p-6 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215] text-white' : 'bg-gray-50 text-gray-900'}`}>
+                <ToastContainer theme={isDarkMode ? "dark" : "colored"} />
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-2xl font-bold">Petty Cash Approval</h2>
@@ -95,12 +98,12 @@ const PettyCashRequestApproval = () => {
                             placeholder="Search centre..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-[#1a1f24] border border-gray-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-64 shadow-lg"
+                            className={`border rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-64 shadow-lg transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                         />
                     </div>
                 </div>
 
-                <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden shadow-2xl">
+                <div className={`rounded-xl border overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-gray-800/50 text-gray-400 text-xs uppercase font-bold">
@@ -173,8 +176,8 @@ const PettyCashRequestApproval = () => {
                 </div>
 
                 {showApprovalModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                        <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className={`w-full max-w-md rounded-xl border shadow-2xl p-6 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-bold">Approve Petty Cash</h3>
                                 <button onClick={() => setShowApprovalModal(false)} className="text-gray-400 hover:text-white"><FaTimes /></button>
@@ -190,7 +193,7 @@ const PettyCashRequestApproval = () => {
                                         type="number"
                                         value={approvedAmount}
                                         onChange={(e) => setApprovedAmount(e.target.value)}
-                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none font-bold text-lg"
+                                        className={`w-full border rounded-lg p-3 outline-none font-bold text-lg transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-green-500'}`}
                                         required
                                     />
                                 </div>
@@ -199,7 +202,7 @@ const PettyCashRequestApproval = () => {
                                     <textarea
                                         value={remarks}
                                         onChange={(e) => setRemarks(e.target.value)}
-                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
+                                        className={`w-full border rounded-lg p-3 outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500'}`}
                                         placeholder="Optional approval nodes..."
                                         rows="3"
                                     />
@@ -225,8 +228,8 @@ const PettyCashRequestApproval = () => {
                 )}
 
                 {showRejectModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                        <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className={`w-full max-w-md rounded-xl border shadow-2xl p-6 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-bold">Reject Request</h3>
                                 <button onClick={() => setShowRejectModal(false)} className="text-gray-400 hover:text-white"><FaTimes /></button>
@@ -237,7 +240,7 @@ const PettyCashRequestApproval = () => {
                                     <textarea
                                         value={remarks}
                                         onChange={(e) => setRemarks(e.target.value)}
-                                        className="w-full bg-[#131619] border border-red-900/30 rounded-lg p-3 text-white focus:border-red-500 outline-none"
+                                        className={`w-full border rounded-lg p-3 outline-none transition-all ${isDarkMode ? 'bg-white/5 border-red-900/30 text-white focus:border-red-500' : 'bg-red-50 border-red-100 text-gray-900 focus:border-red-500'}`}
                                         placeholder="Explain why this request is being rejected..."
                                         rows="4"
                                         required

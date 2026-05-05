@@ -5,9 +5,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import jsPDF from "jspdf";
-import logo from "../../assets/logo-1.svg"; // Assuming path, check if exists or use placeholder
+import logo from "../../assets/logo-1.svg"; 
+import { useTheme } from "../../context/ThemeContext";
 
 const PayEmployeeDetails = () => {
+    const { isDarkMode } = useTheme();
     const { id } = useParams();
     const navigate = useNavigate();
     const [employee, setEmployee] = useState(null);
@@ -120,7 +122,6 @@ const PayEmployeeDetails = () => {
                 if (data.sundaysCount !== undefined) {
                     setSundays(data.sundaysCount || 4);
                 }
-                // initial calculation triggered by useEffect
             } else {
                 toast.error(data.message || "Failed to fetch employee details");
             }
@@ -133,7 +134,6 @@ const PayEmployeeDetails = () => {
     }, [id, selectedMonth, selectedYear]);
 
     useEffect(() => {
-        // Preload logo and convert to PNG base64 for jsPDF
         const loadLogo = async () => {
             try {
                 const img = new Image();
@@ -161,11 +161,9 @@ const PayEmployeeDetails = () => {
         if (employee) {
             let baseStructure = employee.salaryStructure?.[0];
 
-            // If no structure exists, generate a logical fallback from baseGrossSalary
             if (!baseStructure && baseGrossSalary > 0) {
                 baseStructure = calculateSalaryBreakdown(baseGrossSalary);
             } else if (baseStructure && baseGrossSalary !== (employee.salaryStructure?.[0]?.totalEarnings || 0)) {
-                // If user edited the base salary, override the structure components
                 baseStructure = calculateSalaryBreakdown(baseGrossSalary);
             }
 
@@ -177,17 +175,12 @@ const PayEmployeeDetails = () => {
         }
     }, [employee, workedDays, sundays, baseGrossSalary, calculateProRatedSalary]);
 
-
-
     const generateSalarySlip = async () => {
         if (!employee || !calculatedSalary) return;
 
         const doc = new jsPDF();
-
-        // --- Header ---
         if (logoBase64) {
             try {
-                // Centered Logo
                 const logoWidth = 50;
                 const logoHeight = 15;
                 doc.addImage(logoBase64, 'PNG', (210 - logoWidth) / 2, 10, logoWidth, logoHeight);
@@ -196,7 +189,6 @@ const PayEmployeeDetails = () => {
             }
         }
 
-        // Header Text - Stacked below logo
         doc.setFontSize(20);
         doc.setTextColor(40, 40, 40);
         doc.setFont("helvetica", "bold");
@@ -211,9 +203,8 @@ const PayEmployeeDetails = () => {
         doc.setFont("helvetica", "bold");
         doc.text(`Salary Slip for ${months.find(m => m.value == selectedMonth)?.label} ${selectedYear}`, 105, 50, { align: "center" });
 
-        // --- Employee Details Box ---
         doc.setLineWidth(0.1);
-        doc.rect(15, 60, 180, 40); // Shifted down from 45 to 60
+        doc.rect(15, 60, 180, 40);
 
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
@@ -236,7 +227,6 @@ const PayEmployeeDetails = () => {
         doc.setFont("helvetica", "normal");
         doc.text(employee.department?.departmentName || "-", 50, 85);
 
-        // Right Side
         doc.setFont("helvetica", "bold");
         doc.text("Date of Joining:", 110, 67);
         doc.setFont("helvetica", "normal");
@@ -252,7 +242,6 @@ const PayEmployeeDetails = () => {
         doc.setFont("helvetica", "normal");
         doc.text(employee.accountNumber || "-", 145, 79);
 
-        // Days Info
         doc.setFont("helvetica", "bold");
         doc.text("Total Days:", 110, 85);
         doc.setFont("helvetica", "normal");
@@ -264,17 +253,15 @@ const PayEmployeeDetails = () => {
         doc.text(String(workedDays), 145, 91);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Paid Holidays:", 155, 91); // Same line, offset
+        doc.text("Paid Holidays:", 155, 91);
         doc.setFont("helvetica", "normal");
         doc.text(String(sundays), 180, 91);
 
-        // --- Salary Table ---
-        const startY = 110; // Adjusted down from 95
+        const startY = 110;
         const col1 = 15;
         const col2 = 105;
         const rowHeight = 8;
 
-        // Headers
         doc.setFillColor(230, 230, 230);
         doc.rect(col1, startY, 90, rowHeight, "F");
         doc.rect(col2, startY, 90, rowHeight, "F");
@@ -289,7 +276,6 @@ const PayEmployeeDetails = () => {
         doc.text("DEDUCTIONS", col2 + 5, startY + 5);
         doc.text("AMOUNT (Rs)", col2 + 85, startY + 5, { align: "right" });
 
-        // Rows
         const structure = calculatedSalary;
         const earnings = [
             { label: "Basic Salary", val: structure.basic },
@@ -311,7 +297,6 @@ const PayEmployeeDetails = () => {
         let currentY = startY + rowHeight;
 
         for (let i = 0; i < maxRows; i++) {
-            // Draw Box Col 1
             doc.rect(col1, currentY, 90, rowHeight);
             if (earnings[i]) {
                 doc.setFont("helvetica", "normal");
@@ -319,18 +304,15 @@ const PayEmployeeDetails = () => {
                 doc.text(String(earnings[i].val || 0), col1 + 85, currentY + 5, { align: "right" });
             }
 
-            // Draw Box Col 2
             doc.rect(col2, currentY, 90, rowHeight);
             if (deductions[i]) {
                 doc.setFont("helvetica", "normal");
                 doc.text(deductions[i].label, col2 + 5, currentY + 5);
                 doc.text(String(deductions[i].val || 0), col2 + 85, currentY + 5, { align: "right" });
             }
-
             currentY += rowHeight;
         }
 
-        // --- Totals ---
         doc.setFont("helvetica", "bold");
         doc.rect(col1, currentY, 90, rowHeight);
         doc.text("Gross Earnings", col1 + 5, currentY + 5);
@@ -341,9 +323,7 @@ const PayEmployeeDetails = () => {
         doc.text(String(structure.totalDeductions || 0), col2 + 85, currentY + 5, { align: "right" });
 
         currentY += rowHeight + 5;
-
-        // --- Net Pay ---
-        doc.setFillColor(240, 248, 255); // Light Blue
+        doc.setFillColor(240, 248, 255);
         doc.rect(15, currentY, 180, 12, "F");
         doc.rect(15, currentY, 180, 12);
 
@@ -358,7 +338,6 @@ const PayEmployeeDetails = () => {
         doc.setFont("helvetica", "italic");
         doc.text(`Amount in words: ${convertNumberToWords(structure.netSalary || 0)} Only`, 20, currentY);
 
-        // Footer
         doc.setFont("helvetica", "normal");
         doc.text("This is a computer-generated payslip and does not require a signature.", 105, 280, { align: "center" });
 
@@ -388,174 +367,177 @@ const PayEmployeeDetails = () => {
     if (loading) {
         return (
             <Layout activePage="Finance & Fees">
-                <div className="flex h-screen items-center justify-center text-white">Loading...</div>
+                <div className={`flex h-screen items-center justify-center font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Syncing Node...</div>
             </Layout>
         );
     }
 
     if (!employee) return null;
 
-    // Use calculated salary for display, or fallback
     const baseSalary = calculatedSalary || employee.salaryStructure?.[0] || {};
-    // Ensure numeric and avoid direct mutation
     const salary = { ...baseSalary, netSalary: baseSalary.netSalary || 0 };
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className="p-4 space-y-6">
-                <ToastContainer position="top-right" theme="dark" />
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-all duration-500 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
+                <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
 
                 {/* Header with Back Button */}
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-2 bg-gray-800 rounded-lg text-white hover:bg-gray-700 transition">
+                <div className="flex items-center gap-6 mb-10">
+                    <button 
+                        onClick={() => navigate(-1)} 
+                        className={`p-4 border rounded-2xl transition-all shadow-xl active:scale-95 ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 shadow-sm'}`}
+                    >
                         <FaArrowLeft />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-black text-white tracking-tight">Generate Payslip</h1>
-                        <p className="text-gray-400 text-xs mt-1">Review details and process salary for {employee.name}</p>
+                        <h1 className={`text-3xl md:text-4xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Process <span className="text-emerald-500">Payroll</span></h1>
+                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-2">Review fiscal metrics and authorize salary dispatch for <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>{employee.name}</span></p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left: Employee Card & Selector */}
-                    <div className="space-y-6">
-                        <div className="bg-[#1a1f24] p-6 rounded-2xl border border-gray-800 shadow-xl text-center relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-500"></div>
-                            <div className="w-24 h-24 mx-auto bg-gray-800 rounded-full border-4 border-gray-700 overflow-hidden mb-4 shadow-lg">
+                    <div className="space-y-8">
+                        <div className={`border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-600 to-emerald-400"></div>
+                            <div className={`w-28 h-28 mx-auto rounded-[2rem] border-4 overflow-hidden mb-6 shadow-2xl transition-all ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-100 border-white'}`}>
                                 {employee.profileImage ? (
                                     <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
                                 ) : (
-                                    <span className="flex items-center justify-center h-full text-3xl font-bold text-gray-500">{employee.name.charAt(0)}</span>
+                                    <span className="flex items-center justify-center h-full text-4xl font-black text-gray-400 italic">{employee.name.charAt(0)}</span>
                                 )}
                             </div>
-                            <h2 className="text-xl font-bold text-white mb-1">{employee.name}</h2>
-                            <p className="text-green-400 text-xs font-bold uppercase tracking-wider mb-4">{employee.designation?.name}</p>
+                            <h2 className={`text-2xl font-black italic uppercase tracking-tight text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{employee.name}</h2>
+                            <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[0.2em] text-center mb-8 mt-2">{employee.designation?.name}</p>
 
-                            <div className="grid grid-cols-2 gap-4 text-left bg-gray-900/50 p-4 rounded-xl text-sm border border-gray-800">
-                                <div>
-                                    <p className="text-gray-500 text-[10px] uppercase">Emp ID</p>
-                                    <p className="text-white font-mono">{employee.employeeId}</p>
+                            <div className={`grid grid-cols-1 gap-3 p-6 rounded-2xl border transition-all ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
+                                <div className="flex justify-between items-center">
+                                    <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest">Employee Node</p>
+                                    <p className={`font-mono text-xs font-black ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{employee.employeeId}</p>
                                 </div>
-                                <div>
-                                    <p className="text-gray-500 text-[10px] uppercase">Department</p>
-                                    <p className="text-white">{employee.department?.departmentName || "-"}</p>
+                                <div className="flex justify-between items-center">
+                                    <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest">Division</p>
+                                    <p className={`text-xs font-black italic ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{employee.department?.departmentName || "N/A"}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-[#1a1f24] p-6 rounded-2xl border border-gray-800 shadow-xl">
-                            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                <FaCalendarAlt className="text-green-400" /> Payroll Period
+                        <div className={`border p-8 rounded-[2.5rem] shadow-2xl space-y-8 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <h3 className={`font-black uppercase italic text-sm flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                                    <FaCalendarAlt size={16} />
+                                </div>
+                                Dispatch Metrics
                             </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-gray-500 text-[10px] font-bold uppercase block mb-2">Month</label>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-gray-500 text-[9px] font-black uppercase tracking-widest ml-1">Cycle Month</label>
                                     <select
                                         value={selectedMonth}
                                         onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                                        className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none"
+                                        className={`w-full border rounded-xl px-4 py-3 text-xs font-black uppercase tracking-widest focus:outline-none focus:border-emerald-500 appearance-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                     >
                                         {months.map(m => (
-                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                            <option key={m.value} value={m.value} className={isDarkMode ? 'bg-[#1a1f24]' : ''}>{m.label}</option>
                                         ))}
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="text-gray-500 text-[10px] font-bold uppercase block mb-2">Year</label>
+                                <div className="space-y-2">
+                                    <label className="text-gray-500 text-[9px] font-black uppercase tracking-widest ml-1">Fiscal Year</label>
                                     <select
                                         value={selectedYear}
                                         onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                        className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none"
+                                        className={`w-full border rounded-xl px-4 py-3 text-xs font-black tracking-widest focus:outline-none focus:border-emerald-500 appearance-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                     >
                                         {[2024, 2025, 2026, 2027].map(y => (
-                                            <option key={y} value={y}>{y}</option>
+                                            <option key={y} value={y} className={isDarkMode ? 'bg-[#1a1f24]' : ''}>{y}</option>
                                         ))}
                                     </select>
                                 </div>
-                                <div className="col-span-2">
-                                    <label className="text-gray-500 text-[10px] font-bold uppercase block mb-2">Base Gross Salary</label>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="text-gray-500 font-bold">₹</span>
+                                <div className="col-span-2 space-y-2">
+                                    <label className="text-gray-500 text-[9px] font-black uppercase tracking-widest ml-1">Base Liquidity (Gross)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-black">₹</span>
                                         <input
                                             type="number"
                                             value={baseGrossSalary}
                                             onChange={(e) => setBaseGrossSalary(Number(e.target.value))}
-                                            placeholder="Enter Gross Salary"
-                                            className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none font-bold"
+                                            className={`w-full border rounded-xl pl-10 pr-4 py-3 text-sm font-black tracking-tight focus:outline-none focus:border-emerald-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                         />
                                     </div>
                                 </div>
 
-                                <div className="col-span-2">
-                                    <label className="text-gray-500 text-[10px] font-bold uppercase block mb-2">Worked Days</label>
-                                    <div className="flex items-center gap-2">
+                                <div className="col-span-2 space-y-2">
+                                    <label className="text-gray-500 text-[9px] font-black uppercase tracking-widest ml-1">Operational Days</label>
+                                    <div className="flex items-center gap-4">
                                         <input
                                             type="number"
                                             value={workedDays}
                                             onChange={(e) => setWorkedDays(Number(e.target.value))}
-                                            className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-green-500 outline-none font-bold"
+                                            className={`w-full border rounded-xl px-4 py-3 text-sm font-black tracking-widest focus:outline-none focus:border-emerald-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                             min="0"
                                             max="31"
                                         />
-                                        <span className="text-gray-500 text-xs">Days</span>
+                                        <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Days</span>
                                     </div>
-                                    <p className="text-[10px] text-gray-500 mt-1 italic">
-                                        (Net Pay = (Gross / 30) * ({Number(workedDays)} Worked + {sundays} Sundays) - Deductions)
+                                    <p className="text-[9px] text-gray-500 mt-2 italic leading-relaxed font-bold uppercase tracking-tight">
+                                        Formula: (Gross / 30) * ({Number(workedDays)} Active + {sundays} Statutory) - Deductions
                                     </p>
                                 </div>
                             </div>
 
                             <button
                                 onClick={generateSalarySlip}
-                                className="w-full mt-6 py-3 bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-green-600/20 transition-all flex items-center justify-center gap-2"
+                                className="w-full mt-4 py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-2xl shadow-emerald-600/20 transition-all flex items-center justify-center gap-3 active:scale-95"
                             >
-                                <FaPrint size={16} /> Generate Payslip
+                                <FaPrint size={14} /> Authorize & Dispatch
                             </button>
                         </div>
                     </div>
 
                     {/* Right: Salary Breakdown */}
-                    <div className="lg:col-span-2 bg-[#1a1f24] p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h3 className="text-lg font-black text-white mb-6 border-b border-gray-800 pb-4">Salary Structure Information</h3>
+                    <div className={`lg:col-span-2 border p-10 rounded-[3rem] shadow-2xl transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        <h3 className={`text-2xl font-black italic uppercase tracking-tighter mb-10 pb-6 border-b ${isDarkMode ? 'text-white border-gray-800' : 'text-gray-900 border-gray-100'}`}>Fiscal Architecture</h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                             {/* Earnings */}
-                            <div>
-                                <h4 className="text-green-400 text-xs font-black uppercase tracking-widest mb-4">Earnings</h4>
-                                <div className="space-y-3">
-                                    <Row label="Basic Salary" value={salary.basic} />
-                                    <Row label="HRA" value={salary.hra} />
-                                    <Row label="Conveyance" value={salary.conveyance} />
-                                    <Row label="Special Allowance" value={salary.specialAllowance} />
-                                    <Row label="City Compensatory (CCA)" value={salary.cca} />
-                                    <div className="pt-3 border-t border-gray-800 mt-3">
-                                        <Row label="Total Earnings" value={salary.totalEarnings} highlight />
+                            <div className="space-y-6">
+                                <h4 className="text-emerald-500 text-[11px] font-black uppercase tracking-[0.3em] mb-8 italic">Asset Allocation</h4>
+                                <div className="space-y-4">
+                                    <Row label="Basic Salary" value={salary.basic} isDarkMode={isDarkMode} />
+                                    <Row label="HRA" value={salary.hra} isDarkMode={isDarkMode} />
+                                    <Row label="Conveyance" value={salary.conveyance} isDarkMode={isDarkMode} />
+                                    <Row label="Special Allowance" value={salary.specialAllowance} isDarkMode={isDarkMode} />
+                                    <Row label="CCA" value={salary.cca} isDarkMode={isDarkMode} />
+                                    <div className={`pt-6 border-t mt-6 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                        <Row label="Gross Earnings" value={salary.totalEarnings} highlight isDarkMode={isDarkMode} />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Deductions */}
-                            <div>
-                                <h4 className="text-red-400 text-xs font-black uppercase tracking-widest mb-4">Deductions</h4>
-                                <div className="space-y-3">
-                                    <Row label="Provident Fund" value={salary.pf} />
-                                    <Row label="Professional Tax" value={salary.pTax} />
-                                    <Row label="ESI" value={salary.esi} />
-                                    <Row label="TDS" value={salary.tds} />
-                                    <Row label="Loss of Pay" value={salary.lossOfPay} />
-                                    <div className="pt-3 border-t border-gray-800 mt-3">
-                                        <Row label="Total Deductions" value={salary.totalDeductions} highlight />
+                            <div className="space-y-6">
+                                <h4 className="text-red-500 text-[11px] font-black uppercase tracking-[0.3em] mb-8 italic">Liability Assessment</h4>
+                                <div className="space-y-4">
+                                    <Row label="Provident Fund" value={salary.pf} isDarkMode={isDarkMode} />
+                                    <Row label="Professional Tax" value={salary.pTax} isDarkMode={isDarkMode} />
+                                    <Row label="ESI" value={salary.esi} isDarkMode={isDarkMode} />
+                                    <Row label="TDS" value={salary.tds} isDarkMode={isDarkMode} />
+                                    <Row label="Loss of Pay" value={salary.lossOfPay} isDarkMode={isDarkMode} />
+                                    <div className={`pt-6 border-t mt-6 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                        <Row label="Gross Liabilities" value={salary.totalDeductions} highlight isDarkMode={isDarkMode} />
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="mt-8 pt-6 border-t border-gray-700 bg-gray-900/50 -mx-6 -mb-6 p-6 rounded-b-2xl flex justify-between items-center">
-                            <div>
-                                <p className="text-gray-400 text-xs font-bold uppercase">Net Salary Payable</p>
-                                <p className="text-gray-500 text-[10px]">Total Earnings - Total Deductions</p>
+                        <div className={`mt-12 p-10 rounded-[2.5rem] border flex flex-col md:flex-row justify-between items-center transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
+                            <div className="text-center md:text-left mb-6 md:mb-0">
+                                <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.3em] mb-1">Final Settlement</p>
+                                <p className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Assets minus assessed liabilities</p>
                             </div>
-                            <div className="text-3xl font-black text-white">
+                            <div className={`text-5xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 ₹{salary.netSalary?.toLocaleString('en-IN') || 0}
                             </div>
                         </div>
@@ -566,10 +548,10 @@ const PayEmployeeDetails = () => {
     );
 };
 
-const Row = ({ label, value, highlight }) => (
-    <div className={`flex justify-between items-center ${highlight ? "text-white font-bold" : "text-gray-300 text-sm"}`}>
+const Row = ({ label, value, highlight, isDarkMode }) => (
+    <div className={`flex justify-between items-center transition-all ${highlight ? `${isDarkMode ? 'text-white' : 'text-gray-900'} font-black text-lg` : `${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-bold uppercase tracking-wider`}`}>
         <span>{label}</span>
-        <span className="font-mono">{value?.toLocaleString('en-IN') || 0}</span>
+        <span className="font-black tabular-nums tracking-tighter">{value?.toLocaleString('en-IN') || 0}</span>
     </div>
 );
 

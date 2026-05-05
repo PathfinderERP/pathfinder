@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaEraser, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaMoneyBillWave, FaCheckCircle, FaClock, FaExclamationTriangle, FaFileInvoice, FaFilter, FaDownload, FaChevronRight, FaEdit, FaPlus, FaTrash } from "react-icons/fa";
-import { toast } from "react-toastify";
+import { FaSearch, FaEraser, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaMoneyBillWave, FaCheckCircle, FaClock, FaExclamationTriangle, FaFileInvoice, FaFilter, FaDownload, FaChevronRight, FaEdit, FaPlus, FaTrash, FaTimes, FaWallet, FaUniversity, FaCreditCard, FaCoins } from "react-icons/fa";
+import { toast, ToastContainer } from "react-toastify";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -14,7 +14,6 @@ import RazorpayPOSModal from "../../components/Finance/RazorpayPOSModal";
 import RazorpaySMSModal from "../../components/Finance/RazorpaySMSModal";
 
 const EditScheduleModal = ({ admission, onClose, onSave, isDarkMode }) => {
-    // Initialize with existing unpaid installments
     const [schedule, setSchedule] = useState(() => {
         const unpaid = admission.paymentBreakdown
             .filter(inst => inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE")
@@ -68,91 +67,91 @@ const EditScheduleModal = ({ admission, onClose, onSave, isDarkMode }) => {
     };
 
     return (
-        <div className={`fixed inset-0 z-[110] flex items-center justify-center p-4 backdrop-blur-xl ${isDarkMode ? 'bg-black/95' : 'bg-gray-900/40'}`}>
-            <div className={`border w-full max-w-2xl rounded-[3rem] overflow-hidden flex flex-col max-h-[90vh] shadow-2xl ${isDarkMode ? 'bg-[#0d0f11] border-gray-800 shadow-[0_0_100px_rgba(6,182,212,0.1)]' : 'bg-white border-gray-200 shadow-cyan-900/10'}`}>
-                <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
+        <div className={`fixed inset-0 z-[1000] flex items-center justify-center p-4 backdrop-blur-md transition-all duration-500 animate-in fade-in ${isDarkMode ? 'bg-black/90' : 'bg-gray-900/60'}`}>
+            <div className={`border w-full max-w-2xl rounded-[3rem] overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-500 shadow-[0_60px_120px_rgba(0,0,0,0.8)] transition-all ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                <div className={`p-10 border-b flex justify-between items-center transition-all duration-500 ${isDarkMode ? 'border-gray-800 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
                     <div>
-                        <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Edit <span className="text-cyan-500">Schedule</span></h2>
-                        <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Admission # {admission.admissionNumber}</div>
+                        <h2 className={`text-3xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Edit <span className="text-cyan-500">Schedule</span></h2>
+                        <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.25em] mt-2 italic">Admission Ref # {admission.admissionNumber}</div>
                     </div>
                     <div className="text-right">
-                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Remaining Balance</div>
-                        <div className="text-xl font-black text-cyan-500">₹{admission.remainingAmount.toLocaleString()}</div>
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1 italic">Net Outstanding</div>
+                        <div className="text-2xl font-black text-cyan-500 italic tabular-nums tracking-tighter">₹{admission.remainingAmount.toLocaleString()}</div>
                     </div>
                 </div>
 
-                <div className={`p-8 overflow-y-auto custom-scrollbar flex-1 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50/30'}`}>
-                    <div className="space-y-4">
-                        {schedule.map((inst, idx) => (
-                            <div key={idx} className={`border p-6 rounded-3xl flex flex-wrap md:flex-nowrap items-center gap-6 group hover:border-gray-700 transition-all ${isDarkMode ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-gray-200'}`}>
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-cyan-500 font-black italic shadow-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                                    #{inst.installmentNumber}
-                                </div>
-                                <div className="flex-1 min-w-[150px]">
-                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Due Date</label>
-                                    <input
-                                        type="date"
-                                        value={inst.dueDate}
-                                        onChange={(e) => handleChange(idx, 'dueDate', e.target.value)}
-                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-bold outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                    />
-                                </div>
-                                <div className="flex-1 min-w-[120px]">
-                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Amount (₹)</label>
-                                    <input
-                                        type="number"
-                                        value={inst.amount}
-                                        onFocus={(e) => e.target.select()}
-                                        onChange={(e) => handleChange(idx, 'amount', e.target.value)}
-                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-black outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => handleRemove(idx)}
-                                    className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center md:opacity-0 group-hover:opacity-100"
-                                    title="Remove Installment"
-                                >
-                                    <FaTrash className="text-xs" />
-                                </button>
+                <div className={`p-10 overflow-y-auto custom-scrollbar flex-1 space-y-6 transition-all duration-500 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50/20 shadow-inner'}`}>
+                    {schedule.map((inst, idx) => (
+                        <div key={idx} className={`border p-8 rounded-[2.5rem] flex flex-wrap md:flex-nowrap items-center gap-8 group transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 hover:border-cyan-500/30' : 'bg-white border-gray-100 hover:border-cyan-500/20 hover:bg-gray-50/50 shadow-sm'}`}>
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-cyan-500 font-black italic text-xl shadow-xl transition-all group-hover:scale-110 ${isDarkMode ? 'bg-white/10 border border-white/5' : 'bg-white border border-gray-100 shadow-cyan-900/5'}`}>
+                                #{inst.installmentNumber}
                             </div>
-                        ))}
-                    </div>
+                            <div className="flex-1 min-w-[150px]">
+                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-3 block italic">Maturity Date</label>
+                                <input
+                                    type="date"
+                                    value={inst.dueDate}
+                                    onChange={(e) => handleChange(idx, 'dueDate', e.target.value)}
+                                    className={`w-full border rounded-2xl py-3.5 px-5 text-xs font-black outline-none transition-all duration-300 [color-scheme:dark] ${isDarkMode ? 'bg-black/40 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
+                                />
+                            </div>
+                            <div className="flex-1 min-w-[120px]">
+                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-3 block italic">Instrument Value (₹)</label>
+                                <input
+                                    type="number"
+                                    value={inst.amount}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => handleChange(idx, 'amount', e.target.value)}
+                                    className={`w-full border rounded-2xl py-3.5 px-5 text-sm font-black outline-none transition-all duration-300 tabular-nums ${isDarkMode ? 'bg-black/40 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
+                                />
+                            </div>
+                            <button
+                                onClick={() => handleRemove(idx)}
+                                className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${isDarkMode ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-black border border-red-500/20 md:opacity-0 group-hover:opacity-100 shadow-lg shadow-red-500/10' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 md:opacity-0 group-hover:opacity-100'}`}
+                                title="De-list Instrument"
+                            >
+                                <FaTrash className="text-sm" />
+                            </button>
+                        </div>
+                    ))}
 
                     <button
                         onClick={handleAdd}
-                        className={`w-full mt-6 py-4 border-2 border-dashed rounded-3xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 ${isDarkMode ? 'border-gray-800 text-gray-500 hover:border-cyan-500/50 hover:text-cyan-500' : 'border-gray-200 text-gray-400 hover:border-cyan-500/50 hover:text-cyan-600'}`}
+                        className={`w-full mt-4 py-6 border-2 border-dashed rounded-[2.5rem] font-black uppercase text-[10px] tracking-[0.3em] transition-all duration-500 flex items-center justify-center gap-3 active:scale-[0.98] ${isDarkMode ? 'border-gray-800 text-gray-600 hover:border-cyan-500/50 hover:text-cyan-500 hover:bg-cyan-500/[0.02]' : 'border-gray-200 text-gray-400 hover:border-cyan-500/30 hover:text-cyan-600 hover:bg-cyan-500/[0.01]'}`}
                     >
-                        <FaPlus /> Add New Installment
+                        <FaPlus size={10} /> APPEND_NEW_INSTRUMENT
                     </button>
                 </div>
 
-                <div className={`p-8 border-t backdrop-blur-xl ${isDarkMode ? 'border-gray-800 bg-black/40' : 'border-gray-100 bg-gray-50'}`}>
-                    <div className="flex items-center justify-between mb-6 px-2">
-                        <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                            New Total: <span className={isValid ? "text-emerald-500" : "text-red-500"}>₹{totalNew.toLocaleString()}</span>
+                <div className={`p-10 border-t backdrop-blur-xl transition-all duration-500 ${isDarkMode ? 'border-gray-800 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
+                    <div className="flex items-center justify-between mb-8 px-4">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] italic">Calculated Aggregate</span>
+                            <div className={`text-2xl font-black italic tabular-nums tracking-tighter ${isValid ? "text-emerald-500" : "text-red-500"}`}>₹{totalNew.toLocaleString()}</div>
                         </div>
                         {!isValid && (
-                            <div className="text-[9px] font-black text-red-500 uppercase tracking-tight animate-pulse">
-                                Difference: ₹{(admission.remainingAmount - totalNew).toLocaleString()}
+                            <div className="text-right">
+                                <span className="text-[9px] font-black text-red-500/70 uppercase tracking-[0.2em] italic mb-1 block animate-pulse">Variance Detected</span>
+                                <div className="text-lg font-black text-red-500 tabular-nums tracking-tighter italic">₹{(admission.remainingAmount - totalNew).toLocaleString()}</div>
                             </div>
                         )}
                     </div>
                     <div className="flex gap-4">
                         <button
                             onClick={onClose}
-                            className={`flex-1 py-4 border font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all ${isDarkMode ? 'bg-gray-900 border-gray-800 text-gray-500 hover:bg-gray-800 hover:text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-900'}`}
+                            className={`flex-1 py-4 font-black uppercase text-[10px] tracking-[0.25em] rounded-2xl transition-all duration-300 active:scale-95 border ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-gray-500 hover:bg-white/5 hover:text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-100 hover:text-gray-900 shadow-sm'}`}
                         >
-                            Cancel
+                            DISCARD_REVISION
                         </button>
                         <button
                             onClick={handleSubmit}
                             disabled={!isValid || schedule.length === 0 || isSaving}
-                            className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-xl flex items-center justify-center gap-2 ${isValid && schedule.length > 0 && !isSaving
-                                ? "bg-gradient-to-r from-emerald-600 to-emerald-400 text-black shadow-emerald-500/20 hover:scale-105 active:scale-95"
-                                : (isDarkMode ? "bg-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-100 text-gray-400 cursor-not-allowed")
+                            className={`flex-1 py-4 font-black uppercase text-[10px] tracking-[0.25em] rounded-2xl transition-all duration-500 shadow-2xl flex items-center justify-center gap-3 active:scale-95 ${isValid && schedule.length > 0 && !isSaving
+                                ? "bg-gradient-to-r from-emerald-600 to-cyan-600 text-white shadow-emerald-600/30 hover:from-emerald-500 hover:to-cyan-500"
+                                : (isDarkMode ? "bg-white/5 text-gray-700 cursor-not-allowed border-gray-800" : "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200")
                                 }`}
                         >
-                            {isSaving ? "Saving..." : "Save New Schedule"}
+                            {isSaving ? "SYNCING_MAP..." : "AUTHORIZE_SCHEDULE"}
                         </button>
                     </div>
                 </div>
@@ -162,19 +161,15 @@ const EditScheduleModal = ({ admission, onClose, onSave, isDarkMode }) => {
 };
 
 const InstallmentPayment = () => {
-    const { theme } = useTheme();
-    const isDarkMode = theme === 'dark';
+    const { isDarkMode } = useTheme();
     const [loading, setLoading] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [financialData, setFinancialData] = useState(null);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    // Check both permissions: Finance (for visibility) and Admissions (required by backend)
-    // This ensures the button shows for updated Finance users, while backend errors are handled in the API call
     const canCreatePayment = hasPermission(user, 'financeFees', 'installmentPayment', 'create') || hasPermission(user, 'admissions', 'enrolledStudents', 'edit');
 
-    // Admissions List & Filters
     const [admissionsList, setAdmissionsList] = useState([]);
     const [filters, setFilters] = useState({
         centre: [],
@@ -192,7 +187,6 @@ const InstallmentPayment = () => {
         departments: []
     });
 
-    // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -204,7 +198,7 @@ const InstallmentPayment = () => {
         { value: 500, label: "500 per page" },
     ];
 
-    const [allowedCentres, setAllowedCentres] = useState(null); // null means all allowed (SuperAdmin)
+    const [allowedCentres, setAllowedCentres] = useState(null);
 
     useEffect(() => {
         const init = async () => {
@@ -224,14 +218,13 @@ const InstallmentPayment = () => {
             });
             if (response.ok) {
                 const data = await response.json();
-                // Check role strictly from profile
-                if (data.user.role === 'superAdmin' || data.user.role === 'SuperAdmin') return null; // All access
+                if (data.user.role === 'superAdmin' || data.user.role === 'SuperAdmin') return null;
                 return data.user.centres?.map(c => c.centreName) || [];
             }
         } catch (error) {
             console.error(error);
         }
-        return []; // Default no access if error or no centres
+        return [];
     };
 
     const fetchMetadata = async (allowedOverride) => {
@@ -250,14 +243,11 @@ const InstallmentPayment = () => {
             const depts = await deptsRes.json();
             const filteredDepts = Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : [];
 
-            // Filter centres based on permissions with case-insensitive comparison
             const perms = allowedOverride !== undefined ? allowedOverride : allowedCentres;
             let filteredCentres = Array.isArray(centres) ? centres : [];
 
             if (perms !== null && Array.isArray(perms)) {
-                // Normalize permission centre names (trim and lowercase)
                 const normalizedPerms = perms.map(c => (c || "").trim().toLowerCase());
-                // Filter centres by comparing normalized names
                 filteredCentres = filteredCentres.filter(c => {
                     const centreName = (c.centreName || "").trim().toLowerCase();
                     return normalizedPerms.includes(centreName);
@@ -276,7 +266,7 @@ const InstallmentPayment = () => {
 
     const fetchAdmissions = async (allowedOverride) => {
         setLoading(true);
-        setCurrentPage(1); // Reset to first page on new search
+        setCurrentPage(1);
         try {
             const token = localStorage.getItem("token");
             const queryParams = new URLSearchParams();
@@ -324,9 +314,9 @@ const InstallmentPayment = () => {
             searchTerm: ""
         });
         fetchAdmissions();
+        toast.info("Filters reset to default view");
     };
 
-    // Get complete financial details
     const handleSelectStudent = async (studentId) => {
         setLoading(true);
         try {
@@ -353,15 +343,13 @@ const InstallmentPayment = () => {
 
     const exportToExcel = () => {
         if (admissionsList.length === 0) {
-            toast.info("No data to export");
+            toast.info("No data available for export");
             return;
         }
 
         const dataToExport = [];
-
         admissionsList.forEach(adm => {
             if (!adm.paymentBreakdown || adm.paymentBreakdown.length === 0) {
-                // If no installments, still export the student info
                 dataToExport.push({
                     "Admission Code": adm.admissionNumber,
                     "Student Name": adm.studentName,
@@ -391,7 +379,7 @@ const InstallmentPayment = () => {
                     const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
 
                     dataToExport.push({
-                        "Admission Code": idx === 0 ? adm.admissionNumber : "", // Only show for first installment row
+                        "Admission Code": idx === 0 ? adm.admissionNumber : "",
                         "Student Name": idx === 0 ? adm.studentName : "",
                         "Email": idx === 0 ? adm.email : "",
                         "Mobile": idx === 0 ? adm.mobile : "",
@@ -412,48 +400,41 @@ const InstallmentPayment = () => {
                     });
                 });
             }
-            // Add a separator row for better readability
-            dataToExport.push({
-                "Admission Code": "---", "Student Name": "---", "Email": "---", "Mobile": "---", "Course": "---",
-                "Department": "---", "Centre": "---", "Admission Date": "---", "Total Fees (₹)": "---",
-                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
-                "Installment #": "---", "Due Date": "---", "Amount Due": "---", "Amount Paid": "---", "Inst. Status": "---", "Due Status": "---"
-            });
+            dataToExport.push({});
         });
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Detailed Financial Report");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Financial Audit Report");
 
-        // Auto-size columns
-        const columnWidths = Object.keys(dataToExport[0]).map(key => ({
-            wch: Math.max(key.length, ...dataToExport.map(row => (row[key] || "").toString().length)) + 2
+        const columnWidths = Object.keys(dataToExport[0] || {}).map(key => ({
+            wch: Math.max(key.length, ...dataToExport.map(row => (row[key] || "").toString().length)) + 4
         }));
         worksheet["!cols"] = columnWidths;
 
         const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
-        saveAs(data, `Detailed_Student_Financial_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-        toast.success("Detailed report exported successfully!");
+        saveAs(data, `Financial_Audit_Archive_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Detailed financial audit exported successfully");
     };
 
     const getStatusBadge = (status) => {
         switch (status) {
             case "PAID":
             case "COMPLETED":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-1"><FaCheckCircle /> {status}</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-2 shadow-sm shadow-emerald-500/10 tracking-[0.15em] transition-all"><FaCheckCircle size={10} /> {status}</span>;
             case "PENDING":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-yellow-500 bg-yellow-500/10 border-yellow-500/20 inline-flex items-center gap-1"><FaClock /> {status}</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-amber-500 bg-amber-500/10 border-amber-500/20 inline-flex items-center gap-2 shadow-sm shadow-amber-500/10 tracking-[0.15em] transition-all"><FaClock size={10} /> {status}</span>;
             case "OVERDUE":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-1"><FaExclamationTriangle /> {status}</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-2 shadow-sm shadow-red-500/10 tracking-[0.15em] animate-pulse transition-all"><FaExclamationTriangle size={10} /> {status}</span>;
             case "PARTIAL":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-orange-500 bg-orange-500/10 border-orange-500/20 inline-flex items-center gap-1"><FaClock /> {status}</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20 inline-flex items-center gap-2 shadow-sm shadow-cyan-500/10 tracking-[0.15em] transition-all"><FaClock size={10} /> {status}</span>;
             case "PENDING_CLEARANCE":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-yellow-500 bg-yellow-500/10 border-yellow-500/20 inline-flex items-center gap-1"><FaClock /> IN PROCESS</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-amber-500 bg-amber-500/10 border-amber-500/20 inline-flex items-center gap-2 shadow-sm shadow-amber-500/10 tracking-[0.15em] transition-all italic"><FaClock size={10} /> IN PROCESS</span>;
             case "REJECTED":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-1"><FaExclamationTriangle /> REJECTED</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-2 shadow-sm shadow-red-500/10 tracking-[0.15em] transition-all"><FaExclamationTriangle size={10} /> REJECTED</span>;
             default:
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-gray-500 bg-gray-500/10 border-gray-500/20">{status}</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-gray-500 bg-gray-500/10 border-gray-500/20 transition-all">{status}</span>;
         }
     };
 
@@ -466,7 +447,7 @@ const InstallmentPayment = () => {
         );
 
         if (overdueInstallments?.length > 0) {
-            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-1"><FaExclamationTriangle /> {overdueInstallments.length} OVERDUE</span>;
+            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-2 shadow-sm shadow-red-500/10 tracking-[0.1em] italic"><FaExclamationTriangle size={10} /> {overdueInstallments.length} OVERDUE</span>;
         }
 
         const nextDue = adm.paymentBreakdown?.filter(inst =>
@@ -474,18 +455,17 @@ const InstallmentPayment = () => {
         ).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
 
         if (nextDue) {
-            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20 inline-flex items-center gap-1"><FaClock /> DUE {new Date(nextDue.dueDate).toLocaleDateString('en-GB')}</span>;
+            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20 inline-flex items-center gap-2 shadow-sm shadow-cyan-500/10 tracking-[0.1em] italic"><FaClock size={10} /> DUE {new Date(nextDue.dueDate).toLocaleDateString('en-GB')}</span>;
         }
 
         const isCompleted = adm.paymentStatus === "COMPLETED" || (adm.remainingAmount <= 0);
         if (isCompleted) {
-            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-1"><FaCheckCircle /> NO DUES</span>;
+            return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-2 shadow-sm shadow-emerald-500/10 tracking-[0.1em] italic"><FaCheckCircle size={10} /> NO DUES</span>;
         }
 
-        return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-gray-500 bg-gray-500/10 border-gray-500/20">NO UPCOMING</span>;
+        return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-gray-500 bg-gray-500/10 border-gray-500/20 italic tracking-[0.1em]">NO UPCOMING</span>;
     };
 
-    // Payment Modal State
     const [showPayModal, setShowPayModal] = useState(false);
     const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
     const [editingAdmission, setEditingAdmission] = useState(null);
@@ -521,14 +501,11 @@ const InstallmentPayment = () => {
 
     const handleRecordPayment = async (overrideData = null) => {
         const dataToSubmit = overrideData || payFormData;
-        
-        // Validation for Online/Digital/Bank methods
         const mandatoryRefMethods = ['UPI', 'CARD', 'BANK_TRANSFER'];
         if (mandatoryRefMethods.includes(dataToSubmit.paymentMethod) && !dataToSubmit.transactionId?.trim()) {
-            toast.error(`Transaction ID / Ref is mandatory for ${dataToSubmit.paymentMethod} payments`);
+            toast.error(`Auth ID / Ref is mandatory for ${dataToSubmit.paymentMethod} protocol`);
             return;
         }
-
 
         try {
             const token = localStorage.getItem("token");
@@ -546,10 +523,9 @@ const InstallmentPayment = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                toast.success(dataToSubmit.paymentMethod === "CHEQUE" ? "Cheque recorded! Pending clearance." : "Payment successful!");
+                toast.success(dataToSubmit.paymentMethod === "CHEQUE" ? "Cheque logged for verification" : "Payment settlement successful");
                 setShowPayModal(false);
 
-                // Show bill generator (Acknowledgement for cheques, Bill for others)
                 setBillModal({
                     show: true,
                     admission: data.admission,
@@ -565,169 +541,185 @@ const InstallmentPayment = () => {
                     }
                 });
 
-                // Refresh financial details
                 handleSelectStudent(selectedStudent.studentId);
-                // Refresh list
                 fetchAdmissions();
             } else {
                 const err = await response.json();
-                toast.error(
-                    err.message.includes("Access denied")
-                        ? "Permission Denied. You need 'Installment Payment' (Finance) or 'Enrolled Students' (Admissions) permission."
-                        : err.message || "Failed to record payment"
-                );
+                toast.error(err.message || "Failed to finalize settlement");
             }
         } catch (error) {
             console.error("Payment Error:", error);
-            toast.error("Error connecting to server");
+            toast.error("Network sync failure");
         }
     };
 
-    // React-select custom styles
     const selectStyles = {
         control: (base) => ({
             ...base,
-            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.4)' : '#fff',
+            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.3)' : '#fff',
             borderColor: isDarkMode ? '#1f2937' : '#e5e7eb',
-            borderRadius: '0.75rem',
-            padding: '0.25rem',
+            borderRadius: '1rem',
+            padding: '0.4rem',
+            minHeight: '52px',
+            transition: 'all 0.3s ease',
+            boxShadow: 'none',
             '&:hover': { borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4' }
         }),
         menu: (base) => ({
             ...base,
-            backgroundColor: isDarkMode ? '#131619' : '#fff',
+            backgroundColor: isDarkMode ? '#0f1215' : '#fff',
             border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
-            borderRadius: '0.75rem',
+            borderRadius: '1.25rem',
             overflow: 'hidden',
-            zIndex: 100
+            padding: '8px',
+            zIndex: 1000,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
         }),
         option: (base, state) => ({
             ...base,
             backgroundColor: state.isFocused ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
             color: state.isFocused ? '#06b6d4' : (isDarkMode ? '#9ca3af' : '#4b5563'),
-            fontWeight: 'bold',
-            fontSize: '0.75rem',
+            fontWeight: '900',
+            fontSize: '10px',
             textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            padding: '12px 16px',
+            borderRadius: '10px',
             cursor: 'pointer',
+            transition: 'all 0.2s ease',
             '&:active': { backgroundColor: 'rgba(6, 182, 212, 0.2)' }
         }),
         multiValue: (base) => ({
             ...base,
             backgroundColor: 'rgba(6, 182, 212, 0.1)',
-            borderRadius: '0.5rem',
-            border: '1px solid rgba(6, 182, 212, 0.3)'
+            borderRadius: '8px',
+            border: '1px solid rgba(6, 182, 212, 0.2)',
+            padding: '2px'
         }),
         multiValueLabel: (base) => ({
             ...base,
             color: '#06b6d4',
-            fontWeight: 'bold',
-            fontSize: '0.65rem',
+            fontWeight: '900',
+            fontSize: '9px',
             textTransform: 'uppercase',
-            padding: '0.25rem 0.5rem'
+            padding: '2px 8px'
         }),
         multiValueRemove: (base) => ({
             ...base,
             color: '#06b6d4',
-            '&:hover': { backgroundColor: '#06b6d4', color: '#000' }
+            '&:hover': { backgroundColor: '#06b6d4', color: '#000', borderRadius: '4px' }
         }),
         placeholder: (base) => ({
             ...base,
-            color: isDarkMode ? '#6b7280' : '#9ca3af',
-            fontWeight: 'bold',
-            fontSize: '0.75rem',
-            textTransform: 'uppercase'
+            color: isDarkMode ? '#4b5563' : '#9ca3af',
+            fontWeight: '900',
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em'
         }),
         singleValue: (base) => ({
             ...base,
-            color: isDarkMode ? '#fff' : '#111827'
+            color: isDarkMode ? '#fff' : '#111827',
+            fontWeight: '900',
+            fontSize: '10px',
+            textTransform: 'uppercase'
         }),
         input: (base) => ({
             ...base,
             color: isDarkMode ? '#fff' : '#111827',
-            fontWeight: 'bold',
-            fontSize: '0.75rem'
+            fontWeight: '900',
+            fontSize: '10px'
         })
     };
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-all duration-500 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
+                <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
+
                 {/* Header */}
-                <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div className="mb-12 flex flex-col xl:flex-row xl:items-start justify-between gap-8">
                     <div>
-                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Installment <span className="text-cyan-500">Payment</span>
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-3 flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <span className="p-3 bg-cyan-500/10 rounded-2xl text-cyan-500 border border-cyan-500/20 shadow-inner">
+                                <FaWallet size={28} />
+                            </span>
+                            Installment <span className="text-cyan-500">Logistics</span>
                         </h1>
-                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
-                            {selectedStudent ? "Financial Details for " + selectedStudent.name : "Manage Student Payments & Financial Records"}
+                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.25em] italic">
+                            {selectedStudent ? `Financial audit for ${selectedStudent.name}` : "Centralized audit & settlement protocol for academic capital"}
                         </p>
                     </div>
 
                     {!selectedStudent && (
-                        <div className={`border rounded-2xl p-4 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`} style={{ width: '480px', height: '140px' }}>
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment Analytics</div>
+                        <div className={`border rounded-[2.5rem] p-6 transition-all duration-500 shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-gray-800 shadow-cyan-900/[0.03]' : 'bg-white border-gray-100 shadow-sm'}`} style={{ width: '520px', height: '160px' }}>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-[60px] pointer-events-none"></div>
+                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-4 italic flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div> Sector Recovery Analytics
+                            </div>
                             <ResponsiveContainer width="100%" height={90}>
                                 <BarChart
                                     data={[
                                         {
-                                            name: 'Completed',
+                                            name: 'COMPLETED',
                                             value: admissionsList.filter(a => a.paymentStatus === "COMPLETED").length,
                                             amount: admissionsList.filter(a => a.paymentStatus === "COMPLETED").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
                                             color: '#10b981'
                                         },
                                         {
-                                            name: 'Partial',
+                                            name: 'PARTIAL',
                                             value: admissionsList.filter(a => a.paymentStatus === "PARTIAL").length,
                                             amount: admissionsList.filter(a => a.paymentStatus === "PARTIAL").reduce((sum, a) => sum + (a.totalPaid || 0), 0),
-                                            color: '#f59e0b'
+                                            color: '#06b6d4'
                                         },
                                         {
-                                            name: 'Pending',
+                                            name: 'PENDING',
                                             value: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).length,
                                             amount: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).reduce((sum, a) => sum + (a.totalPaid || 0), 0),
-                                            color: '#ef4444'
+                                            color: '#f43f5e'
                                         }
                                     ]}
-                                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                                    margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
                                 >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} vertical={false} />
                                     <XAxis
                                         dataKey="name"
                                         stroke="#6b7280"
-                                        style={{ fontSize: '10px', fontWeight: 'bold' }}
-                                        tick={{ fill: '#9ca3af' }}
+                                        style={{ fontSize: '9px', fontWeight: '900', letterSpacing: '0.1em' }}
+                                        tick={{ fill: isDarkMode ? '#4b5563' : '#9ca3af' }}
                                         axisLine={false}
                                         tickLine={false}
                                     />
                                     <YAxis
                                         stroke="#6b7280"
-                                        style={{ fontSize: '9px' }}
-                                        tick={{ fill: '#9ca3af' }}
+                                        style={{ fontSize: '8px' }}
+                                        tick={{ fill: isDarkMode ? '#4b5563' : '#9ca3af' }}
                                         axisLine={false}
                                         tickLine={false}
                                     />
                                     <Tooltip
                                         contentStyle={{
-                                            backgroundColor: '#1f2937',
-                                            border: '1px solid #374151',
-                                            borderRadius: '8px',
-                                            fontSize: '11px',
-                                            fontWeight: 'bold'
+                                            backgroundColor: isDarkMode ? '#131619' : '#fff',
+                                            border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                            borderRadius: '16px',
+                                            fontSize: '10px',
+                                            fontWeight: '900',
+                                            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                                            textTransform: 'uppercase'
                                         }}
-                                        labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
-                                        cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                        cursor={{ fill: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)' }}
                                         formatter={(value, name) => {
-                                            if (name === 'value') return [value + ' Students', 'Count'];
-                                            if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
+                                            if (name === 'value') return [value + ' NODES', 'COUNT'];
+                                            if (name === 'amount') return ['₹' + value.toLocaleString(), 'CAPITAL'];
                                             return [value, name];
                                         }}
                                     />
-                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                                         {
                                             [
-                                                { name: 'Completed', color: '#10b981' },
-                                                { name: 'Partial', color: '#f59e0b' },
-                                                { name: 'Pending', color: '#ef4444' }
+                                                { color: '#10b981' },
+                                                { color: '#06b6d4' },
+                                                { color: '#f43f5e' }
                                             ].map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                                             ))
@@ -744,43 +736,41 @@ const InstallmentPayment = () => {
                                 setFinancialData(null);
                                 setSelectedStudent(null);
                             }}
-                            className={`px-6 py-3 border font-bold uppercase text-xs rounded-xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 shadow-sm'}`}
+                            className={`px-8 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all duration-300 active:scale-95 border flex items-center gap-3 ${isDarkMode ? 'bg-white/5 text-gray-400 border-gray-800 hover:text-white hover:bg-white/10' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 shadow-sm'}`}
                         >
-                            Back to Student List
+                            <FaChevronRight className="rotate-180" size={10} /> DISMISS_DETAILS
                         </button>
                     )}
                 </div>
 
                 {!selectedStudent ? (
                     <>
-                        {/* Filters Section */}
-                        <div className={`border rounded-3xl p-6 mb-8 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        {/* Filters Interface */}
+                        <div className={`border rounded-[3rem] p-10 mb-12 shadow-[0_30px_60px_rgba(0,0,0,0.3)] transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
-                                {/* Date Range */}
                                 <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3 block italic">Horizon Start</label>
                                     <input
                                         type="date"
                                         name="startDate"
                                         value={filters.startDate}
                                         onChange={handleFilterChange}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                        className={`w-full border rounded-2xl py-4 px-6 font-black text-[11px] uppercase outline-none transition-all duration-300 [color-scheme:dark] ${isDarkMode ? 'bg-black/20 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
                                     />
                                 </div>
                                 <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3 block italic">Horizon End</label>
                                     <input
                                         type="date"
                                         name="endDate"
                                         value={filters.endDate}
                                         onChange={handleFilterChange}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                        className={`w-full border rounded-2xl py-4 px-6 font-black text-[11px] uppercase outline-none transition-all duration-300 [color-scheme:dark] ${isDarkMode ? 'bg-black/20 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
                                     />
                                 </div>
 
-                                {/* Dept Filter - Multi-select */}
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3 block italic">Sector (Dept)</label>
                                     <Select
                                         isMulti
                                         options={metadata.departments.map(d => ({ value: d._id, label: d.departmentName }))}
@@ -790,14 +780,13 @@ const InstallmentPayment = () => {
                                         }).filter(Boolean)}
                                         onChange={(selected) => setFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
                                         styles={selectStyles}
-                                        placeholder="ALL DEPARTMENTS"
+                                        placeholder="ALL_SECTORS"
                                         isClearable
                                     />
                                 </div>
 
-                                {/* Course Filter - Multi-select */}
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3 block italic">Stream (Course)</label>
                                     <Select
                                         isMulti
                                         options={metadata.courses.map(c => ({ value: c._id, label: c.courseName }))}
@@ -807,94 +796,98 @@ const InstallmentPayment = () => {
                                         }).filter(Boolean)}
                                         onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
                                         styles={selectStyles}
-                                        placeholder="ALL COURSES"
+                                        placeholder="ALL_STREAMS"
                                         isClearable
                                     />
                                 </div>
 
-                                {/* Centre Filter - Multi-select */}
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3 block italic">Origin Node (Centre)</label>
                                     <Select
                                         isMulti
                                         options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
                                         value={filters.centre.map(name => ({ value: name, label: name }))}
                                         onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
                                         styles={selectStyles}
-                                        placeholder="ALL CENTRES"
+                                        placeholder="ALL_NODES"
                                         isClearable
                                     />
                                 </div>
 
-                                {/* Action Buttons */}
-                                <div className="flex gap-2">
+                                <div className="flex gap-3">
                                     <button
                                         onClick={() => fetchAdmissions()}
-                                        className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
+                                        className="flex-1 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black uppercase text-[10px] tracking-[0.25em] rounded-2xl transition-all shadow-xl shadow-cyan-600/20 active:scale-95 flex items-center justify-center gap-2"
                                     >
-                                        Apply
+                                        <FaFilter size={10} /> SCAN
                                     </button>
                                     <button
                                         onClick={exportToExcel}
-                                        className="p-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
-                                        title="Export Excel"
+                                        className={`p-4 rounded-2xl transition-all duration-300 active:scale-95 border flex items-center justify-center ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500 hover:text-black shadow-lg shadow-emerald-500/10' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-500 hover:text-white shadow-sm'}`}
+                                        title="Archive Financial Audit"
                                     >
-                                        <FaDownload />
+                                        <FaDownload size={14} />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
-                                <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
+                            <div className={`mt-10 grid grid-cols-1 xl:grid-cols-4 gap-8 items-end border-t pt-10 transition-colors ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                <div className={`xl:col-span-2 flex items-center gap-6 p-6 rounded-3xl border transition-all duration-500 ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
                                     <div className="flex-1">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
-                                        <input
-                                            type="number"
-                                            name="minRemaining"
-                                            placeholder="₹ Min"
-                                            value={filters.minRemaining}
-                                            onChange={handleFilterChange}
-                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
-                                        />
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.25em] mb-3 block italic ml-2">Asset Floor (Min Due)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-500 font-black italic">₹</span>
+                                            <input
+                                                type="number"
+                                                name="minRemaining"
+                                                placeholder="MIN_VAL"
+                                                value={filters.minRemaining}
+                                                onChange={handleFilterChange}
+                                                className={`w-full border rounded-2xl py-4 pl-12 pr-6 font-black text-[11px] outline-none transition-all duration-300 tabular-nums ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="text-gray-400 mt-6">-</div>
+                                    <div className="text-gray-700 mt-8 font-black opacity-30">TO</div>
                                     <div className="flex-1">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
-                                        <input
-                                            type="number"
-                                            name="maxRemaining"
-                                            placeholder="₹ Max"
-                                            value={filters.maxRemaining}
-                                            onChange={handleFilterChange}
-                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
-                                        />
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.25em] mb-3 block italic ml-2">Asset Ceiling (Max Due)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-500 font-black italic">₹</span>
+                                            <input
+                                                type="number"
+                                                name="maxRemaining"
+                                                placeholder="MAX_VAL"
+                                                value={filters.maxRemaining}
+                                                onChange={handleFilterChange}
+                                                className={`w-full border rounded-2xl py-4 pl-12 pr-6 font-black text-[11px] outline-none transition-all duration-300 tabular-nums ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="md:col-span-1">
+                                <div className="xl:col-span-1">
                                     <button
                                         onClick={resetFilters}
-                                        className="w-full py-4 bg-gray-800 text-gray-400 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl hover:bg-gray-700 hover:text-white transition-all border border-gray-700 flex items-center justify-center gap-2"
+                                        className={`w-full py-5 font-black uppercase text-[10px] tracking-[0.3em] rounded-2xl transition-all duration-300 border flex items-center justify-center gap-3 active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 border-gray-800 hover:bg-white/10 hover:text-white' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200 hover:text-gray-900 shadow-sm'}`}
                                     >
-                                        <FaEraser /> Reset All Filters
+                                        <FaEraser size={12} /> CLEAR_VECTORS
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Text Search & Items Per Page */}
-                            <div className="mt-8 flex flex-col md:flex-row gap-4">
+                            {/* Text Scan Interface */}
+                            <div className="mt-10 flex flex-col xl:flex-row gap-6">
                                 <div className="relative group flex-1">
-                                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
+                                    <FaSearch className={`absolute left-8 top-1/2 -translate-y-1/2 transition-colors duration-300 ${isDarkMode ? 'text-gray-700 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
                                     <input
                                         type="text"
                                         name="searchTerm"
-                                        placeholder="SEARCH BY NAME, EMAIL, OR ADMISSION NUMBER..."
+                                        placeholder="TRACE BY IDENTITY, ENROLLMENT_ID OR ARCHIVE_REF..."
                                         value={filters.searchTerm}
                                         onChange={handleFilterChange}
                                         onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
-                                        className={`w-full border rounded-2xl py-4 pl-12 pr-4 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 text-gray-200 focus:bg-black/40' : 'bg-gray-50 border-gray-200 text-gray-800 focus:bg-white'}`}
+                                        className={`w-full border rounded-[2rem] py-5 pl-20 pr-8 font-black text-xs uppercase tracking-[0.25em] outline-none transition-all duration-500 ${isDarkMode ? 'bg-black/20 border-gray-800 text-white placeholder:text-gray-800 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-cyan-500 shadow-inner'}`}
                                     />
                                 </div>
-                                <div className="w-full md:w-64">
+                                <div className="w-full xl:w-72">
                                     <Select
                                         options={itemsPerPageOptions}
                                         value={itemsPerPageOptions.find(opt => opt.value === itemsPerPage)}
@@ -909,93 +902,95 @@ const InstallmentPayment = () => {
                             </div>
                         </div>
 
-                        {/* Students List Table */}
-                        <div className={`border rounded-3xl overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
+                        {/* Audit Ledger Matrix */}
+                        <div className={`rounded-[3.5rem] border shadow-[0_40px_100px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                            <div className="overflow-x-auto relative z-10">
+                                <table className="w-full text-left border-collapse min-w-[1700px]">
                                     <thead>
-                                        <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Enrollment No.</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Course / Dept</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Centre</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Financials</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Status</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Status</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
+                                        <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                            <th className="p-10">Admission Seq</th>
+                                            <th className="p-10">Authorized Personnel</th>
+                                            <th className="p-10">Sector / Origin Stream</th>
+                                            <th className="p-10">Registry Node</th>
+                                            <th className="p-10">Capital Map</th>
+                                            <th className="p-10">Audit state</th>
+                                            <th className="p-10">Maturity Status</th>
+                                            <th className="p-10 text-right">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
+                                    <tbody className={`divide-y transition-all duration-500 ${isDarkMode ? 'divide-gray-800/30' : 'divide-gray-100'}`}>
                                         {loading ? (
                                             <tr>
-                                                <td colSpan="8" className="p-20 text-center">
-                                                    <div className="flex justify-center flex-col items-center gap-4">
-                                                        <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
-                                                        <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Students...</span>
+                                                <td colSpan="8" className="p-48 text-center">
+                                                    <div className="flex flex-col items-center gap-10">
+                                                        <div className="w-24 h-24 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin shadow-2xl shadow-cyan-500/20"></div>
+                                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.6em] italic animate-pulse">Syncing Outstanding Capital Vectors...</p>
                                                     </div>
                                                 </td>
                                             </tr>
                                         ) : admissionsList.length === 0 ? (
                                             <tr>
-                                                <td colSpan="7" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No students found matching your criteria</td>
+                                                <td colSpan="8" className="p-40 text-center text-gray-600 font-black uppercase tracking-[0.5em] text-xs italic">
+                                                    No matched audit entries in active sector
+                                                </td>
                                             </tr>
                                         ) : (
                                             admissionsList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((adm, idx) => (
                                                 <tr
                                                     key={idx}
-                                                    className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
+                                                    className={`transition-all duration-300 cursor-pointer group ${isDarkMode ? 'hover:bg-cyan-500/[0.04] bg-transparent' : 'hover:bg-cyan-500/[0.03] bg-white'}`}
                                                     onClick={() => handleSelectStudent(adm.studentId)}
                                                 >
-                                                    <td className="p-6">
-                                                        <span className="text-cyan-500 font-black font-mono text-sm tracking-tighter">{adm.admissionNumber}</span>
-                                                        <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{new Date(adm.admissionDate).toLocaleDateString('en-GB')}</div>
+                                                    <td className="p-10">
+                                                        <span className="text-cyan-500 font-black tracking-[0.25em] italic tabular-nums text-base">#{adm.admissionNumber}</span>
+                                                        <div className="text-[9px] text-gray-500 mt-2.5 uppercase font-black tracking-widest italic">{new Date(adm.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</div>
                                                     </td>
-                                                    <td className="p-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase shadow-sm">
+                                                    <td className="p-10">
+                                                        <div className="flex items-center gap-6">
+                                                            <div className="h-14 w-14 rounded-[1.5rem] bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center text-white text-xl font-black italic shadow-2xl shadow-cyan-500/20 group-hover:scale-110 transition-all duration-500">
                                                                 {adm.studentName.charAt(0)}
                                                             </div>
                                                             <div>
-                                                                <div className={`font-black uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{adm.studentName}</div>
-                                                                <div className="text-[10px] text-gray-500 mt-0.5 font-medium">{adm.mobile} • {adm.email}</div>
+                                                                <div className={`font-black uppercase text-lg italic tracking-tighter transition-all duration-300 group-hover:translate-x-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{adm.studentName}</div>
+                                                                <div className="text-[10px] text-gray-500 mt-2 font-black uppercase tracking-widest tabular-nums italic">{adm.mobile} <span className="mx-2 opacity-30">/</span> {adm.email?.toLowerCase()}</div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-6">
-                                                        <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{adm.course}</div>
-                                                        <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
+                                                    <td className="p-10">
+                                                        <div className={`font-black text-[11px] uppercase tracking-tighter transition-colors duration-300 ${isDarkMode ? 'text-gray-300 group-hover:text-cyan-400' : 'text-gray-700'}`}>{adm.course}</div>
+                                                        <div className="text-[9px] text-gray-500 mt-2 uppercase font-black tracking-widest opacity-60 italic border-l-2 border-gray-800/20 pl-3">{adm.department}</div>
                                                     </td>
-                                                    <td className="p-6">
-                                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-gray-800/50 border-gray-700/50 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-600'}`}>
-                                                            <FaMapMarkerAlt className="text-cyan-500" />
+                                                    <td className="p-10">
+                                                        <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border shadow-sm transition-all duration-300 group-hover:border-cyan-500/30 ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400 group-hover:bg-cyan-500/5' : 'bg-gray-50 border-gray-100 text-gray-600'}`}>
+                                                            <FaMapMarkerAlt className="text-cyan-500" size={10} />
                                                             {adm.centre}
                                                         </div>
                                                     </td>
-                                                    <td className="p-6">
-                                                        <div className="space-y-1">
+                                                    <td className="p-10">
+                                                        <div className="space-y-2.5 w-56">
                                                             <div className="text-[10px] flex justify-between gap-4">
-                                                                <span className="text-gray-500 font-bold">TOTAL:</span>
-                                                                <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{adm.totalFees.toLocaleString()}</span>
+                                                                <span className="text-gray-500 font-black uppercase tracking-widest italic">Asset:</span>
+                                                                <span className={`font-black italic tabular-nums tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{adm.totalFees.toLocaleString()}</span>
                                                             </div>
                                                             <div className="text-[10px] flex justify-between gap-4">
-                                                                <span className="text-emerald-500 font-bold">PAID:</span>
-                                                                <span className="text-emerald-500 font-black">₹{adm.totalPaid.toLocaleString()}</span>
+                                                                <span className="text-emerald-500/70 font-black uppercase tracking-widest italic">Realized:</span>
+                                                                <span className="text-emerald-500 font-black italic tabular-nums tracking-tighter">₹{adm.totalPaid.toLocaleString()}</span>
                                                             </div>
-                                                            <div className={`text-[10px] flex justify-between gap-4 border-t pt-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                                                <span className="text-orange-500 font-bold">DUE:</span>
-                                                                <span className="text-orange-500 font-black">₹{adm.remainingAmount.toLocaleString()}</span>
+                                                            <div className={`text-[10px] flex justify-between gap-4 border-t pt-2.5 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                                <span className="text-red-500/70 font-black uppercase tracking-widest italic">Outstanding:</span>
+                                                                <span className="text-red-500 font-black italic tabular-nums tracking-tighter">₹{adm.remainingAmount.toLocaleString()}</span>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-6">
+                                                    <td className="p-10">
                                                         {getStatusBadge(adm.paymentStatus)}
                                                     </td>
-                                                    <td className="p-6">
+                                                    <td className="p-10">
                                                         {getDueStatusBadge(adm)}
                                                     </td>
-                                                    <td className="p-6 text-right">
-                                                        <button className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border shadow-lg ${isDarkMode ? 'bg-gray-800/50 group-hover:bg-cyan-500 group-hover:text-black text-cyan-500 border-gray-700 group-hover:border-cyan-400 shadow-black/20' : 'bg-white group-hover:bg-cyan-500 group-hover:text-black text-cyan-600 border-gray-200 group-hover:border-cyan-400 shadow-cyan-900/5'}`}>
-                                                            <FaChevronRight className="text-xs" />
+                                                    <td className="p-10 text-right">
+                                                        <button className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-500 border shadow-2xl active:scale-90 ${isDarkMode ? 'bg-white/5 group-hover:bg-cyan-600 group-hover:text-white text-cyan-500 border-gray-800 group-hover:border-cyan-400 group-hover:shadow-cyan-600/30' : 'bg-white group-hover:bg-cyan-500 group-hover:text-white text-cyan-600 border-gray-100 group-hover:shadow-cyan-500/20'}`}>
+                                                            <FaChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -1005,122 +1000,125 @@ const InstallmentPayment = () => {
                                 </table>
                             </div>
                             {!loading && admissionsList.length > 0 && (
-                                <Pagination
-                                    currentPage={currentPage}
-                                    totalItems={admissionsList.length}
-                                    itemsPerPage={itemsPerPage}
-                                    onPageChange={setCurrentPage}
-                                />
+                                <div className={`p-8 border-t transition-colors ${isDarkMode ? 'bg-white/[0.01] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <Pagination
+                                        currentPage={currentPage}
+                                        totalItems={admissionsList.length}
+                                        itemsPerPage={itemsPerPage}
+                                        onPageChange={setCurrentPage}
+                                        isDarkMode={isDarkMode}
+                                    />
+                                </div>
                             )}
                         </div>
                     </>
                 ) : (
                     <>
-                        {/* Financial Details View (Previously implemented) */}
                         {loading && (
-                            <div className="flex justify-center p-20">
-                                <div className="animate-spin h-12 w-12 border-t-2 border-cyan-500 rounded-full"></div>
+                            <div className="flex flex-col items-center justify-center p-40 gap-10">
+                                <div className="w-24 h-24 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin shadow-2xl shadow-cyan-500/20"></div>
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.5em] italic animate-pulse">Retrieving Micro-Financial Vectors...</p>
                             </div>
                         )}
 
                         {!loading && financialData && (
-                            <>
-                                {/* Student Info Card */}
-                                <div className={`border rounded-[2.5rem] p-8 mb-8 relative overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-gradient-to-br from-[#131619] to-[#0a0c0e] border-cyan-500/20' : 'bg-white border-gray-200'}`}>
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[100px] -mr-32 -mt-32"></div>
-                                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 rounded-full blur-[100px] -ml-32 -mb-32"></div>
+                            <div className="animate-in fade-in duration-700 slide-in-from-bottom-10">
+                                {/* Extended Profile Matrix */}
+                                <div className={`border rounded-[3.5rem] p-12 mb-12 relative overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.5)] transition-all duration-700 ${isDarkMode ? 'bg-gradient-to-br from-white/5 to-transparent border-gray-800' : 'bg-white border-gray-100'}`}>
+                                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/10 blur-[150px] -mr-64 -mt-64 pointer-events-none"></div>
+                                    <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-600/10 blur-[150px] -ml-64 -mb-64 pointer-events-none"></div>
 
-                                    <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
-                                        <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-4xl font-black text-black shadow-xl shadow-cyan-500/20">
+                                    <div className="flex flex-col xl:flex-row items-center xl:items-start gap-12 relative z-10">
+                                        <div className="h-32 w-32 rounded-[2.5rem] bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center text-6xl font-black text-white shadow-[0_20px_50px_rgba(6,182,212,0.4)] italic border-2 border-white/10 group-hover:rotate-6 transition-transform duration-700">
                                             {selectedStudent.name.charAt(0)}
                                         </div>
-                                        <div className="flex-1 text-center md:text-left">
-                                            <h2 className={`text-4xl font-black italic uppercase tracking-tighter mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStudent.name}</h2>
-                                            <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                                                <div className={`border px-4 py-2 rounded-xl flex items-center gap-3 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                        <div className="flex-1 text-center xl:text-left">
+                                            <h2 className={`text-6xl font-black italic uppercase tracking-tighter mb-6 leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStudent.name}</h2>
+                                            <div className="flex flex-wrap justify-center xl:justify-start gap-6">
+                                                <div className={`border px-6 py-3 rounded-2xl flex items-center gap-4 transition-all duration-300 hover:border-cyan-500/30 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                                     <FaEnvelope className="text-cyan-500" />
-                                                    <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.email}</span>
+                                                    <span className={`font-black text-[11px] uppercase tracking-widest italic ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.email?.toLowerCase()}</span>
                                                 </div>
-                                                <div className={`border px-4 py-2 rounded-xl flex items-center gap-3 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                                <div className={`border px-6 py-3 rounded-2xl flex items-center gap-4 transition-all duration-300 hover:border-cyan-500/30 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                                     <FaPhone className="text-cyan-500" />
-                                                    <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.mobile}</span>
+                                                    <span className={`font-black text-[11px] uppercase tracking-widest tabular-nums italic ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.mobile}</span>
                                                 </div>
-                                                <div className={`border px-4 py-2 rounded-xl flex items-center gap-3 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                                <div className={`border px-6 py-3 rounded-2xl flex items-center gap-4 transition-all duration-300 hover:border-cyan-500/30 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                                     <FaMapMarkerAlt className="text-cyan-500" />
-                                                    <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.centre}</span>
+                                                    <span className={`font-black text-[11px] uppercase tracking-widest italic ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{selectedStudent.centre}</span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Summary Stats */}
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-10">
-                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-cyan-500/30 transition-all group ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 group-hover:text-cyan-500 transition-colors">Total Admissions</div>
-                                            <div className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{financialData.summary.totalAdmissions}</div>
+                                    {/* Aggregate Analytics Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 mt-16 relative z-10">
+                                        <div className={`backdrop-blur-2xl border rounded-[2rem] p-10 hover:border-cyan-500/50 transition-all duration-500 group relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-gray-800 shadow-2xl shadow-black/20' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 blur-3xl pointer-events-none"></div>
+                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-4 italic group-hover:text-cyan-500 transition-colors">Cumulative Nodes</div>
+                                            <div className={`text-4xl font-black italic tracking-tighter tabular-nums ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{financialData.summary.totalAdmissions} <span className="text-lg opacity-30">ACTIVE</span></div>
                                         </div>
-                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-cyan-500/30 transition-all group ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 group-hover:text-cyan-500 transition-colors">Total Fees</div>
-                                            <div className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{financialData.summary.totalFeesAcrossAll.toLocaleString()}</div>
+                                        <div className={`backdrop-blur-2xl border rounded-[2rem] p-10 hover:border-cyan-500/50 transition-all duration-500 group relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-gray-800 shadow-2xl shadow-black/20' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
+                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-4 italic group-hover:text-cyan-500 transition-colors">Gross Academic Value</div>
+                                            <div className={`text-4xl font-black italic tracking-tighter tabular-nums ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{financialData.summary.totalFeesAcrossAll.toLocaleString()}</div>
                                         </div>
-                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-emerald-500/40 transition-all group ${isDarkMode ? 'bg-black/40 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
-                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 text-emerald-500/70">Total Paid</div>
-                                            <div className="text-2xl font-black text-emerald-500">₹{financialData.summary.totalPaidAcrossAll.toLocaleString()}</div>
+                                        <div className={`backdrop-blur-2xl border rounded-[2rem] p-10 hover:border-emerald-500/50 transition-all duration-500 group relative overflow-hidden ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 shadow-2xl shadow-emerald-900/10' : 'bg-emerald-50 border-emerald-100 shadow-inner'}`}>
+                                            <div className="text-[10px] font-black text-emerald-500/70 uppercase tracking-[0.3em] mb-4 italic">Settled Revenue</div>
+                                            <div className="text-4xl font-black italic tracking-tighter tabular-nums text-emerald-500">₹{financialData.summary.totalPaidAcrossAll.toLocaleString()}</div>
                                         </div>
-                                        <div className={`backdrop-blur-xl border rounded-2xl p-5 hover:border-orange-500/40 transition-all group ${isDarkMode ? 'bg-black/40 border-orange-500/20' : 'bg-orange-50 border-orange-100'}`}>
-                                            <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 text-orange-500/70">Total Remaining</div>
-                                            <div className="text-2xl font-black text-orange-500">₹{financialData.summary.totalRemainingAcrossAll.toLocaleString()}</div>
+                                        <div className={`backdrop-blur-2xl border rounded-[2rem] p-10 hover:border-red-500/50 transition-all duration-500 group relative overflow-hidden ${isDarkMode ? 'bg-red-500/5 border-red-500/20 shadow-2xl shadow-red-900/10' : 'bg-red-50 border-red-100 shadow-inner'}`}>
+                                            <div className="text-[10px] font-black text-red-500/70 uppercase tracking-[0.3em] mb-4 italic">Net Recovery Required</div>
+                                            <div className="text-4xl font-black italic tracking-tighter tabular-nums text-red-500">₹{financialData.summary.totalRemainingAcrossAll.toLocaleString()}</div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Admissions List */}
+                                {/* Active Enrollment Deep-Dives */}
                                 {financialData.admissions.map((admission, admIndex) => (
-                                    <div key={admIndex} className={`border rounded-[2.5rem] p-8 mb-8 relative overflow-hidden group hover:border-gray-700 transition-all shadow-xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                                        {/* Admission Header */}
-                                        <div className={`flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 pb-8 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                            <div className="flex items-center gap-6">
-                                                <div className="h-16 w-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-2xl text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black transition-all">
+                                    <div key={admIndex} className={`border rounded-[3.5rem] p-12 mb-12 relative overflow-hidden group transition-all duration-700 shadow-2xl ${isDarkMode ? 'bg-white/5 border-gray-800 hover:border-cyan-500/30' : 'bg-white border-gray-100 hover:border-cyan-500/20'}`}>
+                                        <div className={`flex flex-col xl:flex-row items-start xl:items-center justify-between gap-8 mb-12 pb-10 border-b transition-all duration-500 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                            <div className="flex items-center gap-8">
+                                                <div className="h-20 w-20 rounded-[2rem] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-3xl text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black transition-all duration-500 shadow-xl shadow-cyan-500/10">
                                                     <FaFileInvoice />
                                                 </div>
                                                 <div>
-                                                    <div className="flex items-center gap-4 mb-2">
-                                                        <h3 className={`text-2xl font-black italic tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{admission.course}</h3>
+                                                    <div className="flex flex-wrap items-center gap-6 mb-3">
+                                                        <h3 className={`text-3xl font-black italic uppercase tracking-tighter leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{admission.course}</h3>
                                                         {getStatusBadge(admission.paymentStatus)}
                                                     </div>
-                                                    <div className="text-xs font-black text-gray-500 uppercase tracking-widest">
-                                                        Admission # <span className="text-cyan-500">{admission.admissionNumber}</span> • {admission.academicSession}
+                                                    <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic">
+                                                        REGISTRY_ID # <span className="text-cyan-500">#{admission.admissionNumber}</span> <span className="mx-3 opacity-20">|</span> SESSION: {admission.academicSession}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 text-right">
-                                                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Admission Date</div>
-                                                <div className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(admission.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                                            <div className="xl:text-right flex flex-col xl:items-end">
+                                                <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-2 italic">Validation Timestamp</div>
+                                                <div className={`text-lg font-black italic tracking-tighter tabular-nums ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(admission.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}</div>
                                             </div>
                                         </div>
 
-                                        {/* Fee Breakdown */}
-                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-black/30 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
-                                                <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Base Fees</div>
-                                                <div className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{admission.baseFees.toLocaleString()}</div>
+                                        {/* Financial Micro-Ledger */}
+                                        <div className="grid grid-cols-2 xl:grid-cols-5 gap-6 mb-12">
+                                            <div className={`border rounded-2xl p-6 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800/50' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
+                                                <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.4em] mb-3 italic">Base Value</div>
+                                                <div className={`text-xl font-black italic tabular-nums tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{admission.baseFees.toLocaleString()}</div>
                                             </div>
-                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-black/30 border-gray-800/50' : 'bg-red-50 border-red-100'}`}>
-                                                <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 text-red-500/70">Waiver</div>
-                                                <div className="text-lg font-black text-red-500">-₹{admission.discountAmount.toLocaleString()}</div>
+                                            <div className={`border rounded-2xl p-6 transition-all duration-300 ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100 shadow-inner'}`}>
+                                                <div className="text-[9px] font-black text-red-500/70 uppercase tracking-[0.4em] mb-3 italic">Waiver Applied</div>
+                                                <div className="text-xl font-black italic tabular-nums tracking-tighter text-red-500">-₹{admission.discountAmount.toLocaleString()}</div>
                                             </div>
-                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-black/30 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
-                                                <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">GST</div>
-                                                <div className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{(admission.cgstAmount + admission.sgstAmount).toLocaleString()}</div>
+                                            <div className={`border rounded-2xl p-6 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800/50' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
+                                                <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.4em] mb-3 italic">Tax Aggregate</div>
+                                                <div className={`text-xl font-black italic tabular-nums tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{(admission.cgstAmount + admission.sgstAmount).toLocaleString()}</div>
                                             </div>
-                                            <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100'}`}>
-                                                <div className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mb-2">Net Payable</div>
-                                                <div className="text-lg font-black text-cyan-500">₹{admission.totalFees.toLocaleString()}</div>
+                                            <div className={`border rounded-2xl p-6 transition-all duration-500 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-100 shadow-inner'}`}>
+                                                <div className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.4em] mb-3 italic">Net Payable</div>
+                                                <div className="text-xl font-black italic tabular-nums tracking-tighter text-cyan-500">₹{admission.totalFees.toLocaleString()}</div>
                                             </div>
-                                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 flex justify-between items-center group/dp">
+                                            <div className={`border rounded-2xl p-6 flex justify-between items-center group/dp transition-all duration-500 ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-emerald-50 border-emerald-100 shadow-inner'}`}>
                                                 <div>
-                                                    <div className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-2">Down Payment</div>
-                                                    <div className="text-lg font-black text-emerald-500">₹{admission.downPayment.toLocaleString()}</div>
+                                                    <div className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-3 italic">Down Protocol</div>
+                                                    <div className="text-xl font-black italic tabular-nums tracking-tighter text-emerald-500">₹{admission.downPayment.toLocaleString()}</div>
                                                 </div>
                                                 {admission.downPayment > 0 && (
                                                     <button
@@ -1132,12 +1130,12 @@ const InstallmentPayment = () => {
                                                                 amount: admission.downPayment,
                                                                 paidAmount: admission.downPayment,
                                                                 paidDate: admission.admissionDate,
-                                                                paymentMethod: "Admission Payment",
+                                                                paymentMethod: "Admission Protocol",
                                                                 status: admission.downPaymentStatus || "PAID"
                                                             }
                                                         })}
-                                                        className="p-3 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black rounded-xl border border-emerald-500/20 transition-all opacity-0 group-hover/dp:opacity-100"
-                                                        title="Generate Down Payment Receipt"
+                                                        className={`p-3 rounded-xl border transition-all duration-300 active:scale-90 ${isDarkMode ? 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-black border-emerald-500/30' : 'bg-white hover:bg-emerald-500 text-emerald-600 hover:text-white border-emerald-200 shadow-sm'}`}
+                                                        title="Extract Protocol Receipt"
                                                     >
                                                         <FaFileInvoice className="text-lg" />
                                                     </button>
@@ -1145,52 +1143,54 @@ const InstallmentPayment = () => {
                                             </div>
                                         </div>
 
-                                        {/* Board Monthly Subject History */}
+                                        {/* Board Recurring History */}
                                         {admission.admissionType === "BOARD" && admission.monthlySubjectHistory && admission.monthlySubjectHistory.length > 0 && (
-                                            <div className="mb-10">
-                                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                                    <div className="h-1 w-8 bg-purple-500 rounded-full"></div>
-                                                    Monthly Payment History
+                                            <div className="mb-12">
+                                                <h4 className="text-[11px] font-black text-gray-500 uppercase tracking-[0.5em] mb-8 flex items-center gap-4 italic">
+                                                    <span className="p-2.5 bg-purple-500/10 rounded-xl text-purple-500 shadow-inner">
+                                                        <FaCalendarAlt size={14} />
+                                                    </span>
+                                                    Monthly Settlement Cycles
                                                 </h4>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-8">
                                                     {admission.monthlySubjectHistory.map((history, hIdx) => {
                                                         const monthDate = new Date(history.month + "-01");
-                                                        const monthName = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                                                        const monthName = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }).toUpperCase();
 
                                                         return (
-                                                            <div key={hIdx} className="bg-black/20 border border-gray-800 rounded-[2rem] p-6 hover:border-purple-500/30 transition-all group/month">
-                                                                <div className="flex justify-between items-start mb-6">
+                                                            <div key={hIdx} className={`border rounded-[2.5rem] p-8 transition-all duration-500 group/month relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-gray-800 hover:border-purple-500/40 shadow-2xl shadow-black/20' : 'bg-gray-50 border-gray-100 hover:border-purple-500/30 hover:bg-white shadow-inner'}`}>
+                                                                <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 blur-3xl pointer-events-none"></div>
+                                                                <div className="flex justify-between items-start mb-8">
                                                                     <div>
-                                                                        <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Month {hIdx + 1} / {admission.courseDurationMonths || 0}</div>
-                                                                        <h5 className="text-xl font-black text-white italic tracking-tight">{monthName}</h5>
+                                                                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-2 italic">Cycle {hIdx + 1} / {admission.courseDurationMonths || 0}</div>
+                                                                        <h5 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{monthName}</h5>
                                                                     </div>
                                                                     {history.isPaid ? (
-                                                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
+                                                                        <span className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-sm shadow-emerald-500/10 tracking-[0.2em] italic">SETTLED</span>
                                                                     ) : (
-                                                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-orange-500 bg-orange-500/10 border-orange-500/20">PENDING</span>
+                                                                        <span className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase border text-amber-500 bg-amber-500/10 border-amber-500/20 shadow-sm shadow-amber-500/10 tracking-[0.2em] italic animate-pulse">PENDING</span>
                                                                     )}
                                                                 </div>
 
-                                                                <div className="space-y-3 mb-6">
+                                                                <div className="space-y-3.5 mb-8 border-l-2 border-gray-800/20 pl-6 ml-2">
                                                                     {history.subjects.map((sub, sIdx) => (
-                                                                        <div key={sIdx} className="flex justify-between items-center text-[11px]">
-                                                                            <span className="text-gray-400 font-bold uppercase tracking-tight">{sub.name}</span>
-                                                                            <span className="text-white font-black">₹{sub.price.toLocaleString()}</span>
+                                                                        <div key={sIdx} className="flex justify-between items-center text-[10px]">
+                                                                            <span className="text-gray-500 font-black uppercase tracking-[0.2em] italic">{sub.name}</span>
+                                                                            <span className={`font-black italic tabular-nums ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>₹{sub.price.toLocaleString()}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
 
-                                                                <div className="pt-4 border-t border-gray-800/50 flex justify-between items-center">
+                                                                <div className="pt-6 border-t border-gray-800/20 flex justify-between items-center">
                                                                     <div>
-                                                                        <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Aggregate</div>
-                                                                        <div className="text-lg font-black text-cyan-500">₹{history.totalAmount.toLocaleString()}</div>
+                                                                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">Aggregate Cycle Value</div>
+                                                                        <div className="text-2xl font-black italic tabular-nums tracking-tighter text-cyan-500">₹{history.totalAmount.toLocaleString()}</div>
                                                                     </div>
                                                                     {history.isPaid && (
                                                                         <button
                                                                             onClick={() => {
                                                                                 const monthDate = new Date(history.month + "-01");
                                                                                 const monthName = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-                                                                                // Try both YYYY-MM and formatted Month Name for lookup
                                                                                 const actualPayment = admission.paymentHistory?.find(p =>
                                                                                     p.billingMonth === history.month ||
                                                                                     p.billingMonth === monthName
@@ -1205,15 +1205,14 @@ const InstallmentPayment = () => {
                                                                                         amount: history.totalAmount,
                                                                                         paidAmount: actualPayment ? actualPayment.paidAmount : history.totalAmount,
                                                                                         paidDate: actualPayment ? actualPayment.createdAt : new Date(),
-                                                                                        paymentMethod: actualPayment ? actualPayment.paymentMethod : "Monthly Fee",
+                                                                                        paymentMethod: actualPayment ? actualPayment.paymentMethod : "Cycle Fee",
                                                                                         status: actualPayment ? actualPayment.status : "PAID"
                                                                                     }
                                                                                 });
                                                                             }}
-                                                                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                                                                            className="h-12 w-12 bg-gradient-to-br from-cyan-600 to-blue-600 text-white rounded-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all duration-300 shadow-xl shadow-cyan-600/20 border border-white/10"
                                                                         >
-                                                                            <FaFileInvoice className="text-xs" />
-                                                                            Extract Bill
+                                                                            <FaFileInvoice size={18} />
                                                                         </button>
                                                                     )}
                                                                 </div>
@@ -1224,13 +1223,15 @@ const InstallmentPayment = () => {
                                             </div>
                                         )}
 
-                                        {/* Installment Details - Only for Normal Admissions */}
+                                        {/* Static Installment Ledger */}
                                         {admission.admissionType !== "BOARD" && (
-                                            <div className="mb-10">
-                                                <div className="flex justify-between items-center mb-6">
-                                                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-3">
-                                                        <div className="h-1 w-8 bg-cyan-500 rounded-full"></div>
-                                                        Installment Schedule
+                                            <div className="mb-12">
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                                                    <h4 className="text-[11px] font-black text-gray-500 uppercase tracking-[0.5em] flex items-center gap-4 italic">
+                                                        <span className="p-2.5 bg-cyan-500/10 rounded-xl text-cyan-500 shadow-inner">
+                                                            <FaUniversity size={14} />
+                                                        </span>
+                                                        Installment Sequence Matrix
                                                     </h4>
                                                     {canCreatePayment && admission.remainingAmount > 0 && (
                                                         <button
@@ -1238,321 +1239,333 @@ const InstallmentPayment = () => {
                                                                 setEditingAdmission(admission);
                                                                 setShowEditScheduleModal(true);
                                                             }}
-                                                            className="px-4 py-2 bg-gray-800 text-gray-300 font-bold uppercase text-[10px] rounded-xl hover:bg-gray-700 transition-all border border-gray-700 flex items-center gap-2"
+                                                            className={`px-8 py-3.5 font-black uppercase text-[10px] tracking-[0.3em] rounded-2xl transition-all duration-300 active:scale-95 border flex items-center gap-3 italic ${isDarkMode ? 'bg-white/5 text-gray-300 border-gray-800 hover:bg-cyan-500/10 hover:text-cyan-500 hover:border-cyan-500/30' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 shadow-sm'}`}
                                                         >
-                                                            <FaEdit className="text-cyan-500" /> Edit Schedule
+                                                            <FaEdit className="text-cyan-500" size={12} /> RE-STRUCTURE_SCHEDULE
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className={`rounded-[2rem] overflow-hidden border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                                    <table className="w-full text-left border-collapse">
-                                                        <thead>
-                                                            <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Installment</th>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Date</th>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Amount</th>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Paid</th>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Method</th>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</th>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Status</th>
-                                                                <th className="p-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-right">Action</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
-                                                            {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
-                                                                const today = new Date();
-                                                                today.setHours(0, 0, 0, 0);
-                                                                const dueDate = new Date(installment.dueDate);
-                                                                dueDate.setHours(0, 0, 0, 0);
-                                                                const isOverdue = (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && dueDate < today);
+                                                <div className={`rounded-[3rem] overflow-hidden border transition-all duration-700 shadow-2xl ${isDarkMode ? 'bg-black/30 border-gray-800 shadow-black/40' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-left border-collapse min-w-[1200px]">
+                                                            <thead>
+                                                                <tr className={`border-b transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic">Sequence</th>
+                                                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic">Maturity Horizon</th>
+                                                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic">Instrument Value</th>
+                                                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic">Settled</th>
+                                                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic">Protocol</th>
+                                                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic">Audit state</th>
+                                                                    <th className="p-6 text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic text-right">Settlement</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className={`divide-y transition-all duration-500 ${isDarkMode ? 'divide-gray-800/40' : 'divide-gray-100'}`}>
+                                                                {admission.paymentBreakdown && admission.paymentBreakdown.map((installment, idx) => {
+                                                                    const today = new Date();
+                                                                    today.setHours(0, 0, 0, 0);
+                                                                    const dueDate = new Date(installment.dueDate);
+                                                                    dueDate.setHours(0, 0, 0, 0);
+                                                                    const isOverdue = (installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && dueDate < today);
 
-                                                                return (
-                                                                    <tr key={idx} className="hover:bg-cyan-500/[0.03] transition-colors">
-                                                                        <td className="p-5 font-black text-cyan-500 text-sm italic">#{installment.installmentNumber}</td>
-                                                                        <td className="p-5 text-gray-300 text-xs font-bold uppercase tracking-tighter">{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                                                        <td className="p-5 text-white font-black">₹{installment.amount.toLocaleString()}</td>
-                                                                        <td className="p-5 text-emerald-400 font-black">₹{installment.paidAmount?.toLocaleString() || 0}</td>
-                                                                        <td className="p-5 text-gray-500 text-[10px] font-bold uppercase tracking-widest">{installment.paymentMethod || "-"}</td>
-                                                                        <td className="p-5">{getStatusBadge(installment.status)}</td>
-                                                                        <td className="p-5">
-                                                                            {installment.status === "PAID" ? (
-                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">PAID</span>
-                                                                            ) : isOverdue ? (
-                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20">OVERDUE</span>
-                                                                            ) : (
-                                                                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20">UPCOMING</span>
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="p-5 text-right flex items-center justify-end gap-2">
-                                                                            {(installment.status === "PENDING" || installment.status === "OVERDUE") && canCreatePayment && (
-                                                                                <button
-                                                                                    onClick={() => handleOpenPayModal(admission.admissionId, installment)}
-                                                                                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-black text-[10px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
-                                                                                >
-                                                                                    Pay Now
-                                                                                </button>
-                                                                            )}
-                                                                            {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
-                                                                                <button
-                                                                                    onClick={() => setBillModal({
-                                                                                        show: true,
-                                                                                        admission: { ...admission, _id: admission.admissionId },
-                                                                                        installment: {
-                                                                                            installmentNumber: installment.installmentNumber,
-                                                                                            amount: installment.amount,
-                                                                                            paidAmount: installment.paidAmount,
-                                                                                            paidDate: installment.paidDate || new Date(),
-                                                                                            paymentMethod: installment.paymentMethod,
-                                                                                            status: installment.status
-                                                                                        }
-                                                                                    })}
-                                                                                    className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
-                                                                                    title="View Bill"
-                                                                                >
-                                                                                    <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
-                                                                                </button>
-                                                                            )}
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
+                                                                    return (
+                                                                        <tr key={idx} className={`transition-all duration-300 ${isDarkMode ? 'hover:bg-cyan-500/[0.04]' : 'hover:bg-cyan-500/[0.03]'}`}>
+                                                                            <td className="p-6 font-black text-cyan-500 text-sm italic tracking-widest tabular-nums">#{installment.installmentNumber}</td>
+                                                                            <td className={`p-6 text-[11px] font-black uppercase tracking-[0.15em] italic transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{new Date(installment.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</td>
+                                                                            <td className={`p-6 font-black italic tabular-nums tracking-tighter text-base transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{installment.amount.toLocaleString()}</td>
+                                                                            <td className="p-6 text-emerald-500 font-black italic tabular-nums tracking-tighter text-base">₹{installment.paidAmount?.toLocaleString() || 0}</td>
+                                                                            <td className="p-6 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] italic">{installment.paymentMethod || "NONE"}</td>
+                                                                            <td className="p-6">{getStatusBadge(installment.status)}</td>
+                                                                            <td className="p-6">
+                                                                                {installment.status === "PAID" ? (
+                                                                                    <span className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-sm shadow-emerald-500/10 tracking-[0.2em] italic">SETTLED</span>
+                                                                                ) : isOverdue ? (
+                                                                                    <span className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 shadow-sm shadow-red-500/10 tracking-[0.2em] italic animate-pulse">OVERDUE</span>
+                                                                                ) : (
+                                                                                    <span className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase border text-cyan-500 bg-cyan-500/10 border-cyan-500/20 shadow-sm shadow-cyan-500/10 tracking-[0.2em] italic">UPCOMING</span>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="p-6 text-right">
+                                                                                <div className="flex items-center justify-end gap-3">
+                                                                                    {(installment.status === "PENDING" || installment.status === "OVERDUE") && canCreatePayment && (
+                                                                                        <button
+                                                                                            onClick={() => handleOpenPayModal(admission.admissionId, installment)}
+                                                                                            className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black text-[10px] uppercase tracking-[0.25em] rounded-2xl hover:from-cyan-500 hover:to-blue-500 active:scale-95 transition-all duration-300 shadow-xl shadow-cyan-600/30 italic"
+                                                                                        >
+                                                                                            AUTHORIZE_SETTLEMENT
+                                                                                        </button>
+                                                                                    )}
+                                                                                    {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
+                                                                                        <button
+                                                                                            onClick={() => setBillModal({
+                                                                                                show: true,
+                                                                                                admission: { ...admission, _id: admission.admissionId },
+                                                                                                installment: {
+                                                                                                    installmentNumber: installment.installmentNumber,
+                                                                                                    amount: installment.amount,
+                                                                                                    paidAmount: installment.paidAmount,
+                                                                                                    paidDate: installment.paidDate || new Date(),
+                                                                                                    paymentMethod: installment.paymentMethod,
+                                                                                                    status: installment.status
+                                                                                                }
+                                                                                            })}
+                                                                                            className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 border ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500 hover:text-black shadow-lg shadow-emerald-500/10' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-500 hover:text-white shadow-sm'}`}
+                                                                                            title="Extract Document"
+                                                                                        >
+                                                                                            <FaFileInvoice size={18} />
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* Payment History - Only for Normal Admissions (Board students use the card view above) */}
+                                        {/* Audit Log Trail */}
                                         {admission.admissionType !== "BOARD" && admission.paymentHistory && admission.paymentHistory.length > 0 && (
                                             <div>
-                                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                                    <div className="h-1 w-8 bg-emerald-500 rounded-full"></div>
-                                                    Payment History ({admission.paymentHistory.length})
+                                                <h4 className="text-[11px] font-black text-gray-500 uppercase tracking-[0.5em] mb-8 flex items-center gap-4 italic">
+                                                    <span className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-500 shadow-inner">
+                                                        <FaMoneyBillWave size={14} />
+                                                    </span>
+                                                    Settlement Audit Ledger ({admission.paymentHistory.length})
                                                 </h4>
-                                                <div className={`rounded-[2rem] overflow-hidden border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                                    <table className="w-full text-left border-collapse">
-                                                        <thead>
-                                                            <tr className={`border-b text-[9px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                                                <th className="p-5">Date</th>
-                                                                <th className="p-5">Inst #</th>
-                                                                <th className="p-5">Details</th>
-                                                                <th className="p-5">Amount</th>
-                                                                <th className="p-5">Method</th>
-                                                                <th className="p-5">Status</th>
-                                                                <th className="p-5 text-right">Action</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
-                                                            {admission.paymentHistory.map((payment, idx) => (
-                                                                <tr key={idx} className="hover:bg-emerald-500/[0.03] transition-colors">
-                                                                    <td className={`p-5 text-[10px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>{new Date(payment.createdAt).toLocaleDateString('en-GB')}</td>
-                                                                    <td className="p-5 text-cyan-500 font-black italic text-xs">#{payment.installmentNumber}</td>
-                                                                    <td className={`p-5 text-[10px] font-bold uppercase tracking-tighter ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                                        {payment.installmentNumber === 0 ? (
-                                                                            <span className="text-emerald-500 font-black">Down Payment</span>
-                                                                        ) : payment.billingMonth ? (
-                                                                            <span>Monthly Fee: <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{payment.billingMonth}</span></span>
-                                                                        ) : (
-                                                                            `Installment #${payment.installmentNumber}`
-                                                                        )}
-                                                                    </td>
-                                                                    <td className={`p-5 font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{payment.paidAmount.toLocaleString()}</td>
-                                                                    <td className={`p-5 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{payment.paymentMethod}</td>
-                                                                    <td className="p-5">{getStatusBadge(payment.status)}</td>
-                                                                    <td className="p-5 text-right">
-                                                                        <button
-                                                                            onClick={() => setBillModal({
-                                                                                show: true,
-                                                                                admission: { ...admission, _id: admission.admissionId },
-                                                                                installment: {
-                                                                                    installmentNumber: payment.installmentNumber,
-                                                                                    billingMonth: payment.billingMonth,
-                                                                                    amount: payment.amount,
-                                                                                    paidAmount: payment.paidAmount,
-                                                                                    paidDate: payment.createdAt,
-                                                                                    paymentMethod: payment.paymentMethod,
-                                                                                    status: payment.status
-                                                                                }
-                                                                            })}
-                                                                            className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20 transition-all group/btn"
-                                                                            title="View Bill"
-                                                                        >
-                                                                            <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
-                                                                        </button>
-                                                                    </td>
+                                                <div className={`rounded-[3rem] overflow-hidden border transition-all duration-700 shadow-2xl ${isDarkMode ? 'bg-black/30 border-gray-800 shadow-black/40' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-left border-collapse min-w-[1200px]">
+                                                            <thead>
+                                                                <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                                                    <th className="p-6">Audit temporal</th>
+                                                                    <th className="p-6">Instrument Seq</th>
+                                                                    <th className="p-6">Registry Details</th>
+                                                                    <th className="p-6">Settled Amount</th>
+                                                                    <th className="p-6">Settlement Protocol</th>
+                                                                    <th className="p-6">Audit State</th>
+                                                                    <th className="p-6 text-right">Document</th>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                            </thead>
+                                                            <tbody className={`divide-y transition-all duration-500 ${isDarkMode ? 'divide-gray-800/40' : 'divide-gray-100'}`}>
+                                                                {admission.paymentHistory.map((payment, idx) => (
+                                                                    <tr key={idx} className={`transition-all duration-300 ${isDarkMode ? 'hover:bg-emerald-500/[0.04]' : 'hover:bg-emerald-500/[0.03]'}`}>
+                                                                        <td className={`p-6 text-[10px] font-black uppercase tracking-widest italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{new Date(payment.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}</td>
+                                                                        <td className="p-6 text-cyan-500 font-black italic text-sm tracking-[0.2em] tabular-nums">#INST_{payment.installmentNumber}</td>
+                                                                        <td className={`p-6 text-[10px] font-black uppercase tracking-[0.15em] italic ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                            {payment.installmentNumber === 0 ? (
+                                                                                <span className="text-emerald-500 font-black tracking-[0.2em]">DOWN_PROTOCOL_INIT</span>
+                                                                            ) : payment.billingMonth ? (
+                                                                                <span>RECURRING_CYCLE: <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{payment.billingMonth?.toUpperCase()}</span></span>
+                                                                            ) : (
+                                                                                `INSTRUMENT_SEQ_${payment.installmentNumber}`
+                                                                            )}
+                                                                        </td>
+                                                                        <td className={`p-6 font-black italic tabular-nums tracking-tighter text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{payment.paidAmount.toLocaleString()}</td>
+                                                                        <td className={`p-6 text-[10px] font-black uppercase tracking-[0.25em] italic ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{payment.paymentMethod}</td>
+                                                                        <td className="p-6">{getStatusBadge(payment.status)}</td>
+                                                                        <td className="p-6 text-right">
+                                                                            <button
+                                                                                onClick={() => setBillModal({
+                                                                                    show: true,
+                                                                                    admission: { ...admission, _id: admission.admissionId },
+                                                                                    installment: {
+                                                                                        installmentNumber: payment.installmentNumber,
+                                                                                        billingMonth: payment.billingMonth,
+                                                                                        amount: payment.amount,
+                                                                                        paidAmount: payment.paidAmount,
+                                                                                        paidDate: payment.createdAt,
+                                                                                        paymentMethod: payment.paymentMethod,
+                                                                                        status: payment.status
+                                                                                    }
+                                                                                })}
+                                                                                className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 border ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500 hover:text-black shadow-lg shadow-emerald-500/10' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-500 hover:text-white shadow-sm'}`}
+                                                                                title="Extract Ledger Document"
+                                                                            >
+                                                                                <FaFileInvoice size={18} />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
                                     </div>
                                 ))}
-                            </>
+                            </div>
                         )}
                     </>
                 )}
 
-                {/* Record Payment Modal */}
+                {/* Settlement Protocol Modal */}
                 {showPayModal && (
-                    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md ${isDarkMode ? 'bg-black/90' : 'bg-gray-900/40'}`}>
-                        <div className={`border w-full max-w-lg rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300 shadow-2xl flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-[#0d0f11] border-gray-800' : 'bg-white border-gray-200'}`}>
-                            <div className={`p-10 border-b flex justify-between items-start ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
-                                <div>
-                                    <h2 className={`text-3xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Record <span className="text-cyan-500">Payment</span></h2>
-                                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-2">Installment # {activeInstallment?.installmentNumber}</p>
+                    <div className={`fixed inset-0 z-[1000] flex items-center justify-center p-4 backdrop-blur-md transition-all duration-500 animate-in fade-in ${isDarkMode ? 'bg-black/90' : 'bg-gray-900/60'}`}>
+                        <div className={`border w-full max-w-xl rounded-[3.5rem] overflow-hidden animate-in zoom-in-95 duration-500 shadow-[0_60px_120px_rgba(0,0,0,0.8)] flex flex-col max-h-[92vh] transition-all ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-white border-gray-100'}`}>
+                            <div className={`p-10 border-b flex justify-between items-start transition-all duration-500 relative overflow-hidden ${isDarkMode ? 'border-gray-800 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
+                                <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 blur-[80px] pointer-events-none"></div>
+                                <div className="relative z-10">
+                                    <h2 className={`text-4xl font-black italic uppercase tracking-tighter leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Record <span className="text-cyan-500">Settlement</span></h2>
+                                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mt-4 italic">Instrument Seq # {activeInstallment?.installmentNumber}</p>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Due Amount</div>
-                                    <div className="text-2xl font-black text-cyan-500">₹{activeInstallment?.amount.toLocaleString()}</div>
+                                <div className="text-right relative z-10">
+                                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] mb-2 italic">Outstanding Instrument</div>
+                                    <div className="text-3xl font-black text-cyan-500 italic tabular-nums tracking-tighter">₹{activeInstallment?.amount.toLocaleString()}</div>
                                 </div>
                             </div>
 
-                            <div className="p-10 grid grid-cols-1 gap-6 overflow-y-auto custom-scrollbar flex-1">
+                            <div className="p-10 grid grid-cols-1 gap-8 overflow-y-auto custom-scrollbar flex-1">
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 block">Amount to Record (₹)</label>
-                                    <input
-                                        type="number"
-                                        value={payFormData.paidAmount}
-                                        onChange={(e) => setPayFormData({ ...payFormData, paidAmount: e.target.value })}
-                                        className={`w-full border rounded-2xl py-4 px-6 text-lg font-black outline-none focus:border-cyan-500/50 transition-all shadow-inner ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                    />
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-4 block italic ml-2">Settlement Value (₹)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-8 top-1/2 -translate-y-1/2 text-2xl font-black italic text-cyan-500">₹</span>
+                                        <input
+                                            type="number"
+                                            value={payFormData.paidAmount}
+                                            onChange={(e) => setPayFormData({ ...payFormData, paidAmount: e.target.value })}
+                                            className={`w-full border rounded-[2rem] py-5 pl-16 pr-8 text-2xl font-black italic tabular-nums outline-none transition-all duration-300 shadow-inner ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                        />
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 block">Received Date</label>
-                                    <input
-                                        type="date"
-                                        value={payFormData.receivedDate}
-                                        onChange={(e) => setPayFormData({ ...payFormData, receivedDate: e.target.value })}
-                                        className={`w-full border rounded-2xl py-4 px-6 text-sm font-black outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                    />
-                                    <p className="text-[9px] text-gray-500 mt-2 uppercase font-black">Actual date when money was received</p>
-                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-4 block italic ml-2">Temporal Timestamp</label>
+                                        <input
+                                            type="date"
+                                            value={payFormData.receivedDate}
+                                            onChange={(e) => setPayFormData({ ...payFormData, receivedDate: e.target.value })}
+                                            className={`w-full border rounded-2xl py-4 px-6 font-black text-[11px] uppercase outline-none transition-all duration-300 [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
+                                        />
+                                        <p className="text-[9px] text-gray-500 mt-3 uppercase font-black tracking-widest italic ml-2">Actual receipt of funds</p>
+                                    </div>
 
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 block">Payment Method</label>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                        {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE", "RAZORPAY_POS", "RAZORPAY_SMS"].map(method => (
-                                            <button
-                                                key={method}
-                                                type="button"
-                                                onClick={() => setPayFormData({ ...payFormData, paymentMethod: method })}
-                                                className={`py-3 px-1 rounded-xl text-[9px] font-black border transition-all ${payFormData.paymentMethod === method
-                                                    ? "bg-cyan-500 border-cyan-400 text-black shadow-lg shadow-cyan-500/20"
-                                                    : (isDarkMode ? "bg-black/40 border-gray-800 text-gray-500 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-400 hover:border-cyan-500/30")
-                                                    }`}
-                                            >
-                                                {method.replace('_', ' ')}
-                                            </button>
-                                        ))}
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-4 block italic ml-2">Settlement Protocol</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {["CASH", "UPI", "CARD", "CHEQUE"].map(method => (
+                                                <button
+                                                    key={method}
+                                                    type="button"
+                                                    onClick={() => setPayFormData({ ...payFormData, paymentMethod: method })}
+                                                    className={`py-3.5 px-2 rounded-xl text-[10px] font-black border transition-all duration-300 tracking-[0.2em] italic active:scale-95 ${payFormData.paymentMethod === method
+                                                        ? "bg-cyan-500 border-cyan-400 text-black shadow-xl shadow-cyan-500/20"
+                                                        : (isDarkMode ? "bg-white/5 border-gray-800 text-gray-500 hover:border-cyan-500/30" : "bg-gray-50 border-gray-200 text-gray-400 hover:border-cyan-500/30")
+                                                        }`}
+                                                >
+                                                    {method}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
                                 {payFormData.paymentMethod === "CHEQUE" ? (
-                                    <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
+                                    <div className="animate-in fade-in slide-in-from-top-6 duration-700 space-y-6 p-8 rounded-[2.5rem] border transition-all duration-500 bg-white/[0.01] border-gray-800">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque Number</label>
-                                                <input
-                                                    type="text"
-                                                    value={payFormData.transactionId}
-                                                    onChange={(e) => setPayFormData({ ...payFormData, transactionId: e.target.value })}
-                                                    className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all font-mono ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                                    placeholder="CHQXXXXXX"
-                                                />
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-3 block italic ml-2">Instrument Ref #</label>
+                                                <div className="relative">
+                                                    <FaUniversity className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-500" size={12} />
+                                                    <input
+                                                        type="text"
+                                                        value={payFormData.transactionId}
+                                                        onChange={(e) => setPayFormData({ ...payFormData, transactionId: e.target.value })}
+                                                        className={`w-full border rounded-2xl py-3.5 pl-12 pr-6 font-black text-[11px] uppercase outline-none transition-all duration-300 font-mono ${isDarkMode ? 'bg-black/20 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                        placeholder="CHQ_REF_IDENTITY"
+                                                    />
+                                                </div>
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque Date</label>
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-3 block italic ml-2">Issuance Temporal</label>
                                                 <input
                                                     type="date"
                                                     value={payFormData.chequeDate}
                                                     onChange={(e) => setPayFormData({ ...payFormData, chequeDate: e.target.value })}
-                                                    className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                                    className={`w-full border rounded-2xl py-3.5 px-6 font-black text-[11px] uppercase outline-none transition-all duration-300 [color-scheme:dark] ${isDarkMode ? 'bg-black/20 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
                                                 />
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Bank Name</label>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-3 block italic ml-2">Issuing Institution</label>
                                             <input
                                                 type="text"
                                                 value={payFormData.accountHolderName}
                                                 onChange={(e) => setPayFormData({ ...payFormData, accountHolderName: e.target.value })}
-                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                                placeholder="e.g. HDFC, ICICI, SBI..."
+                                                className={`w-full border rounded-2xl py-3.5 px-6 font-black text-[11px] uppercase outline-none transition-all duration-300 ${isDarkMode ? 'bg-black/20 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                placeholder="NODE_BANK_IDENTITY (e.g. HDFC, ICICI)"
                                             />
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">
-                                            Ref / Transaction ID {(['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)) && <span className="text-red-500">*</span>}
+                                    <div className="animate-in fade-in slide-in-from-top-6 duration-700">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-4 block italic ml-2">
+                                            Auth Protocol / Transaction Ref {(['UPI', 'CARD'].includes(payFormData.paymentMethod)) && <span className="text-red-500">*</span>}
                                         </label>
-                                        <input
-                                            type="text"
-                                            value={payFormData.transactionId}
-                                            onChange={(e) => setPayFormData({ ...payFormData, transactionId: e.target.value })}
-                                            className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all font-mono ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                            placeholder={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)) ? `Enter ${payFormData.paymentMethod} Transaction ID (Mandatory)` : "Optional transaction reference"}
-                                            required={['UPI', 'CARD', 'BANK_TRANSFER'].includes(payFormData.paymentMethod)}
-                                        />
+                                        <div className="relative">
+                                            <FaCreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-500" size={14} />
+                                            <input
+                                                type="text"
+                                                value={payFormData.transactionId}
+                                                onChange={(e) => setPayFormData({ ...payFormData, transactionId: e.target.value })}
+                                                className={`w-full border rounded-[2rem] py-5 pl-14 pr-8 font-black text-xs uppercase tracking-[0.2em] outline-none transition-all duration-300 font-mono shadow-inner ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                placeholder={(['UPI', 'CARD'].includes(payFormData.paymentMethod)) ? `IDENTIFY_${payFormData.paymentMethod}_VECTOR (MANDATORY)` : "OPTIONAL_AUTH_REF"}
+                                            />
+                                        </div>
                                     </div>
-
                                 )}
 
                                 {parseFloat(payFormData.paidAmount) < (activeInstallment?.amount || 0) && (
-                                    <div className={`border p-4 rounded-2xl flex items-center justify-between ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-100'}`}>
-                                        <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                                            Carry forward balance?
+                                    <div className={`border p-8 rounded-[2.5rem] flex items-center justify-between transition-all duration-500 ${isDarkMode ? 'bg-orange-500/5 border-orange-500/20' : 'bg-orange-50 border-orange-100 shadow-inner'}`}>
+                                        <div className="flex flex-col gap-1">
+                                            <div className="text-[10px] font-black text-orange-500 uppercase tracking-[0.3em] italic flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div> Carry forward variance?
+                                            </div>
+                                            <p className="text-[8px] text-gray-500 font-black uppercase tracking-[0.2em]">Map remaining value to future cycles</p>
                                         </div>
                                         <input
                                             type="checkbox"
                                             checked={payFormData.carryForward}
                                             onChange={(e) => setPayFormData({ ...payFormData, carryForward: e.target.checked })}
-                                            className={`h-5 w-5 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500/50 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-white'}`}
+                                            className="h-7 w-7 rounded-lg border-gray-700 bg-black/40 text-cyan-500 focus:ring-cyan-500 transition-all cursor-pointer"
                                         />
                                     </div>
                                 )}
 
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Remarks</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-4 block italic ml-2">Audit Remarks</label>
                                     <textarea
                                         value={payFormData.remarks}
                                         onChange={(e) => setPayFormData({ ...payFormData, remarks: e.target.value })}
-                                        className={`w-full border rounded-2xl py-4 px-6 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all resize-none h-24 shadow-inner ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                        placeholder="Add payment notes..."
+                                        className={`w-full border rounded-[2rem] py-5 px-8 font-black text-xs outline-none transition-all duration-300 resize-none h-32 shadow-inner ${isDarkMode ? 'bg-white/5 border-gray-800 text-white placeholder:text-gray-800 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                        placeholder="APPEND_SETTLEMENT_LOGS..."
                                     />
                                 </div>
                             </div>
 
-                            <div className={`p-10 border-t flex gap-4 backdrop-blur-xl ${isDarkMode ? 'border-gray-800 bg-black/40' : 'border-gray-100 bg-gray-50'}`}>
+                            <div className={`p-10 border-t flex gap-4 backdrop-blur-xl transition-all duration-500 ${isDarkMode ? 'border-gray-800 bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
                                 <button
                                     onClick={() => setShowPayModal(false)}
-                                    className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-gray-500 hover:bg-gray-800 hover:text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-900'}`}
+                                    className={`flex-1 py-4 font-black uppercase text-[10px] tracking-[0.3em] rounded-2xl transition-all duration-300 active:scale-95 border ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-gray-500 hover:bg-white/5 hover:text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-100 hover:text-gray-900 shadow-sm'}`}
                                 >
-                                    Cancel
+                                    DISCARD_PROTOCOL
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        if (payFormData.paymentMethod === 'RAZORPAY_POS') {
-                                            setShowPOSModal(true);
-                                        } else if (payFormData.paymentMethod === 'RAZORPAY_SMS') {
-                                            setShowSMSModal(true);
-                                        } else {
-                                            handleRecordPayment();
-                                        }
-                                    }}
-                                    className="flex-1 py-4 bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-cyan-500/30"
+                                    onClick={handleRecordPayment}
+                                    className="flex-1 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black uppercase text-[10px] tracking-[0.3em] rounded-2xl hover:from-cyan-500 hover:to-blue-500 transition-all duration-500 shadow-2xl shadow-cyan-600/30 active:scale-95 flex items-center justify-center gap-3 italic"
                                 >
-                                    Confirm Payment
+                                    AUTHORIZE_FUNDS <FaCoins size={12} />
                                 </button>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Bill Generator Modal */}
+                {/* Bill Generator Protocol */}
                 {billModal.show && (
                     <BillGenerator
                         admission={billModal.admission}
@@ -1562,7 +1575,7 @@ const InstallmentPayment = () => {
                     />
                 )}
 
-                {/* Edit Schedule Modal */}
+                {/* Schedule Revision Matrix */}
                 {showEditScheduleModal && (
                     <EditScheduleModal
                         admission={editingAdmission}
@@ -1587,7 +1600,7 @@ const InstallmentPayment = () => {
                                 );
 
                                 if (response.ok) {
-                                    toast.success("Installment schedule updated successfully!");
+                                    toast.success("Maturity schedule revised successfully");
                                     setShowEditScheduleModal(false);
                                     setEditingAdmission(null);
                                     handleSelectStudent(selectedStudent.studentId);
@@ -1598,77 +1611,13 @@ const InstallmentPayment = () => {
                                 }
                             } catch (error) {
                                 console.error("Update Schedule Error:", error);
-                                toast.error("Error connecting to server");
+                                toast.error("Network sync failure during revision");
                             }
                         }}
                     />
                 )}
-
-                {/* Razorpay POS Modal */}
-                <RazorpayPOSModal
-                    isOpen={showPOSModal}
-                    onClose={() => setShowPOSModal(false)}
-                    amount={payFormData.paidAmount}
-                    invoiceId={`INV-${Date.now()}`}
-                    studentInfo={selectedStudent}
-                    admissionId={activeAdmissionId}
-                    admissionType="NORMAL"
-                    isDarkMode={isDarkMode}
-                    onPaymentSuccess={(posData) => {
-                        console.log("POS Success Callback Data:", posData);
-                        // Exhaustive extraction of any potential transaction identifier
-                        const finalTransactionId = posData.externalTransactionId || 
-                                                 posData.txnId || 
-                                                 posData.transactionId || 
-                                                 posData.receiptNumber || 
-                                                 posData.p2pRequestId ||
-                                                 posData.origP2pRequestId;
-                        
-                        console.log("Extracted Transaction ID:", finalTransactionId);
-
-                        const updatedData = {
-                            ...payFormData,
-                            paymentMethod: "RAZORPAY_POS",
-                            transactionId: finalTransactionId,
-                            p2pRequestId: posData.p2pRequestId,
-                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") + 
-                                    `POS payment completed (Req: ${posData.p2pRequestId || 'N/A'})`
-                        };
-
-                        console.log("Submitting payment record with data:", updatedData);
-                        setPayFormData(updatedData);
-                        handleRecordPayment(updatedData);
-                    }}
-                />
-
-                {/* Razorpay SMS Modal */}
-                <RazorpaySMSModal
-                    isOpen={showSMSModal}
-                    onClose={() => setShowSMSModal(false)}
-                    amount={payFormData.paidAmount}
-                    installmentNumber={activeInstallment?.installmentNumber}
-                    admissionId={activeAdmissionId}
-                    studentInfo={selectedStudent}
-                    admissionType="NORMAL"
-                    isDarkMode={isDarkMode}
-                    onPaymentSuccess={(smsData) => {
-                        console.log("SMS Success Callback Data:", smsData);
-                        const finalId = smsData.id || smsData.paymentId;
-                        const updatedData = {
-                            ...payFormData,
-                            paymentMethod: "RAZORPAY_SMS",
-                            transactionId: finalId,
-                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") + 
-                                    `SMS payment completed (ID: ${finalId})`
-                        };
-
-                        console.log("Submitting SMS payment record with data:", updatedData);
-                        setPayFormData(updatedData);
-                        handleRecordPayment(updatedData);
-                    }}
-                />
             </div>
-        </Layout>
+        </Layout >
     );
 };
 

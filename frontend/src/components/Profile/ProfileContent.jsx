@@ -3,8 +3,11 @@ import { FaUser, FaEnvelope, FaPhone, FaIdCard, FaMapMarkerAlt, FaLock, FaSave, 
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
 
 const ProfileContent = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -153,33 +156,33 @@ const ProfileContent = () => {
 
     if (loading) {
         return (
-            <div className="flex-1 p-6 overflow-y-auto bg-[#131619] flex items-center justify-center">
-                <div className="text-white text-xl">Loading profile...</div>
+            <div className={`flex-1 p-6 overflow-y-auto flex items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+                <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Loading profile...</div>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 p-6 overflow-y-auto bg-[#131619]">
-            <ToastContainer position="top-right" theme="dark" />
+        <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+            <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
 
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-white">My Profile</h2>
-                    <p className="text-gray-400 text-sm mt-1">View and update your personal information</p>
+                    <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>My Profile</h2>
+                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm mt-1`}>View and update your personal information</p>
                 </div>
 
                 {/* Profile Card */}
-                <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden">
+                <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                     {/* Profile Header */}
-                    <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 p-6 border-b border-gray-800">
+                    <div className={`p-6 border-b ${isDarkMode ? 'bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-gray-800' : 'bg-gradient-to-r from-cyan-50 to-blue-50 border-gray-100'}`}>
                         <div className="flex items-center gap-4">
-                            <div className="w-20 h-20 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold text-3xl border-4 border-cyan-500/30">
+                            <div className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-3xl border-4 ${isDarkMode ? 'bg-cyan-900 text-cyan-400 border-cyan-500/30' : 'bg-cyan-100 text-cyan-600 border-cyan-200'}`}>
                                 {profile?.name?.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-white">{profile?.name}</h3>
+                                <h3 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{profile?.name}</h3>
                                 <span className={`inline-block px-3 py-1 text-sm font-semibold rounded border mt-2 ${getRoleBadgeColor(profile?.role)}`}>
                                     {getRoleDisplayName(profile?.role)}
                                 </span>
@@ -191,20 +194,20 @@ const ProfileContent = () => {
                     <form onSubmit={handleSubmit} className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Read-only fields */}
-                            <div>
-                                <label className="block text-gray-400 text-sm mb-2 flex items-center gap-2">
+                             <div>
+                                <label className={`block text-sm mb-2 flex items-center gap-2 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     <FaIdCard /> Employee ID
                                 </label>
                                 <input
                                     type="text"
                                     value={profile?.employeeId || ""}
                                     disabled
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-gray-500 cursor-not-allowed"
+                                    className={`w-full border rounded-lg p-3 cursor-not-allowed font-bold ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-gray-500' : 'bg-gray-100 border-gray-200 text-gray-400'}`}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2 flex items-center gap-2">
+                                <label className={`block text-sm mb-2 flex items-center gap-2 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     <FaMapMarkerAlt /> Centres
                                 </label>
                                 <input
@@ -215,13 +218,13 @@ const ProfileContent = () => {
                                             : (profile.centre ? `${profile.centre.centreName} (${profile.centre.enterCode})` : "N/A")
                                     ) : ""}
                                     disabled
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-gray-500 cursor-not-allowed"
+                                    className={`w-full border rounded-lg p-3 cursor-not-allowed font-bold ${isDarkMode ? 'bg-gray-800/50 border-gray-700 text-gray-500' : 'bg-gray-100 border-gray-200 text-gray-400'}`}
                                 />
                             </div>
 
                             {/* Editable fields */}
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2 flex items-center gap-2">
+                                <label className={`block text-sm mb-2 flex items-center gap-2 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     <FaUser /> Full Name *
                                 </label>
                                 <input
@@ -230,12 +233,12 @@ const ProfileContent = () => {
                                     required
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-3 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2 flex items-center gap-2">
+                                <label className={`block text-sm mb-2 flex items-center gap-2 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     <FaEnvelope /> Email *
                                 </label>
                                 <input
@@ -244,12 +247,12 @@ const ProfileContent = () => {
                                     required
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-3 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-gray-400 text-sm mb-2 flex items-center gap-2">
+                                <label className={`block text-sm mb-2 flex items-center gap-2 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     <FaPhone /> Mobile Number *
                                 </label>
                                 <input
@@ -258,19 +261,19 @@ const ProfileContent = () => {
                                     required
                                     value={formData.mobNum}
                                     onChange={handleChange}
-                                    className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-lg p-3 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 />
                             </div>
                         </div>
 
                         {/* Password Change Section */}
-                        <div className="mt-8 pt-6 border-t border-gray-800">
-                            <h4 className="text-lg font-bold text-cyan-400 mb-4">Change Password (Optional)</h4>
+                        <div className={`mt-8 pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                            <h4 className="text-lg font-bold text-cyan-500 mb-4 uppercase tracking-tighter italic">Change Password <span className={`${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>(Optional)</span></h4>
                             <p className="text-xs text-gray-500 mb-4">Leave blank if you don't want to change your password</p>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-gray-400 text-sm mb-2 flex items-center gap-2">
+                                    <label className={`block text-sm mb-2 flex items-center gap-2 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         <FaLock /> Current Password
                                     </label>
                                     <div className="relative">
@@ -280,7 +283,7 @@ const ProfileContent = () => {
                                             value={formData.currentPassword}
                                             onChange={handleChange}
                                             placeholder="Enter current password"
-                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 pr-10"
+                                            className={`w-full border rounded-lg p-3 pr-10 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         />
                                         <button
                                             type="button"
@@ -293,7 +296,7 @@ const ProfileContent = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-gray-400 text-sm mb-2 flex items-center gap-2">
+                                    <label className={`block text-sm mb-2 flex items-center gap-2 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         <FaLock /> New Password
                                     </label>
                                     <div className="relative">
@@ -303,7 +306,7 @@ const ProfileContent = () => {
                                             value={formData.newPassword}
                                             onChange={handleChange}
                                             placeholder="Enter new password"
-                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 pr-10"
+                                            className={`w-full border rounded-lg p-3 pr-10 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         />
                                         <button
                                             type="button"

@@ -159,9 +159,9 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className={`border w-full max-w-md rounded-[3rem] overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${isDarkMode ? 'bg-[#0d0f11] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200'}`}>
-                <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all duration-300">
+            <div className={`border w-full max-w-md rounded-[3rem] overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${isDarkMode ? 'bg-[#0f1215] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200'}`}>
+                <div className={`p-8 border-b flex justify-between items-center transition-all ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent' : 'border-gray-100 bg-gray-50'}`}>
                     <div>
                         <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Razorpay <span className="text-cyan-500">POS</span></h2>
                         <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Terminal Integration</div>
@@ -187,7 +187,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                                         onClick={() => setMode('CARD')}
                                         className={`py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border transition-all ${mode === 'CARD' 
                                             ? 'bg-cyan-500/20 border-cyan-500 text-cyan-500 shadow-lg shadow-cyan-500/10' 
-                                            : (isDarkMode ? 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-700' : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-500/30')}`}
+                                            : (isDarkMode ? 'bg-white/5 border-gray-800 text-gray-500 hover:border-gray-700' : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-500/30')}`}
                                     >
                                         Card Payment
                                     </button>
@@ -195,7 +195,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                                         onClick={() => setMode('UPI')}
                                         className={`py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest border transition-all ${mode === 'UPI' 
                                             ? 'bg-cyan-500/20 border-cyan-500 text-cyan-500 shadow-lg shadow-cyan-500/10' 
-                                            : (isDarkMode ? 'bg-black/40 border-gray-800 text-gray-500 hover:border-gray-700' : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-500/30')}`}
+                                            : (isDarkMode ? 'bg-white/5 border-gray-800 text-gray-500 hover:border-gray-700' : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-500/30')}`}
                                     >
                                         UPI / QR
                                     </button>
@@ -209,7 +209,7 @@ const RazorpayPOSModal = ({ isOpen, onClose, amount, invoiceId, onPaymentSuccess
                                     value={deviceId}
                                     onChange={(e) => setDeviceId(e.target.value)}
                                     placeholder={`Default: ${studentInfo?.centre || "Centre"} Code`}
-                                    className={`w-full rounded-2xl py-4 px-6 text-md font-black outline-none focus:border-cyan-500/50 transition-all font-mono border ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                    className={`w-full rounded-2xl py-4 px-6 text-md font-black outline-none focus:border-cyan-500/50 transition-all font-mono border ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                 />
                             </div>
 

@@ -335,7 +335,7 @@ const DiscountReport = () => {
                     <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setDisplayMode("chart")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300" : "text-gray-500 hover:bg-white/10 hover:text-gray-700"}`}
                             title="Chart View"
                         >
                             <FaChartBar size={18} />
@@ -343,7 +343,7 @@ const DiscountReport = () => {
                         </button>
                         <button
                             onClick={() => setDisplayMode("table")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300" : "text-gray-500 hover:bg-white/10 hover:text-gray-700"}`}
                             title="Table View"
                         >
                             <FaTable size={18} />
@@ -351,7 +351,7 @@ const DiscountReport = () => {
                         </button>
                         <button
                             onClick={() => setDisplayMode("card")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300" : "text-gray-500 hover:bg-white/10 hover:text-gray-700"}`}
                             title="Card View"
                         >
                             <FaTh size={18} />
@@ -362,13 +362,13 @@ const DiscountReport = () => {
                     <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setReportType("monthly")}
-                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "monthly" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "monthly" ? "bg-orange-600 text-white shadow-lg" : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"}`}
                         >
                             Monthly
                         </button>
                         <button
                             onClick={() => setReportType("daily")}
-                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "daily" ? "bg-orange-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "daily" ? "bg-orange-600 text-white shadow-lg" : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"}`}
                         >
                             Day Wise
                         </button>
@@ -404,7 +404,7 @@ const DiscountReport = () => {
                             </div>
 
                             {isCentreDropdownOpen && (
-                                <div className={`absolute top-full left-0 mt-1 w-64 z-50 border rounded-lg shadow-xl max-h-60 overflow-y-auto ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                <div className={`absolute top-full left-0 mt-1 w-64 z-50 border rounded-lg shadow-xl max-h-60 overflow-y-auto ${isDarkMode ? 'bg-white/5 border-gray-700' : 'bg-white border-gray-200'
                                     }`}>
                                     {centres.map(c => (
                                         <div
@@ -441,7 +441,7 @@ const DiscountReport = () => {
                                 <FaChevronDown size={10} className={`transform transition-transform ${isCourseDropdownOpen ? 'rotate-180' : ''}`} />
                             </div>
                             {isCourseDropdownOpen && (
-                                <div className={`absolute top-full left-0 mt-1 w-72 z-50 border rounded-lg shadow-xl max-h-60 overflow-y-auto ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
+                                <div className={`absolute top-full left-0 mt-1 w-72 z-50 border rounded-lg shadow-xl max-h-60 overflow-y-auto ${isDarkMode ? 'bg-white/5 border-gray-700' : 'bg-white border-gray-200'
                                     }`}>
                                     {courses.map(c => (
                                         <div
@@ -545,7 +545,7 @@ const DiscountReport = () => {
                     </h3>
 
                     {displayMode === "chart" && trendData.length > 0 && (
-                        <div className={`mb-12 animate-fade-in p-6 rounded-2xl border transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                        <div className={`mb-12 animate-fade-in p-6 rounded-2xl border transition-colors ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Discount Timeline</span>
@@ -610,7 +610,7 @@ const DiscountReport = () => {
                             </div>
                         </div>
                     ) : reportData.length === 0 ? (
-                        <div className={`flex h-96 items-center justify-center flex-col gap-4 rounded-2xl border border-dashed transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-700 text-gray-500' : 'bg-gray-50 border-gray-300 text-gray-400'}`}>
+                        <div className={`flex h-96 items-center justify-center flex-col gap-4 rounded-2xl border border-dashed transition-colors ${isDarkMode ? 'bg-[#0f1215] border-gray-700 text-gray-500' : 'bg-gray-50 border-gray-300 text-gray-400'}`}>
                             <FaPercentage size={48} className="opacity-20" />
                             <p className="uppercase tracking-[0.2em] text-sm font-black opacity-50">No discount data available</p>
                         </div>
@@ -619,7 +619,7 @@ const DiscountReport = () => {
                             {displayMode === "chart" && (
                                 <div className="space-y-12 animate-fade-in">
                                     {/* 1. Original vs Discounted Fees */}
-                                    <div className={`p-6 rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <div className={`p-6 rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                         <div className="text-center mb-6">
                                             <h3 className={`text-lg font-black uppercase tracking-wider transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Original vs Discounted Fees (₹)</h3>
                                             <div className="flex justify-center gap-6 mt-4">
@@ -642,7 +642,7 @@ const DiscountReport = () => {
                                     </div>
 
                                     {/* 2. Total Discount Given */}
-                                    <div className={`p-6 rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <div className={`p-6 rounded-xl border shadow-sm transition-colors ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                         <div className="text-center mb-6">
                                             <h3 className={`text-lg font-black uppercase tracking-wider transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Total Discount Given (₹)</h3>
                                             <div className="flex justify-center gap-4 mt-2">
@@ -778,7 +778,7 @@ const DiscountReport = () => {
                             {displayMode === "card" && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
                                     {reportData.map((item, idx) => (
-                                        <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                                        <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
                                             }`}>
                                             <div className="flex justify-between items-start mb-6">
                                                 <h4 className={`font-black uppercase text-xs tracking-tight line-clamp-1 flex-1 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.name}</h4>

@@ -4,6 +4,7 @@ import { FaPlus, FaTimes, FaSearch } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
+import { useTheme } from '../../context/ThemeContext';
 
 const AddPettyCash = () => {
     const [requests, setRequests] = useState([]);
@@ -11,6 +12,8 @@ const AddPettyCash = () => {
     const [showModal, setShowModal] = useState(false);
     const [centres, setCentres] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     const [formData, setFormData] = useState({
         centre: "",
@@ -90,12 +93,12 @@ const AddPettyCash = () => {
 
     return (
         <Layout activePage="Petty Cash Management">
-            <div className="flex-1 bg-[#131619] p-6 text-white min-h-screen">
-                <ToastContainer theme="dark" />
+            <div className={`flex-1 p-6 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215] text-white' : 'bg-gray-50 text-gray-900'}`}>
+                <ToastContainer theme={isDarkMode ? "dark" : "colored"} />
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-2xl font-bold">Petty Cash Management</h2>
-                        <p className="text-gray-400 text-sm">Manage and track petty cash transactions across all centers.</p>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Manage and track petty cash transactions across all centers.</p>
                     </div>
                     {canCreate && (
                         <button
@@ -107,8 +110,8 @@ const AddPettyCash = () => {
                     )}
                 </div>
 
-                <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden shadow-xl">
-                    <div className="p-4 border-b border-gray-800">
+                <div className={`rounded-xl border overflow-hidden shadow-xl transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className={`p-4 border-b transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                         <div className="relative w-64">
                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                             <input
@@ -116,7 +119,7 @@ const AddPettyCash = () => {
                                 placeholder="Search centre..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-[#131619] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full"
+                                className={`border rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                             />
                         </div>
                     </div>
@@ -175,9 +178,9 @@ const AddPettyCash = () => {
                 </div>
 
                 {showModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                        <div className="bg-[#1a1f24] w-full max-w-lg rounded-xl border border-gray-700 shadow-2xl overflow-hidden">
-                            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className={`w-full max-w-lg rounded-xl border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-6 border-b flex justify-between items-center transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                 <h3 className="text-xl font-bold">Request Petty Cash</h3>
                                 <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white"><FaTimes /></button>
                             </div>
@@ -188,7 +191,7 @@ const AddPettyCash = () => {
                                         name="centre"
                                         value={formData.centre}
                                         onChange={handleInputChange}
-                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className={`w-full border rounded-lg p-3 outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500'}`}
                                         required
                                         disabled={!isSuperAdmin && centres.length === 1}
                                     >
@@ -203,7 +206,7 @@ const AddPettyCash = () => {
                                         name="amount"
                                         value={formData.amount}
                                         onChange={handleInputChange}
-                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
+                                        className={`w-full border rounded-lg p-3 outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500'}`}
                                         placeholder="Enter requested amount"
                                         required
                                     />
@@ -214,7 +217,7 @@ const AddPettyCash = () => {
                                         name="remarks"
                                         value={formData.remarks}
                                         onChange={handleInputChange}
-                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
+                                        className={`w-full border rounded-lg p-3 outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500'}`}
                                         placeholder="Add any notes..."
                                         rows="3"
                                     />

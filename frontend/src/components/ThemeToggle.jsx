@@ -3,15 +3,20 @@ import { FaSun, FaMoon } from 'react-icons/fa';
 import { useTheme } from '../context/ThemeContext';
 
 const ThemeToggle = () => {
-    const { theme, toggleTheme } = useTheme();
+    const { theme, toggleTheme, isDarkMode } = useTheme();
 
     return (
         <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-yellow-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            className={`p-2.5 rounded-xl border transition-all duration-300 active:scale-90 ${
+                isDarkMode 
+                ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400 hover:bg-yellow-500/20' 
+                : 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700'
+            }`}
+
+            title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
         >
-            {theme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} className="text-gray-600" />}
+            {isDarkMode ? <FaSun size={16} /> : <FaMoon size={16} />}
         </button>
     );
 };

@@ -335,7 +335,7 @@ const CourseReport = () => {
                     <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setDisplayMode("chart")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300" : "text-gray-500 hover:bg-white/10 hover:text-gray-700"}`}
                             title="Chart View"
                         >
                             <FaChartBar size={18} />
@@ -343,7 +343,7 @@ const CourseReport = () => {
                         </button>
                         <button
                             onClick={() => setDisplayMode("table")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300" : "text-gray-500 hover:bg-white/10 hover:text-gray-700"}`}
                             title="Table View"
                         >
                             <FaTable size={18} />
@@ -351,7 +351,7 @@ const CourseReport = () => {
                         </button>
                         <button
                             onClick={() => setDisplayMode("card")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : "text-gray-500 hover:bg-white/10 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300" : "text-gray-500 hover:bg-white/10 hover:text-gray-700"}`}
                             title="Card View"
                         >
                             <FaTh size={18} />
@@ -362,13 +362,13 @@ const CourseReport = () => {
                     <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setReportType("monthly")}
-                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "monthly" ? "bg-purple-600 text-white shadow-lg" : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"}`}
                         >
                             Monthly
                         </button>
                         <button
                             onClick={() => setReportType("daily")}
-                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${reportType === "daily" ? "bg-purple-600 text-white shadow-lg" : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"}`}
                         >
                             Day Wise
                         </button>
@@ -623,11 +623,11 @@ const CourseReport = () => {
                         <div className="flex h-96 items-center justify-center">
                             <div className="flex flex-col items-center gap-4">
                                 <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-widest text-xs">ANALYZING COURSES...</p>
+                                <p className={`font-medium animate-pulse tracking-widest text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>ANALYZING COURSES...</p>
                             </div>
                         </div>
                     ) : reportData.length === 0 ? (
-                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                        <div className={`flex h-96 items-center justify-center text-gray-400 flex-col gap-4 rounded-2xl border border-dashed ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-300'}`}>
                             <FaUserGraduate size={48} className="opacity-20" />
                             <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No enrollment data found</p>
                         </div>

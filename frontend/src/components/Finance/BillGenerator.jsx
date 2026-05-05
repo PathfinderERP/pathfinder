@@ -460,10 +460,10 @@ const BillGenerator = ({ admission, installment, onClose, isDarkMode }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className={`rounded-2xl border w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm transition-all duration-300">
+            <div className={`rounded-2xl border w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl transition-all duration-300 ${isDarkMode ? 'bg-[#0f1215] border-gray-700' : 'bg-white border-gray-200'}`}>
                 {/* Header */}
-                <div className={`p-6 border-b flex justify-between items-center sticky top-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-100'}`}>
+                <div className={`p-6 border-b flex justify-between items-center sticky top-0 z-10 transition-all ${isDarkMode ? 'bg-[#0f1215] border-gray-700' : 'bg-white border-gray-100'}`}>
                     <h2 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         <FaFileInvoice className="text-cyan-500" />
                         Bill Generator
@@ -508,7 +508,7 @@ const BillGenerator = ({ admission, installment, onClose, isDarkMode }) => {
                     ) : (
                         <div>
                             {/* Bill Preview */}
-                            <div className={`rounded-xl p-8 mb-6 border ${isDarkMode ? 'bg-[#252b32] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
+                            <div className={`rounded-xl p-8 mb-6 border transition-all ${isDarkMode ? 'bg-white/5 border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
                                 {/* Bill Header */}
                                 <div className={`text-center mb-8 pb-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                                     <h1 className="text-3xl font-black text-cyan-600 mb-2 italic tracking-tighter">PATHFINDER <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>ERP</span></h1>
@@ -547,7 +547,7 @@ const BillGenerator = ({ admission, installment, onClose, isDarkMode }) => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                                     {/* Student Details */}
-                                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                    <div className={`p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-white/5 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
                                         <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Student Intelligence</h3>
                                         <div className="space-y-3">
                                             <div className="flex justify-between text-xs">
@@ -566,7 +566,7 @@ const BillGenerator = ({ admission, installment, onClose, isDarkMode }) => {
                                     </div>
 
                                     {/* Course Details */}
-                                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                    <div className={`p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-white/5 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
                                         <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Program Details</h3>
                                         <div className="space-y-3">
                                             <div className="flex justify-between text-xs">
@@ -586,7 +586,7 @@ const BillGenerator = ({ admission, installment, onClose, isDarkMode }) => {
                                 </div>
 
                                 {/* Payment Info */}
-                                <div className={`p-6 rounded-xl border mb-8 ${isDarkMode ? 'bg-black/20 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                <div className={`p-6 rounded-xl border mb-8 transition-all ${isDarkMode ? 'bg-white/5 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
                                     <h3 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 text-center">Transaction Summary</h3>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div className="text-center">
@@ -615,7 +615,7 @@ const BillGenerator = ({ admission, installment, onClose, isDarkMode }) => {
                                 </div>
 
                                 {/* Fee Breakdown Table */}
-                                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                <div className={`rounded-xl overflow-hidden border transition-all ${isDarkMode ? 'bg-[#0f1215] border-gray-700' : 'bg-white border-gray-200'}`}>
                                     <table className="w-full text-xs">
                                         <thead>
                                             <tr className={isDarkMode ? 'bg-gray-800/50' : 'bg-gray-50'}>

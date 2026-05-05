@@ -2,9 +2,12 @@ import React from "react";
 import Layout from "../components/Layout";
 import { FaMoneyCheckAlt, FaFileInvoiceDollar, FaCheckCircle, FaBan, FaChartLine, FaUsers, FaCalendarAlt } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext";
 
 const Finance = () => {
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
     const financeModules = [
         {
@@ -49,13 +52,13 @@ const Finance = () => {
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className="p-4 md:p-10 max-w-[1600px] mx-auto min-h-screen">
+            <div className={`p-4 md:p-10 max-w-[1600px] mx-auto min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215] text-white' : 'bg-gray-50 text-gray-900'}`}>
                 {/* Header */}
                 <div className="mb-10">
-                    <h1 className="text-4xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-4">
+                    <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter mb-4 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         Finance & <span className="text-cyan-500">Fees</span>
                     </h1>
-                    <p className="text-gray-400 text-sm md:text-base font-bold uppercase tracking-widest">
+                    <p className={`text-sm md:text-base font-bold uppercase tracking-widest transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Complete Financial Management System
                     </p>
                 </div>
@@ -63,12 +66,12 @@ const Finance = () => {
                 {/* Quick Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                     {quickStats.map((stat, index) => (
-                        <div key={index} className="bg-[#131619] border border-gray-800 rounded-2xl p-6 hover:border-cyan-500/30 transition-all group">
+                        <div key={index} className={`border rounded-2xl p-6 hover:border-cyan-500/30 transition-all group ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <div className={`text-3xl ${stat.color}`}>{stat.icon}</div>
                                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{stat.label}</span>
                             </div>
-                            <div className="text-3xl font-black text-white group-hover:text-cyan-400 transition-colors">
+                            <div className={`text-3xl font-black transition-colors ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
                                 {stat.value}
                             </div>
                         </div>
@@ -81,7 +84,7 @@ const Finance = () => {
                         <div
                             key={index}
                             onClick={() => navigate(module.path)}
-                            className="group bg-[#131619] border border-gray-800 rounded-[2rem] p-8 hover:border-cyan-500/50 transition-all cursor-pointer relative overflow-hidden"
+                            className={`group border rounded-[2rem] p-8 hover:border-cyan-500/50 transition-all cursor-pointer relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
                         >
                             {/* Gradient Overlay */}
                             <div className={`absolute inset-0 bg-gradient-to-br from-${module.color}-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`}></div>
@@ -102,10 +105,10 @@ const Finance = () => {
                                     </div>
                                 </div>
 
-                                <h3 className="text-2xl font-black text-white mb-3 group-hover:text-cyan-400 transition-colors">
+                                <h3 className={`text-2xl font-black mb-3 transition-colors ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
                                     {module.title}
                                 </h3>
-                                <p className="text-gray-400 text-sm font-medium leading-relaxed mb-6">
+                                <p className={`text-sm font-medium leading-relaxed mb-6 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     {module.description}
                                 </p>
 
@@ -122,11 +125,11 @@ const Finance = () => {
                 </div>
 
                 {/* Additional Info Section */}
-                <div className="mt-12 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-8">
+                <div className={`mt-12 border rounded-2xl p-8 transition-colors ${isDarkMode ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/20' : 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-100'}`}>
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div>
-                            <h3 className="text-2xl font-black text-white mb-2">Need Help?</h3>
-                            <p className="text-gray-400 text-sm">Contact the finance team for assistance with payments and queries</p>
+                            <h3 className={`text-2xl font-black mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Need Help?</h3>
+                            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Contact the finance team for assistance with payments and queries</p>
                         </div>
                         <button className="px-8 py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest rounded-xl hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-500/20">
                             Contact Support

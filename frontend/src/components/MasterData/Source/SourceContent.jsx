@@ -4,8 +4,11 @@ import { toast } from "react-toastify";
 import AddSourceModal from "./AddSourceModal";
 import EditSourceModal from "./EditSourceModal";
 import ExcelImportExport from "../../common/ExcelImportExport";
+import { useTheme } from "../../../context/ThemeContext";
 
 const SourceContent = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [sources, setSources] = useState([]);
     const [filteredSources, setFilteredSources] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -130,18 +133,18 @@ const SourceContent = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-cyan-400 text-xl">Loading sources...</div>
+                <div className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'} text-xl font-bold`}>Loading sources...</div>
             </div>
         );
     }
 
     return (
-        <div className="p-6 space-y-6">
+        <div className={`p-6 space-y-6 transition-colors duration-300 ${isDarkMode ? 'bg-transparent' : ''}`}>
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Source Management</h2>
-                    <p className="text-gray-400 text-sm">Manage lead sources</p>
+                    <h2 className={`text-2xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Source <span className="text-cyan-500">Management</span></h2>
+                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-bold`}>Manage lead sources</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <ExcelImportExport
@@ -161,34 +164,34 @@ const SourceContent = () => {
             </div>
 
             {/* Search Bar */}
-            <div className="bg-[#1a1f24] border border-gray-700 rounded-lg p-4">
+            <div className={`border rounded-lg p-4 transition-all duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
                 <div className="relative">
-                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                     <input
                         type="text"
                         placeholder="Search by source name, source, or sub-source..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#131619] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                        className={`w-full border rounded-lg pl-12 pr-4 py-3 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`}
                     />
                 </div>
             </div>
 
             {/* Sources Table */}
-            <div className="bg-[#1a1f24] border border-gray-700 rounded-lg overflow-hidden">
+            <div className={`border rounded-lg overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-[#131619] border-b border-gray-700">
+                        <thead className={`border-b transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">S/N</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Source Name</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Source</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Sub Source</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Source Type</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Actions</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest">S/N</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest">Source Name</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest">Source</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest">Sub Source</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest">Source Type</th>
+                                <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-700">
+                        <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
                             {filteredSources.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="px-4 py-8 text-center text-gray-400">
@@ -197,13 +200,13 @@ const SourceContent = () => {
                                 </tr>
                             ) : (
                                 filteredSources.map((source, index) => (
-                                    <tr key={source._id} className="hover-wave-row hover:bg-[#131619] transition-colors">
-                                        <td className="px-4 py-3 text-white">{index + 1}</td>
-                                        <td className="px-4 py-3 text-white font-medium">{source.sourceName}</td>
-                                        <td className="px-4 py-3 text-gray-400">{source.source}</td>
-                                        <td className="px-4 py-3 text-gray-400">{source.subSource}</td>
-                                        <td className="px-4 py-3 text-gray-400">{source.sourceType || "N/A"}</td>
-                                        <td className="px-4 py-3">
+                                    <tr key={source._id} className={`hover-wave-row transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                        <td className={`px-6 py-4 font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{index + 1}</td>
+                                        <td className={`px-6 py-4 font-black uppercase text-xs tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{source.sourceName}</td>
+                                        <td className={`px-6 py-4 font-bold text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{source.source}</td>
+                                        <td className={`px-6 py-4 font-bold text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{source.subSource}</td>
+                                        <td className={`px-6 py-4 font-bold text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{source.sourceType || "N/A"}</td>
+                                        <td className="px-6 py-4 text-right">
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => handleEdit(source)}
@@ -235,6 +238,7 @@ const SourceContent = () => {
                         setShowAddModal(false);
                         fetchSources();
                     }}
+                    isDarkMode={isDarkMode}
                 />
             )}
 
@@ -250,6 +254,7 @@ const SourceContent = () => {
                         setSelectedSource(null);
                         fetchSources();
                     }}
+                    isDarkMode={isDarkMode}
                 />
             )}
         </div>

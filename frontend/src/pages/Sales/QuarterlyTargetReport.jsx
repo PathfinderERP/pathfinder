@@ -111,18 +111,18 @@ const QuarterlyTargetReport = () => {
 
     return (
         <Layout activePage="Sales">
-            <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className={`p-6 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215] text-white' : 'bg-gray-50 text-gray-900'}`}>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-4">
                         <button 
                             onClick={() => navigate(-1)}
-                            className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
+                            className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-white/10 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
                         >
                             <FaArrowLeft size={20} />
                         </button>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Quarterly Performance Matrix</h1>
-                            <p className="text-gray-600 dark:text-gray-400">Target vs Achieved Breakdown by Quarters</p>
+                            <h1 className={`text-3xl font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Quarterly Performance Matrix</h1>
+                            <p className={`transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Target vs Achieved Breakdown by Quarters</p>
                         </div>
                     </div>
 
@@ -130,7 +130,7 @@ const QuarterlyTargetReport = () => {
                         <select
                             value={filterFinancialYear}
                             onChange={(e) => setFilterFinancialYear(e.target.value)}
-                            className={`px-4 py-2 rounded-lg border outline-none font-bold text-sm ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                            className={`px-4 py-2 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
                         >
                             {sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)}
                         </select>
@@ -143,37 +143,37 @@ const QuarterlyTargetReport = () => {
                     </div>
                 </div>
 
-                <div className={`rounded-[2px] border overflow-hidden transition-all shadow-2xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                <div className={`rounded-[2px] border overflow-hidden transition-all shadow-2xl ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                                <tr className={`border-b transition-colors ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                     <th className="p-5 text-xs font-black uppercase tracking-widest text-gray-500 sticky left-0 z-10 bg-inherit" rowSpan={2}>Centre Name</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q1 (Apr-Jun)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q2 (Jul-Sep)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q3 (Oct-Dec)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q4 (Jan-Mar)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-green-700 bg-green-900/10" colSpan={2}>Total Year</th>
+                                    <th className={`p-5 text-xs font-black uppercase tracking-widest text-center border-l transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} colSpan={2}>Q1 (Apr-Jun)</th>
+                                    <th className={`p-5 text-xs font-black uppercase tracking-widest text-center border-l transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} colSpan={2}>Q2 (Jul-Sep)</th>
+                                    <th className={`p-5 text-xs font-black uppercase tracking-widest text-center border-l transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} colSpan={2}>Q3 (Oct-Dec)</th>
+                                    <th className={`p-5 text-xs font-black uppercase tracking-widest text-center border-l transition-colors ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`} colSpan={2}>Q4 (Jan-Mar)</th>
+                                    <th className={`p-5 text-xs font-black uppercase tracking-widest text-center border-l transition-colors bg-green-900/10 ${isDarkMode ? 'border-green-700' : 'border-green-100'}`} colSpan={2}>Total Year</th>
                                 </tr>
-                                <tr className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                                <tr className={`border-b transition-colors ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                     {/* Q1 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
+                                    <th className={`p-4 text-[10px] font-bold text-gray-400 text-right border-l transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>Target</th>
                                     <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
                                     {/* Q2 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
+                                    <th className={`p-4 text-[10px] font-bold text-gray-400 text-right border-l transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>Target</th>
                                     <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
                                     {/* Q3 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
+                                    <th className={`p-4 text-[10px] font-bold text-gray-400 text-right border-l transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>Target</th>
                                     <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
                                     {/* Q4 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
+                                    <th className={`p-4 text-[10px] font-bold text-gray-400 text-right border-l transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>Target</th>
                                     <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
                                     {/* Total */}
-                                    <th className="p-4 text-[10px] font-bold text-green-500 text-right border-l border-green-800 bg-green-900/10">Target</th>
+                                    <th className={`p-4 text-[10px] font-bold text-green-500 text-right border-l bg-green-900/10 transition-colors ${isDarkMode ? 'border-green-800' : 'border-green-100'}`}>Target</th>
                                     <th className="p-4 text-[10px] font-bold text-green-500 text-right bg-green-900/10">Achieved</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
                                         <td colSpan={11} className="p-20 text-center">

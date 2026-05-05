@@ -1075,7 +1075,7 @@ const Classes = () => {
                                             
                                             value={editingClassData.coordinatorId}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all shadow-lg ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="">Select Coordinator</option>
                                             {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
@@ -1211,7 +1211,7 @@ const Classes = () => {
                                                 const values = options.map(opt => opt.value);
                                                 setEditingClassData({ ...editingClassData, batchIds: values });
                                             }}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg h-32 scrollbar-thin scrollbar-thumb-gray-800"
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all shadow-lg h-32 scrollbar-thin ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 scrollbar-thumb-gray-800' : 'bg-gray-50 text-gray-900 border-gray-300 scrollbar-thumb-gray-300'}`}
                                         >
                                             {dropdownData.batches?.map(b => (
                                                 <option key={b._id} value={b._id} className="p-2 border-b border-gray-800 last:border-0">{b.batchName || b.name}</option>
@@ -1244,20 +1244,20 @@ const Classes = () => {
                 {/* Feedback Modal */}
                 {showFeedbackModal && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-                        <div className="bg-[#1a1f24] w-full max-w-lg rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-[#1e2530]">
-                                <h3 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'bg-[#1e2530] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <h3 className={`text-lg font-bold uppercase tracking-wider flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     <div className="w-2 h-6 bg-purple-500 rounded-full"></div>
                                     Teacher Performance Feedback
                                 </h3>
-                                <button onClick={() => setShowFeedbackModal(false)} className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-800 rounded-lg">
+                                <button onClick={() => setShowFeedbackModal(false)} className={`${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'} transition-colors p-2 rounded-lg`}>
                                     <FaTimes />
                                 </button>
                             </div>
                             <form onSubmit={handleSubmitFeedback} className="p-6 space-y-4">
                                 <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
                                     {teacherFeedback.map((item, index) => (
-                                        <div key={index} className="bg-[#131619] p-4 rounded-xl border border-gray-800 space-y-3">
+                                        <div key={index} className={`p-4 rounded-xl border space-y-3 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                             <div className="flex gap-3">
                                                 <span className="bg-purple-600/20 text-purple-400 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold border border-purple-600/30 flex-shrink-0">
                                                     {index + 1}
@@ -1279,7 +1279,7 @@ const Classes = () => {
                                                                 : r === "Good" ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/40"
                                                                     : r === "Average" ? "bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-900/40"
                                                                         : "bg-red-600 border-red-500 text-white shadow-lg shadow-red-900/40"
-                                                            : "bg-[#1e2530] border-gray-700 text-gray-500 hover:text-gray-300"
+                                                            : `${isDarkMode ? 'bg-[#1e2530] border-gray-700 text-gray-500 hover:text-gray-300' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-600'}`
                                                             }`}
                                                     >
                                                         {r}
@@ -1289,7 +1289,7 @@ const Classes = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <div className="p-6 border-t border-gray-800 flex gap-3 bg-[#1e2530]">
+                                <div className={`p-6 border-t flex gap-3 ${isDarkMode ? 'border-gray-800 bg-[#1e2530]' : 'border-gray-100 bg-gray-50'}`}>
                                     <button
                                         type="button"
                                         onClick={() => setShowFeedbackModal(false)}

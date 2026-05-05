@@ -528,14 +528,14 @@ const StudentAdmissionPage = () => {
 
     if (loading && !student) {
         return (
-            <div className={`flex-1 p-6 flex items-center justify-center ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+            <div className={`flex-1 p-6 flex items-center justify-center transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
                 <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Loading...</p>
             </div>
         );
     }
 
     return (
-        <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215] text-white' : 'bg-gray-50 text-gray-900'}`}>
             <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "colored"} />
 
             {/* Header */}
@@ -571,7 +571,7 @@ const StudentAdmissionPage = () => {
 
             {/* Student Info Card */}
             {student && (
-                <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                <div className={`p-4 rounded-lg border mb-6 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
@@ -604,7 +604,7 @@ const StudentAdmissionPage = () => {
                                     name="centre"
                                     value={formData.centre}
                                     readOnly
-                                    className={`w-full border rounded-lg p-2 cursor-not-allowed focus:outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-300 text-gray-500'}`}
+                                    className={`w-full border rounded-lg p-2 cursor-not-allowed focus:outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-300 text-gray-500'}`}
                                 />
                             </div>
 
@@ -614,7 +614,7 @@ const StudentAdmissionPage = () => {
                                     name="classId"
                                     value={formData.classId}
                                     onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                 >
                                     <option value="">Select Class</option>
                                     {classes.map(cls => (
@@ -761,7 +761,7 @@ const StudentAdmissionPage = () => {
                                                 placeholder="Search course..."
                                                 value={courseSearchTerm}
                                                 onChange={(e) => setCourseSearchTerm(e.target.value)}
-                                                className={`w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                                                className={`w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
                                             />
                                         </div>
                                         <select

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { FaMoon, FaSun, FaEye, FaEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
-import useDarkMode from "../hooks/useDarkMode";
+import { useTheme } from "../context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const [theme, setTheme] = useDarkMode();
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,10 +18,6 @@ export default function Login() {
       navigate("/dashboard");
     }
   }, [navigate]);
-
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

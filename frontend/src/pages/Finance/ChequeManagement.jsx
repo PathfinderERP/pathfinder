@@ -9,10 +9,8 @@ import { saveAs } from "file-saver";
 import { useTheme } from "../../context/ThemeContext";
 
 const ChequeManagement = () => {
-    const { theme } = useTheme();
-    const isDarkMode = theme === 'dark';
+    const { isDarkMode } = useTheme();
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all");
     const [cheques, setCheques] = useState([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ cleared: 0, pending: 0, bounced: 0, totalAmount: 0 });
@@ -220,8 +218,6 @@ const ChequeManagement = () => {
         }
     };
 
-    const filteredCheques = cheques; // Now filtered by backend
-
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
@@ -273,12 +269,12 @@ const ChequeManagement = () => {
     const customSelectStyles = {
         control: (base, state) => ({
             ...base,
-            background: isDarkMode ? "#131619" : "#fff",
-            borderColor: state.isFocused ? "rgba(16, 185, 129, 0.5)" : (isDarkMode ? "rgba(31, 41, 55, 1)" : "#e5e7eb"),
+            background: isDarkMode ? "rgba(255, 255, 255, 0.05)" : "#fff",
+            borderColor: state.isFocused ? "rgba(16, 185, 129, 0.5)" : (isDarkMode ? "rgba(255, 255, 255, 0.1)" : "#e5e7eb"),
             borderRadius: "0.75rem",
             padding: "2px",
             fontSize: "10px",
-            fontWeight: "bold",
+            fontWeight: "black",
             color: isDarkMode ? "white" : "#111827",
             boxShadow: "none",
             "&:hover": {
@@ -287,8 +283,8 @@ const ChequeManagement = () => {
         }),
         menu: (base) => ({
             ...base,
-            background: isDarkMode ? "#131619" : "#fff",
-            border: isDarkMode ? "1px solid rgba(31, 41, 55, 1)" : "1px solid #e5e7eb",
+            background: isDarkMode ? "#1a1f24" : "#fff",
+            border: isDarkMode ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e5e7eb",
             borderRadius: "0.75rem",
             zIndex: 100
         }),
@@ -297,7 +293,7 @@ const ChequeManagement = () => {
             background: state.isFocused ? "rgba(16, 185, 129, 0.1)" : "transparent",
             color: state.isFocused ? "#10b981" : (isDarkMode ? "#9ca3af" : "#4b5563"),
             fontSize: "10px",
-            fontWeight: "bold",
+            fontWeight: "black",
             textTransform: "uppercase",
             cursor: "pointer",
             "&:active": {
@@ -325,7 +321,8 @@ const ChequeManagement = () => {
         }),
         placeholder: (base) => ({
             ...base,
-            color: isDarkMode ? "#4b5563" : "#9ca3af"
+            color: isDarkMode ? "#4b5563" : "#9ca3af",
+            textTransform: "uppercase"
         }),
         singleValue: (base) => ({
             ...base,
@@ -336,11 +333,11 @@ const ChequeManagement = () => {
     const getStatusBadge = (status) => {
         switch (status) {
             case "PAID":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-1"><FaCheckCircle /> Cleared</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-2"><FaCheckCircle /> Cleared</span>;
             case "PENDING_CLEARANCE":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-yellow-500 bg-yellow-500/10 border-yellow-500/20 inline-flex items-center gap-1"><FaClock /> IN PROCESS</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-amber-500 bg-amber-500/10 border-amber-500/20 inline-flex items-center gap-2 animate-pulse"><FaClock /> In Process</span>;
             case "REJECTED":
-                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-1"><FaTimes /> Bounced</span>;
+                return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-red-500 bg-red-500/10 border-red-500/20 inline-flex items-center gap-2"><FaTimes /> Bounced</span>;
             default:
                 return <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase border text-gray-500 bg-gray-500/10 border-gray-500/20">{status}</span>;
         }
@@ -348,277 +345,282 @@ const ChequeManagement = () => {
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className={`p-4 md:p-10 max-w-[1700px] mx-auto min-h-screen pb-20 transition-all duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-all duration-500 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
                     <div>
                         <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Cheque <span className="text-emerald-500">Management</span>
                         </h1>
-                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
-                            Real-time Clearance & Rejection Tracking
-                        </p>
+                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest italic"> Real-time Clearance Ledger & Fiscal Rejection Monitoring </p>
                     </div>
                     <button
                         onClick={fetchCheques}
-                        className={`px-6 py-3 font-black uppercase text-sm tracking-widest rounded-xl transition-all flex items-center gap-2 ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 shadow-sm'}`}
+                        className={`px-8 py-4 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl transition-all flex items-center gap-3 active:scale-95 shadow-xl ${isDarkMode ? 'bg-white/5 border border-gray-800 text-white hover:bg-white/10' : 'bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 shadow-sm'}`}
                     >
-                        <FaSyncAlt className={loading ? "animate-spin" : ""} /> Refresh
+                        <FaSyncAlt className={loading ? "animate-spin" : ""} /> Sync Records
                     </button>
                 </div>
 
                 {/* Main Filter Section */}
-                <div className={`border rounded-3xl p-6 mb-8 shadow-2xl transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end mb-6">
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                <div className={`border rounded-[2.5rem] p-10 mb-10 shadow-2xl transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Entity (Centre)</label>
                             <Select
                                 isMulti
                                 options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
                                 value={filters.centre.map(c => ({ value: c, label: c }))}
                                 onChange={(selected) => handleFilterChange("centre", selected ? selected.map(s => s.value) : [])}
                                 styles={customSelectStyles}
-                                placeholder="ALL CENTRES"
+                                placeholder="ALL ENTITIES"
                             />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Academic Stream</label>
                             <Select
                                 isMulti
                                 options={metadata.courses.map(c => ({ value: c.courseName, label: c.courseName }))}
                                 value={filters.course.map(c => ({ value: c, label: c }))}
                                 onChange={(selected) => handleFilterChange("course", selected ? selected.map(s => s.value) : [])}
                                 styles={customSelectStyles}
-                                placeholder="ALL COURSES"
+                                placeholder="ALL STREAMS"
                             />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Division</label>
                             <Select
                                 isMulti
                                 options={metadata.departments.map(d => ({ value: d.departmentName, label: d.departmentName }))}
                                 value={filters.department.map(d => ({ value: d, label: d }))}
                                 onChange={(selected) => handleFilterChange("department", selected ? selected.map(s => s.value) : [])}
                                 styles={customSelectStyles}
-                                placeholder="ALL DEPARTMENTS"
+                                placeholder="ALL DIVISIONS"
                             />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Status Wise Filter</label>
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Fiscal Status</label>
                             <select
                                 value={filters.status}
                                 onChange={(e) => handleFilterChange("status", e.target.value)}
-                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs uppercase outline-none focus:border-emerald-500/50 transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-200' : 'bg-white border-gray-200 text-gray-900'}`}
+                                className={`w-full border rounded-xl py-3.5 px-6 font-black text-[10px] uppercase tracking-widest outline-none focus:border-emerald-500/50 transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                             >
-                                <option value="all">All Status (Active)</option>
-                                <option value="pending">Pending Clearance</option>
-                                <option value="cleared">Cleared</option>
-                                <option value="bounced">Bounced/Rejected</option>
+                                <option value="all" className={isDarkMode ? 'bg-[#1a1f24]' : ''}>Global Status</option>
+                                <option value="pending" className={isDarkMode ? 'bg-[#1a1f24]' : ''}>Pending Clearance</option>
+                                <option value="cleared" className={isDarkMode ? 'bg-[#1a1f24]' : ''}>Cleared Assets</option>
+                                <option value="bounced" className={isDarkMode ? 'bg-[#1a1f24]' : ''}>Bounced Protocol</option>
                             </select>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end mb-6">
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Processing Start Date</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Audit Horizon Start</label>
                             <input
                                 type="date"
                                 value={filters.startDate}
                                 onChange={(e) => handleFilterChange("startDate", e.target.value)}
-                                className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                                className={`w-full border rounded-xl py-3.5 px-6 font-black text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700 shadow-inner'}`}
                             />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Processing End Date</label>
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Audit Horizon End</label>
                             <input
                                 type="date"
                                 value={filters.endDate}
                                 onChange={(e) => handleFilterChange("endDate", e.target.value)}
-                                className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                                className={`w-full border rounded-xl py-3.5 px-6 font-black text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700 shadow-inner'}`}
                             />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque Start Date</label>
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Cheque Issued Start</label>
                             <input
                                 type="date"
                                 value={filters.chequeStartDate}
                                 onChange={(e) => handleFilterChange("chequeStartDate", e.target.value)}
-                                className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                                className={`w-full border rounded-xl py-3.5 px-6 font-black text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700 shadow-inner'}`}
                             />
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque End Date</label>
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Cheque Issued End</label>
                             <input
                                 type="date"
                                 value={filters.chequeEndDate}
                                 onChange={(e) => handleFilterChange("chequeEndDate", e.target.value)}
-                                className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                                className={`w-full border rounded-xl py-3.5 px-6 font-black text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700 shadow-inner'}`}
                             />
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row gap-4 pt-6 border-t border-gray-800/50">
+                    <div className={`flex flex-col md:flex-row gap-6 pt-10 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                         <button
                             onClick={clearFilters}
-                            className={`flex-1 py-3 font-black uppercase text-xs tracking-widest rounded-xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-white' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200 hover:text-gray-900'}`}
+                            className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all border flex items-center justify-center gap-3 active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-500 border-gray-800 hover:text-white hover:bg-white/10 hover:border-gray-700' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200 hover:text-gray-900'}`}
                         >
-                            <FaTimes /> Clear All Filters
+                            <FaTimes size={12} /> Reset Parameters
                         </button>
                         <button
                             onClick={exportToExcel}
-                            className="flex-1 py-3 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/5"
+                            className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl shadow-xl shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-3"
                         >
-                            <FaDownload /> Export Management Data
+                            <FaDownload size={12} /> Export Intelligence Data
                         </button>
                     </div>
                 </div>
 
                 {/* Sub-search */}
-                <div className="relative group mb-8">
-                    <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-emerald-500' : 'text-gray-400 group-focus-within:text-emerald-600'}`} />
+                <div className="relative group mb-10">
+                    <FaSearch className={`absolute left-6 top-1/2 -translate-y-1/2 transition-colors duration-300 ${isDarkMode ? 'text-gray-700 group-focus-within:text-emerald-500' : 'text-gray-400 group-focus-within:text-emerald-600'}`} />
                     <input
                         type="text"
-                        placeholder="SUB-SEARCH BY NAME, ADMISSION NO, OR CHEQUE NUMBER..."
+                        placeholder="TRACING BY IDENTITY, ADMISSION SEQUENCE, OR INSTRUMENT NUMBER..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full border rounded-xl py-4 pl-12 pr-4 font-bold text-xs uppercase tracking-wider outline-none focus:border-emerald-500/50 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-200' : 'bg-white border-gray-200 text-gray-800 shadow-sm'}`}
+                        className={`w-full border rounded-3xl py-5 pl-16 pr-6 font-black text-[11px] uppercase tracking-[0.2em] outline-none focus:border-emerald-500/50 transition-all duration-500 shadow-2xl ${isDarkMode ? 'bg-white/5 border-gray-800 text-white placeholder:text-gray-700' : 'bg-white border-gray-200 text-gray-900 shadow-sm'}`}
                     />
                 </div>
 
                 {/* Table */}
-                <div className={`border rounded-[2rem] overflow-hidden shadow-2xl transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                <th className="p-6">Cheque Info</th>
-                                <th className="p-6">Student Details</th>
-                                <th className="p-6">Bank Name</th>
-                                <th className="p-6">Amount</th>
-                                <th className="p-6">Cheque Date</th>
-                                <th className="p-6">Cleared/Rejected Date</th>
-                                <th className="p-6">Status</th>
-                                <th className="p-6">Processed By</th>
-                                <th className="p-6 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="8" className="p-20 text-center">
-                                        <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
-                                    </td>
+                <div className={`border rounded-[3rem] overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.4)] transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-[0.25em] ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <th className="p-8">Instrument Info</th>
+                                    <th className="p-8">Entity Details</th>
+                                    <th className="p-8">Financial Node (Bank)</th>
+                                    <th className="p-8">Asset Value</th>
+                                    <th className="p-8">Issue Date</th>
+                                    <th className="p-8">Processing Timestamp</th>
+                                    <th className="p-8">Fiscal Status</th>
+                                    <th className="p-8">Authorized By</th>
+                                    <th className="p-8 text-right">Intervention</th>
                                 </tr>
-                            ) : filteredCheques.length === 0 ? (
-                                <tr>
-                                    <td colSpan="8" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
-                                        No cheques found in records
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredCheques.map((cheque) => (
-                                    <tr key={cheque.paymentId} className={`transition-colors group ${isDarkMode ? 'hover:bg-emerald-500/[0.02]' : 'hover:bg-emerald-500/[0.01]'}`}>
-                                        <td className="p-6">
-                                            <div className="text-cyan-500 font-black"># {cheque.chequeNumber || "N/A"}</div>
-                                            <div className="text-[9px] text-gray-500 font-bold uppercase mt-1">Ref: {cheque.paymentId.slice(-6)}</div>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className={`font-bold uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cheque.studentName}</div>
-                                            <div className="text-[10px] text-emerald-500/70 font-bold uppercase">{cheque.admissionNumber}</div>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{cheque.bankName || "N/A"}</div>
-                                            <div className="text-[9px] text-gray-500 uppercase mt-1">{cheque.centre}</div>
-                                        </td>
-                                        <td className={`p-6 font-black text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{cheque.amount.toLocaleString()}</td>
-                                        <td className={`p-6 font-bold text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                            {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
-                                        </td>
-                                        <td className={`p-6 font-bold text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                            {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}
-                                        </td>
-                                        <td className="p-6">{getStatusBadge(cheque.status)}</td>
-                                        <td className="p-6">
-                                            <div className="text-gray-500 font-black text-[10px] uppercase italic">
-                                                {cheque.status === "PAID" ? (cheque.processedBy || "System") : "---"}
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="9" className="p-32 text-center">
+                                            <div className="flex flex-col items-center gap-6">
+                                                <div className="w-16 h-16 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
+                                                <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em] italic animate-pulse">Syncing Fiscal Instruments...</p>
                                             </div>
                                         </td>
-                                        <td className="p-6 text-right">
-                                            {cheque.status === "PENDING_CLEARANCE" && canManageCheques && (
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setClearingId(cheque.paymentId);
-                                                            setClearDate(new Date().toISOString().split('T')[0]);
-                                                            setShowClearModal(true);
-                                                        }}
-                                                        className="px-4 py-2 bg-emerald-500/10 text-emerald-500 font-black text-[10px] uppercase rounded-lg hover:bg-emerald-500 hover:text-black transition-all border border-emerald-500/20"
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setRejectingId(cheque.paymentId);
-                                                            setRejectDate(new Date().toISOString().split('T')[0]);
-                                                            setShowRejectModal(true);
-                                                        }}
-                                                        className="px-4 py-2 bg-red-500/10 text-red-500 font-black text-[10px] uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
-                                                    >
-                                                        Bounce
-                                                    </button>
-                                                </div>
-                                            )}
+                                    </tr>
+                                ) : filteredCheques.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="9" className="p-32 text-center text-gray-600 font-black uppercase tracking-[0.4em] italic text-xs">
+                                            No matched instruments in local records
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : (
+                                    filteredCheques.map((cheque) => (
+                                        <tr key={cheque.paymentId} className={`transition-all group ${isDarkMode ? 'hover:bg-white/5 bg-transparent' : 'hover:bg-emerald-500/[0.02] bg-white'}`}>
+                                            <td className="p-8">
+                                                <div className="text-cyan-500 font-black font-mono text-base tracking-widest leading-none"># {cheque.chequeNumber || "N/A"}</div>
+                                                <div className="text-[9px] text-gray-500 font-black uppercase mt-2 italic tracking-widest">Protocol: {cheque.paymentId.slice(-6)}</div>
+                                            </td>
+                                            <td className="p-8">
+                                                <div className={`font-black uppercase italic tracking-tighter text-base leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cheque.studentName}</div>
+                                                <div className="text-[10px] text-emerald-500/70 font-black uppercase mt-1.5 tracking-widest italic">{cheque.admissionNumber}</div>
+                                            </td>
+                                            <td className="p-8">
+                                                <div className={`font-black text-[11px] uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{cheque.bankName || "UNDEFINED"}</div>
+                                                <div className="text-[9px] text-gray-500 uppercase mt-1.5 font-black tracking-widest italic">{cheque.centre}</div>
+                                            </td>
+                                            <td className={`p-8 font-black text-2xl tracking-tighter italic tabular-nums ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{cheque.amount.toLocaleString()}</td>
+                                            <td className={`p-8 font-black text-[11px] uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
+                                            </td>
+                                            <td className={`p-8 font-black text-[11px] uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}
+                                            </td>
+                                            <td className="p-8">{getStatusBadge(cheque.status)}</td>
+                                            <td className="p-8">
+                                                <div className="text-gray-500 font-black text-[10px] uppercase italic tracking-widest">
+                                                    {cheque.status === "PAID" ? (cheque.processedBy || "SYSTEM_NODE") : "---"}
+                                                </div>
+                                            </td>
+                                            <td className="p-8 text-right">
+                                                {cheque.status === "PENDING_CLEARANCE" && canManageCheques && (
+                                                    <div className="flex justify-end gap-3">
+                                                        <button
+                                                            onClick={() => {
+                                                                setClearingId(cheque.paymentId);
+                                                                setClearDate(new Date().toISOString().split('T')[0]);
+                                                                setShowClearModal(true);
+                                                            }}
+                                                            className="px-5 py-2.5 bg-emerald-500/10 text-emerald-500 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-500/20 active:scale-95 shadow-xl shadow-emerald-600/5"
+                                                        >
+                                                            Authorize
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setRejectingId(cheque.paymentId);
+                                                                setRejectDate(new Date().toISOString().split('T')[0]);
+                                                                setShowRejectModal(true);
+                                                            }}
+                                                            className="px-5 py-2.5 bg-red-500/10 text-red-500 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-600 hover:text-white transition-all border border-red-500/20 active:scale-95 shadow-xl shadow-red-500/5"
+                                                        >
+                                                            Flag Bounce
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {/* Reject Modal */}
                 {showRejectModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className={`border w-full max-w-md rounded-[2rem] overflow-hidden animate-in fade-in zoom-in duration-300 shadow-2xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                            <div className={`p-8 border-b flex items-center gap-4 bg-gradient-to-r from-red-500/10 to-transparent ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 text-xl">
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+                        <div className={`border w-full max-w-xl rounded-[3rem] overflow-hidden animate-in fade-in zoom-in-95 duration-300 shadow-[0_40px_100px_rgba(0,0,0,0.8)] ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-white border-gray-100'}`}>
+                            <div className={`p-10 border-b flex items-center gap-6 bg-gradient-to-r from-red-500/10 to-transparent ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <div className="w-16 h-16 rounded-3xl bg-red-500/20 flex items-center justify-center text-red-500 text-2xl shadow-inner">
                                     <FaExclamationTriangle />
                                 </div>
                                 <div>
-                                    <h2 className={`text-xl font-black italic uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Bounce Cheque</h2>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Provide a reason for rejection</p>
+                                    <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Bounce <span className="text-red-500">Protocol</span></h2>
+                                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Identify instrument failure parameters</p>
                                 </div>
                             </div>
-                            <div className="p-8">
-                                <div className="mb-4">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Rejected Date</label>
+                            <div className="p-10 space-y-8">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Failure Timestamp</label>
                                     <input
                                         type="date"
                                         value={rejectDate}
                                         onChange={(e) => setRejectDate(e.target.value)}
-                                        className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-red-500/50 transition-all uppercase mb-4 ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                                        className={`w-full border rounded-2xl py-4 px-6 font-black text-[11px] outline-none focus:border-red-500/50 transition-all uppercase [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700 shadow-inner'}`}
                                     />
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Reason</label>
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Reason for Rejection</label>
                                     <textarea
                                         value={rejectReason}
                                         onChange={(e) => setRejectReason(e.target.value)}
-                                        placeholder="e.g. Insufficient Funds, Signature Mismatch..."
-                                        className={`w-full border rounded-xl p-4 font-bold text-xs uppercase tracking-widest outline-none focus:border-red-500/50 transition-all min-h-[120px] resize-none ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-800'}`}
+                                        placeholder="E.G. INSUFFICIENT LIQUIDITY, SIGNATURE MISMATCH, INSTRUMENT STALE..."
+                                        className={`w-full border rounded-2xl p-6 font-black text-[11px] uppercase tracking-widest outline-none focus:border-red-500/50 transition-all min-h-[150px] resize-none ${isDarkMode ? 'bg-white/5 border-gray-800 text-white placeholder:text-gray-800' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                     />
                                 </div>
                             </div>
-                            <div className={`p-8 border-t flex gap-4 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <div className={`p-10 border-t flex gap-6 ${isDarkMode ? 'bg-white/[0.02] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                 <button
                                     onClick={() => {
                                         setShowRejectModal(false);
                                         setRejectReason("");
                                     }}
-                                    className={`flex-1 py-3 font-black uppercase text-xs tracking-widest rounded-xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                                    className={`flex-1 py-5 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all active:scale-95 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-100 shadow-sm'}`}
                                 >
-                                    Cancel
+                                    Abort
                                 </button>
                                 <button
                                     onClick={handleRejectCheque}
-                                    className="flex-1 py-3 bg-red-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-red-400 transition-all shadow-lg shadow-red-500/20"
+                                    className="flex-1 py-5 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl hover:bg-red-500 transition-all shadow-2xl shadow-red-600/30 active:scale-95"
                                 >
                                     Confirm Bounce
                                 </button>
@@ -629,43 +631,43 @@ const ChequeManagement = () => {
 
                 {/* Clear Modal */}
                 {showClearModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className={`border w-full max-w-md rounded-[2rem] overflow-hidden animate-in fade-in zoom-in duration-300 shadow-2xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                            <div className={`p-8 border-b flex items-center gap-4 bg-gradient-to-r from-emerald-500/10 to-transparent ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 text-xl">
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+                        <div className={`border w-full max-w-xl rounded-[3rem] overflow-hidden animate-in fade-in zoom-in-95 duration-300 shadow-[0_40px_100px_rgba(0,0,0,0.8)] ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-white border-gray-100'}`}>
+                            <div className={`p-10 border-b flex items-center gap-6 bg-gradient-to-r from-emerald-500/10 to-transparent ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 flex items-center justify-center text-emerald-500 text-2xl shadow-inner">
                                     <FaCheckCircle />
                                 </div>
                                 <div>
-                                    <h2 className={`text-xl font-black italic uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Clear Cheque</h2>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Confirm clearing details</p>
+                                    <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Asset <span className="text-emerald-500">Authorization</span></h2>
+                                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Confirm final instrument clearance</p>
                                 </div>
                             </div>
-                            <div className="p-8">
-                                <div className="mb-4">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cleared Date</label>
+                            <div className="p-10">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Liquidity Clearing Timestamp</label>
                                     <input
                                         type="date"
                                         value={clearDate}
                                         onChange={(e) => setClearDate(e.target.value)}
-                                        className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? 'bg-black/40 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                                        className={`w-full border rounded-2xl py-4 px-6 font-black text-[11px] outline-none focus:border-emerald-500/50 transition-all uppercase [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700 shadow-inner'}`}
                                     />
                                 </div>
                             </div>
-                            <div className={`p-8 border-t flex gap-4 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <div className={`p-10 border-t flex gap-6 ${isDarkMode ? 'bg-white/[0.02] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                 <button
                                     onClick={() => {
                                         setShowClearModal(false);
                                         setClearDate(new Date().toISOString().split('T')[0]);
                                     }}
-                                    className={`flex-1 py-3 font-black uppercase text-xs tracking-widest rounded-xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                                    className={`flex-1 py-5 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all active:scale-95 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-100 shadow-sm'}`}
                                 >
-                                    Cancel
+                                    Abort
                                 </button>
                                 <button
                                     onClick={handleClearCheque}
-                                    className="flex-1 py-3 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+                                    className="flex-1 py-5 bg-emerald-600 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl hover:bg-emerald-500 transition-all shadow-2xl shadow-emerald-600/30 active:scale-95"
                                 >
-                                    Confirm Clear
+                                    Authorize Clear
                                 </button>
                             </div>
                         </div>

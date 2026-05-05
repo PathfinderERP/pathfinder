@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp, FaSearch } from "react-icons/fa";
-import { toast } from "react-toastify";
+import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp, FaSearch, FaSync, FaTimes, FaCoins, FaReceipt } from "react-icons/fa";
+import { toast, ToastContainer } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useTheme } from "../../context/ThemeContext";
@@ -81,10 +81,12 @@ const TransactionList = () => {
             if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
                 setIsStatusDropdownOpen(false);
             }
+            if (centreDropdownRef.current && !centreDropdownRef.current.contains(event.target)) {
+                setIsCentreDropdownOpen(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -99,7 +101,6 @@ const TransactionList = () => {
         }, 500);
 
         return () => clearTimeout(debounce);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCentres, selectedCourses, selectedExamTag, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm, selectedStatus]);
 
     // ---- API Calls ----
@@ -143,7 +144,6 @@ const TransactionList = () => {
             const now = new Date();
             let start, end;
 
-            // Financial Year Calculation
             const currentMonth = now.getMonth();
             const currentYear = now.getFullYear();
             const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
@@ -179,7 +179,6 @@ const TransactionList = () => {
             if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
             if (selectedExamTag) params.append("examTagId", selectedExamTag);
 
-            // New Filters
             if (selectedPaymentMode.length > 0) params.append("paymentMode", selectedPaymentMode.join(","));
             if (selectedTransactionType.length > 0) params.append("transactionType", selectedTransactionType.join(","));
             if (selectedStatus.length > 0) params.append("status", selectedStatus.join(","));
@@ -212,7 +211,7 @@ const TransactionList = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setTimePeriod("All Time");
+        setTimePeriod("This Month");
         setStartDate("");
         setEndDate("");
         setSelectedPaymentMode([]);
@@ -225,17 +224,15 @@ const TransactionList = () => {
         setCentreSearch("");
         setDepartmentSearch("");
         setBillFilter("all");
-        toast.info("Filters reset");
+        toast.info("Filters reset to monthly default");
     };
 
-    // --- Derived filtered data (client-side bill filter: all / no_bill / with_bill) ---
     const filteredReport = billFilter === "no_bill"
         ? detailedReport.filter(item => !item.receiptNo || item.receiptNo === "-" || item.receiptNo.trim() === "")
         : billFilter === "with_bill"
             ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.trim() !== "")
             : detailedReport;
 
-    // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
     const dynamicSelectionTotalWithGst = filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0);
     const dynamicSelectionTotalBase = filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0);
 
@@ -298,39 +295,16 @@ const TransactionList = () => {
                 ? `Only_Bills_${new Date().toISOString().slice(0, 10)}.xlsx`
                 : `Transaction_List_${new Date().toISOString().slice(0, 10)}.xlsx`;
         saveAs(blob, fileName);
+        toast.success("Financial report exported successfully");
     };
 
-    const toggleCentreSelection = (id) => {
-        setSelectedCentres(prev =>
+    const toggleSelection = (id, stateSetter) => {
+        stateSetter(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         );
     };
 
-    const togglePaymentModeSelection = (id) => {
-        setSelectedPaymentMode(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
-    const toggleTransactionTypeSelection = (id) => {
-        setSelectedTransactionType(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
-    const toggleDepartmentSelection = (id) => {
-        setSelectedDepartments(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
-    const toggleStatusSelection = (id) => {
-        setSelectedStatus(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
-    // Pagination Logic (uses filteredReport so No Bill filter affects pagination too)
+    // Pagination Logic
     const totalPages = Math.ceil(filteredReport.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -343,10 +317,6 @@ const TransactionList = () => {
         }
     };
 
-    const handlePageInputChange = (e) => {
-        setPageInput(e.target.value);
-    };
-
     const handlePageInputSubmit = (e) => {
         e.preventDefault();
         const pageNum = parseInt(pageInput);
@@ -354,458 +324,420 @@ const TransactionList = () => {
             setCurrentPage(pageNum);
         } else {
             setPageInput(currentPage.toString());
-            toast.error(`Please enter a page number between 1 and ${totalPages}`);
+            toast.error(`Boundary Error: Value must be 1-${totalPages}`);
         }
     };
 
-    const handleItemsPerPageChange = (e) => {
-        setItemsPerPage(parseInt(e.target.value));
-        setCurrentPage(1);
-        setPageInput("1");
-    };
-
-    // Calculate Stats
-    // Revenue logic can be expanded if needed (Current Year, Month, etc.)
-    // For now, let's show "Current Selection Revenue" like in the screenshot concept or simply Total Revenue
-
     return (
         <Layout activePage="Finance & Fees">
-            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-all duration-500 space-y-6 animate-fade-in ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-all duration-500 space-y-10 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
+                <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
 
-                {/* Stats Cards Row (Optional - based on user preference for "Transaction List" page) */}
-                {/* The user screenshot shows stats cards at the top */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 flex items-center justify-between col-span-1 md:col-span-1">
-                        <div className="text-right flex-1">
-                            <div className="flex flex-col border-b border-gray-700 pb-2 mb-2">
-                                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-tighter">Selection Total (With GST)</span>
-                                <h3 className="text-xl font-black text-white leading-none">Rs.{dynamicSelectionTotalWithGst ? dynamicSelectionTotalWithGst.toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Selection Revenue (Base)</span>
-                                <h3 className="text-xl font-black text-gray-300 leading-none">Rs.{dynamicSelectionTotalBase ? Math.round(dynamicSelectionTotalBase).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <p className="text-[9px] text-cyan-500 uppercase font-black tracking-[0.2em] mt-3 bg-cyan-500/10 px-2 py-0.5 rounded-full inline-block">MATCHED TOTAL</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                        <div>
-                            <div className="bg-green-100 text-green-600 p-3 rounded-lg">
-                                <FaChartBar size={24} />
-                            </div>
-                        </div>
-                        <div className="text-right flex-1">
-                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
-                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.currentYear ? stats.currentYear.toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-green-400 uppercase tracking-tighter">Revenue (Base)</span>
-                                <h3 className="text-lg font-black text-green-600 leading-none">Rs.{stats.currentYearRevenue ? Math.round(stats.currentYearRevenue).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.currentYearLabel} FISCAL</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                        <div>
-                            <div className="bg-purple-100 text-purple-600 p-3 rounded-lg">
-                                <FaChartBar size={24} />
-                            </div>
-                        </div>
-                        <div className="text-right flex-1">
-                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
-                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.previousMonth ? stats.previousMonth.toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-purple-400 uppercase tracking-tighter">Revenue (Base)</span>
-                                <h3 className="text-lg font-black text-purple-600 leading-none">Rs.{stats.previousMonthRevenue ? Math.round(stats.previousMonthRevenue).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.previousMonthLabel}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                        <div>
-                            <div className="bg-orange-100 text-orange-600 p-3 rounded-lg">
-                                <FaChartBar size={24} />
-                            </div>
-                        </div>
-                        <div className="text-right flex-1">
-                            <div className="flex flex-col border-b border-gray-100 pb-2 mb-2">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total (With GST)</span>
-                                <h3 className="text-lg font-black text-gray-900 leading-none">Rs.{stats.currentMonth ? stats.currentMonth.toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">Revenue (Base)</span>
-                                <h3 className="text-lg font-black text-blue-600 leading-none">Rs.{stats.currentMonthRevenue ? Math.round(stats.currentMonthRevenue).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em] mt-3 bg-gray-50 px-2 py-0.5 rounded-full inline-block">{stats.currentMonthLabel}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Filters Row */}
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center gap-4">
-                    {/* Centre Logic Reuse */}
-                    <div className="relative" ref={centreDropdownRef}>
-                        <div
-                            onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                            className="min-w-[200px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
-                        >
-                            <span className="truncate">
-                                {selectedCentres.length === 0 ? "-Select Center-" : `${selectedCentres.length} Selected`}
+                {/* Header Section */}
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+                    <div>
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <span className="p-3 bg-cyan-500/10 rounded-2xl text-cyan-500 shadow-inner border border-cyan-500/20">
+                                <FaReceipt size={28} />
                             </span>
-                            <FaChevronDown size={10} className={`transform transition-transform ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
-                        </div>
-                        {isCentreDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-64 z-[9999] bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden">
-                                <div className="p-2 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
-                                    <div className="relative">
-                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search Centre..."
-                                            value={centreSearch}
-                                            onChange={(e) => setCentreSearch(e.target.value)}
-                                            className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:border-blue-500 outline-none font-bold uppercase"
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
-                                    {centres
-                                        .filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase()))
-                                        .map(c => (
-                                            <div
-                                                key={c._id}
-                                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 transition-colors border-b border-gray-50 last:border-0"
-                                                onClick={() => toggleCentreSelection(c._id)}
-                                            >
-                                                <input type="checkbox" checked={selectedCentres.includes(c._id)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" />
-                                                <span className="text-xs text-gray-700 truncate font-bold uppercase">{c.centreName}</span>
-                                            </div>
-                                        ))}
-                                    {centres.filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase())).length === 0 && (
-                                        <div className="p-4 text-center text-[10px] text-gray-400 font-black uppercase">No centres matched</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                            Transaction <span className="text-cyan-500">Archive</span>
+                        </h1>
+                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-2 italic">Global ledger mapping & historical instrument tracing</p>
                     </div>
 
-                    {/* Payment Mode */}
-                    {/* Payment Mode */}
-                    <div className="relative" ref={paymentDropdownRef}>
-                        <div
-                            onClick={() => setIsPaymentDropdownOpen(!isPaymentDropdownOpen)}
-                            className="min-w-[200px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
+                    <div className="flex gap-4">
+                        <button
+                            onClick={handleDownloadExcel}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3.5 rounded-2xl font-black transition-all shadow-xl shadow-emerald-600/20 flex items-center gap-3 uppercase text-[10px] tracking-widest active:scale-95"
                         >
-                            <span className="truncate">
-                                {selectedPaymentMode.length === 0 ? "-Select Payment Mode-" : `${selectedPaymentMode.length} Selected`}
-                            </span>
-                            <FaChevronDown size={10} className={`transform transition-transform ${isPaymentDropdownOpen ? 'rotate-180' : ''}`} />
-                        </div>
-                        {isPaymentDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-60 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"].map(mode => (
-                                    <div
-                                        key={mode}
-                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
-                                        onClick={() => togglePaymentModeSelection(mode)}
-                                    >
-                                        <input type="checkbox" checked={selectedPaymentMode.includes(mode)} readOnly className="rounded" />
-                                        <span className="text-sm text-gray-700 truncate">{mode}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Transaction Type (MultiSelect) */}
-                    <div className="relative" ref={typeDropdownRef}>
-                        <div
-                            onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
-                            className="min-w-[200px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
-                        >
-                            <span className="truncate">
-                                {selectedTransactionType.length === 0 ? "-Select Type-" : `${selectedTransactionType.length} Selected`}
-                            </span>
-                            <FaChevronDown size={10} className={`transform transition-transform ${isTypeDropdownOpen ? 'rotate-180' : ''}`} />
-                        </div>
-                        {isTypeDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-60 z-50 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                {["Initial", "EMI"].map(type => (
-                                    <div
-                                        key={type}
-                                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
-                                        onClick={() => toggleTransactionTypeSelection(type)}
-                                    >
-                                        <input type="checkbox" checked={selectedTransactionType.includes(type)} readOnly className="rounded" />
-                                        <span className="text-sm text-gray-700 truncate">{type}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Department (MultiSelect) */}
-                    <div className="relative" ref={departmentDropdownRef}>
-                        <div
-                            onClick={() => setIsDepartmentDropdownOpen(!isDepartmentDropdownOpen)}
-                            className="min-w-[200px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
-                        >
-                            <span className="truncate">
-                                {selectedDepartments.length === 0 ? "-Select Department-" : `${selectedDepartments.length} Selected`}
-                            </span>
-                            <FaChevronDown size={10} className={`transform transition-transform ${isDepartmentDropdownOpen ? 'rotate-180' : ''}`} />
-                        </div>
-                        {isDepartmentDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-64 z-[9999] bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden">
-                                <div className="p-2 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
-                                    <div className="relative">
-                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search Department..."
-                                            value={departmentSearch}
-                                            onChange={(e) => setDepartmentSearch(e.target.value)}
-                                            className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:border-blue-500 outline-none font-bold uppercase"
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
-                                    {departments
-                                        .filter(d => d.departmentName.toLowerCase().includes(departmentSearch.toLowerCase()))
-                                        .map(d => (
-                                            <div
-                                                key={d._id}
-                                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 transition-colors border-b border-gray-50 last:border-0"
-                                                onClick={() => toggleDepartmentSelection(d._id)}
-                                            >
-                                                <input type="checkbox" checked={selectedDepartments.includes(d._id)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" />
-                                                <span className="text-xs text-gray-700 truncate font-bold uppercase">{d.departmentName}</span>
-                                            </div>
-                                        ))}
-                                    {departments.filter(d => d.departmentName.toLowerCase().includes(departmentSearch.toLowerCase())).length === 0 && (
-                                        <div className="p-4 text-center text-[10px] text-gray-400 font-black uppercase">No departments matched</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Status (MultiSelect) */}
-                    <div className="relative" ref={statusDropdownRef}>
-                        <div
-                            onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                            className="min-w-[180px] h-10 px-3 py-2 bg-white border border-gray-300 rounded-md cursor-pointer flex justify-between items-center text-sm text-gray-700 hover:border-blue-500 transition-colors"
-                        >
-                            <span className="truncate">
-                                {selectedStatus.length === 0 ? "-Select Status-" : `${selectedStatus.length} Selected`}
-                            </span>
-                            <FaChevronDown size={10} className={`transform transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
-                        </div>
-                        {isStatusDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-60 z-[9999] bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden">
-                                <div className="p-2 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Filter By Status</span>
-                                </div>
-                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
-                                    {["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED", "CANCELLED", "PENDING", "OVERDUE"].map(status => (
-                                        <div
-                                            key={status}
-                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2 transition-colors border-b border-gray-50 last:border-0"
-                                            onClick={() => toggleStatusSelection(status)}
-                                        >
-                                            <input type="checkbox" checked={selectedStatus.includes(status)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" />
-                                            <span className="text-xs text-gray-700 truncate font-bold uppercase">{status.replace('_', ' ')}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Bill Filter Segmented Control */}
-                    <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden text-xs font-black uppercase tracking-widest">
-                        {[
-                            { key: "all", label: "All", color: "bg-gray-700 text-white", hover: "hover:bg-gray-100" },
-                            { key: "no_bill", label: "No Bill No.", color: "bg-red-500 text-white", hover: "hover:bg-red-50 hover:text-red-600" },
-                            { key: "with_bill", label: "Only Bills", color: "bg-green-500 text-white", hover: "hover:bg-green-50 hover:text-green-600" }
-                        ].map(({ key, label, color, hover }, i) => (
-                            <button
-                                key={key}
-                                onClick={() => { setBillFilter(key); setCurrentPage(1); setPageInput("1"); }}
-                                className={`px-4 py-2 transition-all duration-150 ${billFilter === key
-                                    ? color
-                                    : `bg-white text-gray-500 ${hover}`
-                                    } ${i > 0 ? "border-l border-gray-300" : ""}`}
-                            >
-                                {label}
-                                {billFilter === key && billFilter !== "all" && (
-                                    <span className="ml-1.5 bg-white/30 px-1 py-0.5 rounded-full text-[9px]">
-                                        {filteredReport.length}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-
-                    <button
-                        onClick={handleDownloadExcel}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-bold transition-colors shadow-sm flex items-center gap-2 uppercase text-sm tracking-wide ml-auto"
-                    >
-                        Export
-                    </button>
-
-                </div>
-
-                {/* Date & Amount Filter Row */}
-                <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-200">
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100 flex-1 min-w-[300px]">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Duration:</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => { setTimePeriod("Custom"); setStartDate(e.target.value); }}
-                                className="outline-none text-sm text-gray-700 w-full bg-transparent"
-                            />
-                            <span className="text-gray-400 font-bold">-to-</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => { setTimePeriod("Custom"); setEndDate(e.target.value); }}
-                                className="outline-none text-sm text-gray-700 w-full bg-transparent"
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100 flex-1 min-w-[300px]">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Amount:</span>
-                            <input
-                                type="number"
-                                placeholder="Min"
-                                value={minAmount}
-                                onChange={(e) => setMinAmount(e.target.value)}
-                                className="w-full bg-transparent border-none text-sm text-gray-700 outline-none font-bold"
-                            />
-                            <span className="text-gray-300">|</span>
-                            <input
-                                type="number"
-                                placeholder="Max"
-                                value={maxAmount}
-                                onChange={(e) => setMaxAmount(e.target.value)}
-                                className="w-full bg-transparent border-none text-sm text-gray-700 outline-none font-bold"
-                            />
-                        </div>
-
-                        <button onClick={handleResetFilters} className="text-red-500 hover:text-red-700 font-bold text-xs uppercase tracking-widest whitespace-nowrap ml-auto px-4">
-                            Reset Filters
+                            <FaDownload size={14} /> EXPORT LEDGER
                         </button>
                     </div>
                 </div>
 
-                {/* Search Row */}
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                {/* Metrics Matrix */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    <div className={`p-8 rounded-[2rem] border relative overflow-hidden transition-all duration-500 group ${isDarkMode ? 'bg-white/5 border-gray-800 shadow-2xl shadow-black/40' : 'bg-gradient-to-br from-cyan-600 to-cyan-400 border-cyan-500 shadow-xl shadow-cyan-500/20'}`}>
+                        <div className="relative z-10">
+                            <div className="flex flex-col border-b pb-4 mb-4 border-white/10">
+                                <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 ${isDarkMode ? 'text-cyan-400' : 'text-white/60'}`}>Matched Asset Value</span>
+                                <h3 className={`text-3xl font-black leading-none italic tabular-nums tracking-tighter ${isDarkMode ? 'text-white' : 'text-white'}`}>₹{dynamicSelectionTotalWithGst.toLocaleString('en-IN')}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-400' : 'text-white/40'}`}>Revenue (Base)</span>
+                                <h3 className={`text-xl font-black leading-none tabular-nums tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-white/80'}`}>₹{Math.round(dynamicSelectionTotalBase).toLocaleString('en-IN')}</h3>
+                            </div>
+                            <p className={`text-[9px] uppercase font-black tracking-[0.3em] mt-6 px-3 py-1 rounded-full inline-block ${isDarkMode ? 'text-cyan-500 bg-cyan-500/10' : 'text-cyan-900 bg-white/20'}`}>SELECTION_TOTAL</p>
+                        </div>
+                        <FaCoins className="absolute -bottom-4 -right-4 text-white/5 text-8xl transform -rotate-12 group-hover:scale-110 transition-transform duration-500" />
+                    </div>
+
+                    <div className={`p-8 rounded-[2rem] border relative overflow-hidden transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800 shadow-2xl shadow-black/40' : 'bg-white border-gray-100 shadow-sm'}`}>
+                        <div className="relative z-10">
+                            <div className="flex flex-col border-b pb-4 mb-4 border-gray-800/10">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Fiscal Asset Mapping</span>
+                                <h3 className={`text-3xl font-black leading-none italic tabular-nums tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{stats.currentYear.toLocaleString('en-IN')}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-1">Asset Growth</span>
+                                <h3 className="text-xl font-black text-emerald-600 leading-none tabular-nums tracking-tighter">₹{Math.round(stats.currentYearRevenue).toLocaleString('en-IN')}</h3>
+                            </div>
+                            <p className={`text-[9px] uppercase font-black tracking-[0.3em] mt-6 px-3 py-1 rounded-full inline-block ${isDarkMode ? 'text-gray-500 bg-white/5' : 'text-gray-400 bg-gray-50'}`}>{stats.currentYearLabel} FISCAL_CYCLE</p>
+                        </div>
+                        <FaChartBar className="absolute -bottom-4 -right-4 text-gray-500/5 text-8xl transform rotate-12" />
+                    </div>
+
+                    <div className={`p-8 rounded-[2rem] border relative overflow-hidden transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800 shadow-2xl shadow-black/40' : 'bg-white border-gray-100 shadow-sm'}`}>
+                        <div className="relative z-10">
+                            <div className="flex flex-col border-b pb-4 mb-4 border-gray-800/10">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Historical Cycle</span>
+                                <h3 className={`text-3xl font-black leading-none italic tabular-nums tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{stats.previousMonth.toLocaleString('en-IN')}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] mb-1">Archived Revenue</span>
+                                <h3 className="text-xl font-black text-purple-600 leading-none tabular-nums tracking-tighter">₹{Math.round(stats.previousMonthRevenue).toLocaleString('en-IN')}</h3>
+                            </div>
+                            <p className={`text-[9px] uppercase font-black tracking-[0.3em] mt-6 px-3 py-1 rounded-full inline-block ${isDarkMode ? 'text-gray-500 bg-white/5' : 'text-gray-400 bg-gray-50'}`}>{stats.previousMonthLabel.toUpperCase()}</p>
+                        </div>
+                        <FaChartBar className="absolute -bottom-4 -right-4 text-gray-500/5 text-8xl transform rotate-12" />
+                    </div>
+
+                    <div className={`p-8 rounded-[2rem] border relative overflow-hidden transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800 shadow-2xl shadow-black/40' : 'bg-white border-gray-100 shadow-sm'}`}>
+                        <div className="relative z-10">
+                            <div className="flex flex-col border-b pb-4 mb-4 border-gray-800/10">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Current Active Cycle</span>
+                                <h3 className={`text-3xl font-black leading-none italic tabular-nums tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{stats.currentMonth.toLocaleString('en-IN')}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-1">Real-time Inflow</span>
+                                <h3 className="text-xl font-black text-blue-600 leading-none tabular-nums tracking-tighter">₹{Math.round(stats.currentMonthRevenue).toLocaleString('en-IN')}</h3>
+                            </div>
+                            <p className={`text-[9px] uppercase font-black tracking-[0.3em] mt-6 px-3 py-1 rounded-full inline-block ${isDarkMode ? 'text-gray-500 bg-white/5' : 'text-gray-400 bg-gray-50'}`}>{stats.currentMonthLabel.toUpperCase()}</p>
+                        </div>
+                        <FaChartBar className="absolute -bottom-4 -right-4 text-gray-500/5 text-8xl transform rotate-12" />
+                    </div>
+                </div>
+
+                {/* Filter Matrix */}
+                <div className={`p-8 rounded-[2.5rem] border shadow-[0_30px_60px_rgba(0,0,0,0.3)] space-y-8 transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                    <div className="flex flex-wrap items-center gap-6">
+                        {/* Centres Dropdown */}
+                        <div className="relative group" ref={centreDropdownRef}>
+                            <div
+                                onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
+                                className={`min-w-[240px] px-6 py-4 rounded-2xl border cursor-pointer flex justify-between items-center transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-200 hover:border-cyan-500 shadow-inner'}`}
+                            >
+                                <span className={`text-[10px] font-black uppercase tracking-widest truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {selectedCentres.length === 0 ? "FILTER: GLOBAL CENTRES" : `${selectedCentres.length} NODES SELECTED`}
+                                </span>
+                                <FaChevronDown size={10} className={`text-cyan-500 transition-transform duration-300 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                            {isCentreDropdownOpen && (
+                                <div className={`absolute top-full left-0 mt-3 w-80 z-[100] border rounded-[2rem] shadow-[0_40px_80px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <div className={`p-4 border-b sticky top-0 z-10 ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-gray-50'}`}>
+                                        <div className="relative">
+                                            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-[10px]" />
+                                            <input
+                                                type="text"
+                                                placeholder="Trace Centre Node..."
+                                                value={centreSearch}
+                                                onChange={(e) => setCentreSearch(e.target.value)}
+                                                className={`w-full pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest border rounded-xl outline-none transition-all ${isDarkMode ? 'bg-black/20 border-gray-700 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-80 custom-scrollbar p-2">
+                                        {centres
+                                            .filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase()))
+                                            .map(c => (
+                                                <div
+                                                    key={c._id}
+                                                    className={`px-5 py-4 cursor-pointer flex items-center gap-4 rounded-xl transition-all mb-1 ${selectedCentres.includes(c._id) ? 'bg-cyan-500/10' : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}
+                                                    onClick={() => toggleSelection(c._id, setSelectedCentres)}
+                                                >
+                                                    <div className={`w-4 h-4 rounded-lg border transition-all ${selectedCentres.includes(c._id) ? 'bg-cyan-500 border-cyan-500 shadow-lg shadow-cyan-500/30' : (isDarkMode ? 'border-gray-700' : 'border-gray-300 shadow-inner')}`}>
+                                                        {selectedCentres.includes(c._id) && <div className="w-full h-full flex items-center justify-center text-white text-[8px] font-black">✓</div>}
+                                                    </div>
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest truncate ${selectedCentres.includes(c._id) ? 'text-cyan-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-600')}`}>{c.centreName}</span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Payment Mode */}
+                        <div className="relative" ref={paymentDropdownRef}>
+                            <div
+                                onClick={() => setIsPaymentDropdownOpen(!isPaymentDropdownOpen)}
+                                className={`min-w-[220px] px-6 py-4 rounded-2xl border cursor-pointer flex justify-between items-center transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-200 hover:border-cyan-500 shadow-inner'}`}
+                            >
+                                <span className={`text-[10px] font-black uppercase tracking-widest truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {selectedPaymentMode.length === 0 ? "PARAM: PAYMENT_MODE" : `${selectedPaymentMode.length} MODES`}
+                                </span>
+                                <FaChevronDown size={10} className={`text-cyan-500 transition-transform duration-300 ${isPaymentDropdownOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                            {isPaymentDropdownOpen && (
+                                <div className={`absolute top-full left-0 mt-3 w-64 z-[100] border rounded-[2rem] shadow-[0_40px_80px_rgba(0,0,0,0.8)] p-2 animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"].map(mode => (
+                                        <div
+                                            key={mode}
+                                            className={`px-5 py-4 cursor-pointer flex items-center gap-4 rounded-xl transition-all mb-1 ${selectedPaymentMode.includes(mode) ? 'bg-cyan-500/10' : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}
+                                            onClick={() => toggleSelection(mode, setSelectedPaymentMode)}
+                                        >
+                                            <div className={`w-4 h-4 rounded-lg border transition-all ${selectedPaymentMode.includes(mode) ? 'bg-cyan-500 border-cyan-500 shadow-lg shadow-cyan-500/30' : (isDarkMode ? 'border-gray-700' : 'border-gray-300 shadow-inner')}`}>
+                                                {selectedPaymentMode.includes(mode) && <div className="w-full h-full flex items-center justify-center text-white text-[8px] font-black">✓</div>}
+                                            </div>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${selectedPaymentMode.includes(mode) ? 'text-cyan-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-600')}`}>{mode}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Transaction Type */}
+                        <div className="relative" ref={typeDropdownRef}>
+                            <div
+                                onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
+                                className={`min-w-[200px] px-6 py-4 rounded-2xl border cursor-pointer flex justify-between items-center transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-200 hover:border-cyan-500 shadow-inner'}`}
+                            >
+                                <span className={`text-[10px] font-black uppercase tracking-widest truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {selectedTransactionType.length === 0 ? "PARAM: TYPE" : `${selectedTransactionType.length} TYPES`}
+                                </span>
+                                <FaChevronDown size={10} className={`text-cyan-500 transition-transform duration-300 ${isTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                            {isTypeDropdownOpen && (
+                                <div className={`absolute top-full left-0 mt-3 w-60 z-[100] border rounded-[2rem] shadow-[0_40px_80px_rgba(0,0,0,0.8)] p-2 animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    {["Initial", "EMI"].map(type => (
+                                        <div
+                                            key={type}
+                                            className={`px-5 py-4 cursor-pointer flex items-center gap-4 rounded-xl transition-all mb-1 ${selectedTransactionType.includes(type) ? 'bg-cyan-500/10' : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}
+                                            onClick={() => toggleSelection(type, setSelectedTransactionType)}
+                                        >
+                                            <div className={`w-4 h-4 rounded-lg border transition-all ${selectedTransactionType.includes(type) ? 'bg-cyan-500 border-cyan-500 shadow-lg shadow-cyan-500/30' : (isDarkMode ? 'border-gray-700' : 'border-gray-300 shadow-inner')}`}>
+                                                {selectedTransactionType.includes(type) && <div className="w-full h-full flex items-center justify-center text-white text-[8px] font-black">✓</div>}
+                                            </div>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${selectedTransactionType.includes(type) ? 'text-cyan-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-600')}`}>{type}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="relative" ref={statusDropdownRef}>
+                            <div
+                                onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                                className={`min-w-[200px] px-6 py-4 rounded-2xl border cursor-pointer flex justify-between items-center transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-200 hover:border-cyan-500 shadow-inner'}`}
+                            >
+                                <span className={`text-[10px] font-black uppercase tracking-widest truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {selectedStatus.length === 0 ? "FILTER: STATUS" : `${selectedStatus.length} STATUSES`}
+                                </span>
+                                <FaChevronDown size={10} className={`text-cyan-500 transition-transform duration-300 ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                            {isStatusDropdownOpen && (
+                                <div className={`absolute top-full left-0 mt-3 w-72 z-[100] border rounded-[2rem] shadow-[0_40px_80px_rgba(0,0,0,0.8)] p-2 animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <div className="p-4 border-b border-gray-800/10 mb-2">
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Archival Status Mapping</span>
+                                    </div>
+                                    <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                                        {["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED", "CANCELLED", "PENDING", "OVERDUE"].map(status => (
+                                            <div
+                                                key={status}
+                                                className={`px-5 py-4 cursor-pointer flex items-center gap-4 rounded-xl transition-all mb-1 ${selectedStatus.includes(status) ? 'bg-cyan-500/10' : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50')}`}
+                                                onClick={() => toggleSelection(status, setSelectedStatus)}
+                                            >
+                                                <div className={`w-4 h-4 rounded-lg border transition-all ${selectedStatus.includes(status) ? 'bg-cyan-500 border-cyan-500 shadow-lg shadow-cyan-500/30' : (isDarkMode ? 'border-gray-700' : 'border-gray-300 shadow-inner')}`}>
+                                                    {selectedStatus.includes(status) && <div className="w-full h-full flex items-center justify-center text-white text-[8px] font-black">✓</div>}
+                                                </div>
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${selectedStatus.includes(status) ? 'text-cyan-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-600')}`}>{status.replace('_', ' ')}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bill Filter Segment */}
+                        <div className={`flex items-center rounded-2xl border overflow-hidden p-1.5 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-100 border-gray-200 shadow-inner'}`}>
+                            {[
+                                { key: "all", label: "UNIVERSE", color: "bg-gray-700 text-white" },
+                                { key: "no_bill", label: "NO_RECEIPT", color: "bg-red-600 text-white shadow-lg shadow-red-500/20" },
+                                { key: "with_bill", label: "RECEIPTED", color: "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" }
+                            ].map(({ key, label, color }, i) => (
+                                <button
+                                    key={key}
+                                    onClick={() => { setBillFilter(key); setCurrentPage(1); setPageInput("1"); }}
+                                    className={`px-6 py-2.5 rounded-xl transition-all duration-500 text-[9px] font-black uppercase tracking-[0.2em] relative ${billFilter === key
+                                        ? color
+                                        : `${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`
+                                        }`}
+                                >
+                                    {label}
+                                    {billFilter === key && billFilter !== "all" && (
+                                        <span className="ml-2 bg-white/20 px-1.5 py-0.5 rounded-full text-[8px] font-black">
+                                            {filteredReport.length}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className={`pt-8 border-t flex flex-col xl:flex-row gap-6 items-center justify-between ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                        <div className="flex flex-wrap items-center gap-6 flex-1 w-full">
+                            <div className={`flex items-center gap-4 px-6 py-3 rounded-2xl border flex-1 min-w-[350px] transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
+                                <FaCalendarAlt className="text-cyan-500 text-sm" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest italic">Temporal Horizon:</span>
+                                <div className="flex items-center gap-3 flex-1">
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => { setTimePeriod("Custom"); setStartDate(e.target.value); }}
+                                        className={`outline-none text-[10px] font-black uppercase w-full bg-transparent [color-scheme:dark] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                                    />
+                                    <span className="text-gray-700 font-black">---</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => { setTimePeriod("Custom"); setEndDate(e.target.value); }}
+                                        className={`outline-none text-[10px] font-black uppercase w-full bg-transparent [color-scheme:dark] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className={`flex items-center gap-4 px-6 py-3 rounded-2xl border flex-1 min-w-[300px] transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
+                                <FaCoins className="text-cyan-500 text-sm" />
+                                <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest italic">Asset Range:</span>
+                                <div className="flex items-center gap-3 flex-1">
+                                    <input
+                                        type="number"
+                                        placeholder="MIN"
+                                        value={minAmount}
+                                        onChange={(e) => setMinAmount(e.target.value)}
+                                        className={`w-full bg-transparent border-none text-[10px] font-black outline-none placeholder:text-gray-700 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                                    />
+                                    <span className="text-gray-700 font-black">|</span>
+                                    <input
+                                        type="number"
+                                        placeholder="MAX"
+                                        value={maxAmount}
+                                        onChange={(e) => setMaxAmount(e.target.value)}
+                                        className={`w-full bg-transparent border-none text-[10px] font-black outline-none placeholder:text-gray-700 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onClick={handleResetFilters} className="text-red-500 hover:text-red-400 font-black text-[10px] uppercase tracking-[0.2em] whitespace-nowrap px-6 py-3 border border-red-500/20 rounded-2xl hover:bg-red-500/10 transition-all active:scale-95 italic">
+                            PURGE_PARAMETERS
+                        </button>
+                    </div>
+                </div>
+
+                {/* Search Horizon */}
+                <div className={`p-6 rounded-[2.5rem] border shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                     <div className="relative group">
-                        <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                        <FaSearch className={`absolute left-6 top-1/2 -translate-y-1/2 transition-colors duration-500 ${isDarkMode ? 'text-gray-700 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
                         <input
                             type="text"
-                            placeholder="SEARCH BY STUDENT NAME, ENROLLMENT NO, EMAIL, OR RECEIPT NO..."
+                            placeholder="TRACING BY IDENTITY, ENROLLMENT SEQUENCE, COMM_NODE OR INSTRUMENT_ID..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-100 rounded-lg py-3 pl-12 pr-4 text-gray-700 font-bold text-xs uppercase tracking-widest outline-none focus:border-blue-500/50 transition-all shadow-inner"
+                            className={`w-full border rounded-3xl py-5 pl-16 pr-6 font-black text-[11px] uppercase tracking-[0.2em] outline-none transition-all duration-500 ${isDarkMode ? 'bg-black/20 border-gray-800 text-white placeholder:text-gray-800 focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500/50 shadow-inner'}`}
                         />
                     </div>
                 </div>
 
-                {/* Data Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                {/* Ledger Matrix */}
+                <div className={`rounded-[3rem] border shadow-[0_40px_100px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                    <div className="overflow-x-auto relative z-10">
+                        <table className="w-full text-left border-collapse min-w-[2000px]">
                             <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">#</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">MR Date</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Received Date</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[150px]">Enroll No.</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[240px]">Receipt No</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[180px]">Student Name</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[150px]">Centre</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Mobile</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Session</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Department</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Course Name</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[100px]">Attendance</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider min-w-[120px]">Transaction Type</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Transaction ID</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Payment Mode</th>
-                                    <th className="p-4 text-xs font-black text-orange-500 uppercase tracking-wider">Revenue (Base)</th>
-                                    <th className="p-4 text-xs font-black text-purple-500 uppercase tracking-wider">GST (18%)</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Total (Inc. GST)</th>
-                                    <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="p-4 text-xs font-black text-blue-500 uppercase tracking-wider">Taken By</th>
+                                <tr className={`${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100'} border-b`}>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">ID</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">MR Temporal</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Recv Temporal</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Enrollment Seq</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Receipt Instrument</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Authorized Identity</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Origin Node</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Comm Mobile</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Cycle</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Sector</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Stream Matrix</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Attendance</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Mapping</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Trace ID</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Protocol</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-emerald-500 italic">Revenue (Base)</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-purple-500 italic">GST (18%)</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-cyan-500 italic">Total Asset</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Audit Status</th>
+                                    <th className="p-8 text-[10px] font-black uppercase tracking-[0.25em] text-blue-500 italic">Authorized By</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/30' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="18" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading transactions...</td>
+                                        <td colSpan="20" className="p-40 text-center">
+                                            <div className="flex flex-col items-center gap-8">
+                                                <div className="w-20 h-20 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin shadow-lg shadow-cyan-500/20"></div>
+                                                <p className="text-gray-500 font-black tracking-[0.5em] text-[10px] uppercase italic animate-pulse">Retrieving Archival Global Ledger...</p>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ) : filteredReport.length === 0 ? (
                                     <tr>
-                                        <td colSpan="18" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest text-[10px]">
-                                            {billFilter === "no_bill" ? "No records without a bill number found" : billFilter === "with_bill" ? "No records with a bill number found" : "No transactions found"}
+                                        <td colSpan="20" className="p-40 text-center">
+                                            <p className="text-gray-600 font-black tracking-[0.5em] text-xs uppercase italic">No matched vectors in sectoral nodes</p>
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedData.map((item, index) => (
-                                        <tr key={item.transactionId || index} className="hover:bg-gray-50 transition-colors bg-white">
-                                            <td className="p-4 text-sm font-bold text-gray-700">{startIndex + index + 1}</td>
-                                            <td className="p-4 text-sm text-gray-600 font-medium">
-                                                {new Date(item.paymentDate).toLocaleDateString('en-GB')}
+                                        <tr key={item.transactionId || index} className={`transition-all duration-300 group ${isDarkMode ? 'hover:bg-cyan-500/[0.03] bg-transparent' : 'hover:bg-cyan-500/[0.02] bg-white'}`}>
+                                            <td className={`p-8 text-[10px] font-black tabular-nums ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>{startIndex + index + 1}</td>
+                                            <td className={`p-8 text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                {new Date(item.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-600 font-medium">
-                                                {item.receivedDate ? new Date(item.receivedDate).toLocaleDateString('en-GB') : '-'}
+                                            <td className={`p-8 text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {item.receivedDate ? new Date(item.receivedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : '---'}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-500 font-mono whitespace-nowrap min-w-[150px]">{item.admissionNumber}</td>
-                                            <td className="p-4 text-sm text-blue-600 font-mono font-bold whitespace-nowrap min-w-[240px] uppercase">{item.receiptNo || "-"}</td>
-                                            <td className="p-4 text-sm font-bold text-gray-800 uppercase whitespace-nowrap min-w-[180px]">{item.studentName}</td>
-                                            <td className="p-4 text-sm text-gray-600 font-bold whitespace-nowrap">{item.centre}</td>
-                                            <td className="p-4 text-sm text-gray-600 font-medium whitespace-nowrap">{item.studentMobile || '-'}</td>
-                                            <td className="p-4 text-sm text-gray-600 font-bold">{item.session || "-"}</td>
-                                            <td className="p-4 text-sm text-orange-500 font-bold uppercase">{item.department || "-"}</td>
-                                            <td className="p-4 text-sm text-gray-600 max-w-xs truncate" title={item.course}>{item.course}</td>
-                                            <td className="p-4 text-sm">
-                                                <div className={`px-2 py-0.5 rounded-full text-[10px] font-black text-center ${item.attendanceStatus === 'Available' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                                    {item.attendanceStatus === 'Available' ? `${item.attendancePercent.toFixed(1)}%` : 'N/A'}
+                                            <td className={`p-8 text-[11px] font-black tabular-nums tracking-[0.1em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{item.admissionNumber}</td>
+                                            <td className="p-8 text-[11px] text-cyan-500 font-black tracking-widest uppercase italic">{item.receiptNo || "PENDING_GEN"}</td>
+                                            <td className={`p-8 text-sm font-black italic uppercase tracking-tighter transition-all duration-300 group-hover:translate-x-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.studentName}</td>
+                                            <td className={`p-8 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.centre}</td>
+                                            <td className={`p-8 text-[11px] font-black tabular-nums tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{item.studentMobile || 'VOID'}</td>
+                                            <td className={`p-8 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{item.session || "GLOBAL"}</td>
+                                            <td className="p-8 text-[10px] text-orange-500 font-black uppercase tracking-widest italic">{item.department || "CORE"}</td>
+                                            <td className={`p-8 text-[10px] font-black uppercase tracking-widest max-w-xs truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={item.course}>{item.course}</td>
+                                            <td className="p-8">
+                                                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black tracking-widest text-center border ${item.attendanceStatus === 'Available' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : (isDarkMode ? 'bg-white/5 text-gray-700 border-gray-800' : 'bg-gray-100 text-gray-400 border-gray-200')}`}>
+                                                    {item.attendanceStatus === 'Available' ? `${item.attendancePercent.toFixed(1)}%` : 'VOID'}
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-sm text-gray-600">
-                                                {item.installmentNumber === 0 ? "Initial" : "EMI"}
+                                            <td className={`p-8 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {item.installmentNumber === 0 ? "ENTRY_NODE" : "PHASE_MAP"}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-500 font-mono text-xs">
-                                                {item.method === "CASH" ? "CASH" : (item.transactionId || "-")}
+                                            <td className="p-8 text-[10px] text-gray-600 font-black tracking-widest uppercase italic tabular-nums">
+                                                {item.method === "CASH" ? "LIQUID_SETTLE" : (item.transactionId || "NULL_TRACE")}
                                             </td>
-                                            <td className="p-4 text-sm text-gray-600">{item.method}</td>
-                                            <td className="p-4 text-sm font-bold text-orange-600">₹{item.revenueWithoutGst ? item.revenueWithoutGst.toLocaleString() : "-"}</td>
-                                            <td className="p-4 text-sm font-bold text-purple-600 text-xs">₹{item.gstAmount ? item.gstAmount.toLocaleString() : "-"}</td>
-                                            <td className="p-4 text-sm font-black text-gray-900 border-l border-gray-100">₹{item.amount.toLocaleString()}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${item.status === 'PAID' ? 'bg-green-100 text-green-600 shadow-sm shadow-green-200' :
-                                                    item.status === 'PENDING' || item.status === 'PENDING_CLEARANCE' ? 'bg-yellow-100 text-yellow-600 shadow-sm shadow-yellow-200' :
-                                                        item.status === 'REJECTED' ? 'bg-red-100 text-red-600 shadow-sm shadow-red-200' :
-                                                            'bg-gray-100 text-gray-600 shadow-sm shadow-gray-200'
+                                            <td className={`p-8 text-[10px] font-black uppercase tracking-widest italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.method}</td>
+                                            <td className="p-8 text-xl font-black text-emerald-500 tabular-nums tracking-tighter italic">₹{item.revenueWithoutGst ? item.revenueWithoutGst.toLocaleString() : "0"}</td>
+                                            <td className="p-8 text-base font-black text-purple-500 tabular-nums tracking-tighter italic opacity-60">₹{item.gstAmount ? item.gstAmount.toLocaleString() : "0"}</td>
+                                            <td className={`p-8 text-2xl font-black italic tabular-nums tracking-tighter border-l ${isDarkMode ? 'text-white border-gray-800' : 'text-gray-900 border-gray-100'}`}>₹{item.amount.toLocaleString()}</td>
+                                            <td className="p-8">
+                                                <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] border transition-all duration-300 ${item.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]' :
+                                                    item.status === 'PENDING' || item.status === 'PENDING_CLEARANCE' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]' :
+                                                        item.status === 'REJECTED' ? 'bg-red-500/10 text-red-500 border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' :
+                                                            'bg-gray-500/10 text-gray-500 border-gray-800'
                                                     }`}>
-                                                    {item.status || "PAID"}
+                                                    {item.status || "AUDITED"}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-[10px] font-black text-blue-600 uppercase italic tracking-tighter whitespace-nowrap">
-                                                {item.takenBy || "System"}
+                                            <td className="p-8 text-[10px] font-black text-blue-500 uppercase italic tracking-widest whitespace-nowrap">
+                                                {item.takenBy || "SYSTEM_AUTO"}
                                             </td>
                                         </tr>
                                     ))
@@ -814,68 +746,52 @@ const TransactionList = () => {
                         </table>
                     </div>
 
-                    {/* Pagination Controls */}
-                    {filteredReport.length > 0 && (
-                        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4">
-                            {/* Left: Items per page */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-600 font-medium">Show</span>
-                                <select
-                                    value={itemsPerPage}
-                                    onChange={handleItemsPerPageChange}
-                                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={25}>25</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                                <span className="text-sm text-gray-600 font-medium">entries</span>
-                            </div>
-
-                            {/* Center: Page info and navigation */}
-                            <div className="flex items-center gap-4">
-                                <button
-                                    onClick={() => handlePageChange(currentPage - 1)}
-                                    disabled={currentPage === 1}
-                                    className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Previous
-                                </button>
-
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-600">Page</span>
-                                    <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
-                                        <input
-                                            type="text"
-                                            value={pageInput}
-                                            onChange={handlePageInputChange}
-                                            className="w-16 px-2 py-1 border border-gray-300 rounded-md text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        <span className="text-sm text-gray-600">of {totalPages}</span>
-                                    </form>
-                                </div>
-
-                                <button
-                                    onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage === totalPages}
-                                    className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Next
-                                </button>
-                            </div>
-
-                            {/* Right: Showing info */}
-                            <div className="text-sm text-gray-600">
-                                Showing <span className="font-semibold">{startIndex + 1}</span> to{" "}
-                                <span className="font-semibold">{Math.min(endIndex, filteredReport.length)}</span> of{" "}
-                                <span className="font-semibold">{filteredReport.length}</span> entries
-                                {billFilter !== "all" && detailedReport.length !== filteredReport.length && (
-                                    <span className="ml-2 text-gray-400 font-bold text-xs">({detailedReport.length} total)</span>
-                                )}
-                            </div>
+                    {/* Pagination Matrix */}
+                    <div className={`p-10 border-t flex flex-col xl:flex-row justify-between items-center gap-8 transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Matrix Depth:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                                className={`px-4 py-2 rounded-xl border font-black text-[10px] uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                            >
+                                {[10, 25, 50, 100].map(v => <option key={v} value={v} className={isDarkMode ? "bg-[#0f1215]" : ""}>{v} NODES</option>)}
+                            </select>
                         </div>
-                    )}
+
+                        <div className="flex items-center gap-4">
+                            <button
+                                disabled={currentPage === 1}
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white border border-gray-800 shadow-xl' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200 shadow-sm'}`}
+                            >
+                                Previous Horizon
+                            </button>
+
+                            <form onSubmit={handlePageInputSubmit} className="flex items-center gap-4">
+                                <input
+                                    type="text"
+                                    value={pageInput}
+                                    onChange={(e) => setPageInput(e.target.value)}
+                                    className={`w-16 text-center py-3 rounded-xl border font-black text-[11px] tabular-nums transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
+                                />
+                                <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">/ {totalPages || 1}</span>
+                            </form>
+
+                            <button
+                                disabled={currentPage === totalPages}
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white border border-gray-800 shadow-xl' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200 shadow-sm'}`}
+                            >
+                                Next Horizon
+                            </button>
+                        </div>
+
+                        <div className="text-right">
+                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] italic block mb-1">Sector Results</span>
+                            <span className={`text-sm font-black tabular-nums tracking-tighter italic ${isDarkMode ? 'text-gray-300' : 'text-gray-900'}`}>{filteredReport.length.toLocaleString()} Ledger Entries Found</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Layout>

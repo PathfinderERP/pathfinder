@@ -359,7 +359,7 @@ const ManageBoardAdmission = () => {
     if (loading && !admission) return <div className="p-10 text-center">Loading...</div>;
 
     return (
-        <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215] text-white' : 'bg-gray-50 text-gray-900'}`}>
             <ToastContainer />
 
             <div className="flex items-center gap-4 mb-8">
@@ -532,7 +532,7 @@ const ManageBoardAdmission = () => {
                                             }}
                                             className={`p-4 rounded-lg border cursor-pointer transition-all flex justify-between items-center group ${selectedSubjectIds.includes(s.subjectId?._id || s.subjectId)
                                                     ? 'border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50'
-                                                    : isDarkMode ? 'border-gray-800 bg-[#131619] opacity-60 hover:opacity-100' : 'border-gray-100 bg-gray-50 opacity-60 hover:opacity-100'
+                                                    : isDarkMode ? 'border-gray-800 bg-[#1a1f24] opacity-60 hover:opacity-100' : 'border-gray-100 bg-gray-50 opacity-60 hover:opacity-100'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -674,7 +674,7 @@ const ManageBoardAdmission = () => {
                                             type="number"
                                             value={paymentForm.paidExamFee}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, paidExamFee: e.target.value })}
-                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-cyan-50 border-cyan-100'}`}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-cyan-50 border-cyan-100'}`}
                                         />
                                         <p className="text-[8px] text-gray-500 mt-1 font-bold">BAL: ₹{admission.examFee - admission.examFeePaid}</p>
                                     </div>
@@ -686,7 +686,7 @@ const ManageBoardAdmission = () => {
                                             type="number"
                                             value={paymentForm.paidAdditionalThings || 0}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, paidAdditionalThings: e.target.value })}
-                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-cyan-50 border-cyan-100'}`}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-cyan-50 border-cyan-100'}`}
                                         />
                                         <p className="text-[8px] text-gray-500 mt-1 font-bold">BAL: ₹{admission.additionalThingsAmount - admission.additionalThingsPaid}</p>
                                     </div>

@@ -11,12 +11,15 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 
 import { hasModuleAccess, hasPermission } from "../../config/permissions";
+import { useTheme } from "../../context/ThemeContext";
 
 const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { isDarkMode } = useTheme();
 
     const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
+
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -420,14 +423,15 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             {/* Logo + Close */}
             <div className="p-6 flex items-center justify-between text-white">
                 <div className="flex items-center gap-3">
-                    <div className="bg-gray-700 p-2 rounded">
-                        <FaChartBar className="text-cyan-400" />
+                    <div className={`p-2 rounded transition-all ${isDarkMode ? 'bg-gray-700' : 'bg-cyan-600'}`}>
+                        <FaChartBar className={isDarkMode ? 'text-cyan-400' : 'text-white'} />
                     </div>
                     <div>
-                        <h1 className="font-bold text-lg tracking-wide text-cyan-600 dark:text-cyan-400">Pathfinder ERP</h1>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">Education Cloud</p>
+                        <h1 className={`font-bold text-lg tracking-wide ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Pathfinder ERP</h1>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Education Cloud</p>
                     </div>
                 </div>
+
 
                 <button onClick={toggleSidebar} className="text-gray-400 hover:text-white">
                     <FaTimes />

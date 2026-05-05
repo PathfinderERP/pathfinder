@@ -908,7 +908,7 @@ const TelecallingConsole = () => {
 
     return (
         <Layout activePage="Admissions">
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isDarkMode ? 'bg-[#0f1215] text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
+            <div className={`flex flex-col min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0f1215] text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
                 <ToastContainer theme={isDarkMode ? 'dark' : 'light'} />
 
                 {/* Tactical Header */}
@@ -933,7 +933,7 @@ const TelecallingConsole = () => {
 
                     <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto justify-end">
                         {/* Console Switcher */}
-                        <div className={`flex items-center p-1 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                        <div className={`flex items-center p-1 rounded-[4px] border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                             {['telecalling', 'counselling', 'admission'].map(consoleType => (
                                 <button
                                     key={consoleType}
@@ -999,14 +999,14 @@ const TelecallingConsole = () => {
                                                     type="date"
                                                     value={filters.fromDate}
                                                     onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                                 />
                                                 <span className="text-gray-500">→</span>
                                                 <input
                                                     type="date"
                                                     value={filters.toDate}
                                                     onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                                 />
                                             </div>
 
@@ -1017,14 +1017,14 @@ const TelecallingConsole = () => {
                                                     type="time"
                                                     value={filters.startTime}
                                                     onChange={(e) => handleFilterChange('startTime', e.target.value)}
-                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                                 />
                                                 <span className="text-gray-500">-</span>
                                                 <input
                                                     type="time"
                                                     value={filters.endTime}
                                                     onChange={(e) => handleFilterChange('endTime', e.target.value)}
-                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                    className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                                 />
                                             </div>
 
@@ -1071,7 +1071,7 @@ const TelecallingConsole = () => {
                                         {/* Total Follow-ups Card */}
                                         <div
                                             onClick={() => handleActivityCardClick('TODAY')}
-                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/50' : 'bg-white border-gray-100 shadow-sm hover:border-cyan-500/50'}`}>
+                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-cyan-500/50' : 'bg-white border-gray-100 shadow-sm hover:border-cyan-500/50'}`}>
                                             <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                                 <div>
                                                     <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Today's Activity</p>
@@ -1208,7 +1208,7 @@ const TelecallingConsole = () => {
                                                     <div className="w-full md:w-1/2 space-y-4">
                                                         <div
                                                             onClick={() => openLeadModal('CONTACTED')}
-                                                            className={`p-4 rounded-[4px] border cursor-pointer transition-all active:scale-95 group ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:bg-green-500/5 hover:border-green-500/30' : 'bg-gray-50 border-gray-100 hover:bg-green-50'}`}
+                                                            className={`p-4 rounded-[4px] border cursor-pointer transition-all active:scale-95 group ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:bg-green-500/5 hover:border-green-500/30' : 'bg-gray-50 border-gray-100 hover:bg-green-50'}`}
                                                         >
                                                             <div className="flex justify-between items-center">
                                                                 <p className={`text-[9px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>CONTACTED</p>
@@ -1220,7 +1220,7 @@ const TelecallingConsole = () => {
 
                                                         <div
                                                             onClick={() => openLeadModal('REMAINING')}
-                                                            className={`p-4 rounded-[4px] border cursor-pointer transition-all active:scale-95 group ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:bg-red-500/5 hover:border-red-500/30' : 'bg-gray-50 border-gray-100 hover:bg-red-50'}`}
+                                                            className={`p-4 rounded-[4px] border cursor-pointer transition-all active:scale-95 group ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:bg-red-500/5 hover:border-red-500/30' : 'bg-gray-50 border-gray-100 hover:bg-red-50'}`}
                                                         >
                                                             <div className="flex justify-between items-center">
                                                                 <p className={`text-[9px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>REMAINING</p>
@@ -1329,7 +1329,7 @@ const TelecallingConsole = () => {
                                                                             dataKey="value"
                                                                         >
                                                                             <Cell fill="#06b6d4" />
-                                                                            <Cell fill={isDarkMode ? '#131619' : '#f3f4f6'} />
+                                                                            <Cell fill={isDarkMode ? '#0f1215' : '#f3f4f6'} />
                                                                         </Pie>
                                                                     </PieChart>
                                                                 </ResponsiveContainer>
@@ -1374,7 +1374,7 @@ const TelecallingConsole = () => {
                                         <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
                                             {/* Search & Metadata */}
                                             <div className="flex flex-1 flex-wrap items-center gap-4 w-full lg:w-auto">
-                                                <div className={`p-3 rounded-[4px] border hidden md:block ${isDarkMode ? 'bg-[#131619] border-gray-800 text-cyan-500' : 'bg-gray-50 border-gray-200 text-cyan-600'}`}>
+                                                <div className={`p-3 rounded-[4px] border hidden md:block transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-cyan-500' : 'bg-gray-50 border-gray-200 text-cyan-600'}`}>
                                                     <FaFilter size={16} />
                                                 </div>
                                                 <div className="flex-1 min-w-[200px] max-w-[300px] relative group">
@@ -1384,7 +1384,7 @@ const TelecallingConsole = () => {
                                                         placeholder="SEARCH SQUAD..."
                                                         value={searchQuery}
                                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                                        className={`w-full pl-12 pr-4 py-2.5 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                        className={`w-full pl-12 pr-4 py-2.5 rounded-[2px] border text-[10px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
                                                     />
                                                 </div>
                                                 <div className="w-full md:w-[220px]">
@@ -1453,7 +1453,7 @@ const TelecallingConsole = () => {
                                                             setFilters(nf);
                                                             fetchAllPerformance(timePeriod, nf);
                                                         }}
-                                                        className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                        className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
                                                     />
                                                     <span className="text-gray-500">→</span>
                                                     <input
@@ -1464,7 +1464,7 @@ const TelecallingConsole = () => {
                                                             setFilters(nf);
                                                             fetchAllPerformance(timePeriod, nf);
                                                         }}
-                                                        className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
+                                                        className={`px-3 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500 shadow-sm'}`}
                                                     />
                                                     <button
                                                         onClick={() => {

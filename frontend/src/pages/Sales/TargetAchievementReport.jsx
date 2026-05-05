@@ -14,8 +14,7 @@ const TargetAchievementReport = () => {
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
     const [sessions, setSessions] = useState([]);
-    const { theme } = useTheme();
-    const isDarkMode = theme === 'dark';
+    const { isDarkMode } = useTheme();
 
     // Filters
     const [viewMode, setViewMode] = useState("Monthly"); // Monthly, Quarterly, Yearly, Custom
@@ -35,7 +34,6 @@ const TargetAchievementReport = () => {
 
     useEffect(() => {
         fetchMasterData();
-        // Set default month
         const currentMonthIndex = new Date().getMonth();
         setFilterMonth(months[currentMonthIndex]);
     }, []);
@@ -49,7 +47,6 @@ const TargetAchievementReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            // Fetch Centres and Sessions in parallel
             const [centreRes, sessionRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
@@ -59,7 +56,6 @@ const TargetAchievementReport = () => {
                 const resData = await centreRes.json();
                 let centerList = Array.isArray(resData) ? resData : resData.centres || [];
 
-                // Filter by allocated centers if not superAdmin
                 const storedUser = localStorage.getItem("user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);
@@ -132,8 +128,6 @@ const TargetAchievementReport = () => {
         }
 
         const wb = XLSX.utils.book_new();
-
-        // 1. Prepare Header Info
         const reportType = `Report Type: ${viewMode} Target Report`;
         const finYear = `Financial Year: ${filterFinancialYear}`;
         const currentMonth = viewMode === "Monthly" ? `Month: ${filterMonth}` : "";
@@ -142,45 +136,32 @@ const TargetAchievementReport = () => {
         const generatedOn = `Generated on: ${new Date().toLocaleDateString()}`;
         const yearVal = `Year: ${filterYear}`;
 
-        // 2. Prepare Data Rows
         const dataRows = data.map(item => {
             const achievementPct = item.target > 0
                 ? ((item.achieved / item.target) * 100).toFixed(2) + "%"
                 : "0%";
 
             return [
-                item.centreName,        // Center Name
-                filterFinancialYear,    // Financial Year
-                filterYear,             // Year
-                item.target,            // Target (Number)
-                item.achieved,          // Achieved (Number)
-                achievementPct,         // Achievement %
-                filterMonth             // Month
+                item.centreName,
+                filterFinancialYear,
+                filterYear,
+                item.target,
+                item.achieved,
+                achievementPct,
+                filterMonth
             ];
         });
 
-        // 3. Construct Sheet Data (Array of Arrays)
         const sheetData = [
             [reportType, finYear, yearVal, currentMonth, dateRange, selectedCentreCount, generatedOn],
-            [], // Empty Row 2
-            // Row 3: Table Headers
+            [],
             ["Center Name", "Financial Year", "Year", "Target", "Achieved", "Achievement %", "Month"],
-            // Data Rows
             ...dataRows
         ];
 
-        // 4. Create Sheet
         const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-        // Optional: Simple column width adjustments
         const wscols = [
-            { wch: 20 }, // Center Name
-            { wch: 15 }, // Fin Year
-            { wch: 10 }, // Year
-            { wch: 15 }, // Target
-            { wch: 15 }, // Achieved
-            { wch: 15 }, // %
-            { wch: 15 }, // Month
+            { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
         ];
         ws['!cols'] = wscols;
 
@@ -208,289 +189,288 @@ const TargetAchievementReport = () => {
 
     return (
         <Layout activePage="Sales">
-            <div className="space-y-6">
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-all duration-500 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Target Achievement Report</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Target vs Achieved Analysis</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                    <div className="flex items-center gap-6">
+                        <div className={`p-4 rounded-[2rem] border shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-blue-600/10 border-blue-500/20 text-blue-400' : 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20'}`}>
+                            <FaChartBar size={32} />
+                        </div>
+                        <div>
+                            <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                Target <span className="text-blue-600">Achievement</span>
+                            </h1>
+                            <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic flex items-center gap-2">
+                                <span className="w-8 h-[1px] bg-blue-600"></span>
+                                Comparative performance analytics & tracking
+                            </p>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
-
-                        <button
-                            onClick={() => setDisplayMode("chart")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "chart" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800 hover:text-gray-300" : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
-                            title="Chart View"
-                        >
-                            <FaChartBar size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Chart</span>
-                        </button>
-                        <button
-                            onClick={() => setDisplayMode("table")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "table" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800 hover:text-gray-300" : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
-                            title="Table View"
-                        >
-                            <FaTable size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Table</span>
-                        </button>
-                        <button
-                            onClick={() => setDisplayMode("card")}
-                            className={`p-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 ${displayMode === "card" ? "bg-blue-600 text-white shadow-lg scale-105" : isDarkMode ? "text-gray-500 hover:bg-gray-800 hover:text-gray-300" : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
-                            title="Card View"
-                        >
-                            <FaTh size={18} />
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Cards</span>
-                        </button>
+                    <div className={`p-1.5 rounded-2xl border flex gap-1.5 transition-all duration-300 shadow-2xl ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
+                        {[
+                            { id: "chart", icon: <FaChartBar />, label: "Matrix" },
+                            { id: "table", icon: <FaTable />, label: "Ledger" },
+                            { id: "card", icon: <FaTh />, label: "Grid" }
+                        ].map(mode => (
+                            <button
+                                key={mode.id}
+                                onClick={() => setDisplayMode(mode.id)}
+                                className={`px-6 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-300 active:scale-95 ${displayMode === mode.id
+                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                                    : `text-gray-500 hover:bg-white/5 ${isDarkMode ? 'hover:text-gray-300' : 'hover:text-gray-700'}`
+                                    }`}
+                            >
+                                {mode.icon}
+                                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{mode.label}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
 
                 {/* Filters Section */}
-                <div className={`p-5 rounded-xl border transition-colors shadow-sm flex flex-col gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex flex-wrap items-center gap-3">
+                <div className={`p-8 rounded-[2.5rem] border shadow-2xl transition-all duration-500 mb-10 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+                        <div className="flex flex-wrap items-center gap-4">
                             {/* View Mode Tabs */}
-                            <div className={`rounded-lg p-1 flex transition-colors ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>
+                            <div className={`rounded-2xl p-1.5 flex gap-1 transition-all duration-300 ${isDarkMode ? 'bg-[#0a0c0e] border border-gray-800 shadow-inner' : 'bg-gray-100 border border-gray-200'}`}>
                                 {["Monthly", "Quarterly", "Yearly", "Custom"].map(mode => (
                                     <button
                                         key={mode}
                                         onClick={() => setViewMode(mode)}
-                                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === mode ? "bg-blue-600 text-white shadow-lg" : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}
+                                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${viewMode === mode
+                                            ? "bg-blue-600 text-white shadow-lg"
+                                            : `text-gray-500 hover:bg-white/5 ${isDarkMode ? 'hover:text-gray-300' : 'hover:text-gray-700'}`
+                                            }`}
                                     >
                                         {mode}
                                     </button>
                                 ))}
                             </div>
 
-                            {/* Helper Filters */}
-                            <select
-                                value={filterFinancialYear}
-                                onChange={(e) => setFilterFinancialYear(e.target.value)}
-                                className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-32 border transition-colors ${isDarkMode
-                                    ? 'bg-[#131619] border-gray-700 text-gray-300'
-                                    : 'bg-white border-gray-300 text-gray-800 shadow-sm'
-                                    }`}
-                            >
-                                {sessions.length === 0 ? (
-                                    <option value="">Loading...</option>
-                                ) : (
-                                    sessions.map(s => (
-                                        <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
-                                    ))
-                                )}
-                            </select>
-
-                            {viewMode === "Monthly" && (
-                                <>
-                                    <select
-                                        value={filterYear}
-                                        onChange={(e) => setFilterYear(e.target.value)}
-                                        className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-24 border transition-colors ${isDarkMode
-                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
-                                            : 'bg-white border-gray-300 text-gray-800 shadow-sm'
-                                            }`}
-                                    >
-                                        <option value="2024">2024</option>
-                                        <option value="2025">2025</option>
-                                        <option value="2026">2026</option>
-                                        <option value="2027">2027</option>
-                                        <option value="2028">2028</option>
-                                        <option value="2029">2029</option>
-                                        <option value="2030">2030</option>
-                                        <option value="2031">2031</option>
-                                        <option value="2032">2032</option>
-                                        <option value="2033">2033</option>
-                                        <option value="2034">2034</option>
-                                        <option value="2035">2035</option>
-                                        <option value="2036">2036</option>
-                                    </select>
-                                    <select
-                                        value={filterMonth}
-                                        onChange={(e) => setFilterMonth(e.target.value)}
-                                        className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-32 border transition-colors ${isDarkMode
-                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
-                                            : 'bg-white border-gray-300 text-gray-800 shadow-sm'
-                                            }`}
-                                    >
-                                        {months.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                </>
-                            )}
-
-                            {viewMode === "Quarterly" && (
+                            <div className="flex items-center gap-3">
                                 <select
-                                    value={filterQuarter}
-                                    onChange={(e) => setFilterQuarter(e.target.value)}
-                                    className={`text-sm rounded-md block px-3 py-2 outline-none font-medium w-24 border transition-colors ${isDarkMode
-                                        ? 'bg-[#131619] border-gray-700 text-gray-300'
-                                        : 'bg-white border-gray-300 text-gray-800 shadow-sm'
-                                        }`}
+                                    value={filterFinancialYear}
+                                    onChange={(e) => setFilterFinancialYear(e.target.value)}
+                                    className={`px-5 py-3 rounded-xl border font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                 >
-                                    {quarters.map(q => <option key={q} value={q}>{q}</option>)}
+                                    {sessions.map(s => <option key={s._id} value={s.sessionName} className={isDarkMode ? 'bg-[#0f1215]' : ''}>{s.sessionName}</option>)}
                                 </select>
-                            )}
 
-                            {viewMode === "Custom" && (
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className={`h-9 px-2 border rounded-md text-sm outline-none transition-colors ${isDarkMode
-                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
-                                            : 'bg-white border-gray-300 text-gray-700 shadow-sm'
-                                            }`}
-                                    />
-                                    <span className="text-gray-500 font-bold text-xs">to</span>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className={`h-9 px-2 border rounded-md text-sm outline-none transition-colors ${isDarkMode
-                                            ? 'bg-[#131619] border-gray-700 text-gray-300'
-                                            : 'bg-white border-gray-300 text-gray-700 shadow-sm'
-                                            }`}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Centre Selector Dropdown (Simple Simulation) */}
-                            <div className="relative group">
-                                <button className={`px-4 py-2 rounded-md text-sm flex items-center gap-2 transition-colors ${isDarkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 shadow-sm'}`}>
-                                    {selectedCentres.length} Centres Selected ▼
-                                </button>
-                                {/* Dropdown Content */}
-                                <div className={`absolute top-full left-0 mt-2 w-64 rounded-md shadow-xl p-2 hidden group-hover:block z-50 max-h-60 overflow-y-auto border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                                    <div
-                                        onClick={selectAllCentres}
-                                        className={`p-2 cursor-pointer text-sm font-bold border-b transition-colors ${isDarkMode ? 'hover:bg-gray-800 border-gray-800 text-gray-300' : 'hover:bg-gray-100 border-gray-100 text-gray-800'}`}
-                                    >
-                                        {selectedCentres.length === centres.length ? "Unselect All" : "Select All"}
-                                    </div>
-                                    {centres.map(c => (
-                                        <div
-                                            key={c._id}
-                                            onClick={() => toggleCentre(c._id)}
-                                            className={`flex items-center gap-2 p-2 cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-100 text-gray-800'}`}
+                                {viewMode === "Monthly" && (
+                                    <>
+                                        <select
+                                            value={filterYear}
+                                            onChange={(e) => setFilterYear(e.target.value)}
+                                            className={`px-5 py-3 rounded-xl border font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                         >
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedCentres.includes(c._id)}
-                                                readOnly
-                                                className={isDarkMode ? 'accent-blue-500' : ''}
-                                            />
-                                            <span className="text-sm truncate">{c.centreName}</span>
+                                            {[2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y} className={isDarkMode ? 'bg-[#0f1215]' : ''}>{y}</option>)}
+                                        </select>
+                                        <select
+                                            value={filterMonth}
+                                            onChange={(e) => setFilterMonth(e.target.value)}
+                                            className={`px-5 py-3 rounded-xl border font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
+                                        >
+                                            {months.map(m => <option key={m} value={m} className={isDarkMode ? 'bg-[#0f1215]' : ''}>{m}</option>)}
+                                        </select>
+                                    </>
+                                )}
+
+                                {viewMode === "Quarterly" && (
+                                    <select
+                                        value={filterQuarter}
+                                        onChange={(e) => setFilterQuarter(e.target.value)}
+                                        className={`px-5 py-3 rounded-xl border font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
+                                    >
+                                        {quarters.map(q => <option key={q} value={q} className={isDarkMode ? 'bg-[#0f1215]' : ''}>{q}</option>)}
+                                    </select>
+                                )}
+
+                                {viewMode === "Custom" && (
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className={`px-4 py-3 rounded-xl border font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-500 transition-all [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
+                                        />
+                                        <span className="text-gray-500 font-black text-[10px]">TO</span>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className={`px-4 py-3 rounded-xl border font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-500 transition-all [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Centre Selector */}
+                                <div className="relative group">
+                                    <button className={`px-5 py-3 rounded-xl border font-black uppercase tracking-widest text-[10px] flex items-center gap-3 transition-all ${isDarkMode ? 'bg-white/5 border-gray-800 text-white hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100 shadow-inner'}`}>
+                                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                        {selectedCentres.length} NODES SELECTED
+                                    </button>
+                                    <div className={`absolute top-full left-0 mt-3 w-72 rounded-[2rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] p-4 hidden group-hover:block z-[100] max-h-80 overflow-y-auto border backdrop-blur-xl transition-all duration-500 animate-in fade-in slide-in-from-top-2 ${isDarkMode ? 'bg-[#1a1f24]/95 border-gray-700' : 'bg-white/95 border-gray-200'}`}>
+                                        <div
+                                            onClick={selectAllCentres}
+                                            className={`p-3 cursor-pointer text-[10px] font-black uppercase tracking-widest border-b mb-2 transition-all text-center rounded-xl ${isDarkMode ? 'hover:bg-blue-500/10 border-gray-800 text-blue-400' : 'hover:bg-blue-50 border-gray-100 text-blue-600'}`}
+                                        >
+                                            {selectedCentres.length === centres.length ? "De-sync All Nodes" : "Sync All Active Nodes"}
                                         </div>
-                                    ))}
+                                        {centres.map(c => (
+                                            <div
+                                                key={c._id}
+                                                onClick={() => toggleCentre(c._id)}
+                                                className={`flex items-center gap-3 p-3 cursor-pointer transition-all rounded-xl ${isDarkMode ? 'hover:bg-white/5 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedCentres.includes(c._id)}
+                                                    readOnly
+                                                    className="accent-blue-600 w-4 h-4"
+                                                />
+                                                <span className="text-[11px] font-bold uppercase tracking-tight truncate">{c.centreName}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <button
-                            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-bold transition-colors flex items-center gap-2 shadow-lg hover:shadow-green-500/20"
+                            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all duration-300 flex items-center gap-3 shadow-[0_15px_30px_-10px_rgba(16,185,129,0.3)] active:scale-95 group"
                             onClick={handleExport}
                         >
-                            <FaDownload /> Download Excel
+                            <FaDownload className="group-hover:translate-y-0.5 transition-transform" /> 
+                            Secure Data Export
                         </button>
                     </div>
                 </div>
 
                 {/* View Content */}
-                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl min-h-[500px] transition-all duration-500">
-                    <h3 className="text-gray-800 dark:text-white font-bold text-xl mb-8 flex items-center gap-3">
-                        <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-                        Target vs Achieved ({viewMode})
-                    </h3>
+                <div className={`p-10 rounded-[3rem] border shadow-2xl transition-all duration-500 min-h-[600px] relative overflow-hidden ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className="flex items-center justify-between mb-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-1.5 h-10 bg-blue-600 rounded-full"></div>
+                            <h3 className={`font-black italic uppercase tracking-tighter text-2xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                Target vs <span className="text-blue-600">Achieved</span> Analysis
+                            </h3>
+                        </div>
+                        <div className={`px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                            {viewMode} NODE SYNC
+                        </div>
+                    </div>
 
                     {loading ? (
-                        <div className="flex h-96 items-center justify-center">
-                            <div className="flex flex-col items-center gap-4">
-                                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse uppercase tracking-widest text-sm">Fetching Data...</p>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-transparent backdrop-blur-sm z-10">
+                            <div className="relative w-20 h-20">
+                                <div className="absolute inset-0 border-4 border-blue-600/10 rounded-full"></div>
+                                <div className="absolute inset-0 border-4 border-t-blue-600 rounded-full animate-spin"></div>
                             </div>
+                            <p className="text-gray-500 font-black uppercase tracking-[0.5em] text-[10px] mt-8 animate-pulse italic">Interrogating Ledger Matrices...</p>
                         </div>
                     ) : data.length === 0 ? (
-                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-                            <FaChartBar size={48} className="opacity-20" />
-                            <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No data available for selected criteria</p>
+                        <div className="flex h-[400px] items-center justify-center flex-col gap-8 opacity-40">
+                            <FaChartBar size={80} className={isDarkMode ? 'text-gray-700' : 'text-gray-200'} />
+                            <p className="uppercase tracking-[0.4em] text-[10px] font-black italic">No operational data detected for this sector</p>
                         </div>
                     ) : (
-                        <>
+                        <div className="animate-in fade-in duration-700">
                             {displayMode === "chart" && (
-                                <div className="animate-fade-in">
-                                    <ResponsiveContainer width="100%" height={Math.max(500, data.length * 50)}>
+                                <div className="h-[600px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
                                             layout="vertical"
                                             data={data}
                                             margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                                         >
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDarkMode ? '#374151' : '#E5E7EB'} opacity={0.5} />
-                                            <XAxis type="number" tick={{ fill: isDarkMode ? '#9CA3AF' : '#6b7280', fontSize: 12 }} axisLine={{ stroke: isDarkMode ? '#374151' : '#d1d5db' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(1)}L`} />
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDarkMode ? '#ffffff' : '#000000'} opacity={0.05} />
+                                            <XAxis 
+                                                type="number" 
+                                                tick={{ fill: isDarkMode ? '#64748b' : '#94a3b8', fontSize: 10, fontWeight: 900 }} 
+                                                axisLine={{ stroke: isDarkMode ? '#334155' : '#e2e8f0' }} 
+                                                tickFormatter={(val) => `₹${(val / 100000).toFixed(1)}L`} 
+                                            />
                                             <YAxis
                                                 dataKey="centreName"
                                                 type="category"
-                                                width={120}
-                                                tick={{ fontSize: 11, fontWeight: 'bold', fill: isDarkMode ? '#9CA3AF' : '#4b5563' }}
-                                                axisLine={{ stroke: isDarkMode ? '#374151' : '#d1d5db' }}
+                                                width={150}
+                                                tick={{ fontSize: 9, fontWeight: 900, fill: isDarkMode ? '#94a3b8' : '#475569', textAnchor: 'end' }}
+                                                axisLine={{ stroke: isDarkMode ? '#334155' : '#e2e8f0' }}
                                             />
                                             <Tooltip
                                                 contentStyle={{
-                                                    backgroundColor: isDarkMode ? '#1a1f24' : '#ffffff',
-                                                    border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-                                                    color: isDarkMode ? '#ffffff' : '#374151',
-                                                    borderRadius: '12px',
-                                                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
+                                                    backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
+                                                    border: `1px solid ${isDarkMode ? '#1e293b' : '#e2e8f0'}`,
+                                                    borderRadius: '20px',
+                                                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                                                    padding: '20px',
+                                                    fontFamily: 'inherit'
                                                 }}
+                                                itemStyle={{ fontWeight: 900, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                                                labelStyle={{ fontWeight: 900, color: isDarkMode ? '#f1f5f9' : '#0f172a', marginBottom: '10px', fontSize: '13px', fontStyle: 'italic', textTransform: 'uppercase' }}
                                                 formatter={(value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value)}
-                                                cursor={{ fill: isDarkMode ? 'white' : 'black', opacity: 0.05 }}
+                                                cursor={{ fill: isDarkMode ? '#ffffff' : '#000000', opacity: 0.03 }}
                                             />
-                                            <Legend verticalAlign="top" align="right" height={36} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px', fontWeight: 'bold' }} />
-                                            <Bar dataKey="target" name="Target" fill="#FF8BA7" barSize={20} radius={[0, 10, 10, 0]} />
-                                            <Bar dataKey="achieved" name="Achieved" fill="#4ECDC4" barSize={20} radius={[0, 10, 10, 0]} />
+                                            <Legend 
+                                                verticalAlign="top" 
+                                                align="right" 
+                                                height={50} 
+                                                iconType="circle" 
+                                                wrapperStyle={{ paddingBottom: '30px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em' }} 
+                                            />
+                                            <Bar dataKey="target" name="Projected Target" fill="#6366f1" barSize={12} radius={[0, 10, 10, 0]} />
+                                            <Bar dataKey="achieved" name="Actual Achievement" fill="#10b981" barSize={12} radius={[0, 10, 10, 0]} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             )}
 
                             {displayMode === "table" && (
-                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                <div className={`overflow-x-auto rounded-[2rem] border shadow-inner ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                     <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Target</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Achieved</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Achievement %</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Status</th>
+                                            <tr className={`border-b text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-100'}`}>
+                                                <th className="p-8">Operational Node</th>
+                                                <th className="p-8 text-right">Target Quota</th>
+                                                <th className="p-8 text-right">Actual Realized</th>
+                                                <th className="p-8 text-center">Efficiency %</th>
+                                                <th className="p-8 text-center">Status</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                             {data.map((item, idx) => {
                                                 const pct = item.target > 0 ? (item.achieved / item.target) * 100 : 0;
                                                 return (
-                                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
-                                                        <td className="p-5 font-bold text-gray-800 dark:text-white uppercase text-sm group-hover:text-blue-600 transition-colors">{item.centreName}</td>
-                                                        <td className="p-5 text-right font-medium text-gray-600 dark:text-gray-300">₹{item.target.toLocaleString('en-IN')}</td>
-                                                        <td className="p-5 text-right font-bold text-gray-900 dark:text-white">₹{item.achieved.toLocaleString('en-IN')}</td>
-                                                        <td className="p-5 text-center">
-                                                            <div className="flex flex-col items-center gap-1">
-                                                                <span className={`text-sm font-black ${pct >= 100 ? 'text-green-500' : pct >= 50 ? 'text-blue-500' : 'text-red-500'}`}>
-                                                                    {pct.toFixed(1)}%
+                                                    <tr key={idx} className={`transition-all duration-300 group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-white'}`}>
+                                                        <td className="p-8">
+                                                            <div>
+                                                                <span className={`font-black text-base italic uppercase tracking-tighter block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.centreName}</span>
+                                                                <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1 block">NODE ID: {item.centreId?.slice(-6).toUpperCase() || 'SYS-NODE'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className={`p-8 text-right font-black tabular-nums text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>₹{item.target.toLocaleString('en-IN')}</td>
+                                                        <td className={`p-8 text-right font-black tabular-nums text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{item.achieved.toLocaleString('en-IN')}</td>
+                                                        <td className="p-8 text-center">
+                                                            <div className="flex flex-col items-center gap-2">
+                                                                <span className={`text-[11px] font-black tabular-nums ${pct >= 100 ? 'text-emerald-500' : pct >= 50 ? 'text-blue-500' : 'text-rose-500'}`}>
+                                                                    {pct.toFixed(2)}%
                                                                 </span>
-                                                                <div className={`w-24 h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                                                                <div className={`w-32 h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200 shadow-inner'}`}>
                                                                     <div
-                                                                        className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : pct >= 50 ? 'bg-blue-500' : 'bg-red-500'}`}
+                                                                        className={`h-full rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-emerald-500' : pct >= 50 ? 'bg-blue-600' : 'bg-rose-600'}`}
                                                                         style={{ width: `${Math.min(pct, 100)}%` }}
                                                                     ></div>
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-5 text-center">
-                                                            {pct >= 100 ? (
-                                                                <span className="bg-green-500/10 text-green-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-green-500/30">Target Met</span>
-                                                            ) : (
-                                                                <span className="bg-gray-500/10 text-gray-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-gray-500/30">In Progress</span>
-                                                            )}
+                                                        <td className="p-8 text-center">
+                                                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${pct >= 100 
+                                                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                                                                : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                                            }`}>
+                                                                {pct >= 100 ? 'Target Achieved' : 'In Progress'}
+                                                            </span>
                                                         </td>
                                                     </tr>
                                                 );
@@ -501,33 +481,32 @@ const TargetAchievementReport = () => {
                             )}
 
                             {displayMode === "card" && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                                     {data.map((item, idx) => {
                                         const pct = item.target > 0 ? (item.achieved / item.target) * 100 : 0;
                                         return (
-                                            <div key={idx} className={`rounded-2xl border p-5 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group hover:-translate-y-1 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
-                                                }`}>
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <h4 className="font-black text-gray-800 dark:text-white uppercase text-xs tracking-widest flex-1">{item.centreName}</h4>
-                                                    <div className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${pct >= 100 ? 'bg-green-500 text-white' : pct >= 50 ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
+                                            <div key={idx} className={`rounded-[2rem] border p-8 transition-all duration-500 group hover:-translate-y-2 shadow-xl ${isDarkMode ? 'bg-white/5 border-gray-800 hover:bg-white/10 hover:border-blue-500/30' : 'bg-white border-gray-200 hover:shadow-blue-500/10 hover:border-blue-500/30 shadow-sm'}`}>
+                                                <div className="flex justify-between items-start mb-8">
+                                                    <h4 className={`font-black italic uppercase tracking-tighter text-sm flex-1 leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.centreName}</h4>
+                                                    <div className={`text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest tabular-nums ${pct >= 100 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'}`}>
                                                         {pct.toFixed(0)}%
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-4">
+                                                <div className="space-y-6">
                                                     <div className="flex justify-between items-end">
-                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">Target</div>
-                                                        <div className="text-sm font-bold text-gray-600 dark:text-gray-400">₹{item.target.toLocaleString('en-IN')}</div>
+                                                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Target Quota</div>
+                                                        <div className={`text-sm font-black tabular-nums ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>₹{item.target.toLocaleString('en-IN')}</div>
                                                     </div>
                                                     <div className="flex justify-between items-end">
-                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">Achieved</div>
-                                                        <div className="text-lg font-black text-gray-900 dark:text-white">₹{item.achieved.toLocaleString('en-IN')}</div>
+                                                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Realized</div>
+                                                        <div className={`text-xl font-black tabular-nums ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{item.achieved.toLocaleString('en-IN')}</div>
                                                     </div>
 
                                                     <div className="pt-2">
-                                                        <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                                        <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-[#0a0c0e] shadow-inner' : 'bg-gray-100 shadow-inner'}`}>
                                                             <div
-                                                                className={`h-full rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : pct >= 50 ? 'bg-gradient-to-r from-blue-600 to-indigo-500' : 'bg-gradient-to-r from-red-600 to-orange-500'}`}
+                                                                className={`h-full rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-gradient-to-r from-emerald-600 to-teal-400' : 'bg-gradient-to-r from-blue-600 to-indigo-500'}`}
                                                                 style={{ width: `${Math.min(pct, 100)}%` }}
                                                             ></div>
                                                         </div>
@@ -538,7 +517,7 @@ const TargetAchievementReport = () => {
                                     })}
                                 </div>
                             )}
-                        </>
+                        </div>
                     )}
                 </div>
             </div>
@@ -547,3 +526,4 @@ const TargetAchievementReport = () => {
 };
 
 export default TargetAchievementReport;
+

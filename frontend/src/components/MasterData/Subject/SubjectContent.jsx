@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
 import '../MasterDataWave.css';
+import { useTheme } from '../../../context/ThemeContext';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { hasPermission } from '../../../config/permissions';
 import ExcelImportExport from "../../common/ExcelImportExport";
 
 const SubjectContent = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [subjects, setSubjects] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -148,12 +151,12 @@ const SubjectContent = () => {
     };
 
     return (
-        <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
-            <ToastContainer position="top-right" theme="dark" />
+        <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
+            <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-cyan-400">Subject Master Data</h2>
-                    <p className="text-gray-400 text-sm mt-1">Manage academic subjects</p>
+                    <h2 className={`text-2xl font-bold uppercase tracking-tighter italic ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Subject <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Master Data</span></h2>
+                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm mt-1 font-bold`}>Manage academic subjects</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
@@ -177,14 +180,14 @@ const SubjectContent = () => {
                 </div>
             </div>
 
-            <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden">
+            <div className={`rounded-lg border overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-800 text-gray-300">
-                                <th className="p-4 border-b border-gray-700">#</th>
-                                <th className="p-4 border-b border-gray-700">Subject Name</th>
-                                <th className="p-4 border-b border-gray-700 text-right">Actions</th>
+                            <tr className={`transition-colors ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                                <th className={`p-4 border-b font-black uppercase text-[10px] tracking-widest ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>#</th>
+                                <th className={`p-4 border-b font-black uppercase text-[10px] tracking-widest ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>Subject Name</th>
+                                <th className={`p-4 border-b font-black uppercase text-[10px] tracking-widest text-right ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -198,9 +201,9 @@ const SubjectContent = () => {
                                 </tr>
                             ) : (
                                 subjects.map((subject, index) => (
-                                    <tr key={subject._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
-                                        <td className="p-4 text-gray-400">{index + 1}</td>
-                                        <td className="p-4 font-medium">{subject.subName}</td>
+                                    <tr key={subject._id} className={`master-data-row-wave border-b transition-colors ${isDarkMode ? 'border-gray-800 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'}`}>
+                                        <td className={`p-4 font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{index + 1}</td>
+                                        <td className={`p-4 font-black uppercase text-xs tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{subject.subName}</td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 {canEdit && (
@@ -233,25 +236,25 @@ const SubjectContent = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-md border border-gray-700 shadow-xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-white">
-                                {currentSubject ? "Edit Subject" : "Add New Subject"}
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+                    <div className={`p-8 rounded-2xl w-full max-w-md border shadow-2xl transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className={`text-2xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {currentSubject ? "Edit" : "Add"} <span className="text-cyan-500">Subject</span>
                             </h3>
-                            <button onClick={closeModal} className="text-gray-400 hover:text-white">
-                                <FaTimes />
+                            <button onClick={closeModal} className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'} transition-colors`}>
+                                <FaTimes size={20} />
                             </button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <div className="mb-4">
-                                <label className="block text-gray-400 mb-2 text-sm">Subject Name</label>
+                            <div className="mb-6">
+                                <label className={`block mb-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Subject Name</label>
                                 <input
                                     type="text"
                                     name="subName"
                                     value={formData.subName}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-xl p-3 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     placeholder="Enter subject name"
                                     required
                                 />

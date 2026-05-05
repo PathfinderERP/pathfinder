@@ -169,25 +169,24 @@ const CashTransfer = () => {
     if (transferStatus === "success") {
         return (
             <Layout activePage="Cash Transfer">
-                <div className="flex items-center justify-center h-[calc(100vh-100px)] animate-in zoom-in duration-500 p-4">
-                    <div className={`backdrop-blur-xl border p-6 md:p-10 rounded-3xl shadow-2xl max-w-lg w-full text-center space-y-6 ${isDarkMode ? 'bg-gray-900/60 border-emerald-500/30 shadow-emerald-500/10' : 'bg-white border-emerald-200 shadow-emerald-900/10'}`}>
-                        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto border border-emerald-500/40">
-                            <FaCheckCircle className="text-5xl text-emerald-400" />
+                <div className={`flex items-center justify-center min-h-[calc(100vh-100px)] animate-in zoom-in duration-500 p-4 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
+                    <div className={`border p-10 rounded-[3rem] shadow-2xl max-w-lg w-full text-center space-y-8 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-emerald-500/30 shadow-emerald-500/10' : 'bg-white border-emerald-200 shadow-emerald-900/10'}`}>
+                        <div className="w-24 h-24 bg-emerald-500/10 rounded-[2rem] flex items-center justify-center mx-auto border border-emerald-500/20 shadow-inner">
+                            <FaCheckCircle className="text-6xl text-emerald-500" />
                         </div>
                         <div>
-                            <h2 className={`text-2xl md:text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Transfer Success!</h2>
-                            <p className="text-cyan-400 font-mono text-sm mt-1">Transaction ID: #{serialNumber}</p>
+                            <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Success!</h2>
+                            <p className="text-cyan-500 font-black text-sm uppercase tracking-[0.2em] mt-3">Transaction: #{serialNumber}</p>
                         </div>
 
-                        <p className="text-gray-400 text-sm md:text-lg">Transfer request created. Securely share this password with the recipient.</p>
+                        <p className="text-gray-500 text-[11px] font-black uppercase tracking-widest leading-relaxed">Transfer initiated. Share this security passcode with the target centre to complete the movement.</p>
 
-                        <div className={`border-2 border-dashed p-6 rounded-2xl relative group overflow-hidden ${isDarkMode ? 'bg-gray-800/80 border-cyan-500/40' : 'bg-cyan-50 border-cyan-200'}`}>
-                            <div className="absolute inset-0 bg-cyan-500/5 group-hover:bg-cyan-500/10 transition-colors"></div>
-                            <p className="text-xs text-cyan-400 font-semibold uppercase tracking-widest relative">Unique Transfer Password</p>
-                            <h1 className={`text-4xl md:text-5xl font-black mt-2 tracking-widest relative ${isDarkMode ? 'text-white' : 'text-cyan-900'}`}>{generatedPassword}</h1>
+                        <div className={`border-2 border-dashed p-10 rounded-[2.5rem] relative group overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-cyan-500/20' : 'bg-cyan-50/50 border-cyan-200'}`}>
+                            <p className="text-[10px] text-cyan-500 font-black uppercase tracking-[0.3em] relative z-10">Security Passcode</p>
+                            <h1 className={`text-6xl font-black mt-4 tracking-[0.3em] relative z-10 ${isDarkMode ? 'text-white' : 'text-cyan-900'}`}>{generatedPassword}</h1>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-4 mt-8">
+                        <div className="flex flex-col sm:flex-row gap-4 mt-10">
                             <button
                                 onClick={() => {
                                     setTransferStatus("idle");
@@ -202,20 +201,19 @@ const CashTransfer = () => {
                                          fromDate: "",
                                          toDate: ""
                                      });
-                                    // Refetch to reset correctly with defaults
                                     fetchInitialData();
                                     setReceiptFile(null);
                                     setReceiptPreview(null);
                                 }}
-                                className={`flex-1 font-bold py-4 rounded-xl transition-all border ${isDarkMode ? 'bg-gray-800 text-white border-gray-700 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'}`}
+                                className={`flex-1 font-black uppercase text-[10px] tracking-widest py-5 rounded-2xl transition-all border ${isDarkMode ? 'bg-white/5 text-white border-gray-700 hover:bg-white/10' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 shadow-sm'}`}
                             >
-                                New Transfer
+                                New Entry
                             </button>
                             <button
                                 onClick={() => window.print()}
-                                className="flex-1 bg-cyan-600 text-white font-bold py-4 rounded-xl hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-500/20"
+                                className="flex-1 bg-cyan-600 text-white font-black uppercase text-[10px] tracking-widest py-5 rounded-2xl hover:bg-cyan-500 transition-all shadow-xl shadow-cyan-600/20 active:scale-95"
                             >
-                                Print Info
+                                Print Report
                             </button>
                         </div>
                     </div>
@@ -226,7 +224,7 @@ const CashTransfer = () => {
 
     return (
         <Layout activePage="Finance & Fees">
-            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0d0f11]' : 'bg-gray-50'}`}>
+            <div className={`p-4 md:p-10 max-w-[1800px] mx-auto min-h-screen pb-20 transition-colors duration-500 ${isDarkMode ? 'bg-[#0f1215]' : 'bg-gray-50'}`}>
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
                     <div>
@@ -238,59 +236,52 @@ const CashTransfer = () => {
                         </p>
                     </div>
                     {serialNumber && (
-                        <div className={`px-4 py-2 rounded-lg border ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Next Serial #</p>
-                            <p className="text-xl font-black text-cyan-400">#{parseInt(serialNumber) + 1 || '...'}</p>
+                        <div className={`px-6 py-3 rounded-2xl border shadow-xl transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
+                            <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Next Entry</p>
+                            <p className="text-2xl font-black text-cyan-500">#{parseInt(serialNumber) + 1 || '...'}</p>
                         </div>
                     )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Form Section */}
-                    <div className={`lg:col-span-2 backdrop-blur-md border p-6 md:p-8 rounded-3xl shadow-2xl space-y-8 ${isDarkMode ? 'bg-gray-900/40 border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <h3 className={`text-xl font-bold flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            <div className="p-2 bg-cyan-500/10 rounded-lg">
-                                <FaPaperPlane className="text-cyan-400" />
+                    <div className={`lg:col-span-2 border p-8 md:p-10 rounded-[2.5rem] shadow-2xl space-y-10 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <h3 className={`text-xl font-black uppercase italic tracking-tight flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center text-cyan-400">
+                                <FaPaperPlane size={16} />
                             </div>
-                            Transfer Details
+                            Transfer Protocol
                         </h3>
 
-                        <form onSubmit={handleTransfer} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>From Centre (Auto-detected)</label>
+                        <form onSubmit={handleTransfer} className="space-y-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Origin Node</label>
                                     <div className="relative">
                                         <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-50 ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-50 text-sm font-bold ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                             value={formData.fromCentreId}
                                             onChange={(e) => setFormData({ ...formData, fromCentreId: e.target.value })}
                                             disabled={userCentres.length <= 1}
                                         >
-                                            <option value="">Select From Centre</option>
-                                            {userCentres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
+                                            <option value="" className={isDarkMode ? 'bg-[#1a1f24]' : ''}>Select Origin</option>
+                                            {userCentres.map(c => <option key={c._id} value={c._id} className={isDarkMode ? 'bg-[#1a1f24]' : ''}>{c.centreName}</option>)}
                                         </select>
-                                        {/* {formData.fromCentreId && (
-                                            <p className="text-[10px] text-cyan-500 font-black ml-1 mt-1 uppercase tracking-widest whitespace-nowrap">
-                                                A/C: {userCentres.find(c => c._id === formData.fromCentreId)?.accountNumber || 'NOT CONFIGURED'}
-                                            </p>
-                                        )} */}
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>To Centre / Head Office</label>
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Target Node (HO)</label>
                                     <div className="relative">
                                         <FaArrowRight className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-75 ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-75 text-sm font-bold ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                             value={formData.toCentreId}
                                             onChange={(e) => {
                                                 const selectedCentre = centres.find(c => c._id === e.target.value);
                                                 const centreAccNo = selectedCentre?.accountNumber || "";
-                                                // Try to auto-match with master accounts
                                                 const matchingMasterAcc = masterAccounts.find(a => a.accno === centreAccNo);
-
                                                 setFormData({
                                                     ...formData,
                                                     toCentreId: e.target.value,
@@ -299,50 +290,44 @@ const CashTransfer = () => {
                                             }}
                                             disabled={centres.length <= 1}
                                         >
-                                            {centres.length === 0 && <option value="">No Hazra HO found</option>}
-                                            {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
+                                            {centres.length === 0 && <option value="" className={isDarkMode ? 'bg-[#1a1f24]' : ''}>No Hazra HO found</option>}
+                                            {centres.map(c => <option key={c._id} value={c._id} className={isDarkMode ? 'bg-[#1a1f24]' : ''}>{c.centreName}</option>)}
                                         </select>
-                                        {/* {formData.toCentreId && (
-                                            <p className="text-[10px] text-cyan-500 font-black ml-1 mt-1 uppercase tracking-widest whitespace-nowrap">
-                                                A/C: {centres.find(c => c._id === formData.toCentreId)?.accountNumber || 'NOT CONFIGURED'}
-                                            </p>
-                                        )} */}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Amount (₹)</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Amount (₹)</label>
                                     <div className="relative">
                                         <FaWallet className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="number"
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                            placeholder="Enter amount"
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm font-black tracking-tight ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
+                                            placeholder="0.00"
                                             value={formData.amount}
                                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Account Number</label>
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Settlement Account</label>
                                     <div className="relative">
                                         <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none text-sm font-bold ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                             value={formData.accountNumber}
                                             onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
                                         >
-                                            <option value="">Select Account</option>
+                                            <option value="" className={isDarkMode ? 'bg-[#1a1f24]' : ''}>Select Account</option>
                                             {masterAccounts.map(acc => (
-                                                <option key={acc._id} value={acc.accno}>
+                                                <option key={acc._id} value={acc.accno} className={isDarkMode ? 'bg-[#1a1f24]' : ''}>
                                                     ({acc.accno})
                                                 </option>
                                             ))}
-                                            {/* Fallback if the centre's account isn't in master accounts but we have a value */}
                                             {formData.accountNumber && !masterAccounts.some(a => a.accno === formData.accountNumber) && (
-                                                <option value={formData.accountNumber}>
+                                                <option value={formData.accountNumber} className={isDarkMode ? 'bg-[#1a1f24]' : ''}>
                                                     Centre Default: {formData.accountNumber}
                                                 </option>
                                             )}
@@ -351,27 +336,27 @@ const CashTransfer = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Reference Number</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Reference ID</label>
                                     <div className="relative">
                                         <FaHashtag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="text"
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                            placeholder="Bank Ref / ChUTR"
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm font-bold ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
+                                            placeholder="UTR / REF NO"
                                             value={formData.referenceNumber}
                                             onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Deposit Date</label>
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Settlement Date</label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="date"
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm font-bold [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                             value={formData.debitedDate}
                                             onChange={(e) => setFormData({ ...formData, debitedDate: e.target.value })}
                                             required
@@ -380,28 +365,27 @@ const CashTransfer = () => {
                                 </div>
                             </div>
 
-                            {/* From Date / To Date Filter Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>From Date</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Collection From</label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="date"
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm font-bold [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                             value={formData.fromDate}
                                             onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
                                             max={formData.toDate || yesterdayStr}
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>To Date</label>
+                                <div className="space-y-3">
+                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Collection To</label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="date"
-                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                            className={`w-full border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all text-sm font-bold [color-scheme:dark] ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                             value={formData.toDate}
                                             onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
                                             min={formData.fromDate}
@@ -411,52 +395,49 @@ const CashTransfer = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Receipt (Img/PDF)</label>
-                                    <div className="relative">
-                                        <input
-                                            type="file"
-                                            id="receiptInput"
-                                            className="hidden"
-                                            onChange={handleFileChange}
-                                            accept="image/*,application/pdf"
-                                        />
-                                        <label
-                                            htmlFor="receiptInput"
-                                            className={`w-full border rounded-xl py-3 px-4 cursor-pointer flex items-center justify-between hover:border-cyan-500 transition-all ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
-                                        >
-                                            <span className="truncate">{receiptFile ? receiptFile.name : "Select Receipt File"}</span>
-                                            <FaCloudUploadAlt className="text-cyan-400" />
-                                        </label>
-                                    </div>
+                            <div className="space-y-3">
+                                <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Verification Evidence (Img/PDF)</label>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        id="receiptInput"
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                        accept="image/*,application/pdf"
+                                    />
+                                    <label
+                                        htmlFor="receiptInput"
+                                        className={`w-full border rounded-xl py-4 px-6 cursor-pointer flex items-center justify-between hover:border-cyan-500 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500 shadow-inner'}`}
+                                    >
+                                        <span className="truncate font-bold text-xs">{receiptFile ? receiptFile.name : "Select Receipt File"}</span>
+                                        <FaCloudUploadAlt className="text-cyan-500 text-xl" />
+                                    </label>
                                 </div>
+                                {receiptPreview && (
+                                    <div className={`relative w-full h-40 rounded-[2rem] border overflow-hidden flex items-center justify-center group mt-4 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                                        {receiptPreview === 'pdf' ? (
+                                            <div className="flex flex-col items-center">
+                                                <FaFileInvoice className="text-5xl text-cyan-500" />
+                                                <span className="text-[10px] text-gray-500 mt-2 uppercase font-black tracking-widest">PDF Ready for Dispatch</span>
+                                            </div>
+                                        ) : (
+                                            <img src={receiptPreview} alt="Receipt Preview" className="w-full h-full object-cover opacity-50 grayscale hover:grayscale-0 transition-all duration-500" />
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => { setReceiptFile(null); setReceiptPreview(null); }}
+                                            className="absolute top-4 right-4 p-2 bg-red-600 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-all shadow-xl active:scale-90"
+                                        >
+                                            <FaTimes size={12} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
-                            {receiptPreview && (
-                                <div className={`relative w-full h-32 rounded-2xl border overflow-hidden flex items-center justify-center group ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
-                                    {receiptPreview === 'pdf' ? (
-                                        <div className="flex flex-col items-center">
-                                            <FaFileInvoice className="text-4xl text-cyan-400" />
-                                            <span className="text-xs text-gray-500 mt-1 uppercase font-bold">PDF Ready for upload</span>
-                                        </div>
-                                    ) : (
-                                        <img src={receiptPreview} alt="Receipt Preview" className="w-full h-full object-cover opacity-60" />
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => { setReceiptFile(null); setReceiptPreview(null); }}
-                                        className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-all"
-                                    >
-                                        <FaTimes />
-                                    </button>
-                                </div>
-                            )}
-
-                            <div className="space-y-2">
-                                <label className={`text-sm font-medium ml-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remarks (Optional)</label>
+                            <div className="space-y-3">
+                                <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>Audit Remarks (Optional)</label>
                                 <textarea
-                                    className={`w-full border rounded-xl py-4 px-4 focus:outline-none focus:border-cyan-500 transition-all resize-none ${isDarkMode ? 'bg-gray-800/80 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                    className={`w-full border rounded-[2rem] py-5 px-6 focus:outline-none focus:border-cyan-500 transition-all resize-none text-sm font-medium ${isDarkMode ? 'bg-white/5 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900 shadow-inner'}`}
                                     rows="3"
                                     placeholder="Add notes for recipient centre..."
                                     value={formData.remarks}
@@ -467,16 +448,16 @@ const CashTransfer = () => {
                             <button
                                 type="submit"
                                 disabled={loading || !canTransfer}
-                                className={`w-full font-bold py-4 rounded-2xl hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-cyan-900/20 flex items-center justify-center gap-3 ${canTransfer ? "bg-gradient-to-r from-cyan-600 to-cyan-700 text-white" : "bg-gray-800 text-gray-500 cursor-not-allowed"
+                                className={`w-full font-black py-5 rounded-[2rem] hover:brightness-110 active:scale-[0.98] transition-all shadow-2xl flex items-center justify-center gap-4 text-[11px] uppercase tracking-widest ${canTransfer ? "bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-cyan-600/20" : "bg-white/5 text-gray-600 cursor-not-allowed border border-gray-800"
                                     }`}
                                 title={canTransfer ? "" : "Permission denied"}
                             >
                                 {loading ? (
-                                    <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                    <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
                                 ) : (
                                     <>
-                                        <FaPaperPlane />
-                                        {canTransfer ? "Initiate Transfer & Get Password" : "Permission Denied"}
+                                        <FaPaperPlane size={14} />
+                                        {canTransfer ? "Authorize & Generate Passcode" : "Authorization Denied"}
                                     </>
                                 )}
                             </button>
@@ -484,16 +465,16 @@ const CashTransfer = () => {
                     </div>
 
                     {/* Side Info */}
-                    <div className="space-y-6">
-                        <div className={`border p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden group ${isDarkMode ? 'bg-gradient-to-br from-cyan-900/40 via-cyan-800/20 to-transparent border-cyan-500/20' : 'bg-gradient-to-br from-cyan-50 via-white to-white border-cyan-100 shadow-sm'}`}>
-                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <FaExchangeAlt className={`text-9xl -rotate-12 ${isDarkMode ? '' : 'text-cyan-900'}`} />
+                    <div className="space-y-8">
+                        <div className={`border p-10 rounded-[2.5rem] relative overflow-hidden group transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-cyan-500/10' : 'bg-white border-cyan-100 shadow-2xl'}`}>
+                            <div className="absolute -top-10 -right-10 p-4 opacity-5 group-hover:opacity-10 transition-opacity duration-700">
+                                <FaExchangeAlt className={`text-[15rem] -rotate-12 ${isDarkMode ? 'text-cyan-500' : 'text-cyan-900'}`} />
                             </div>
-                            <div className="space-y-1 relative">
-                                <p className="text-cyan-600 font-bold text-xs uppercase tracking-widest">
-                                    {formData.fromCentreId ? "Centre Cash Balance" : "Total Available Cash"}
+                            <div className="space-y-2 relative z-10">
+                                <p className="text-cyan-500 font-black text-[10px] uppercase tracking-[0.3em]">
+                                    {formData.fromCentreId ? "Node Liquidity" : "Gross Liquidity"}
                                 </p>
-                                <h4 className={`text-3xl md:text-4xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                <h4 className={`text-5xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     ₹{(() => {
                                         if (formData.fromCentreId) {
                                             const centreReport = auditReports.find(r => r.centreId === formData.fromCentreId);
@@ -502,42 +483,42 @@ const CashTransfer = () => {
                                         return (cashSummary.totalCashLeft || 0).toLocaleString();
                                     })()}
                                 </h4>
-                                <div className="h-1 w-20 bg-cyan-500/30 rounded-full mt-2"></div>
-                                <p className="text-gray-500 text-xs mt-4 italic leading-relaxed">
+                                <div className="h-1.5 w-24 bg-cyan-500/20 rounded-full mt-4"></div>
+                                <p className="text-gray-500 text-[10px] mt-6 italic font-bold uppercase tracking-widest leading-relaxed">
                                     {formData.fromCentreId
                                         ? "Cash currently held at the selected centre."
-                                        : "Total cash held across all your authorized centres."}
+                                        : "Total cash held across all authorized nodes."}
                                 </p>
                             </div>
                         </div>
 
-                        <div className={`border p-8 rounded-3xl space-y-6 ${isDarkMode ? 'bg-gray-900/60 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <h4 className={`font-bold text-lg flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                <div className="p-2 bg-amber-500/10 rounded-lg">
-                                    <FaKey className="text-amber-400" />
+                        <div className={`border p-10 rounded-[2.5rem] space-y-10 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200 shadow-2xl'}`}>
+                            <h4 className={`font-black text-xl italic uppercase tracking-tighter flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500">
+                                    <FaKey size={16} />
                                 </div>
                                 Security Flow
                             </h4>
-                            <div className="space-y-6 mt-4">
-                                <div className="flex gap-4 group">
-                                    <div className={`w-8 h-8 rounded-xl border flex items-center justify-center font-bold shrink-0 transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-400 group-hover:border-cyan-500' : 'bg-gray-100 border-gray-200 text-cyan-600 group-hover:border-cyan-400'}`}>1</div>
+                            <div className="space-y-8">
+                                <div className="flex gap-6 group">
+                                    <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center font-black text-sm shrink-0 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 text-cyan-500 group-hover:border-cyan-500 shadow-inner' : 'bg-gray-100 border-gray-200 text-cyan-600 group-hover:border-cyan-400 shadow-sm'}`}>1</div>
                                     <div>
-                                        <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Initiate</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">Enter details and upload bank receipt for verification.</p>
+                                        <p className={`text-base font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Initialization</p>
+                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-widest leading-relaxed">Enter details and upload bank verification evidence.</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-4 group">
-                                    <div className="w-8 h-8 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-cyan-400 font-bold shrink-0 group-hover:border-cyan-500 transition-colors">2</div>
+                                <div className="flex gap-6 group">
+                                    <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center font-black text-sm shrink-0 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 text-cyan-500 group-hover:border-cyan-500 shadow-inner' : 'bg-gray-100 border-gray-200 text-cyan-600 group-hover:border-cyan-400 shadow-sm'}`}>2</div>
                                     <div>
-                                        <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Passcode</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">Share the generated 6-digit code with the receiving centre.</p>
+                                        <p className={`text-base font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Handshake</p>
+                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-widest leading-relaxed">Share the generated 6-digit passcode with the recipient.</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-4 group">
-                                    <div className="w-8 h-8 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-cyan-400 font-bold shrink-0 group-hover:border-cyan-500 transition-colors">3</div>
+                                <div className="flex gap-6 group">
+                                    <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center font-black text-sm shrink-0 transition-all duration-300 ${isDarkMode ? 'bg-white/5 border-gray-800 text-cyan-500 group-hover:border-cyan-500 shadow-inner' : 'bg-gray-100 border-gray-200 text-cyan-600 group-hover:border-cyan-400 shadow-sm'}`}>3</div>
                                     <div>
-                                        <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Complete</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">Recieving centre verifies code to update transaction history.</p>
+                                        <p className={`text-base font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>Settlement</p>
+                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-widest leading-relaxed">Receiving centre verifies code to finalize movement.</p>
                                     </div>
                                 </div>
                             </div>

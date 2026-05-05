@@ -367,8 +367,8 @@ const MyRegularization = () => {
                                             key={type.id}
                                             onClick={() => setFormData({ ...formData, type: type.id })}
                                             className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all duration-200 group ${formData.type === type.id
-                                                ? `${type.activeBorder} shadow-lg`
-                                                : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-[#131619] hover:border-gray-200 dark:hover:border-gray-700'
+                                                ? `${type.activeBorder.replace(/dark:[a-z-/0-9]+/g, '')} shadow-lg`
+                                                : isDarkMode ? 'border-gray-800 bg-[#131619] hover:border-gray-700' : 'border-gray-100 bg-white hover:border-gray-200'
                                                 }`}
                                         >
                                             <div className="flex items-start gap-4">
@@ -402,19 +402,19 @@ const MyRegularization = () => {
                                     value={formData.reason}
                                     onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                                     placeholder="Explain why you need regularization (e.g. 'Visited Client X, returned late')..."
-                                    className="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors resize-none"
+                                    className={`w-full p-4 border rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-colors resize-none ${isDarkMode ? 'bg-gray-900 text-white border-gray-700 placeholder-gray-600' : 'bg-gray-50 text-gray-800 border-gray-200 placeholder-gray-400'}`}
                                 />
                             </div>
 
                             {/* Geo-tagged Photo Section */}
-                            <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <div className={`space-y-4 pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
                                     <FaCamera className="text-blue-500" /> Geo-tagged Photo Verification
                                 </label>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Camera/Preview Area */}
-                                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 overflow-hidden flex items-center justify-center">
+                                    <div className={`relative aspect-video rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
                                         {stream ? (
                                             <div className="relative w-full h-full">
                                                 <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
@@ -452,7 +452,7 @@ const MyRegularization = () => {
                                                         <button
                                                             type="button"
                                                             onClick={startCamera}
-                                                            className="flex flex-col items-center justify-center gap-1 aspect-square bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-500 text-gray-400 hover:text-blue-500 transition-colors"
+                                                            className={`flex flex-col items-center justify-center gap-1 aspect-square rounded-lg border-2 border-dashed hover:border-blue-500 text-gray-400 hover:text-blue-500 transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-300'}`}
                                                         >
                                                             <FaPlus size={20} />
                                                             <span className="text-[10px] font-bold uppercase">Add Photo</span>
@@ -482,13 +482,13 @@ const MyRegularization = () => {
                                     </div>
 
                                     {/* Location Info Area */}
-                                    <div className="flex flex-col justify-center space-y-4 p-6 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
+                                    <div className={`flex flex-col justify-center space-y-4 p-6 rounded-2xl border ${isDarkMode ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50/50 border-blue-100'}`}>
                                         <div className="flex items-center gap-3">
                                             <div className="p-3 bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-500/20">
                                                 <FaMapMarkerAlt size={20} />
                                             </div>
                                             <div>
-                                                <h3 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-tight">Location Tagging</h3>
+                                                <h3 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Location Tagging</h3>
                                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">GPS Verification Required</p>
                                             </div>
                                         </div>
@@ -500,17 +500,17 @@ const MyRegularization = () => {
                                                 </div>
                                             ) : location.latitude ? (
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                                                    <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                                                         <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Latitude</span>
-                                                        <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{location.latitude.toFixed(6)}</span>
+                                                        <span className={`text-xs font-mono font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{location.latitude.toFixed(6)}</span>
                                                     </div>
-                                                    <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                                                    <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                                                         <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Longitude</span>
-                                                        <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{location.longitude.toFixed(6)}</span>
+                                                        <span className={`text-xs font-mono font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{location.longitude.toFixed(6)}</span>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="p-4 bg-rose-50 dark:bg-rose-500/10 rounded-xl border border-rose-100 dark:border-rose-500/20 text-rose-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                                <div className={`p-4 rounded-xl border text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-100 text-rose-500'}`}>
                                                     <FaVideoSlash /> No Location Data Detected
                                                 </div>
                                             )}
@@ -523,11 +523,11 @@ const MyRegularization = () => {
                                                 Refresh GPS
                                             </button>
 
-                                            <div className="pt-2 border-t border-blue-100 dark:border-blue-500/10">
+                                            <div className={`pt-2 border-t ${isDarkMode ? 'border-blue-500/10' : 'border-blue-100'}`}>
                                                 <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
-                                                    className="w-full bg-white dark:bg-gray-800 text-blue-600 border border-blue-200 dark:border-blue-800 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                                                    className={`w-full px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 border text-blue-600 ${isDarkMode ? 'bg-gray-800 border-blue-800' : 'bg-white border-blue-200'}`}
                                                 >
                                                     <FaPlus /> Upload Photo Instead
                                                 </button>
@@ -538,7 +538,7 @@ const MyRegularization = () => {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end pt-6 border-t border-gray-100 dark:border-gray-800">
+                            <div className={`flex justify-end pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                 <button
                                     type="submit"
                                     disabled={submitting}
@@ -562,28 +562,30 @@ const MyRegularization = () => {
 
                 {/* Request List */}
                 <div className="space-y-4">
-                    <h2 className="text-lg font-black text-gray-800 dark:text-gray-400 uppercase tracking-wider pl-1">Request History</h2>
+                    <h2 className={`text-lg font-black uppercase tracking-wider pl-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Request History</h2>
 
                     {loading ? (
                         <div className="flex justify-center py-20"><FaSpinner className="animate-spin text-blue-500 text-4xl" /></div>
                     ) : requests.length > 0 ? (
                         <div className="grid grid-cols-1 gap-4">
                             {requests.map(req => (
-                                <div key={req._id} className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
+                                <div key={req._id} className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                     <div className="flex items-start gap-4">
-                                        <div className={`mt-1 p-3 rounded-xl ${req.type === 'On Duty' ? 'bg-purple-100 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400' :
-                                            req.type === 'Missed Punch' ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400' :
-                                                'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
-                                            }`}>
+                                        <div className={`mt-1 p-3 rounded-xl ${
+                                            req.type === 'On Duty' ? (isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-100 text-purple-600') :
+                                            req.type === 'Missed Punch' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-100 text-orange-600') :
+                                            (isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-100 text-blue-600')
+                                        }`}>
                                             {req.type === 'On Duty' ? <FaBriefcase /> : req.type === 'Missed Punch' ? <FaClock /> : <FaExclamationCircle />}
                                         </div>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <span className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(req.date).toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${req.status === 'Approved' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' :
-                                                    req.status === 'Rejected' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' :
-                                                        'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20'
-                                                    }`}>
+                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                                                    req.status === 'Approved' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200') :
+                                                    req.status === 'Rejected' ? (isDarkMode ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200') :
+                                                    (isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')
+                                                }`}>
                                                     {req.status}
                                                 </span>
                                             </div>
@@ -608,7 +610,7 @@ const MyRegularization = () => {
                                                             key={idx}
                                                             src={photo}
                                                             alt={`Proof ${idx + 1}`}
-                                                            className="w-14 h-14 rounded-lg object-cover border border-gray-200 dark:border-gray-700 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all shadow-sm"
+                                                            className={`w-14 h-14 rounded-lg object-cover border cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all shadow-sm ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}
                                                             onClick={() => window.open(photo, '_blank')}
                                                         />
                                                     ))}
@@ -620,7 +622,7 @@ const MyRegularization = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-12 bg-white dark:bg-[#1a1f24] rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
+                        <div className={`text-center py-12 rounded-2xl border border-dashed ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                             <FaHistory className="mx-auto text-gray-300 text-4xl mb-3" />
                             <p className="text-gray-500 font-bold uppercase text-xs">No regularization history</p>
                         </div>

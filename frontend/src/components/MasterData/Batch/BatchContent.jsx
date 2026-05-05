@@ -5,8 +5,11 @@ import { hasPermission } from '../../../config/permissions';
 import ExcelImportExport from "../../common/ExcelImportExport";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useTheme } from '../../../context/ThemeContext';
 
 const BatchContent = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [batches, setBatches] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -146,12 +149,12 @@ const BatchContent = () => {
     };
 
     return (
-        <div className="p-6">
-            <ToastContainer position="top-right" theme="dark" />
+        <div className={`p-6 transition-colors duration-300 ${isDarkMode ? '' : 'bg-gray-50'}`}>
+            <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">Batch Management</h2>
-                    <p className="text-gray-400 text-sm mt-1">Manage student batches</p>
+                    <h2 className={`text-2xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Batch <span className="text-cyan-500">Management</span></h2>
+                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-sm mt-1 font-bold`}>Manage student batches</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
@@ -181,16 +184,16 @@ const BatchContent = () => {
                 </div>
             )}
 
-            <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden">
+            <div className={`rounded-xl border overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-[#252b32] text-gray-400 text-sm uppercase">
-                            <th className="p-4 font-medium">#</th>
-                            <th className="p-4 font-medium">Batch Name</th>
-                            <th className="p-4 font-medium text-right">Actions</th>
+                        <tr className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'bg-[#252b32] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                            <th className="p-4">#</th>
+                            <th className="p-4">Batch Name</th>
+                            <th className="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800">
+                    <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                         {loading ? (
                             <tr>
                                 <td colSpan="3" className="p-8 text-center text-gray-500">Loading...</td>
@@ -201,9 +204,9 @@ const BatchContent = () => {
                             </tr>
                         ) : (
                             batches.map((batch, index) => (
-                                <tr key={batch._id} className="master-data-row-wave border-b border-gray-800 transition-colors">
-                                    <td className="p-4 text-gray-400">{index + 1}</td>
-                                    <td className="p-4 font-medium" style={{ color: "white" }}>{batch.batchName}</td>
+                                <tr key={batch._id} className={`master-data-row-wave transition-colors ${isDarkMode ? 'border-b border-gray-800 hover:bg-white/5' : 'border-b border-gray-100 hover:bg-gray-50'}`}>
+                                    <td className={`p-4 font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{index + 1}</td>
+                                    <td className={`p-4 font-black uppercase text-xs tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{batch.batchName}</td>
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-2">
                                             {canEdit && (
@@ -235,40 +238,40 @@ const BatchContent = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                    <div className="bg-[#1a1f24] p-6 rounded-lg w-full max-w-md border border-gray-700 shadow-xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-white">
-                                {currentBatch ? "Edit Batch" : "Add New Batch"}
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+                    <div className={`p-8 rounded-2xl w-full max-w-md border shadow-2xl transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className={`text-2xl font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {currentBatch ? "Edit" : "Add"} <span className="text-cyan-500">Batch</span>
                             </h3>
-                            <button onClick={closeModal} className="text-gray-400 hover:text-white">
-                                <FaTimes />
+                            <button onClick={closeModal} className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'} transition-colors`}>
+                                <FaTimes size={20} />
                             </button>
                         </div>
                         <form onSubmit={handleSave}>
-                            <div className="mb-4">
-                                <label className="block text-gray-400 mb-2 text-sm">Batch Name</label>
+                            <div className="mb-6">
+                                <label className={`block mb-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Batch Name</label>
                                 <input
                                     type="text"
                                     name="batchName"
                                     value={formData.batchName}
                                     onChange={handleInputChange}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                    className={`w-full border rounded-xl p-3 outline-none focus:border-cyan-500 transition-all font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                     placeholder="Enter batch name"
                                     required
                                 />
                             </div>
-                            <div className="flex justify-end gap-3">
+                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                                    className={`px-6 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-900'}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors"
+                                    className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-widest text-xs rounded-lg transition-all shadow-lg shadow-cyan-500/20"
                                 >
                                     Save
                                 </button>

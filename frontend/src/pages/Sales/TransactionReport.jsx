@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaCreditCard, FaStore, FaSun, FaMoon } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaCreditCard, FaStore } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
@@ -387,11 +387,12 @@ const TransactionReport = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                            Transaction Report
+                        <h1 className={`text-3xl font-black uppercase italic tracking-tighter flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Transaction <span className="text-emerald-500">Report</span>
                         </h1>
+                        <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Revenue intelligence &amp; financial analytics</p>
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#1a1f24] p-1.5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                    <div className={`flex items-center gap-2 p-1.5 rounded-xl border shadow-inner transition-colors ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
 
 
                         <button
@@ -422,9 +423,9 @@ const TransactionReport = () => {
                 </div>
 
                 {/* Filters */}
-                <div className={`p-4 rounded-xl shadow-sm border transition-colors flex flex-col gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                <div className={`p-4 rounded-xl shadow-sm border transition-colors flex flex-col gap-4 ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="flex flex-wrap items-center justify-between gap-4">
-                        <h2 className={`text-lg font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Transaction Report Analysis</h2>
+                        <h2 className={`text-lg font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Intelligence Filters</h2>
                         <button
                             onClick={handleDownloadExcel}
                             className="bg-[#22c55e] hover:bg-green-600 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-sm flex items-center gap-2"
@@ -590,21 +591,22 @@ const TransactionReport = () => {
                 {/* Charts */}
 
                 {/* Content Area */}
-                <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 min-h-[500px]">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-8 flex items-center gap-3">
-                        <div className="w-2 h-8 bg-green-600 rounded-full"></div>
-                        Monthly Revenue Trend ({timePeriod})
+                <div className={`p-6 rounded-2xl shadow-xl border transition-colors min-h-[500px] ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <h3 className={`text-2xl font-black uppercase italic tracking-tighter mb-8 flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <div className="w-2 h-10 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></div>
+                        Monthly <span className="text-emerald-500">Revenue Trend</span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ml-2 px-3 py-1 rounded-full border ${isDarkMode ? 'border-gray-800 text-gray-500' : 'border-gray-200 text-gray-400'}`}>{timePeriod}</span>
                     </h3>
 
                     {loading ? (
                         <div className="flex h-96 items-center justify-center">
                             <div className="flex flex-col items-center gap-4">
                                 <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse tracking-widest text-xs">COLLECTING FINANCIAL DATA...</p>
+                                <p className={`font-black animate-pulse tracking-[0.3em] text-[10px] uppercase ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>COLLECTING FINANCIAL DATA...</p>
                             </div>
                         </div>
                     ) : monthlyData.length === 0 ? (
-                        <div className="flex h-96 items-center justify-center text-gray-400 flex-col gap-4 bg-gray-50 dark:bg-[#131619] rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+                        <div className={`flex h-96 items-center justify-center flex-col gap-4 rounded-2xl border border-dashed transition-all ${isDarkMode ? 'bg-[#131619]/20 border-gray-700 text-gray-500' : 'bg-gray-50 border-gray-300 text-gray-400'}`}>
                             <FaCreditCard size={48} className="opacity-20" />
                             <p className="uppercase tracking-[0.2em] text-sm font-bold opacity-50">No transactions recorded</p>
                         </div>
@@ -639,14 +641,14 @@ const TransactionReport = () => {
                             )}
 
                             {displayMode === "table" && (
-                                <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                <div className={`overflow-x-auto animate-fade-in rounded-xl border shadow-sm ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                     <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Month</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Transactions</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right text-green-600">Total Revenue</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Avg/Transaction</th>
+                                            <tr className={`border-b transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-500'} uppercase text-[9px] font-black tracking-widest`}>
+                                                <th className="p-5">Month</th>
+                                                <th className="p-5 text-right">Transactions</th>
+                                                <th className="p-5 text-right text-emerald-600">Total Revenue</th>
+                                                <th className="p-5 text-center">Avg / Transaction</th>
                                                 {/* <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Trend</th> */}
                                             </tr>
                                         </thead>
@@ -673,7 +675,7 @@ const TransactionReport = () => {
                                             ))}
                                         </tbody>
                                         <tfoot>
-                                            <tr className="bg-gray-50 dark:bg-[#131619] font-black">
+                                            <tr className={`font-black text-xs ${isDarkMode ? 'bg-[#131619] text-gray-400 border-t border-gray-800' : 'bg-gray-50 text-gray-500 border-t border-gray-100'}`}>
                                                 <td className="p-5 uppercase text-xs">Total Performance</td>
                                                 <td className="p-5 text-right">{monthlyData.reduce((acc, curr) => acc + (curr.count || 0), 0)}</td>
                                                 <td className="p-5 text-right text-green-600">₹{totalRevenue.toLocaleString('en-IN')}</td>
@@ -690,7 +692,7 @@ const TransactionReport = () => {
                                         const maxRev = Math.max(...monthlyData.map(m => m.revenue));
                                         const pct = (item.revenue / maxRev) * 100;
                                         return (
-                                            <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group border-l-4 border-l-green-500 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                                            <div key={idx} className={`rounded-2xl border p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group border-l-4 border-l-green-500 ${isDarkMode ? 'bg-[#0f1215] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
                                                 }`}>
                                                 <div className="flex justify-between items-center mb-6">
                                                     <h4 className="font-black text-gray-400 uppercase text-[10px] tracking-widest">{item.month}</h4>
@@ -703,7 +705,7 @@ const TransactionReport = () => {
                                                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 text-right">Revenue</div>
                                                         <div className={`text-3xl font-black text-right tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{item.revenue.toLocaleString('en-IN')}</div>
                                                     </div>
-                                                    <div className={`flex justify-between items-center p-3 rounded-xl border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-100'
+                                                    <div className={`flex justify-between items-center p-3 rounded-xl border transition-colors ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-gray-50 border-gray-100'
                                                         }`}>
                                                         <div className="text-[10px] font-bold text-gray-400 uppercase">Transactions</div>
                                                         <div className="font-black text-green-600">{item.count}</div>
@@ -729,10 +731,10 @@ const TransactionReport = () => {
                 {/* Centre & Course Revenue Sections */}
                 <div className="space-y-8">
                     {/* Revenue by Centre Section */}
-                    <div className={`p-6 rounded-2xl shadow-xl border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                            <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-                            Revenue by Centre
+                    <div className={`p-6 rounded-2xl shadow-xl border transition-colors ${isDarkMode ? 'bg-white/5 border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <h3 className={`text-2xl font-black uppercase italic tracking-tighter mb-8 flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                            <div className="w-2 h-10 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
+                            Revenue by <span className="text-blue-500">Centre</span>
                         </h3>
 
                         {displayMode === "chart" && (
@@ -766,13 +768,13 @@ const TransactionReport = () => {
                         )}
 
                         {displayMode === "table" && (
-                            <div className="overflow-x-auto animate-fade-in rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <div className={`overflow-x-auto animate-fade-in rounded-xl border shadow-sm ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
-                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
-                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Revenue Generated</th>
-                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Revenue Contribution</th>
+                                        <tr className={`border-b ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-500'} uppercase text-[9px] font-black tracking-widest`}>
+                                            <th className="p-5">Centre Name</th>
+                                            <th className="p-5 text-right">Total Revenue Generated</th>
+                                            <th className="p-5 text-center">Revenue Contribution</th>
                                         </tr>
                                     </thead>
                                     <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
@@ -825,9 +827,9 @@ const TransactionReport = () => {
 
                     {/* Revenue by Course Section */}
                     <div className={`p-6 rounded-2xl shadow-xl border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                            <div className="w-2 h-8 bg-amber-500 rounded-full"></div>
-                            Revenue by Course
+                        <h3 className={`text-2xl font-black uppercase italic tracking-tighter mb-8 flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                            <div className="w-2 h-10 bg-gradient-to-b from-amber-400 to-orange-500 rounded-full"></div>
+                            Revenue by <span className="text-amber-500">Course</span>
                         </h3>
 
                         {displayMode === "chart" && (
@@ -864,10 +866,10 @@ const TransactionReport = () => {
                             <div className={`overflow-x-auto animate-fade-in rounded-xl border transition-colors shadow-sm ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className={`border-b transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Course Name</th>
-                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Collection</th>
-                                            <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Revenue Share</th>
+                                        <tr className={`border-b ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-500'} uppercase text-[9px] font-black tracking-widest`}>
+                                            <th className="p-5">Course Name</th>
+                                            <th className="p-5 text-right">Total Collection</th>
+                                            <th className="p-5 text-center">Revenue Share</th>
                                         </tr>
                                     </thead>
                                     <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
@@ -921,9 +923,9 @@ const TransactionReport = () => {
 
                 {/* Payment Methods Section */}
                 <div className={`p-6 rounded-2xl shadow-xl border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                    <h3 className={`text-xl font-bold mb-8 flex items-center gap-3 transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                        <div className="w-2 h-8 bg-purple-600 rounded-full"></div>
-                        Payment Methods Distribution
+                    <h3 className={`text-2xl font-black uppercase italic tracking-tighter mb-8 flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <div className="w-2 h-10 bg-gradient-to-b from-violet-500 to-purple-700 rounded-full"></div>
+                        Payment Methods <span className="text-violet-500">Distribution</span>
                     </h3>
 
                     {displayMode === "chart" && (
@@ -977,11 +979,11 @@ const TransactionReport = () => {
                         <div className={`overflow-x-auto animate-fade-in rounded-xl border transition-colors shadow-sm ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className={`border-b transition-colors ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Method</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Transactions</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Total Amount</th>
-                                        <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Percentage</th>
+                                    <tr className={`border-b ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-500'} uppercase text-[9px] font-black tracking-widest`}>
+                                        <th className="p-5">Method</th>
+                                        <th className="p-5 text-right">Transactions</th>
+                                        <th className="p-5 text-right">Total Amount</th>
+                                        <th className="p-5 text-center">Percentage</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import Layout from "../../../components/Layout";
-import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaSpinner, FaPlus, FaEdit, FaTrash, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useTheme } from "../../../context/ThemeContext";
 
 const HolidayCalendar = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [currentDate, setCurrentDate] = useState(new Date()); // Default to today
     const [holidays, setHolidays] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -166,14 +166,14 @@ const HolidayCalendar = () => {
     return (
         <Layout activePage="HR & Manpower">
             <div className="p-6 space-y-6 animate-fade-in pb-10">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#131619] border border-gray-800 p-8 rounded-[2.5rem] shadow-2xl">
+                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-8 rounded-[2.5rem] shadow-2xl border transition-all duration-300 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div>
                         <h2 className="text-cyan-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2">Control Panel</h2>
-                        <h1 className="text-3xl font-black text-white uppercase tracking-tight italic">Holiday <span className="text-gray-500">Management</span></h1>
+                        <h1 className={`text-3xl font-black uppercase tracking-tight italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Holiday <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Management</span></h1>
                     </div>
                     <button
                         onClick={handleAddClick}
-                        className="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-500 hover:bg-cyan-600 text-[#1a1f24] font-black rounded-2xl transition-all shadow-lg shadow-cyan-500/20 active:scale-95"
+                        className={`flex items-center justify-center gap-3 px-8 py-4 bg-cyan-500 hover:bg-cyan-600 font-black rounded-2xl transition-all shadow-lg shadow-cyan-500/20 active:scale-95 ${isDarkMode ? 'text-[#1a1f24]' : 'text-white'}`}
                     >
                         <FaPlus size={14} />
                         <span className="uppercase tracking-widest text-xs">Register Holiday</span>
@@ -266,49 +266,49 @@ const HolidayCalendar = () => {
                 {/* Management Modal */}
                 {showModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-                        <div className="bg-[#131619] w-full max-w-lg rounded-[2.5rem] shadow-3xl border border-gray-800 overflow-hidden relative">
-                            <div className="p-8 border-b border-gray-800 flex items-center justify-between bg-[#1a1f24]/50">
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} w-full max-w-lg rounded-[2.5rem] shadow-3xl border overflow-hidden relative transition-all duration-300`}>
+                            <div className={`p-8 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]/50' : 'border-gray-100 bg-gray-50/50'}`}>
                                 <div>
-                                    <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">
+                                    <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                         {editingHoliday ? "Edit" : "New"} <span className="text-cyan-500">Holiday</span>
                                     </h2>
-                                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-1">Configure global calendar event</p>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Configure global calendar event</p>
                                 </div>
-                                <button onClick={() => setShowModal(false)} className="p-3 bg-gray-800 text-gray-500 hover:text-white rounded-xl transition-all">
+                                <button onClick={() => setShowModal(false)} className={`p-3 rounded-xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-500 hover:text-white' : 'bg-gray-100 text-gray-400 hover:text-gray-900'}`}>
                                     <FaTimes size={20} />
                                 </button>
                             </div>
 
                             <form onSubmit={handleSave} className="p-10 space-y-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Holiday Name</label>
+                                    <label className={`text-[10px] font-black uppercase tracking-widest pl-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Holiday Name</label>
                                     <input
                                         type="text"
                                         required
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full px-6 py-4 bg-black/40 border border-gray-800 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-500/50 transition-all"
+                                        className={`w-full px-6 py-4 border rounded-2xl text-sm font-bold outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         placeholder="e.g. Independence Day"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Event Date</label>
+                                        <label className={`text-[10px] font-black uppercase tracking-widest pl-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Event Date</label>
                                         <input
                                             type="date"
                                             required
                                             value={formData.date}
                                             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                            className="w-full px-6 py-4 bg-black/40 border border-gray-800 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-500/50 transition-all [color-scheme:dark]"
+                                            className={`w-full px-6 py-4 border rounded-2xl text-sm font-bold outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900 [color-scheme:light]'}`}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Holiday Type</label>
+                                        <label className={`text-[10px] font-black uppercase tracking-widest pl-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Holiday Type</label>
                                         <select
                                             value={formData.type}
                                             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                            className="w-full px-6 py-4 bg-black/40 border border-gray-800 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-500/50 transition-all appearance-none"
+                                            className={`w-full px-6 py-4 border rounded-2xl text-sm font-bold outline-none focus:border-cyan-500/50 transition-all appearance-none ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         >
                                             <option value="Public">Public</option>
                                             <option value="Office">Office</option>
@@ -318,12 +318,12 @@ const HolidayCalendar = () => {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-1">Description (Optional)</label>
+                                    <label className={`text-[10px] font-black uppercase tracking-widest pl-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Description (Optional)</label>
                                     <textarea
                                         rows="3"
                                         value={formData.description}
                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        className="w-full px-6 py-4 bg-black/40 border border-gray-800 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-500/50 transition-all resize-none"
+                                        className={`w-full px-6 py-4 border rounded-2xl text-sm font-bold outline-none focus:border-cyan-500/50 transition-all resize-none ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                                         placeholder="Add details about the holiday..."
                                     />
                                 </div>
@@ -332,14 +332,14 @@ const HolidayCalendar = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowModal(false)}
-                                        className="flex-1 py-4 bg-gray-800 text-gray-400 hover:text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all"
+                                        className={`flex-1 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:text-gray-700'}`}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={submitting}
-                                        className="flex-1 py-4 bg-cyan-500 text-[#1a1f24] rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-cyan-500/20 hover:bg-cyan-600 transition-all disabled:opacity-50"
+                                        className={`flex-1 py-4 bg-cyan-500 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-lg shadow-cyan-500/20 hover:bg-cyan-600 transition-all disabled:opacity-50 ${isDarkMode ? 'text-[#1a1f24]' : 'text-white'}`}
                                     >
                                         {submitting ? "Syncing..." : editingHoliday ? "Update Event" : "Create Event"}
                                     </button>

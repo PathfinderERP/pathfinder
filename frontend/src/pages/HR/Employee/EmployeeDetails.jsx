@@ -274,8 +274,8 @@ const EmployeeDetails = () => {
                     {/* LEFT COLUMN: Personal Info */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* PERSONAL DETAILS */}
-                        <section className="bg-white dark:bg-[#1a1f24] rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 transition-colors">
-                            <h2 className="text-lg font-black uppercase tracking-wider mb-6 flex items-center gap-2 text-gray-800 dark:text-white border-b pb-4 dark:border-gray-700">
+                        <section className={`rounded-3xl p-8 border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-gray-700' : 'bg-white border-gray-100 shadow-sm hover:border-gray-200'}`}>
+                            <h2 className={`text-lg font-black uppercase tracking-wider mb-6 flex items-center gap-2 border-b pb-4 ${isDarkMode ? 'text-white border-gray-700' : 'text-gray-800 border-gray-100'}`}>
                                 <FaUser className="text-blue-500" /> Personal Information
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -283,9 +283,9 @@ const EmployeeDetails = () => {
                                 <InputField label="Spouse Name" name="spouseName" value={formData.spouseName} onChange={handleChange} disabled={!isEditing} />
                                 <InputField label="Date of Birth" name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} disabled={!isEditing} />
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gender</label>
+                                    <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gender</label>
                                     <select name="gender" value={formData.gender} onChange={handleChange} disabled={!isEditing}
-                                        className="w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-xl font-bold text-gray-800 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed">
+                                        className={`w-full p-4 rounded-xl font-bold border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed ${isDarkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'}`}>
                                         <option value="Male">Male</option>
                                         <option value="Female">Female</option>
                                         <option value="Other">Other</option>
@@ -303,8 +303,8 @@ const EmployeeDetails = () => {
                         </section>
 
                         {/* FINANCIAL PROFILE */}
-                        <section className="bg-white dark:bg-[#1a1f24] rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 transition-colors">
-                            <h2 className="text-lg font-black uppercase tracking-wider mb-6 flex items-center gap-2 text-gray-800 dark:text-white border-b pb-4 dark:border-gray-700">
+                        <section className={`rounded-3xl p-8 border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-gray-700' : 'bg-white border-gray-100 shadow-sm hover:border-gray-200'}`}>
+                            <h2 className={`text-lg font-black uppercase tracking-wider mb-6 flex items-center gap-2 border-b pb-4 ${isDarkMode ? 'text-white border-gray-700' : 'text-gray-800 border-gray-100'}`}>
                                 <FaUniversity className="text-purple-500" /> Financial Profile (Editable)
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -434,8 +434,8 @@ const EmployeeDetails = () => {
                         </section>
 
                         {/* Work (Read Only) */}
-                        <section className="bg-white dark:bg-[#1a1f24] rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 transition-colors">
-                            <h2 className="text-sm font-black uppercase tracking-wider mb-6 flex items-center gap-2 text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-2">
+                        <section className={`rounded-3xl p-8 border transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 hover:border-gray-700' : 'bg-white border-gray-100 shadow-sm hover:border-gray-200'}`}>
+                            <h2 className={`text-sm font-black uppercase tracking-wider mb-6 flex items-center gap-2 text-gray-400 border-b pb-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                                 <FaBriefcase /> Work & Compensation
                             </h2>
                             <div className="space-y-5">
@@ -446,8 +446,8 @@ const EmployeeDetails = () => {
                         </section>
 
                         {/* Documents (Editable) */}
-                        <section className="bg-white dark:bg-[#1a1f24] rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-800">
-                            <h2 className="text-sm font-black uppercase tracking-wider mb-6 flex items-center gap-2 text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-2">
+                        <section className={`rounded-3xl p-8 border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                            <h2 className={`text-sm font-black uppercase tracking-wider mb-6 flex items-center gap-2 text-gray-400 border-b pb-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                                 <FaFileAlt /> Digital Documents
                             </h2>
                             <div className="space-y-6">
@@ -465,24 +465,28 @@ const EmployeeDetails = () => {
     );
 };
 
-const InputField = ({ label, name, type = "text", value, onChange, disabled }) => (
-    <div className="space-y-1">
-        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{label}</label>
-        {type === 'textarea' ? (
-            <textarea name={name} value={value} onChange={onChange} disabled={disabled} rows="3"
-                className="w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-xl font-bold text-gray-800 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed resize-none" />
-        ) : (
-            <input
-                type={type}
-                name={name}
-                value={value}
-                onChange={onChange}
-                disabled={disabled}
-                className="w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-xl font-bold text-gray-800 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-            />
-        )}
-    </div>
-);
+const InputField = ({ label, name, type = "text", value, onChange, disabled }) => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
+    return (
+        <div className="space-y-1">
+            <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{label}</label>
+            {type === 'textarea' ? (
+                <textarea name={name} value={value} onChange={onChange} disabled={disabled} rows="3"
+                    className={`w-full p-4 rounded-xl font-bold border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed resize-none ${isDarkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'}`} />
+            ) : (
+                <input
+                    type={type}
+                    name={name}
+                    value={value}
+                    onChange={onChange}
+                    disabled={disabled}
+                    className={`w-full p-4 rounded-xl font-bold border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all ${isDarkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'}`}
+                />
+            )}
+        </div>
+    );
+};
 
 const ReadOnlyField = ({ label, value }) => {
     const { theme } = useTheme();
@@ -513,7 +517,7 @@ const DocumentRow = ({ label, url, name, isEditing, onChange, newFile }) => {
                         <div className={`${isDarkMode ? 'bg-blue-900 text-blue-400' : 'bg-blue-100 text-blue-600'} p-2 rounded-lg`}>
                             <FaFileAlt />
                         </div>
-                        <span className={`font-bold text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} group-hover:text-blue-600 dark:group-hover:text-blue-400`}>View/Download</span>
+                        <span className={`font-bold text-sm group-hover:text-blue-600 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>View/Download</span>
                     </div>
                     <FaDownload className="text-gray-400 group-hover:text-blue-500" />
                 </a>
@@ -526,7 +530,7 @@ const DocumentRow = ({ label, url, name, isEditing, onChange, newFile }) => {
             {/* Upload Input */}
             {isEditing && (
                 <div className="relative pt-1">
-                    <input type="file" name={name} onChange={onChange} className="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-800 dark:file:text-gray-300 transition-all" accept=".pdf,.jpg,.jpeg,.png" />
+                    <input type="file" name={name} onChange={onChange} className={`block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold transition-all ${isDarkMode ? 'file:bg-gray-800 file:text-gray-300' : 'file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'}`} accept=".pdf,.jpg,.jpeg,.png" />
                 </div>
             )}
         </div>
