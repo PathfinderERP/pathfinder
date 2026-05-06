@@ -375,7 +375,7 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    paymentDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",
