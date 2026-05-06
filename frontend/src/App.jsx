@@ -155,6 +155,8 @@ import Store from "./pages/Operations/Store";
 import MarketingOperations from "./pages/Operations/Marketing";
 import AcademicsOperations from "./pages/Operations/Academics";
 import DailyCenterTracking from "./pages/DailyCenterTracking";
+import DailyCenterTrackingDetails from "./pages/DailyCenterTrackingDetails";
+import DailyUserActivityLog from "./pages/DailyUserActivityLog";
 
 
 // ... inside Routes ... (I will use a simpler replace block to avoid mess)
@@ -264,6 +266,8 @@ function App() {
         <Route path="/operations/marketing" element={<ProtectedRoute><MarketingOperations /></ProtectedRoute>} />
         <Route path="/operations/academics" element={<ProtectedRoute><AcademicsOperations /></ProtectedRoute>} />
         <Route path="/daily-center-tracking" element={<ProtectedRoute><DailyCenterTracking /></ProtectedRoute>} />
+        <Route path="/daily-center-tracking/:centerId" element={<ProtectedRoute><DailyCenterTrackingDetails /></ProtectedRoute>} />
+        <Route path="/daily-center-tracking/user/:userId" element={<ProtectedRoute><DailyUserActivityLog /></ProtectedRoute>} />
         <Route path="/academics/teacher-list" element={<ProtectedRoute><TeacherList /></ProtectedRoute>} />
         <Route path="/academics/teacher/view/:id" element={<ProtectedRoute><ViewTeacher /></ProtectedRoute>} />
         <Route path="/academics/student-teacher-review" element={<ProtectedRoute><StudentTeacherReview /></ProtectedRoute>} />

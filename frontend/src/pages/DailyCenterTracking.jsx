@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
 import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList } from 'react-icons/fa';
@@ -13,6 +14,7 @@ const DailyCenterTracking = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [viewMode, setViewMode] = useState("card"); // "card" or "table"
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchCenters = async () => {
@@ -188,7 +190,9 @@ const DailyCenterTracking = () => {
                                                 </td>
                                                 <td className="p-4 font-semibold text-cyan-600 dark:text-cyan-400">{center.collections}</td>
                                                 <td className="p-4 text-center">
-                                                    <button className={`px-4 py-1.5 rounded text-xs font-medium transition-colors ${
+                                                    <button 
+                                                        onClick={() => navigate(`/daily-center-tracking/${center.id}?date=${selectedDate}`)}
+                                                        className={`px-4 py-1.5 rounded text-xs font-medium transition-colors ${
                                                         isDarkMode 
                                                             ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
                                                             : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -252,7 +256,9 @@ const DailyCenterTracking = () => {
                                             </div>
                                         </div>
 
-                                        <button className={`w-full py-2 rounded text-sm font-medium transition-colors ${
+                                        <button 
+                                            onClick={() => navigate(`/daily-center-tracking/${center.id}?date=${selectedDate}`)}
+                                            className={`w-full py-2 rounded text-sm font-medium transition-colors ${
                                             isDarkMode 
                                                 ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' 
                                                 : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'

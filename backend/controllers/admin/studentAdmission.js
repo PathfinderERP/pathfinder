@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Student from "../../models/Students.js";
+import User from "../../models/User.js";
 
 export const getStudentById = async (req, res) => {
   try {
@@ -9,10 +10,18 @@ export const getStudentById = async (req, res) => {
       return res.status(400).json({ message: "Invalid student ID format" });
     }
 
-    const student = await Student.findById(studentId);
+    const student = await Student.findById(studentId).lean();
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Resolve counselledBy if it's an ObjectID
+    if (student.counselledBy && mongoose.Types.ObjectId.isValid(student.counselledBy)) {
+      const user = await User.findById(student.counselledBy).select('name');
+      if (user) {
+        student.counselledBy = user.name;
+      }
     }
 
     res.status(200).json(student);
