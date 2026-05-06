@@ -841,28 +841,53 @@ const BoardCourseAdmissionPage = () => {
                                             )}
                                         </div>
                                         {paymentMethod === "CHEQUE" && (
-                                            <div className="grid grid-cols-2 gap-4 animate-fadeIn">
-                                                <div>
-                                                    <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Chq No</label>
-                                                    <input
-                                                        type="text"
-                                                        value={transactionId}
-                                                        onChange={(e) => setTransactionId(e.target.value)}
-                                                        className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
-                                                        placeholder="Number"
-                                                        required
-                                                    />
+                                            <div className="space-y-4 animate-fadeIn">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Chq No</label>
+                                                        <input
+                                                            type="text"
+                                                            value={transactionId}
+                                                            onChange={(e) => setTransactionId(e.target.value)}
+                                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                            placeholder="Number"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Bank</label>
+                                                        <input
+                                                            type="text"
+                                                            value={bankName}
+                                                            onChange={(e) => setBankName(e.target.value)}
+                                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                            placeholder="Name"
+                                                            required
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Bank</label>
-                                                    <input
-                                                        type="text"
-                                                        value={bankName}
-                                                        onChange={(e) => setBankName(e.target.value)}
-                                                        className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
-                                                        placeholder="Name"
-                                                        required
-                                                    />
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Acc. Holder</label>
+                                                        <input
+                                                            type="text"
+                                                            value={accountHolderName}
+                                                            onChange={(e) => setAccountHolderName(e.target.value)}
+                                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                            placeholder="Name"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Chq Date</label>
+                                                        <input
+                                                            type="date"
+                                                            value={chequeDate}
+                                                            onChange={(e) => setChequeDate(e.target.value)}
+                                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                            required
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
