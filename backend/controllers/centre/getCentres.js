@@ -10,7 +10,7 @@ export const getCentres = async (req, res) => {
         // Other users only see centres they are assigned to
         let query = {};
 
-        if (!isSuperAdmin) {
+        if (!isSuperAdmin && req.query.fetchAll !== 'true') {
             const userCentres = user.centres || [];
             if (userCentres.length > 0) {
                 // Filter to only show centres the user is assigned to

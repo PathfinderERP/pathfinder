@@ -48,7 +48,7 @@ const CashTransfer = () => {
             const userData = JSON.parse(localStorage.getItem("user") || "{}");
 
             const [centresRes, reportRes, accountsRes] = await Promise.all([
-                axios.get(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`${import.meta.env.VITE_API_URL}/centre?fetchAll=true`, { headers: { Authorization: `Bearer ${token}` } }),
                 axios.get(`${import.meta.env.VITE_API_URL}/finance/cash/report`, { headers: { Authorization: `Bearer ${token}` } }),
                 axios.get(`${import.meta.env.VITE_API_URL}/master-data/account`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
