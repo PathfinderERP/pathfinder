@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from "../../context/ThemeContext";
 import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools, FaPen, FaSave, FaTrash, FaBoxOpen } from 'react-icons/fa';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -615,6 +615,39 @@ const EnrolledStudentsContent = () => {
     );
     const totalCollected = filteredAdmissions.reduce((sum, a) => sum + (a.totalPaidAmount || 0), 0);
 
+    const chartData = React.useMemo(() => {
+        const admissionsByDate = {};
+        
+        // If no date filters are applied, the chart defaults to current month data internally
+        // without affecting the main table or global stats cards.
+        let sourceData = filteredAdmissions;
+        if (!startDate && !endDate) {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            
+            sourceData = filteredAdmissions.filter(a => {
+                const d = new Date(a.admissionDate);
+                return d >= firstDay && d <= lastDay;
+            });
+        }
+        
+        sourceData.forEach(admission => {
+            const dateObj = new Date(admission.admissionDate);
+            if (isNaN(dateObj.getTime())) return;
+            
+            const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+            if (!admissionsByDate[dateStr]) {
+                admissionsByDate[dateStr] = { date: dateStr, count: 0, revenue: 0, rawDate: dateObj };
+            }
+            admissionsByDate[dateStr].count += 1;
+            admissionsByDate[dateStr].revenue += (admission.totalPaidAmount || 0);
+        });
+
+        return Object.values(admissionsByDate).sort((a, b) => a.rawDate - b.rawDate);
+    }, [filteredAdmissions, startDate, endDate]);
+
+
     // Count students with pending payments, not admissions, for consistency with the list
     const pendingPaymentCount = filteredStudents.filter(s =>
         s.admissions.some(a => {
@@ -1078,22 +1111,83 @@ const EnrolledStudentsContent = () => {
                     <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active in view</p>
                 </div>
 
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Courses</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{filteredAdmissions.length}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active Enrollments</p>
-                </div>
 
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-yellow-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Pending Payment</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pendingPaymentCount}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Action Required</p>
-                </div>
 
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-blue-500 hover:scale-[1.02] transition-all`}>
                     <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Collected</h3>
                     <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{totalCollected.toLocaleString()}</p>
                     <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Net Revenue</p>
+                </div>
+
+                {/* Admission Trend Analysis */}
+                <div className={`lg:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 rounded-[4px] border border-dashed ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} flex flex-col`}>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex flex-col">
+                            <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Daily Admission Analysis</h3>
+                            <span className="text-[8px] font-black text-cyan-500 uppercase tracking-widest">
+                                {(!startDate && !endDate) ? `${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}` : 'Filtered Analysis'}
+                            </span>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Count</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Revenue</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex-1 min-h-[110px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={chartData}>
+                                <defs>
+                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#1f2937" : "#f3f4f6"} vertical={false} />
+                                <XAxis 
+                                    dataKey="date" 
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900'}}
+                                />
+                                <YAxis 
+                                    yAxisId="left"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900'}}
+                                />
+                                <YAxis 
+                                    yAxisId="right"
+                                    orientation="right"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900'}}
+                                    tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`}
+                                />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        backgroundColor: isDarkMode ? '#1a1f24' : '#fff', 
+                                        border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
+                                        borderRadius: '4px',
+                                        fontSize: '9px',
+                                        fontWeight: '900',
+                                        textTransform: 'uppercase'
+                                    }}
+                                    formatter={(value, name) => [
+                                        name === 'revenue' ? `₹${value.toLocaleString()}` : value,
+                                        name.toUpperCase()
+                                    ]}
+                                />
+                                <Bar yAxisId="left" dataKey="count" name="count" barSize={12} fill="#10b981" radius={[2, 2, 0, 0]} />
+                                <Area yAxisId="right" type="monotone" dataKey="revenue" name="revenue" fill="url(#colorRevenue)" stroke="#3b82f6" strokeWidth={2} />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
 
