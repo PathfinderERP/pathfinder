@@ -40,6 +40,7 @@ const OngoingClass = () => {
         fromDate: "",
         toDate: "",
         startTime: "",
+        endTime: "",
     });
     const [showFilters, setShowFilters] = useState(false);
     const [dropdownData, setDropdownData] = useState({ teachers: [], centres: [], subjects: [] });
@@ -98,6 +99,7 @@ const OngoingClass = () => {
         if (filters.fromDate) params.append("fromDate", filters.fromDate);
         if (filters.toDate) params.append("toDate", filters.toDate);
         if (filters.startTime) params.append("startTime", filters.startTime);
+        if (filters.endTime) params.append("endTime", filters.endTime);
         return params;
     };
 
@@ -137,6 +139,7 @@ const OngoingClass = () => {
             fromDate: "",
             toDate: "",
             startTime: "",
+            endTime: "",
         });
         setSearch("");
         setPage(1);
@@ -394,6 +397,15 @@ const OngoingClass = () => {
                                     className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">End Time</label>
+                                <input
+                                    type="time"
+                                    value={filters.endTime}
+                                    onChange={(e) => handleFilterChange("endTime", e.target.value)}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                />
+                            </div>
                             <div className="flex items-end gap-2">
                                 <button
                                     onClick={clearFilters}
@@ -434,6 +446,18 @@ const OngoingClass = () => {
                                 <div className="bg-orange-600/10 text-orange-400 px-3 py-1 rounded-full text-[10px] font-bold border border-orange-600/20 flex items-center gap-2">
                                     Mode: {filters.classMode.map(m => m.label).join(", ")}
                                     <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("classMode", [])} />
+                                </div>
+                            )}
+                            {filters.startTime && (
+                                <div className="bg-yellow-600/10 text-yellow-400 px-3 py-1 rounded-full text-[10px] font-bold border border-yellow-600/20 flex items-center gap-2">
+                                    Start: {filters.startTime}
+                                    <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("startTime", "")} />
+                                </div>
+                            )}
+                            {filters.endTime && (
+                                <div className="bg-emerald-600/10 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-bold border border-emerald-600/20 flex items-center gap-2">
+                                    End: {filters.endTime}
+                                    <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("endTime", "")} />
                                 </div>
                             )}
                         </div>

@@ -246,9 +246,12 @@ export const getClassSchedules = async (req, res) => {
             if (toDate) query.date.$lte = new Date(toDate);
         }
 
-        // startTime filter (exact or prefix match e.g. "10:00")
+        // Time filters (startTime >= fromTime AND endTime <= toTime)
         if (req.query.startTime) {
-            query.startTime = { $regex: `^${req.query.startTime}`, $options: "i" };
+            query.startTime = { $gte: req.query.startTime };
+        }
+        if (req.query.endTime) {
+            query.endTime = { $lte: req.query.endTime };
         }
 
         if (search) {

@@ -134,6 +134,7 @@ const UpcomingClass = () => {
         if (filters.fromDate) params.append("fromDate", filters.fromDate);
         if (filters.toDate) params.append("toDate", filters.toDate);
         if (filters.startTime) params.append("startTime", filters.startTime);
+        if (filters.endTime) params.append("endTime", filters.endTime);
         return params;
     };
 
@@ -206,6 +207,7 @@ const UpcomingClass = () => {
             fromDate: "",
             toDate: "",
             startTime: "",
+            endTime: "",
         });
         setSearch("");
         setPage(1);
@@ -219,6 +221,7 @@ const UpcomingClass = () => {
         filters.fromDate !== "" ||
         filters.toDate !== "" ||
         filters.startTime !== "" ||
+        filters.endTime !== "" ||
         search !== "";
 
     // Export to Excel
@@ -498,13 +501,23 @@ const UpcomingClass = () => {
                                 />
                             </div>
 
-                            {/* Start Time */}
                             <div>
                                 <label className={labelCls}>Start Time</label>
                                 <input
                                     type="time"
                                     value={filters.startTime}
                                     onChange={(e) => handleFilterChange("startTime", e.target.value)}
+                                    className={`${inputCls} w-full`}
+                                />
+                            </div>
+
+                            {/* End Time */}
+                            <div>
+                                <label className={labelCls}>End Time</label>
+                                <input
+                                    type="time"
+                                    value={filters.endTime}
+                                    onChange={(e) => handleFilterChange("endTime", e.target.value)}
                                     className={`${inputCls} w-full`}
                                 />
                             </div>
@@ -567,7 +580,10 @@ const UpcomingClass = () => {
                                 <FilterChip label={`To: ${filters.toDate}`} onRemove={() => handleFilterChange("toDate", "")} isDarkMode={isDarkMode} />
                             )}
                             {filters.startTime && (
-                                <FilterChip label={`Time: ${filters.startTime}`} onRemove={() => handleFilterChange("startTime", "")} isDarkMode={isDarkMode} />
+                                <FilterChip label={`Start: ${filters.startTime}`} onRemove={() => handleFilterChange("startTime", "")} isDarkMode={isDarkMode} />
+                            )}
+                            {filters.endTime && (
+                                <FilterChip label={`End: ${filters.endTime}`} onRemove={() => handleFilterChange("endTime", "")} isDarkMode={isDarkMode} />
                             )}
                             {search && (
                                 <FilterChip label={`Search: "${search}"`} onRemove={() => setSearch("")} isDarkMode={isDarkMode} />
