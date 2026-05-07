@@ -5,6 +5,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useTheme } from "../../../context/ThemeContext";
 import { hasPermission } from "../../../config/permissions";
+import Select from "react-select";
 
 const SubjectList = () => {
     const { theme } = useTheme();
@@ -209,6 +210,54 @@ const SubjectList = () => {
         setShowModal(true);
     };
 
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? '#131619' : '#f9fafb',
+            borderColor: state.isFocused ? '#06b6d4' : (isDarkMode ? '#374151' : '#e5e7eb'),
+            borderRadius: '0.5rem',
+            padding: '2px',
+            minHeight: '42px',
+            color: isDarkMode ? 'white' : '#111827',
+            '&:hover': {
+                borderColor: '#06b6d4'
+            },
+            boxShadow: 'none'
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? '#1e2530' : 'white',
+            borderRadius: '0.5rem',
+            border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+            zIndex: 50
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isSelected
+                ? '#06b6d4'
+                : state.isFocused
+                    ? (isDarkMode ? '#2a323c' : '#f3f4f6')
+                    : 'transparent',
+            color: state.isSelected ? 'white' : (isDarkMode ? '#d1d5db' : '#374151'),
+            cursor: 'pointer',
+            '&:active': {
+                backgroundColor: '#06b6d4'
+            }
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? 'white' : '#111827'
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? 'white' : '#111827'
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: isDarkMode ? '#9ca3af' : '#6b7280'
+        })
+    };
+
 
     return (
         <Layout activePage="Academics">
@@ -232,16 +281,16 @@ const SubjectList = () => {
                                 className={`w-full pl-10 pr-4 py-2 rounded-lg border transition-all focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-200 shadow-sm'}`}
                             />
                         </div>
-                        <select
-                            className={`px-4 py-2 rounded-lg border transition-all focus:outline-none focus:border-cyan-500 font-medium ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-200 shadow-sm'}`}
-                            value={filterClass}
-                            onChange={(e) => { setFilterClass(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Classes</option>
-                            {classes.map(cls => (
-                                <option key={cls._id} value={cls._id}>{cls.name || cls.className}</option>
-                            ))}
-                        </select>
+                        <div className="w-64">
+                            <Select
+                                options={classes.map(cls => ({ value: cls._id, label: cls.name || cls.className }))}
+                                value={filterClass ? { value: filterClass, label: classes.find(c => c._id === filterClass)?.name || classes.find(c => c._id === filterClass)?.className } : null}
+                                onChange={(opt) => { setFilterClass(opt ? opt.value : ""); setPage(1); }}
+                                placeholder="All Classes"
+                                isClearable
+                                styles={customSelectStyles}
+                            />
+                        </div>
                     </div>
                     {selectedIds.length > 0 && canDelete && (
                         <button

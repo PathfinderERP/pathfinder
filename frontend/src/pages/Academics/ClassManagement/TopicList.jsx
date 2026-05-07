@@ -7,6 +7,7 @@ import { useTheme } from "../../../context/ThemeContext";
 
 import { hasPermission } from "../../../config/permissions";
 import ExcelImportExport from "../../../components/common/ExcelImportExport";
+import Select from "react-select";
 
 const TopicList = () => {
     const { theme } = useTheme();
@@ -40,7 +41,12 @@ const TopicList = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = hasPermission(user, "academics", "topics", "create");
 
-    const topicColumns = ["Topic Name", "Chapter Name", "Subject Name", "Class Name"];
+    const topicColumns = [
+        { header: "Topic Name", key: "Topic Name" },
+        { header: "Chapter Name", key: "Chapter Name" },
+        { header: "Subject Name", key: "Subject Name" },
+        { header: "Class Name", key: "Class Name" }
+    ];
 
     const openAddModal = () => {
         setFormData({ topicName: "", chapterId: "", subjectId: "", classId: "" });
@@ -288,6 +294,54 @@ const TopicList = () => {
     // Pagination shifted to server-side
     const currentItems = topics;
 
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? '#131619' : '#f9fafb',
+            borderColor: state.isFocused ? '#06b6d4' : (isDarkMode ? '#374151' : '#e5e7eb'),
+            borderRadius: '0.5rem',
+            padding: '2px',
+            minHeight: '42px',
+            color: isDarkMode ? 'white' : '#111827',
+            '&:hover': {
+                borderColor: '#06b6d4'
+            },
+            boxShadow: 'none'
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? '#1e2530' : 'white',
+            borderRadius: '0.5rem',
+            border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+            zIndex: 50
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isSelected
+                ? '#06b6d4'
+                : state.isFocused
+                    ? (isDarkMode ? '#2a323c' : '#f3f4f6')
+                    : 'transparent',
+            color: state.isSelected ? 'white' : (isDarkMode ? '#d1d5db' : '#374151'),
+            cursor: 'pointer',
+            '&:active': {
+                backgroundColor: '#06b6d4'
+            }
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? 'white' : '#111827'
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? 'white' : '#111827'
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: isDarkMode ? '#9ca3af' : '#6b7280'
+        })
+    };
+
     return (
         <Layout activePage="Academics">
             <div className={`p-4 md:p-6 min-h-screen font-sans transition-colors duration-300 ${isDarkMode ? 'text-gray-100 bg-[#131619]' : 'text-gray-900 bg-[#f8fafc]'}`}>
@@ -340,36 +394,36 @@ const TopicList = () => {
 
                     {/* Filters Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                        <select
-                            className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:border-cyan-500 text-sm font-medium transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-200 shadow-sm'}`}
-                            value={filterClass}
-                            onChange={(e) => { setFilterClass(e.target.value); setFilterSubject(""); setFilterChapter(""); setPage(1); }}
-                        >
-                            <option value="">All Classes</option>
-                            {classes.map(cls => (
-                                <option key={cls._id} value={cls._id}>{cls.className}</option>
-                            ))}
-                        </select>
-                        <select
-                            className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:border-cyan-500 text-sm font-medium transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-200 shadow-sm'}`}
-                            value={filterSubject}
-                            onChange={(e) => { setFilterSubject(e.target.value); setFilterChapter(""); setPage(1); }}
-                        >
-                            <option value="">All Subjects</option>
-                            {subjects.filter(s => !filterClass || (s.classId?._id === filterClass || s.classId === filterClass)).map(sub => (
-                                <option key={sub._id} value={sub._id}>{sub.subjectName}</option>
-                            ))}
-                        </select>
-                        <select
-                            className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:border-cyan-500 text-sm font-medium transition-all sm:col-span-2 md:col-span-1 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-200 shadow-sm'}`}
-                            value={filterChapter}
-                            onChange={(e) => { setFilterChapter(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All Chapters</option>
-                            {chapters.filter(ch => !filterSubject || (ch.subjectId?._id === filterSubject || ch.subjectId === filterSubject)).map(chap => (
-                                <option key={chap._id} value={chap._id}>{chap.chapterName}</option>
-                            ))}
-                        </select>
+                        <div>
+                            <Select
+                                options={classes.map(cls => ({ value: cls._id, label: cls.className }))}
+                                value={filterClass ? { value: filterClass, label: classes.find(c => c._id === filterClass)?.className } : null}
+                                onChange={(opt) => { setFilterClass(opt ? opt.value : ""); setFilterSubject(""); setFilterChapter(""); setPage(1); }}
+                                placeholder="All Classes"
+                                isClearable
+                                styles={customSelectStyles}
+                            />
+                        </div>
+                        <div>
+                            <Select
+                                options={subjects.filter(s => !filterClass || (s.classId?._id === filterClass || s.classId === filterClass)).map(sub => ({ value: sub._id, label: sub.subjectName }))}
+                                value={filterSubject ? { value: filterSubject, label: subjects.find(s => s._id === filterSubject)?.subjectName } : null}
+                                onChange={(opt) => { setFilterSubject(opt ? opt.value : ""); setFilterChapter(""); setPage(1); }}
+                                placeholder="All Subjects"
+                                isClearable
+                                styles={customSelectStyles}
+                            />
+                        </div>
+                        <div className="sm:col-span-2 md:col-span-1">
+                            <Select
+                                options={chapters.filter(ch => !filterSubject || (ch.subjectId?._id === filterSubject || ch.subjectId === filterSubject)).map(chap => ({ value: chap._id, label: chap.chapterName }))}
+                                value={filterChapter ? { value: filterChapter, label: chapters.find(ch => ch._id === filterChapter)?.chapterName } : null}
+                                onChange={(opt) => { setFilterChapter(opt ? opt.value : ""); setPage(1); }}
+                                placeholder="All Chapters"
+                                isClearable
+                                styles={customSelectStyles}
+                            />
+                        </div>
                     </div>
                 </div>
 

@@ -40,7 +40,9 @@ const ExcelImportExport = ({
             const exportData = finalDataForExcel.map(item => {
                 const row = {};
                 columns.forEach(col => {
-                    row[col.header] = item[col.key] || '';
+                    const header = typeof col === 'string' ? col : (col.header || col.key);
+                    const key = typeof col === 'string' ? col : (col.key || col.header);
+                    row[header] = item[key] || '';
                 });
                 return row;
             });
@@ -59,7 +61,7 @@ const ExcelImportExport = ({
     // Download Template
     const handleDownloadTemplate = () => {
         try {
-            const headers = templateHeaders.length > 0 ? templateHeaders : columns.map(c => c.header);
+            const headers = templateHeaders.length > 0 ? templateHeaders : columns.map(c => typeof c === 'string' ? c : (c.header || c.key));
             const ws = XLSX.utils.aoa_to_sheet([headers]);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Template");

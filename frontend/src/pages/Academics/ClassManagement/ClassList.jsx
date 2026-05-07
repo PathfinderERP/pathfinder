@@ -13,7 +13,9 @@ const ClassList = () => {
     const isDarkMode = theme === 'dark';
     // ... [existing state]
 
-    const classColumns = ["Name"];
+    const classColumns = [
+        { header: "Name", key: "Name" }
+    ];
 
     const classMapping = {
         "Name": "className",
