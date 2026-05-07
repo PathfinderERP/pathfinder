@@ -38,10 +38,19 @@ export const createClassSchedule = async (req, res) => {
             acadClassId,
             acadSubjectId,
             chapterId,
+            chapterIds,
             topicIds,
             message,
             classHours
         } = req.body;
+
+        if (!session || !date || !startTime || !endTime || !centreIds || (centreIds.length === 0 && !centreId) || !batchIds || (batchIds.length === 0 && !batchId) || !subjectId || !teacherId) {
+            return res.status(400).json({ message: "Required fields are missing (Session, Date, Time, Centers, Batches, Subject, Teacher)" });
+        }
+
+        if (!acadClassId || !acadSubjectId || !chapterIds || chapterIds.length === 0 || !topicIds || topicIds.length === 0) {
+            return res.status(400).json({ message: "Academic Content (Class, Subject, Chapters, Topics) is required" });
+        }
 
         // Final centreIds list
         const finalCentreIds = centreIds || (centreId ? [centreId] : []);
@@ -78,6 +87,7 @@ export const createClassSchedule = async (req, res) => {
             acadClassId: acadClassId || undefined,
             acadSubjectId: acadSubjectId || undefined,
             chapterId: chapterId || undefined,
+            chapterIds: chapterIds || [],
             topicIds: topicIds || [],
             message,
             classHours
@@ -275,37 +285,79 @@ export const getClassSchedules = async (req, res) => {
                 populate: { path: "masterSubjectId", select: "subName" }
             })
             .populate("chapterId", "chapterName")
+            .populate("chapterIds", "chapterName")
             .populate("topicIds", "topicName")
             .sort({ date: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
 
         // Flatten names for frontend compatibility
         const classes = classSchedules.map(cls => {
-            const clsObj = cls.toObject();
             // If the class is unstarted but past-dated, set status to "Not Taken" for the response
-            if (clsObj.status === 'Upcoming' && new Date(clsObj.date) < todayMidnight) {
-                clsObj.status = 'Not Taken';
+            let status = cls.status;
+            if (status === 'Upcoming' && new Date(cls.date) < todayMidnight) {
+                status = 'Not Taken';
             }
 
-            // Combine names from both centreIds and centreId
+            // Combine names from both centreIds and centreId safely
             const names = [];
-            if (cls.centreIds && cls.centreIds.length > 0) {
+            if (Array.isArray(cls.centreIds) && cls.centreIds.length > 0) {
                 cls.centreIds.forEach(c => {
-                    const name = c.centreName || c.name;
+                    const name = typeof c === 'string' ? c : (c?.centreName || c?.name);
                     if (name) names.push(name);
                 });
             } else if (cls.centreId) {
-                const name = cls.centreId.centreName || cls.centreId.name;
+                const name = typeof cls.centreId === 'string' ? cls.centreId : (cls.centreId?.centreName || cls.centreId?.name);
                 if (name) names.push(name);
             }
 
+            // Helper to get display name from various formats (string, populated object, or array)
+            const getDisplay = (field, nameKey, legacyFields = []) => {
+                let result = "";
+                if (field) {
+                    if (typeof field === 'string') result = field;
+                    else if (Array.isArray(field)) {
+                        result = field.map(item => {
+                            if (typeof item === 'string') return item;
+                            if (item && typeof item === 'object') return item[nameKey] || "";
+                            return "";
+                        }).filter(v => v).join(", ");
+                    } else if (typeof field === 'object') {
+                        result = field[nameKey] || "";
+                    }
+                }
+                
+                if (!result) {
+                    for (const f of legacyFields) {
+                        if (f) {
+                            result = f;
+                            break;
+                        }
+                    }
+                }
+                return result || "";
+            };
+
+            const chapterDisplay = getDisplay(cls.chapterIds, 'chapterName', [cls.chapterId?.chapterName, cls.chapterName, cls.chapter, cls.chapter_name, cls.chapName, cls.chapterNames]);
+            const topicDisplay = getDisplay(cls.topicIds, 'topicName', [cls.topicName, cls.topic, cls.topicId, cls.topic_name, cls.topName, cls.topicNames, cls.topics]);
+            const subjectDisplay = cls.acadSubjectId?.masterSubjectId?.subName || getDisplay(cls.acadSubjectId, 'subName', [cls.subjectName, cls.subjectId?.subName, cls.subjectId?.subjectName, cls.subject, cls.subName]);
+            const classDisplay = cls.className || getDisplay(cls.acadClassId, 'className', [cls.class, cls.classNameLegacy]);
+
+            const batchDisplay = Array.isArray(cls.batchIds) 
+                ? cls.batchIds.map(b => typeof b === 'string' ? b : (b.batchName || b.name)).filter(b => b).join(", ") 
+                : (typeof cls.batchId === 'string' ? cls.batchId : (cls.batchId?.batchName || cls.batchId?.name || ""));
+
             return {
-                ...clsObj,
-                subjectName: cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
+                ...cls,
+                status,
+                subjectName: subjectDisplay || "N/A",
                 acadSubjectName: cls.acadSubjectId?.subName || "N/A",
+                chapterName: chapterDisplay || "N/A",
+                topicName: topicDisplay || "N/A",
+                className: classDisplay || "N/A",
                 centreNames: names.length > 0 ? names.join(", ") : "N/A",
-                batchNames: cls.batchIds?.map(b => b.batchName || b.name).join(", ") || (cls.batchId?.batchName || cls.batchId?.name) || "N/A"
+                batchNames: batchDisplay || "N/A"
             };
         });
 
@@ -398,10 +450,19 @@ export const updateClassSchedule = async (req, res) => {
             acadClassId,
             acadSubjectId,
             chapterId,
+            chapterIds,
             topicIds,
             message,
             classHours
         } = req.body;
+
+        if (!session || !date || !startTime || !endTime || !centreIds || (centreIds.length === 0 && !centreId) || !batchIds || (batchIds.length === 0 && !batchId) || !subjectId || !teacherId) {
+            return res.status(400).json({ message: "Required fields are missing (Session, Date, Time, Centers, Batches, Subject, Teacher)" });
+        }
+
+        if (!acadClassId || !acadSubjectId || !chapterIds || chapterIds.length === 0 || !topicIds || topicIds.length === 0) {
+            return res.status(400).json({ message: "Academic Content (Class, Subject, Chapters, Topics) is required" });
+        }
 
         const finalCentreIds = centreIds || (centreId ? [centreId] : []);
 
@@ -448,6 +509,7 @@ export const updateClassSchedule = async (req, res) => {
                 acadClassId: acadClassId || undefined,
                 acadSubjectId: acadSubjectId || undefined,
                 chapterId: chapterId || undefined,
+                chapterIds: chapterIds || [],
                 topicIds: topicIds || [],
                 message,
                 classHours,
@@ -962,10 +1024,20 @@ export const exportClassSchedulesExcel = async (req, res) => {
             .populate("centreId", "centreName name")
             .populate("centreIds", "centreName name")
             .populate("batchIds", "batchName name")
-            .sort({ date: -1 });
+            .populate("acadClassId", "className")
+            .populate({
+                path: "acadSubjectId",
+                populate: { path: "masterSubjectId", select: "subName" }
+            })
+            .populate("chapterId", "chapterName")
+            .populate("chapterIds", "chapterName")
+            .populate("topicIds", "topicName")
+           if (!session || !date || !startTime || !endTime || !centreIds || centreIds.length === 0 || !batchIds || batchIds.length === 0 || !subjectId || !teacherId) {
+            return res.status(400).json({ message: "Required fields are missing (Session, Date, Time, Centers, Batches, Subject, Teacher)" });
+        }
 
-        if (classSchedules.length === 0) {
-            return res.status(404).json({ message: "No records found matching filters" });
+        if (!acadClassId || !acadSubjectId || !chapterIds || chapterIds.length === 0 || !topicIds || topicIds.length === 0) {
+            return res.status(400).json({ message: "Academic Content (Class, Subject, Chapters, Topics) is required" });
         }
 
         // Fetch all student attendance for these schedules
@@ -1030,16 +1102,47 @@ export const exportClassSchedulesExcel = async (req, res) => {
                     classStatus = 'Not Taken';
                 }
 
-                // Add a row for the class even if no students
+                // Helper to get display name from various formats (string, populated object, or array)
+                const getDisplay = (field, nameKey, legacyFields = []) => {
+                    let result = "";
+                    if (field) {
+                        if (typeof field === 'string') result = field;
+                        else if (Array.isArray(field)) {
+                            result = field.map(item => {
+                                if (typeof item === 'string') return item;
+                                if (item && typeof item === 'object') return item[nameKey] || "";
+                                return "";
+                            }).filter(v => v).join(", ");
+                        } else if (typeof field === 'object') {
+                            result = field[nameKey] || "";
+                        }
+                    }
+                    
+                    if (!result) {
+                        for (const f of legacyFields) {
+                            if (f) {
+                                result = f;
+                                break;
+                            }
+                        }
+                    }
+                    return result || "";
+                };
+
+                const chapterDisplay = getDisplay(cls.chapterIds, 'chapterName', [cls.chapterId?.chapterName, cls.chapterName, cls.chapter, cls.chapter_name, cls.chapName, cls.chapterNames]);
+                const topicDisplay = getDisplay(cls.topicIds, 'topicName', [cls.topicName, cls.topic, cls.topicId, cls.topic_name, cls.topName, cls.topicNames, cls.topics]);
+                const subjectDisplay = cls.acadSubjectId?.masterSubjectId?.subName || getDisplay(cls.acadSubjectId, 'subName', [cls.subjectName, cls.subjectId?.subName, cls.subjectId?.subjectName, cls.subject, cls.subName]);
+                const classDisplay = cls.className || getDisplay(cls.acadClassId, 'className', [cls.class, cls.classNameLegacy]);
+
                 excelData.push({
                     "Date": new Date(cls.date).toLocaleDateString('en-GB'),
-                    "Class Name": cls.className,
+                    "Class Name": classDisplay || "N/A",
                     "Center": clsCentreName,
                     "Batch": cls.batchIds.map(b => b.batchName || b.name).join(", "),
                     "Teacher": cls.teacherId?.name || "N/A",
-                    "Subject": cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
-                    "Chapter": cls.chapterName || "N/A",
-                    "Topic": cls.topicName || "N/A",
+                    "Subject": subjectDisplay || "N/A",
+                    "Chapter": chapterDisplay || "N/A",
+                    "Topic": topicDisplay || "N/A",
                     "Student Name": "No Students Found",
                     "Admission ID": "N/A",
                     "Attendance Status": "N/A",
@@ -1058,15 +1161,47 @@ export const exportClassSchedulesExcel = async (req, res) => {
                         classStatus = 'Not Taken';
                     }
 
+                    // Helper to get display name from various formats (string, populated object, or array)
+                    const getDisplay = (field, nameKey, legacyFields = []) => {
+                        let result = "";
+                        if (field) {
+                            if (typeof field === 'string') result = field;
+                            else if (Array.isArray(field)) {
+                                result = field.map(item => {
+                                    if (typeof item === 'string') return item;
+                                    if (item && typeof item === 'object') return item[nameKey] || "";
+                                    return "";
+                                }).filter(v => v).join(", ");
+                            } else if (typeof field === 'object') {
+                                result = field[nameKey] || "";
+                            }
+                        }
+                        
+                        if (!result) {
+                            for (const f of legacyFields) {
+                                if (f) {
+                                    result = f;
+                                    break;
+                                }
+                            }
+                        }
+                        return result || "";
+                    };
+
+                    const chapterDisplay = getDisplay(cls.chapterIds, 'chapterName', [cls.chapterId?.chapterName, cls.chapterName, cls.chapter, cls.chapter_name, cls.chapName, cls.chapterNames]);
+                    const topicDisplay = getDisplay(cls.topicIds, 'topicName', [cls.topicName, cls.topic, cls.topicId, cls.topic_name, cls.topName, cls.topicNames, cls.topics]);
+                    const subjectDisplay = cls.acadSubjectId?.masterSubjectId?.subName || getDisplay(cls.acadSubjectId, 'subName', [cls.subjectName, cls.subjectId?.subName, cls.subjectId?.subjectName, cls.subject, cls.subName]);
+                    const classDisplay = cls.className || getDisplay(cls.acadClassId, 'className', [cls.class, cls.classNameLegacy]);
+
                     excelData.push({
                         "Date": new Date(cls.date).toLocaleDateString('en-GB'),
-                        "Class Name": cls.className,
+                        "Class Name": classDisplay || "N/A",
                         "Center": clsCentreName,
                         "Batch": cls.batchIds.map(b => b.batchName || b.name).join(", "),
                         "Teacher": cls.teacherId?.name || "N/A",
-                        "Subject": cls.subjectId?.subName || cls.subjectId?.subjectName || "N/A",
-                        "Chapter": cls.chapterName || "N/A",
-                        "Topic": cls.topicName || "N/A",
+                        "Subject": subjectDisplay || "N/A",
+                        "Chapter": chapterDisplay || "N/A",
+                        "Topic": topicDisplay || "N/A",
                         "Student Name": student.studentsDetails?.[0]?.studentName || student.name || "N/A",
                         "Admission ID": admissionMap[student._id.toString()] || "N/A",
                         "Attendance Status": statusValue,

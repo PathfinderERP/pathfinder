@@ -39,6 +39,7 @@ const AddClass = () => {
         acadClassId: "",
         acadSubjectId: "",
         chapterId: "",
+        chapterIds: [],
         topicIds: [],
         message: "",
         classHours: 0
@@ -309,21 +310,24 @@ const AddClass = () => {
             return;
         }
         if (name === "acadSubjectId") {
-            setFormData(prev => ({ ...prev, [name]: value, chapterId: "", topicIds: [] }));
+            setFormData(prev => ({ ...prev, [name]: value, chapterId: "", chapterIds: [], topicIds: [] }));
             setAcadChapters([]);
             setAcadTopics([]);
             fetchAcadChapters(value);
             return;
         }
-        if (name === "chapterId") {
-            setFormData(prev => ({ ...prev, [name]: value, topicIds: [] }));
-            setAcadTopics([]);
-            fetchAcadTopics(value);
-            return;
-        }
 
         // All other fields
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleChapterChange = (selectedOptions) => {
+        const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+        setFormData(prev => ({ ...prev, chapterIds: values, topicIds: [] }));
+        setAcadTopics([]);
+        if (values.length > 0) {
+            fetchAcadTopics(values.join(","));
+        }
     };
 
     const handleTopicChange = (selectedOptions) => {
@@ -336,6 +340,11 @@ const AddClass = () => {
         
         if (!formData.batchIds || formData.batchIds.length === 0) {
             toast.error("Please select at least one batch");
+            return;
+        }
+
+        if (!formData.acadClassId || !formData.acadSubjectId || !formData.chapterIds.length || !formData.topicIds.length) {
+            toast.warning("Please select Class, Subject, Chapters and Topics (Academic)");
             return;
         }
 
@@ -588,44 +597,52 @@ const AddClass = () => {
                         </div>
 
                         {/* NEW SECTION: Academic Class Content */}
-                        <SearchableSelect
-                            label="Class (Academic)"
-                            name="acadClassId"
-                            value={formData.acadClassId}
-                            options={dropdownData.academicClasses}
-                            displayPath="className"
-                            onChange={handleChange}
-                            placeholder="Select a class"
-                            isDarkMode={isDarkMode}
-                        />
+                        <div className="md:col-span-1">
+                            <SearchableSelect
+                                label="Class (Academic)"
+                                required={true}
+                                name="acadClassId"
+                                value={formData.acadClassId}
+                                options={dropdownData.academicClasses}
+                                displayPath="className"
+                                onChange={handleChange}
+                                placeholder="Select a class"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
 
-                        <SearchableSelect
-                            label="Subject (Academic)"
-                            name="acadSubjectId"
-                            value={formData.acadSubjectId}
-                            options={acadSubjects}
-                            displayPath="subjectName"
-                            onChange={handleChange}
-                            placeholder="Select a subject"
-                            isDarkMode={isDarkMode}
-                            disabled={!formData.acadClassId}
-                        />
-
-                        <SearchableSelect
-                            label="Chapter (Academic)"
-                            name="chapterId"
-                            value={formData.chapterId}
-                            options={acadChapters}
-                            displayPath="chapterName"
-                            onChange={handleChange}
-                            placeholder="Select a chapter"
-                            isDarkMode={isDarkMode}
-                            disabled={!formData.acadSubjectId}
-                        />
+                        <div className="md:col-span-1">
+                            <SearchableSelect
+                                label="Subject (Academic)"
+                                required={true}
+                                name="acadSubjectId"
+                                value={formData.acadSubjectId}
+                                options={acadSubjects}
+                                displayPath="subjectName"
+                                onChange={handleChange}
+                                placeholder="Select a subject"
+                                isDarkMode={isDarkMode}
+                                disabled={!formData.acadClassId}
+                            />
+                        </div>
 
                         <div className="md:col-span-1">
                             <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Topic (Academic)
+                                Chapter (Academic) <span className="text-red-500">*</span>
+                            </label>
+                            <CustomMultiSelect
+                                options={acadChapters.map(c => ({ value: c._id, label: c.chapterName }))}
+                                value={acadChapters.filter(c => formData.chapterIds.includes(c._id)).map(c => ({ value: c._id, label: c.chapterName }))}
+                                onChange={handleChapterChange}
+                                placeholder="Select chapters"
+                                isDarkMode={isDarkMode}
+                                isDisabled={!formData.acadSubjectId}
+                            />
+                        </div>
+
+                        <div className="md:col-span-1">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Topic (Academic) <span className="text-red-500">*</span>
                             </label>
                             <CustomMultiSelect
                                 options={acadTopics.map(t => ({ value: t._id, label: t.topicName }))}
@@ -633,7 +650,7 @@ const AddClass = () => {
                                 onChange={handleTopicChange}
                                 placeholder="Select topics"
                                 isDarkMode={isDarkMode}
-                                isDisabled={!formData.chapterId}
+                                isDisabled={formData.chapterIds.length === 0}
                             />
                         </div>
 

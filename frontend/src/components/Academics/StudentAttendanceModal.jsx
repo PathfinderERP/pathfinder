@@ -56,6 +56,14 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
         }));
     };
 
+    const handleSelectAll = (batchStudents, currentStatus) => {
+        const newMap = { ...attendanceMap };
+        batchStudents.forEach(student => {
+            newMap[student._id] = currentStatus;
+        });
+        setAttendanceMap(newMap);
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -130,9 +138,20 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
                                         <FaBuilding className="text-gray-500" />
                                         Batch: {batch.batchName}
                                     </h3>
-                                    <span className="text-[10px] bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full font-bold uppercase border border-cyan-500/20">
-                                        {batch.students.length} Students
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => {
+                                                const allPresent = batch.students.every(s => attendanceMap[s._id] === "Present");
+                                                handleSelectAll(batch.students, allPresent ? "Absent" : "Present");
+                                            }}
+                                            className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1 rounded-full font-bold uppercase border border-gray-700 transition-all"
+                                        >
+                                            {batch.students.every(s => attendanceMap[s._id] === "Present") ? "Unselect All" : "Select All"}
+                                        </button>
+                                        <span className="text-[10px] bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full font-bold uppercase border border-cyan-500/20">
+                                            {batch.students.length} Students
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
@@ -154,7 +173,7 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
 
                                                 return (
                                                     <tr key={student._id} className="hover:bg-cyan-500/5 transition-colors group">
-                                                        <td className="p-4">
+                                                        <td className="p-4 cursor-pointer" onClick={() => handleToggleAttendance(student._id)}>
                                                             <div className="flex flex-col">
                                                                 <span className="text-white font-semibold group-hover:text-cyan-400 transition-colors">{details.studentName}</span>
                                                                 <span className="text-[10px] text-gray-500">Gender: {details.gender}</span>
@@ -207,6 +226,17 @@ const StudentAttendanceModal = ({ classScheduleId, onClose, onSaveSuccess }) => 
                         <div className="flex items-center gap-2">
                             <span className="w-3 h-3 bg-gray-800 border border-gray-700 rounded-sm"></span>
                             Unchecked = Absent
+                        </div>
+                        <div className="h-4 w-px bg-gray-700 mx-2 hidden md:block"></div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-green-400 font-bold">{Object.values(attendanceMap).filter(v => v === "Present").length}</span>
+                                <span className="text-gray-500 uppercase text-[10px] tracking-widest font-bold">Present</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-red-400 font-bold">{Object.values(attendanceMap).filter(v => v === "Absent").length}</span>
+                                <span className="text-gray-500 uppercase text-[10px] tracking-widest font-bold">Absent</span>
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-3 w-full md:w-auto">

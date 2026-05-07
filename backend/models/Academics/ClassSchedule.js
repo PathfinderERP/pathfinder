@@ -91,6 +91,10 @@ const classScheduleSchema = new mongoose.Schema({
         ref: "AcademicsChapter",
         required: false
     },
+    chapterIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AcademicsChapter"
+    }],
     topicIds: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "AcademicsTopic"

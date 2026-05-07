@@ -1876,6 +1876,9 @@ const Classes = () => {
         const acadClassId = (cls.acadClassId?._id || cls.acadClassId || "").toString();
         const acadSubjectId = (cls.acadSubjectId?._id || cls.acadSubjectId || "").toString();
         const chapterId = (cls.chapterId?._id || cls.chapterId || "").toString();
+        const chapterIds = (cls.chapterIds?.map(c => (c._id || c).toString()) || 
+                          (cls.chapterId?._id ? [cls.chapterId._id.toString()] : 
+                          (cls.chapterId ? [cls.chapterId.toString()] : [])));
         const topicIds = (cls.topicIds?.map(t => (t._id || t).toString()) ||
             (cls.topicId?._id ? [cls.topicId._id.toString()] :
                 (cls.topicId ? [cls.topicId.toString()] : [])));
@@ -1891,6 +1894,7 @@ const Classes = () => {
             acadClassId,
             acadSubjectId,
             chapterId,
+            chapterIds,
             topicIds,
             centreIds,
             batchIds,
@@ -1904,7 +1908,7 @@ const Classes = () => {
         // Pre-load cascading dropdowns
         if (acadClassId) fetchEditAcadSubjects(acadClassId);
         if (acadSubjectId) fetchEditAcadChapters(acadSubjectId);
-        if (chapterId) fetchEditAcadTopics(chapterId);
+        if (chapterIds.length > 0) fetchEditAcadTopics(chapterIds.join(","));
 
         setShowEditModal(true);
     };
@@ -1914,6 +1918,11 @@ const Classes = () => {
 
         if (!editingClassData.batchIds || editingClassData.batchIds.length === 0) {
             toast.error("Please select at least one batch");
+            return;
+        }
+
+        if (!editingClassData.acadClassId || !editingClassData.acadSubjectId || !editingClassData.chapterIds?.length || !editingClassData.topicIds?.length) {
+            toast.warning("Please select Class, Subject, Chapters and Topics (Academic)");
             return;
         }
 
@@ -2251,7 +2260,7 @@ const Classes = () => {
                                             </td>
                                             <td className="p-4">{cls.centreNames || "-"}</td>
                                             <td className="p-4">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
+                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
@@ -2534,8 +2543,9 @@ const Classes = () => {
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Standard (Class)</label>
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Class <span className="text-red-500">*</span></label>
                                             <select
+                                                required
                                                 value={(editingClassData.acadClassId || "").toString()}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
@@ -2584,7 +2594,7 @@ const Classes = () => {
                                     {/* Academic Subject, Chapter & Topic (cascading from Academic Class) */}
                                     <div className="grid grid-cols-2 gap-4 md:col-span-2">
                                         <div className="flex flex-col gap-2">
-                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Subject</label>
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Subject <span className="text-red-500">*</span></label>
                                             <select
                                                 value={(editingClassData.acadSubjectId || "").toString()}
                                                 disabled={!editingClassData.acadClassId}
@@ -2602,24 +2612,26 @@ const Classes = () => {
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter</label>
-                                            <select
-                                                value={(editingClassData.chapterId || "").toString()}
-                                                disabled={!editingClassData.acadSubjectId}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setEditingClassData({ ...editingClassData, chapterId: val, topicIds: [] });
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter <span className="text-red-500">*</span></label>
+                                            <CustomMultiSelect
+                                                options={editAcadChapters.map(c => ({ value: c._id, label: c.chapterName }))}
+                                                value={editingClassData.chapterIds?.map(id => {
+                                                    const chapter = editAcadChapters.find(c => c._id.toString() === id.toString());
+                                                    return chapter ? { value: chapter._id, label: chapter.chapterName } : null;
+                                                }).filter(v => v)}
+                                                onChange={(selectedOptions) => {
+                                                    const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+                                                    setEditingClassData({ ...editingClassData, chapterIds: values, topicIds: [] });
                                                     setEditAcadTopics([]);
-                                                    if (val) fetchEditAcadTopics(val);
+                                                    if (values.length > 0) fetchEditAcadTopics(values.join(","));
                                                 }}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            >
-                                                <option value="">Select Chapter</option>
-                                                {editAcadChapters.map(c => <option key={c._id.toString()} value={c._id.toString()}>{c.chapterName}</option>)}
-                                            </select>
+                                                placeholder="Select Chapters"
+                                                isDarkMode={isDarkMode}
+                                                isDisabled={!editingClassData.acadSubjectId}
+                                            />
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topics</label>
+                                            <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topics <span className="text-red-500">*</span></label>
                                             <CustomMultiSelect
                                                 options={editAcadTopics.map(t => ({ value: t._id, label: t.topicName }))}
                                                 value={editingClassData.topicIds?.map(id => {
@@ -2632,7 +2644,7 @@ const Classes = () => {
                                                 }}
                                                 placeholder="Select Topics"
                                                 isDarkMode={isDarkMode}
-                                                isDisabled={!editingClassData.chapterId}
+                                                isDisabled={!editingClassData.chapterIds || editingClassData.chapterIds.length === 0}
                                             />
                                         </div>
                                     </div>

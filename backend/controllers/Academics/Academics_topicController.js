@@ -327,11 +327,14 @@ export const deleteMultipleTopics = async (req, res) => {
     }
 };
 
-// Get Topics by Chapter ID
+// Get Topics by Chapter ID (Supports multiple IDs separated by comma)
 export const getTopicsByChapter = async (req, res) => {
     try {
         const { chapterId } = req.params;
-        const topics = await AcademicsTopic.find({ chapterId }).sort({ createdAt: -1 });
+        if (!chapterId) return res.status(200).json([]);
+        
+        const chapterIds = chapterId.split(",");
+        const topics = await AcademicsTopic.find({ chapterId: { $in: chapterIds } }).sort({ createdAt: -1 });
         res.status(200).json(topics);
     } catch (error) {
         res.status(500).json({ message: "Server Error", error: error.message });
