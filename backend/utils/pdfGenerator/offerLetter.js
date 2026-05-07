@@ -101,10 +101,10 @@ export const generateOfferLetter = async (employee, data) => {
             doc.text(`Your Joining date will be on `, { continued: true })
                 .font('Helvetica-Bold').text(`${formattedJoiningDate}.`);
 
-            doc.moveDown(1);
-            doc.font('Helvetica').text(`During 6 months' probation period, `, { continued: true })
-                .font('Helvetica-Bold').text(`30 (Thirty days) `, { continued: true })
-                .font('Helvetica').text(`prior notice will be required for non-employment.`);
+            // doc.moveDown(1);
+            // doc.font('Helvetica').text(`During 6 months' probation period, `, { continued: true })
+            //     .font('Helvetica-Bold').text(`30 (Thirty days) `, { continued: true })
+            //     .font('Helvetica').text(`prior notice will be required for non-employment.`);
 
             if (data.manualContent) {
                 doc.moveDown(2);
@@ -119,7 +119,7 @@ export const generateOfferLetter = async (employee, data) => {
                     // signatureImage can be a path or a buffer
                     const sigY = doc.y;
                     doc.image(data.signatureImage, 50, sigY, { width: 100, height: 50, fit: [100, 50] });
-                    
+
                     if (data.stampImage) {
                         doc.image(data.stampImage, 400, sigY, { width: 90, height: 50, fit: [90, 50] });
                     }
