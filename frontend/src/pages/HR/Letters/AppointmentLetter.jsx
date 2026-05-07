@@ -26,7 +26,10 @@ const AppointmentLetter = () => {
     const [savingTemplate, setSavingTemplate] = useState(false);
 
     const [letterData, setLetterData] = useState({
-        companyName: "PathFinder ERP"
+        companyName: "PathFinder ERP",
+        letterDate: new Date().toISOString().split('T')[0],
+        joiningDate: "",
+        refNo: ""
     });
 
     const fetchEmployeeDetails = React.useCallback(async () => {
@@ -38,6 +41,12 @@ const AppointmentLetter = () => {
             if (response.ok) {
                 const data = await response.json();
                 setEmployee(data);
+                if (data.dateOfJoining) {
+                    setLetterData(prev => ({
+                        ...prev,
+                        joiningDate: new Date(data.dateOfJoining).toISOString().split('T')[0]
+                    }));
+                }
             }
         } catch (error) {
             console.error("Error:", error);
@@ -299,8 +308,16 @@ const AppointmentLetter = () => {
                             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Letter Details</h3>
                             <div className="space-y-4">
                                 <div className="space-y-1.5 text-gray-500">
-                                    <label className="text-[10px] font-bold uppercase ml-1 text-gray-500">Company Name</label>
-                                    <input type="text" value={letterData.companyName} onChange={(e) => setLetterData({ ...letterData, companyName: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm font-medium" />
+                                    <label className="text-[10px] font-bold uppercase ml-1 text-gray-500">Reference No.</label>
+                                    <input type="text" value={letterData.refNo} onChange={(e) => setLetterData({ ...letterData, refNo: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm font-medium" placeholder="e.g. PEC/2026/001" />
+                                </div>
+                                <div className="space-y-1.5 text-gray-500">
+                                    <label className="text-[10px] font-bold uppercase ml-1 text-gray-500">Letter Date</label>
+                                    <input type="date" value={letterData.letterDate} onChange={(e) => setLetterData({ ...letterData, letterDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm font-medium" />
+                                </div>
+                                <div className="space-y-1.5 text-gray-500">
+                                    <label className="text-[10px] font-bold uppercase ml-1 text-gray-500">Joining Date (Effective From)</label>
+                                    <input type="date" value={letterData.joiningDate} onChange={(e) => setLetterData({ ...letterData, joiningDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition-all text-sm font-medium" />
                                 </div>
                             </div>
                         </div>

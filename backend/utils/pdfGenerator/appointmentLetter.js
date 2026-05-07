@@ -18,7 +18,7 @@ export const generateAppointmentLetter = async (employee, data) => {
             doc.pipe(stream);
 
             const logoPath = path.join(__dirname, '../../assets/logo.png');
-            // Header - Logo and Text Centered
+            // --- Header ---
             const pageWidth = 595.28;
             const logoWidth = 120;
             const logoX = (pageWidth - logoWidth) / 2;
@@ -34,97 +34,170 @@ export const generateAppointmentLetter = async (employee, data) => {
             doc.fontSize(9).font('Helvetica').fillColor('#333')
                 .text('(UNIT OF PATHFINDER EDUCATIONAL CENTRE LLP)', 0, textY + 20, { align: 'center', width: pageWidth });
 
-            doc.moveTo(50, textY + 40).lineTo(545, textY + 40).lineWidth(1).strokeColor('#808080').stroke();
+            // Line separator
+            const lineY = textY + 45;
+            doc.moveTo(50, lineY).lineTo(545, lineY).lineWidth(1).strokeColor('#808080').stroke();
 
-
-
-            doc.moveDown(1);
+            // Ref and Date Row
+            const metaY = lineY + 15;
             doc.fillColor('black').fontSize(10).font('Helvetica-Bold');
-            doc.text(`Ref. No :- ............`, 50, 125);
-            const currentDate = new Date().toLocaleDateString('en-GB');
-            doc.text(`Date: ${currentDate}`, 430, 125);
+            const displayRefNo = data.refNo || '............';
+            doc.text(`Ref. No :- ${displayRefNo}`, 50, metaY); 
+            const displayLetterDate = data.letterDate ? new Date(data.letterDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+            doc.text(`Date: ${displayLetterDate}`, 430, metaY);
+
+            // --- Title & Parties ---
+            doc.moveDown(3);
+            doc.fontSize(14).font('Helvetica-Bold').text('APPOINTMENT LETTER', 0, doc.y, { align: 'center', width: pageWidth, underline: true });
 
             doc.moveDown(2);
-            doc.font('Helvetica-Bold').text('To,', 50, 150);
-            doc.text(`${employee.name.toUpperCase()}`, 50, 165);
-            doc.font('Helvetica').text(`ADD - ${employee.address || 'N/A'}`, 50, 180, { width: 250 });
-            doc.text(`Cont. : ${employee.phoneNumber || ''}`, 50, 205);
-            doc.text(`Ph. :`, 50, 220);
+            doc.fontSize(12).font('Helvetica-Bold').text('Between', 0, doc.y, { align: 'center', width: pageWidth });
+            doc.moveDown(0.5);
+            doc.fontSize(12).text('Pathfinder Educational Center', 0, doc.y, { align: 'center', width: pageWidth });
+            doc.fontSize(9).font('Helvetica').text('47, Kalidas Patitundi Lane, Kalighat, Kolkata - 700026', 0, doc.y, { align: 'center', width: pageWidth });
+            doc.text('(In the following referred to as "The Company")', 0, doc.y, { align: 'center', width: pageWidth });
+
+            doc.moveDown(1);
+            doc.fontSize(12).font('Helvetica-Bold').text('And', 0, doc.y, { align: 'center', width: pageWidth });
+
+            const dob = employee.dateOfBirth ? new Date(employee.dateOfBirth).toLocaleDateString('en-GB') : 'N/A';
+            const pan = employee.panNumber || 'N/A';
+
+            doc.moveDown(0.5);
+            doc.fontSize(11).text(`${employee.name.toUpperCase()}`, 0, doc.y, { align: 'center', width: pageWidth });
+            doc.fontSize(10).text(`Address: ${employee.address || 'N/A'}`, 0, doc.y, { align: 'center', width: pageWidth });
+            doc.text(`D.O.B : ${dob}, PAN : ${pan}`, 0, doc.y, { align: 'center', width: pageWidth });
+            doc.font('Helvetica').fontSize(9).text('(In the following referred to as "The Employee")', 0, doc.y, { align: 'center', width: pageWidth });
 
             doc.moveDown(2);
-            const designationName = employee.designation?.name || 'N/A';
-            doc.fontSize(11).font('Helvetica-Bold').text(`Sub: Appointment Letter for the Post of ${designationName}`, { align: 'center', underline: true });
+            doc.fontSize(10).text('When duly signed by The Employee and an authorized representative of The Company, this document constitutes a binding employment contract effective from the date stated below.', 50, doc.y, { align: 'justify', width: 495 });
 
-            doc.moveDown(1.5);
-            doc.fontSize(10).font('Helvetica');
-            doc.text(`Dear `, { continued: true }).font('Helvetica-Bold').text(`${employee.name.toUpperCase()}`, { continued: true }).font('Helvetica').text(`,`);
+            // --- Clauses ---
+            const joiningDateValue = data.joiningDate || employee.dateOfJoining;
+            const joiningDate = joiningDateValue ? new Date(joiningDateValue).toLocaleDateString('en-GB') : '_______';
 
-            doc.moveDown(1);
-            doc.text(`With reference to your discussion with us, we are pleased to appoint you as ........ on the following terms and conditions: -`, { align: 'justify' });
+            const addClause = (number, title, text) => {
+                doc.moveDown(1);
+                doc.font('Helvetica-Bold').text(`${number}. ${title}`, 50, doc.y, { align: 'left', width: 495 });
+                if (text) {
+                    doc.font('Helvetica').text(text, 50, doc.y + 5, { align: 'justify', width: 495 });
+                }
+            };
 
-            doc.moveDown(1);
-            const salary = employee.currentSalary || 0;
-            const joiningDate = new Date(employee.dateOfJoining).toLocaleDateString('en-CA'); // YYYY-MM-DD
+            const addBullets = (bullets) => {
+                bullets.forEach(bullet => {
+                    doc.font('Helvetica').text(`•`, 65, doc.y + 2, { continued: true });
+                    doc.text(`  ${bullet}`, 80, doc.y, { align: 'justify', width: 465 });
+                });
+            };
 
-            const terms = [
-                `Your appointment as "${designationName}" will take effect from the date: ${joiningDate}`,
-                'Your appointment is based on the information furnished by you in your application and your subsequent interview with us.',
-                'If any of the information/documents/testimonials furnished/submitted by you found to be false and or incorrect at any point of time, your service would be liable to be terminated without any notice.',
-                `Your gross remuneration would be Rs. ${salary} (Rupees Only) per month.`,
-                'On acceptance of this offer, you shall have to abide by the terms and conditions and the Rules and Regulations of this organization in force. You shall agree to accept the emoluments and the assignments as offered to you at the discretion of the Appropriate Authority in the organization.',
-                'You shall follow the instructions and directions as may be given by CEO and other appropriate authorities and discharge your duties accordingly.',
-                'The organization may utilize your service in any of its center by way of transfer /deputation / promotion as and when required.',
-                "Your appointment may be terminated by serving Two months' notice or Two month's salary in lieu thereof at the discretion of the organization without assigning any reason whatsoever. However, in Probation, termination can be without notice.",
-                'Your service may be discontinued with immediate effect in case of violation of any of the Clauses of the Employment Contract and Rules and Regulations of the Organization.',
-                "In case you want to resign from the job, you are required to serve Two months' notice to the organization, failing which the salary for Two month's shall be payable."
-            ];
+            // 1. Duration
+            addClause('1', 'Duration', `This contract comes into effect on the ${joiningDate}. The contract will continue unless terminated as per clauses 11 or 12.`);
 
-            terms.forEach((term, index) => {
-                const currentY = doc.y;
-                doc.font('Helvetica-Bold').text(`${index + 1}. `, 50, currentY);
-                doc.font('Helvetica').text(term, 65, currentY, { align: 'justify', width: 480 });
-                doc.moveDown(0.5);
-            });
+            // 2. Duties
+            addClause('2', 'Duties');
+            doc.font('Helvetica').text(`The Employee will hold the position of "${employee.designation?.name || '............'}" of The Company, and will report to the CEO’s office and the Supervisory Board of Pathfinder Educational Center who shall lay down the directives for The Employee's responsibilities, functions and authority. The details of duties and responsibilities will be documented in the Job Description of the position which will be delivered to The Employee. These duties shall also include, but not be limited to The Employee:`, { align: 'justify', width: 495 });
+            addBullets([
+                'Devoting the whole of his/her time, attention and skills to the duties of his/her position.',
+                'Working only for The Company and for the PEC Group.',
+                'Safeguarding the assets of The Company and the PEC Group.',
+                'Ensuring that the standard PEC Administration System is used.',
+                'Ensuring that he/she and The Company comply with all applicable laws and regulations.',
+                'Ensuring that the Code of Ethics of the PEC Group is always applied.',
+                'Company shall have right to take legal steps against the employee in case of any violation of these clauses.'
+            ]);
 
-            doc.moveDown(1);
-            doc.text('If the above points are agreed upon, you are requested to sign the duplicate copy of this letter as token of acceptance of the offer and submit along with the enclosed information sheet duly filled-in for our record and necessary action.', { align: 'justify' });
+            // 3. Location
+            addClause('3', 'Location and Working Hours', 'The Employee will initially carry out his/her duties with a work base in The Company’s HQ at Kolkata. Working hours formally follow the rules of the working place but considering the senior nature and the character of the assignment, there are no fixed working hours. The Employee is not entitled to any overtime payment.');
 
-            doc.moveDown(2);
-            doc.font('Helvetica-Bold').text('Yours Faithfully,');
-            doc.text('For PATHFINDER EDUCATIONAL CENTRE');
+            // 4. Personal Tax
+            addClause('4', 'Personal Tax and Social Security', 'The Company shall deduct Tax at Source on the taxable salary of the Employee. The Employee will himself/ herself be responsible for filing the income tax return on his/ her income and benefits as per this Contract. The company shall provide a TDS certificate on the amount of tax that it deducts.');
+
+            // 5. Business Expenses
+            addClause('5', 'Business Expenses', 'A monthly expense report including Travel or Outstation expenses must be submitted to The Company’s Finance Department before the Second day of the following month.');
+
+            // 6. Inventions
+            addClause('6', 'Inventions', 'Subject to any relevant legislation, any invention made by The Employee (by himself /herself or jointly with others) which in any way is connected with The Company\'s products or activities belongs to The Company. This also applies to products or activities of other companies within the PEC Group, inventions include improvements, designs techniques, and know-how, whether or not capable of being patented or registered. The Employee must disclose details of any such inventions to The Company without delay and take all appropriate steps to facilitate that The Company may obtain maximum benefit from such inventions.');
+
+            // 7. Ownership
+            addClause('7', 'Ownership of Documents', 'Any documents, computer programs or other materials prepared by The Employee, alone or with others, in the course of providing the service will be the Company\'s property. The Employee agrees that the copyright and all other intellectual property rights of whatever nature developed in the course of service to The Company shall become and remain the property of The Company. Upon termination of the Contract, The Employee shall forthwith surrender to The Company all originals and copies of the documents, samples or other items relating to any matter aforesaid, otherwise Pathfinder Educational Centre shall have every right to take legal steps against the employee according to Law.');
+
+            // 8. Non-Remuneration
+            addClause('8', 'Non-Remuneration', 'Except as specified in this Contract or as provided for in writing through any other agreement between The Employee and The Company or another company fully or partly owned by The Company - any income, benefit and/or present solicited and/or received by The Employee from any third party associated with or in business with The Company or another company fully or partly owned by The Company - shall belong to The Company and as such be declared and handed over to The Company forthwith without delay. Any evasion by The Employee of these conditions will result in The Company evoking a Summary Termination of this contract.');
+
+            // 9. Non-Competition
+            addClause('9', 'Non-Competition');
+            doc.font('Helvetica').text('During the employment under this Contract, The Employee shall not directly or indirectly have any fiscal interest or association with any company, firm or person engaged in the production, distribution, or sale of any product or services similar to those offered by the PEC Group. This condition does not apply to The Employee\'s work in the normal course of The Company\'s business. At the expiry of this Contract, The Employee may not directly or indirectly:', { align: 'justify' });
+            addBullets([
+                'Approach or solicit any customer of The Company and the PEC Group.',
+                'Try to divert any customer away from the Company and the PEC Group.',
+                'Attempt to obtain the withdrawal of any of employees of The Company and the PEC Group.'
+            ]);
+
+            // 10. Confidentiality
+            addClause('10', 'Confidentiality', 'Except with the written consent of The Employee\'s superior or as required in the normal course of his duties, The Employee may not disclose to any third party any confidential information about The Company\'s business or products or those of any other company in the PEC Group. This condition also applies after this Contract has expired and The Employee has left The Company. On leaving The Company for whatever reason, The Employee undertakes to return to The Company all items and documents (including copies thereof) in his possession belonging or relating to The Company or to any other company in the PEC Group.');
+
+            // 11. Termination by Notice
+            addClause('11', 'Termination by Notice');
+            doc.font('Helvetica').text('The Company may terminate this Contract by giving The Employee one months\' notice in writing to the end of a calendar month. The Employee may terminate this Contract by giving The Company one months\' notice in writing to the end of a calendar month. After notice has been given by either party and until this Contract expires, The Company may at its sole discretion:', { align: 'justify' });
+            addBullets([
+                'Continue to let The Employee work without any change, or',
+                'Release The Employee from any duties but retain his/her services in full or in part, or',
+                'Release The Employee from all duties and services'
+            ]);
+            doc.text('In any event, income and benefits will continue until the termination become effective, except:', { align: 'justify' });
+            addBullets([
+                'That any bonus agreement if entered into between The Employee and The Company will only be applicable as long as the Employee performs services and provided that neither The Company nor The Employee has given notice of termination by the 1st March of every financial year.',
+                'Where certain other benefits will be withdrawn or restructured as per Appendix A to this Contract.'
+            ]);
+
+            // 12. Summary Termination
+            addClause('12', 'Summary Termination');
+            doc.font('Helvetica').text('The Company and The Employee may terminate this Contract and the employment immediately at any time for the following reasons :-', { align: 'justify' });
+            addBullets([
+                'Any reason which would justify immediate termination by law,',
+                'Willful breach of any of the provisions of the Contract,',
+                'Gross negligence in conducting The Company\'s affairs,',
+                'Absence from duty without reasonable course,',
+                'Gross misconduct including insobriety and bankruptcy.'
+            ]);
+
+            // 13. Law
+            addClause('13', 'Law', 'Any dispute or claim arising out of or in connection with this Contract, or the breach, termination or invalidity thereof, shall be settled as per the laws of India and by the Courts of Kolkata.');
+
+            // --- Signature ---
+            if (doc.y > 600) doc.addPage();
+            doc.moveDown(4);
+
+            const signatureY = doc.y;
+            doc.font('Helvetica-Bold').text('Date : _________________________', 50, signatureY);
 
             if (data.signatureImage) {
                 try {
-                    const sigY = doc.y;
-                    doc.image(data.signatureImage, 50, sigY, { width: 100, height: 50, fit: [100, 50] });
-                    if (data.stampImage) {
-                        doc.image(data.stampImage, 400, sigY, { width: 90, height: 50, fit: [90, 50] });
-                    }
-                    doc.moveDown(4);
-                } catch (sigError) {
-                    console.error("Error adding signature to PDF:", sigError);
-                    doc.moveDown(4);
+                    doc.image(data.signatureImage, 50, signatureY + 20, { width: 100 });
+                } catch (e) {
+                    doc.text('Signed : _______________________', 50, signatureY + 25);
                 }
             } else {
-                if (data.stampImage) {
-                    doc.image(data.stampImage, 400, doc.y, { width: 90, height: 50, fit: [90, 50] });
-                }
-                doc.moveDown(3);
-                doc.text('..........................');
+                doc.text('Signed : _______________________', 50, signatureY + 25);
             }
 
-            doc.text('Madhuparna Sreemany (CEO)');
+            const ceoX = 350;
+            const ceoY = signatureY;
 
-            doc.moveDown(2);
-            doc.font('Helvetica').text('I accept the offer. I have joined/shall be joining on ............................. which may please be allowed.');
+            if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, ceoX, ceoY, { width: 100 });
+            }
 
-            doc.moveDown(2);
-            doc.text('----------------------------------');
-            doc.font('Helvetica-Bold').text('Signature');
+            if (data.stampImage) {
+                try {
+                    doc.image(data.stampImage, ceoX + 110, ceoY, { width: 80, height: 80, fit: [80, 80] });
+                } catch (e) {}
+            }
 
-            doc.moveDown(1);
-            doc.text('----------------------------------');
-            doc.text(`${employee.name.toUpperCase()}`);
+            doc.text('_________________________', ceoX, ceoY + 40);
+            doc.text('Madhuparna Sreemany', ceoX, ceoY + 55);
+            doc.text('(CEO)', ceoX, ceoY + 70);
 
             doc.end();
             stream.on('finish', () => resolve({ filePath, fileName }));

@@ -168,9 +168,6 @@ export const generateContractLetter = async (employee, data) => {
             addClause('13', 'Law', 'Any dispute or claim arising out of or in connection with this Contract, or the breach, termination or invalidity thereof, shall be settled as per the laws of India and by the Courts of Kolkata.');
 
             // --- Signature ---
-            doc.addPage(); // Force new page for signature to ensure it's clean, or just move down if space? User prompt implies it might be at bottom. 
-            // Better to keep it flow if space permits, but explicit "Date" block usually fits best with some space.
-            // I'll check Y. If Y > 600, add page.
             if (doc.y > 600) doc.addPage();
             else doc.moveDown(4);
 
