@@ -162,6 +162,12 @@ const UpcomingClass = () => {
     };
 
     const handleStartClass = async (id) => {
+        const cls = classes.find(c => c._id === id);
+        if (!cls?.acadSubjectId || !cls?.chapterIds?.length || !cls?.topicIds?.length) {
+            toast.warning("Please add the chapter subject topics from the class list before starting the class");
+            return;
+        }
+
         if (!window.confirm("Are you sure you want to start this class?")) return;
         try {
             const token = localStorage.getItem("token");

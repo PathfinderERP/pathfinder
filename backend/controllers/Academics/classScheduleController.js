@@ -391,6 +391,10 @@ export const startClass = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
+        if (!currentClass.acadSubjectId || !currentClass.chapterIds || currentClass.chapterIds.length === 0 || !currentClass.topicIds || currentClass.topicIds.length === 0) {
+            return res.status(400).json({ message: "Please add the chapter subject topics from the class list before starting the class" });
+        }
+
         currentClass.status = "Ongoing";
         currentClass.actualStartTime = new Date();
         await currentClass.save();
