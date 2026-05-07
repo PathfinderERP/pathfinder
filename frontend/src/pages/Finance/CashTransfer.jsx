@@ -31,6 +31,31 @@ const CashTransfer = () => {
     const [generatedPassword, setGeneratedPassword] = useState("");
     const [serialNumber, setSerialNumber] = useState("");
     const [transferStatus, setTransferStatus] = useState("idle"); // idle, success
+    const [reportFilters, setReportFilters] = useState({ fromDate: "", toDate: "" });
+
+    // Independent Refetch for Available Cash Section
+    useEffect(() => {
+        if (reportFilters.fromDate || reportFilters.toDate) {
+            fetchFilteredReport();
+        }
+    }, [reportFilters.fromDate, reportFilters.toDate]);
+
+    const fetchFilteredReport = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const reportRes = await axios.get(`${import.meta.env.VITE_API_URL}/finance/cash/report`, {
+                params: {
+                    startDate: reportFilters.fromDate,
+                    endDate: reportFilters.toDate
+                },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setCashSummary(reportRes.data.summary);
+            setCentreReports(reportRes.data.report || []);
+        } catch (error) {
+            console.error("Failed to fetch filtered report", error);
+        }
+    };
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
@@ -485,24 +510,76 @@ const CashTransfer = () => {
                             </div>
                             <div className="space-y-1 relative">
                                 <p className="text-cyan-400 font-bold text-xs uppercase tracking-widest">
-                                    {formData.fromCentreId ? "Centre Cash Balance" : "Total Available Cash"}
+                                    {reportFilters.fromDate || reportFilters.toDate ? (
+                                        formData.fromCentreId ? "Centre Cash Collection" : "Total Cash Collection"
+                                    ) : (
+                                        formData.fromCentreId ? "Centre Cash Balance" : "Total Available Cash"
+                                    )}
                                 </p>
                                 <h4 className="text-3xl md:text-4xl font-black text-white">
                                     ₹{(() => {
+                                        const isFiltered = reportFilters.fromDate || reportFilters.toDate;
                                         if (formData.fromCentreId) {
                                             const centreReport = auditReports.find(r => r.centreId === formData.fromCentreId);
-                                            return (centreReport?.cashLeft || 0).toLocaleString();
+                                            return (isFiltered ? (centreReport?.totalCollected || 0) : (centreReport?.cashLeft || 0)).toLocaleString();
+                                        }
+                                        if (isFiltered) {
+                                            const totalColl = auditReports.reduce((sum, r) => sum + (r.totalCollected || 0), 0);
+                                            return totalColl.toLocaleString();
                                         }
                                         return (cashSummary.totalCashLeft || 0).toLocaleString();
                                     })()}
                                 </h4>
                                 <div className="h-1 w-20 bg-cyan-500/30 rounded-full mt-2"></div>
                                 <p className="text-gray-500 text-xs mt-4 italic leading-relaxed">
-                                    {formData.fromCentreId
-                                        ? "Cash currently held at the selected centre."
-                                        : "Total cash held across all your authorized centres."}
+                                    {reportFilters.fromDate || reportFilters.toDate ? (
+                                        "Total cash collection (Bill ID starting with PATH) for the selected period."
+                                    ) : (
+                                        formData.fromCentreId
+                                            ? "Cash currently held at the selected centre."
+                                            : "Total cash held across all your authorized centres."
+                                    )}
                                 </p>
                             </div>
+                        </div>
+
+                        {/* New Filter Section for Available Cash */}
+                        <div className="bg-gray-900/60 border border-gray-800 p-6 rounded-3xl space-y-4">
+                            <h5 className="text-white text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                                <FaCalendarAlt className="text-cyan-400" />
+                                Collection Filter
+                            </h5>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-gray-500 font-bold uppercase">From</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-2 text-xs text-white focus:outline-none focus:border-cyan-500 [color-scheme:dark]"
+                                        value={reportFilters.fromDate}
+                                        onChange={(e) => setReportFilters({ ...reportFilters, fromDate: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-gray-500 font-bold uppercase">To</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-2 text-xs text-white focus:outline-none focus:border-cyan-500 [color-scheme:dark]"
+                                        value={reportFilters.toDate}
+                                        onChange={(e) => setReportFilters({ ...reportFilters, toDate: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            {(reportFilters.fromDate || reportFilters.toDate) && (
+                                <button
+                                    onClick={() => {
+                                        setReportFilters({ fromDate: "", toDate: "" });
+                                        fetchInitialData();
+                                    }}
+                                    className="w-full py-2 bg-gray-800 hover:bg-gray-700 text-gray-400 text-[10px] font-bold uppercase rounded-lg border border-gray-700 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <FaTimes /> Clear Filter
+                                </button>
+                            )}
                         </div>
 
                         <div className="bg-gray-900/60 border border-gray-800 p-8 rounded-3xl space-y-6">
