@@ -88,6 +88,23 @@ export const generateVirtualId = async (employee, data) => {
         doc.font('Helvetica-Bold').text(`ID Number: `, 15, doc.y, { continued: true })
             .font('Helvetica').text(employee.employeeId);
 
+        // Signature & Stamp (at bottom)
+        const footerY = 215;
+        if (data.signatureImage) {
+            try {
+                doc.image(data.signatureImage, 15, footerY, { width: 45, height: 20, fit: [45, 20] });
+            } catch (e) {}
+        }
+        
+        if (data.stampImage) {
+            try {
+                doc.image(data.stampImage, 90, footerY - 5, { width: 45, height: 25, fit: [45, 25] });
+            } catch (e) {}
+        }
+
+        doc.fontSize(4).fillColor('#999');
+        doc.text('Authorized Signatory', 15, 235, { width: 123, align: 'left' });
+
         doc.end();
 
         return new Promise((resolve, reject) => {

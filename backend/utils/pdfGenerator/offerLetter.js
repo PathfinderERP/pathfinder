@@ -117,7 +117,12 @@ export const generateOfferLetter = async (employee, data) => {
             if (data.signatureImage) {
                 try {
                     // signatureImage can be a path or a buffer
-                    doc.image(data.signatureImage, 50, doc.y, { width: 100 });
+                    const sigY = doc.y;
+                    doc.image(data.signatureImage, 50, sigY, { width: 100, height: 50, fit: [100, 50] });
+                    
+                    if (data.stampImage) {
+                        doc.image(data.stampImage, 400, sigY, { width: 90, height: 50, fit: [90, 50] });
+                    }
                     doc.moveDown(4);
                 } catch (sigError) {
                     console.error("Error adding signature to PDF:", sigError);
@@ -125,6 +130,9 @@ export const generateOfferLetter = async (employee, data) => {
                     doc.text('..........................');
                 }
             } else {
+                if (data.stampImage) {
+                    doc.image(data.stampImage, 400, doc.y, { width: 90, height: 50, fit: [90, 50] });
+                }
                 doc.moveDown(4);
                 doc.text('..........................');
             }

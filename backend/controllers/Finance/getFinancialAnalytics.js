@@ -87,10 +87,9 @@ export const getFinancialAnalytics = async (req, res) => {
         const periodQuery = (period && period !== "All Time") || (customStartDate && customEndDate) ? { $gte: startDate, $lte: endDate } : null;
 
         // 1. Total Amount Came (Actual money received in the period)
-        // We only include payments that have a billId (receipt number) as per user request
+        // Match the Transaction List logic: Filter by PATH bills
         const paymentFilter = { 
-            paidAmount: { $gt: 0 },
-            billId: { $exists: true, $ne: null, $nin: ["", "-"] }
+            billId: { $regex: /^PATH/i }
         };
         
         // Find admissions matching centre and session filters ONLY if filters are applied
@@ -105,8 +104,8 @@ export const getFinancialAnalytics = async (req, res) => {
         const dateFilter = (startDate && !isNaN(startDate.getTime()) && endDate && !isNaN(endDate.getTime())) ? {
             $expr: {
                 $and: [
-                    { $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, startDate] },
-                    { $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, endDate] }
+                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, startDate] },
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, endDate] }
                 ]
             }
         } : {};
@@ -117,8 +116,8 @@ export const getFinancialAnalytics = async (req, res) => {
         const fiscalDateFilter = {
             $expr: {
                 $and: [
-                    { $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, fyStartDate] },
-                    { $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, now] }
+                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, fyStartDate] },
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, now] }
                 ]
             }
         };
@@ -205,8 +204,8 @@ export const getFinancialAnalytics = async (req, res) => {
             ...paymentFilter,
             $expr: {
                 $and: [
-                    { $gte: [{ $ifNull: ["$paidDate", "$createdAt"] }, startDate] },
-                    { $lte: [{ $ifNull: ["$paidDate", "$createdAt"] }, endDate] }
+                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, startDate] },
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, endDate] }
                 ]
             }
         });

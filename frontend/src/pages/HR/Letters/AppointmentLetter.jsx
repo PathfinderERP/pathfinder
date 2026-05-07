@@ -15,6 +15,7 @@ const AppointmentLetter = () => {
     const [showEmailConfig, setShowEmailConfig] = useState(false);
 
     const [signature, setSignature] = useState(null);
+    const [stamp, setStamp] = useState(null);
     const [emailConfig, setEmailConfig] = useState({
         subject: "",
         body: "",
@@ -70,6 +71,13 @@ const AppointmentLetter = () => {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => setSignature(e.target.result);
+        reader.readAsDataURL(file);
+    };
+
+    const handleStampUpload = (file) => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => setStamp(e.target.result);
         reader.readAsDataURL(file);
     };
 
@@ -137,7 +145,8 @@ const AppointmentLetter = () => {
                 },
                 body: JSON.stringify({
                     ...letterData,
-                    signatureImage: signature
+                    signatureImage: signature,
+                    stampImage: stamp
                 })
             });
 
@@ -299,24 +308,44 @@ const AppointmentLetter = () => {
                         <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800">
                             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
                                 <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg"><FaSignature size={16} /></div>
-                                Signature
+                                Signature & Stamp
                             </h3>
-                            <div
-                                className={`border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer ${signature ? 'border-green-500/50 bg-green-50/10' : 'border-gray-200 dark:border-gray-700 hover:border-blue-500/50'}`}
-                                onClick={() => document.getElementById('signature-upload').click()}
-                            >
-                                <input id="signature-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handleSignatureUpload(e.target.files[0])} />
-                                {signature ? (
-                                    <div className="space-y-2">
-                                        <img src={signature} alt="Signature" className="max-h-20 mx-auto rounded" />
-                                        <button onClick={(e) => { e.stopPropagation(); setSignature(null); }} className="text-[10px] text-red-500 font-bold uppercase hover:underline">Remove</button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1">
-                                        <FaSignature className="mx-auto text-gray-300 dark:text-gray-600 mb-2" size={24} />
-                                        <p className="text-xs font-medium text-gray-500">Click to upload signature</p>
-                                    </div>
-                                )}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div
+                                    className={`border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer ${signature ? 'border-green-500/50 bg-green-50/10' : 'border-gray-200 dark:border-gray-700 hover:border-blue-500/50'}`}
+                                    onClick={() => document.getElementById('signature-upload').click()}
+                                >
+                                    <input id="signature-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handleSignatureUpload(e.target.files[0])} />
+                                    {signature ? (
+                                        <div className="space-y-2">
+                                            <img src={signature} alt="Signature" className="max-h-20 mx-auto rounded" />
+                                            <button onClick={(e) => { e.stopPropagation(); setSignature(null); }} className="text-[10px] text-red-500 font-bold uppercase hover:underline">Remove</button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            <FaSignature className="mx-auto text-gray-300 dark:text-gray-600 mb-2" size={20} />
+                                            <p className="text-[10px] font-medium text-gray-500">Upload Signature</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div
+                                    className={`border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer ${stamp ? 'border-green-500/50 bg-green-50/10' : 'border-gray-200 dark:border-gray-700 hover:border-blue-500/50'}`}
+                                    onClick={() => document.getElementById('stamp-upload').click()}
+                                >
+                                    <input id="stamp-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handleStampUpload(e.target.files[0])} />
+                                    {stamp ? (
+                                        <div className="space-y-2">
+                                            <img src={stamp} alt="Stamp" className="max-h-20 mx-auto rounded" />
+                                            <button onClick={(e) => { e.stopPropagation(); setStamp(null); }} className="text-[10px] text-red-500 font-bold uppercase hover:underline">Remove</button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            <FaFileAlt className="mx-auto text-gray-300 dark:text-gray-600 mb-2" size={20} />
+                                            <p className="text-[10px] font-medium text-gray-500">Upload Stamp</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

@@ -204,6 +204,14 @@ export const generateContractLetter = async (employee, data) => {
                 doc.image(logoPath, ceoX, ceoY, { width: 100 });
             }
 
+            if (data.stampImage) {
+                try {
+                    doc.image(data.stampImage, ceoX + 110, ceoY, { width: 80, height: 80, fit: [80, 80] });
+                } catch (e) {
+                    console.error("Error drawing stamp on contract:", e);
+                }
+            }
+
             doc.text('_________________________', ceoX, ceoY + 40);
             doc.text('Madhuparna Sreemany', ceoX, ceoY + 55);
             doc.text('(CEO)', ceoX, ceoY + 70);
