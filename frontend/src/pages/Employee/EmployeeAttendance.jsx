@@ -273,7 +273,7 @@ const EmployeeAttendance = () => {
         }
 
         const holiday = holidays.find(h => isSameDay(new Date(h.date), date));
-        if (holiday) return { type: "Holiday", name: holiday.title };
+        if (holiday) return { type: "Holiday", name: holiday.name, description: holiday.description };
 
         // Before joining date, consider as N/A or just blank
         if (dateOfJoining && date < startOfDay(new Date(dateOfJoining))) {
@@ -465,6 +465,14 @@ const EmployeeAttendance = () => {
                                 <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                     {status.type === 'Holiday' ? 'Scheduled Holiday' : 'No presence recorded'}
                                 </p>
+                                {status.type === 'Holiday' && status.description && (
+                                    <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-100'}`}>
+                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Reason / Description</p>
+                                        <p className={`text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            "{status.description}"
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

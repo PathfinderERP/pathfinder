@@ -27,7 +27,8 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
         gstNo: "",
 
         locationAddress: "",
-        locations: []
+        locations: [],
+        status: "active"
     });
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
@@ -59,7 +60,8 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                 gstNo: centre.gstNo || "",
 
                 locationAddress: centre.locationAddress || "",
-                locations: centre.locations || []
+                locations: centre.locations || [],
+                status: centre.status || "active"
             });
         }
     }, [centre]);
@@ -207,6 +209,18 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">POS Machine Key</label>
                             <input type="text" name="posKey" value={formData.posKey} onChange={handleChange} placeholder="Enter POS terminal key" className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white font-mono" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">Status</label>
+                            <select
+                                name="status"
+                                value={formData.status}
+                                onChange={handleChange}
+                                className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
+                            >
+                                <option value="active">Active</option>
+                                <option value="deactive">Deactive</option>
+                            </select>
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">State</label>

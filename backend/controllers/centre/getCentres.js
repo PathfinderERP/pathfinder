@@ -13,8 +13,11 @@ export const getCentres = async (req, res) => {
         if (!isSuperAdmin && req.query.fetchAll !== 'true') {
             const userCentres = user.centres || [];
             if (userCentres.length > 0) {
-                // Filter to only show centres the user is assigned to
-                query._id = { $in: userCentres };
+                // Filter to only show active centres the user is assigned to
+                query = {
+                    _id: { $in: userCentres },
+                    status: "active"
+                };
             } else {
                 // If user has no centres assigned, return empty array
                 return res.status(200).json([]);

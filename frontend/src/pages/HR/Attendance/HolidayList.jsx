@@ -89,6 +89,7 @@ const HolidayList = () => {
                                     <th className={`p-6 text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>Date</th>
                                     <th className={`p-6 text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>Day</th>
                                     <th className={`p-6 text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>Holiday Name</th>
+                                    <th className={`p-6 text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>Reason / Description</th>
                                     <th className={`p-6 text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest text-right`}>Type</th>
                                 </tr>
                             </thead>
@@ -120,6 +121,9 @@ const HolidayList = () => {
                                             </td>
                                             <td className={`p-6 ${isDarkMode ? 'text-white' : 'text-gray-900'} font-bold text-sm`}>
                                                 {holiday.name}
+                                            </td>
+                                            <td className={`p-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} italic text-xs`}>
+                                                {holiday.description || "-"}
                                             </td>
                                             <td className="p-6 text-right">
                                                 <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border ${holiday.type === 'Public' ? 'bg-red-500/10 text-red-500 border-red-500/20' :

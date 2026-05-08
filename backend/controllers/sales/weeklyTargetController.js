@@ -187,7 +187,7 @@ export const getWeeklyTarget = async (req, res) => {
         // --- Centre Access Control ---
         let allowedCentreIds = [];
         if (req.user.role !== "superAdmin") {
-            allowedCentreIds = (req.user.centres || []).map(id => id.toString());
+            allowedCentreIds = (req.user.centres || []).map(c => (c._id ? c._id.toString() : c.toString()));
         }
 
         let centreQuery = {};

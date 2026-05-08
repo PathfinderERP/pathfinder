@@ -67,7 +67,12 @@ const centreSchema = mongoose.Schema({
         address: String,
         label: String // e.g., "Main Gate", "Back Office"
     }],
-    locationAddress: { type: String }
+    locationAddress: { type: String },
+    status: {
+        type: String,
+        enum: ["active", "deactive"],
+        default: "active"
+    }
 });
 
 const CentreSchema = mongoose.model("CentreSchema", centreSchema);

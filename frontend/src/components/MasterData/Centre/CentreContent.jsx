@@ -112,6 +112,7 @@ const CentreContent = () => {
         { header: "Corporate Office Phone", key: "enterCorporateOfficePhoneNumber" },
         { header: "Account Number", key: "accountNumber" },
         { header: "POS Machine Key", key: "posKey" },
+        { header: "Status", key: "status" },
     ];
 
     const centreMapping = {
@@ -127,6 +128,7 @@ const CentreContent = () => {
         "Corporate Office Phone": "enterCorporateOfficePhoneNumber",
         "Account Number": "accountNumber",
         "POS Machine Key": "posKey",
+        "Status": "status",
     };
 
     const filteredCentres = centres.filter(centre =>
@@ -189,7 +191,16 @@ const CentreContent = () => {
                         <div key={centre._id} className="master-data-card-wave bg-[#1a1f24] p-6 rounded-xl border border-gray-800 transition-all group">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h3 className="text-xl font-bold text-white">{centre.centreName}</h3>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className="text-xl font-bold text-white">{centre.centreName}</h3>
+                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                                            centre.status === 'deactive' 
+                                            ? 'bg-red-500/10 text-red-500 border-red-500/20' 
+                                            : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                        }`}>
+                                            {centre.status || 'active'}
+                                        </span>
+                                    </div>
                                     <span className="text-cyan-400 text-sm font-mono">{centre.enterCode}</span>
                                 </div>
                                 <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
