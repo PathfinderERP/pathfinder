@@ -265,8 +265,10 @@ const EmployeeAttendance = () => {
                 checkOut: record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null,
                 status: record.status || "Present",
                 workingHours: record.workingHours || 0,
-                centreName: record.centreId?.centreName || "Office",
-                address: record.checkIn?.address || record.checkOut?.address || ""
+                checkInCentre: record.checkIn?.centreId?.centreName || record.centreId?.centreName || "Office",
+                checkInLabel: record.checkIn?.address || "",
+                checkOutCentre: record.checkOut?.centreId?.centreName || "",
+                checkOutLabel: record.checkOut?.address || ""
             };
         }
 
@@ -424,15 +426,28 @@ const EmployeeAttendance = () => {
                                     </div>
                                 </div>
                                 <div className={`col-span-2 p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Centre / Location</p>
-                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic`}>
-                                        <FaBuilding className="text-cyan-500" /> {status.centreName}
-                                    </p>
-                                    {status.address && (
-                                        <p className={`mt-2 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2`}>
-                                            <FaMapMarkerAlt className="text-red-500" /> {status.address}
-                                        </p>
-                                    )}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Check In Location</p>
+                                            <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic`}>
+                                                <FaBuilding className="text-cyan-500" /> {status.checkInCentre}
+                                            </p>
+                                            <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2`}>
+                                                <FaMapMarkerAlt className="text-red-500" /> {status.checkInLabel}
+                                            </p>
+                                        </div>
+                                        {status.checkOut && (
+                                            <div className={`pt-4 border-t ${isDark ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                                <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-1">Check Out Location</p>
+                                                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic`}>
+                                                    <FaBuilding className="text-pink-500" /> {status.checkOutCentre || status.checkInCentre}
+                                                </p>
+                                                <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2`}>
+                                                    <FaMapMarkerAlt className="text-red-500" /> {status.checkOutLabel}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ) : (

@@ -26,6 +26,10 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 export const markAttendance = async (req, res) => {
     try {
         const { latitude, longitude, type } = req.body; // type: 'checkIn' or 'checkOut'
+        
+        if (!latitude || !longitude) {
+            return res.status(400).json({ message: "Location coordinates are required to mark attendance" });
+        }
         const userId = req.user.id;
         const userRole = req.user.role; // Extract user role
         const today = startOfDay(new Date());
@@ -134,7 +138,8 @@ export const markAttendance = async (req, res) => {
                     time: new Date(),
                     latitude,
                     longitude,
-                    address: matchingCentre.matchLabel || matchingCentre.centreName // Store specific location label if available
+                    address: matchingCentre.matchLabel || matchingCentre.centreName, // Store specific location label if available
+                    centreId: matchingCentre._id
                 },
                 status: "Present"
             });
@@ -147,7 +152,8 @@ export const markAttendance = async (req, res) => {
                         time: new Date(),
                         latitude,
                         longitude,
-                        address: matchingCentre.matchLabel || matchingCentre.centreName
+                        address: matchingCentre.matchLabel || matchingCentre.centreName,
+                        centreId: matchingCentre._id
                     };
                     attendance.checkOut = undefined; // Clear previous checkout
                     attendance.status = "Present";
@@ -189,7 +195,8 @@ export const markAttendance = async (req, res) => {
                 time: checkOutTime,
                 latitude,
                 longitude,
-                address: matchingCentre.matchLabel || matchingCentre.centreName
+                address: matchingCentre.matchLabel || matchingCentre.centreName,
+                centreId: matchingCentre._id
             };
 
             attendance.workingHours = parseFloat(workedHours.toFixed(2));
@@ -221,7 +228,7 @@ export const getMyAttendance = async (req, res) => {
         const attendances = await EmployeeAttendance.find({
             user: userId,
             date: { $gte: start, $lte: end }
-        }).populate("centreId", "centreName").sort({ date: 1 });
+        }).populate("centreId", "centreName").populate("checkIn.centreId", "centreName").populate("checkOut.centreId", "centreName").sort({ date: 1 });
 
         const holidays = await Holiday.find({
             date: { $gte: start, $lte: end }
@@ -355,6 +362,8 @@ export const getAllAttendance = async (req, res) => {
                 populate: ["department", "designation", "primaryCentre"]
             })
             .populate("user", "role")
+            .populate("checkIn.centreId", "centreName")
+            .populate("checkOut.centreId", "centreName")
             .sort({ date: -1 });
 
         const todayStart = startOfDay(new Date());
@@ -446,7 +455,7 @@ export const getAttendanceAnalysis = async (req, res) => {
         const yearAttendances = await EmployeeAttendance.find({
             user: targetUserId,
             date: { $gte: yearStart, $lte: yearEnd }
-        }).sort({ date: 1 });
+        }).populate("centreId", "centreName").populate("checkIn.centreId", "centreName").populate("checkOut.centreId", "centreName").sort({ date: 1 });
 
         // 1. Monthly Breakdown over the year
         const monthlyStats = Array.from({ length: 12 }, (_, i) => ({
@@ -544,7 +553,11 @@ export const getAttendanceAnalysis = async (req, res) => {
                 if (dayStr === snapshotStr) {
                     todayRecord = {
                         checkIn: att.checkIn?.time,
+                        checkInCentre: att.checkIn?.centreId?.centreName || att.centreId?.centreName,
+                        checkInLabel: att.checkIn?.address,
                         checkOut: att.checkOut?.time,
+                        checkOutCentre: att.checkOut?.centreId?.centreName || att.centreId?.centreName,
+                        checkOutLabel: att.checkOut?.address,
                         status: status,
                         workingHours: wh
                     };

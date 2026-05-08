@@ -24,13 +24,15 @@ const employeeAttendanceSchema = new mongoose.Schema({
         time: { type: Date },
         latitude: { type: Number },
         longitude: { type: Number },
-        address: { type: String }
+        address: { type: String },
+        centreId: { type: mongoose.Schema.Types.ObjectId, ref: "CentreSchema" }
     },
     checkOut: {
         time: { type: Date },
         latitude: { type: Number },
         longitude: { type: Number },
-        address: { type: String }
+        address: { type: String },
+        centreId: { type: mongoose.Schema.Types.ObjectId, ref: "CentreSchema" }
     },
     status: {
         type: String,

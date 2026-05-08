@@ -1610,12 +1610,32 @@ const EmployeesAttendance = () => {
                                                             <p className={`font-black text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                                 {userAnalysisData.summary.todayRecord?.checkIn ? format(new Date(userAnalysisData.summary.todayRecord.checkIn), 'HH:mm') : '--:--'}
                                                             </p>
+                                                            {userAnalysisData.summary.todayRecord?.checkInCentre && (
+                                                                <div className="mt-1">
+                                                                    <p className="text-[7px] font-black text-cyan-500 uppercase truncate">
+                                                                        {userAnalysisData.summary.todayRecord.checkInCentre}
+                                                                    </p>
+                                                                    <p className="text-[6px] font-bold text-gray-500 truncate italic">
+                                                                        {userAnalysisData.summary.todayRecord.checkInLabel}
+                                                                    </p>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div>
                                                             <p className={`text-[8px] uppercase font-black tracking-widest mb-1 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Check Out</p>
                                                             <p className={`font-black text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                                 {userAnalysisData.summary.todayRecord?.checkOut ? format(new Date(userAnalysisData.summary.todayRecord.checkOut), 'HH:mm') : '--:--'}
                                                             </p>
+                                                            {userAnalysisData.summary.todayRecord?.checkOutCentre && (
+                                                                <div className="mt-1">
+                                                                    <p className="text-[7px] font-black text-pink-500 uppercase truncate">
+                                                                        {userAnalysisData.summary.todayRecord.checkOutCentre}
+                                                                    </p>
+                                                                    <p className="text-[6px] font-bold text-gray-500 truncate italic">
+                                                                        {userAnalysisData.summary.todayRecord.checkOutLabel}
+                                                                    </p>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
 
