@@ -10,7 +10,7 @@ export const getEmployeeAnalytics = async (req, res) => {
         const userRole = (req.user.role || "").toLowerCase();
         const isFullAccess = ['superadmin', 'super admin', 'admin', 'hr'].includes(userRole);
         const userCentres = req.user.centres || [];
-        const { tab, department, designation, centre, status, role } = req.query;
+        const { tab, department, designation, centre, status, role, search } = req.query;
         const mongoose = (await import('mongoose')).default;
 
         // Data Isolation Match Stage
@@ -30,6 +30,17 @@ export const getEmployeeAnalytics = async (req, res) => {
                 ]
             } : {})
         };
+
+        if (search) {
+            if (!matchStageMatch.$and) matchStageMatch.$and = [];
+            matchStageMatch.$and.push({
+                $or: [
+                    { name: { $regex: search, $options: "i" } },
+                    { email: { $regex: search, $options: "i" } },
+                    { employeeId: { $regex: search, $options: "i" } }
+                ]
+            });
+        }
 
         // Role-based filtering via Tab
         if (tab) {

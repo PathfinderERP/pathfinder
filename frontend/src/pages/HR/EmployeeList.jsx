@@ -93,6 +93,7 @@ const EmployeeList = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
                 tab: activeTab,
+                ...(search && { search }),
                 ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
@@ -111,7 +112,7 @@ const EmployeeList = () => {
         } finally {
             setAnalyticsLoading(false);
         }
-    }, [activeTab, filters]);
+    }, [activeTab, filters, search]);
 
     const fetchMasterData = useCallback(async () => {
         try {
