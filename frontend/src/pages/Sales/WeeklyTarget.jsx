@@ -3,12 +3,14 @@ import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import {
-    FaCalendarWeek, FaSync, FaSun, FaMoon, FaDownload, FaArrowLeft
+    FaCalendarWeek, FaSync, FaSun, FaMoon, FaDownload, FaArrowLeft, FaTable
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { hasPermission } from "../../config/permissions";
+
 import {
     ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis,
     CartesianGrid, Tooltip, Legend, ComposedChart, Cell
@@ -50,11 +52,10 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
 
     if (day.isEmpty || day.isHidden) {
         return (
-            <div className={`rounded-lg p-2 min-h-[72px] border ${
-                isDarkMode
-                    ? "bg-[#0a0c0f] border-gray-900"
-                    : "bg-gray-100 border-gray-100"
-            } ${day.isHidden ? "opacity-20" : ""}`} />
+            <div className={`rounded-lg p-2 min-h-[72px] border ${isDarkMode
+                ? "bg-[#0a0c0f] border-gray-900"
+                : "bg-gray-100 border-gray-100"
+                } ${day.isHidden ? "opacity-20" : ""}`} />
         );
     }
 
@@ -66,8 +67,7 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
     return (
         <div
             onClick={() => onToggle(day.day)}
-            className={`rounded-lg p-1.5 md:p-2 min-h-[60px] md:min-h-[80px] border flex flex-col items-center justify-between transition-all cursor-pointer select-none group ${
-            isSelected
+            className={`rounded-lg p-1.5 md:p-2 min-h-[60px] md:min-h-[80px] border flex flex-col items-center justify-between transition-all cursor-pointer select-none group ${isSelected
                 ? isDarkMode ? "ring-2 ring-cyan-500 bg-cyan-950/30 border-cyan-500/50" : "ring-2 ring-cyan-600 bg-cyan-50 border-cyan-600"
                 : isBlurred
                     ? "opacity-30 grayscale-[0.5] scale-[0.98]"
@@ -78,16 +78,15 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
                         : isDarkMode
                             ? "bg-[#131619] border-gray-800/50 hover:border-gray-600"
                             : "bg-white border-gray-200 hover:border-gray-400"
-        }`}>
+                }`}>
             {/* Date number & Mini Tag */}
             <div className="w-full flex items-center justify-between">
-                <span className={`text-[10px] font-black ${
-                    isSelected ? "text-cyan-400" : isWeekend ? "text-purple-400" : isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}>
+                <span className={`text-[10px] font-black ${isSelected ? "text-cyan-400" : isWeekend ? "text-purple-400" : isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}>
                     {day.day}
                 </span>
                 {day.isWeekend && !isSelected && (
-                     <span className="text-[7px] font-black uppercase text-purple-500/60 tracking-tighter">Wknd</span>
+                    <span className="text-[7px] font-black uppercase text-purple-500/60 tracking-tighter">Wknd</span>
                 )}
                 {isSelected && (
                     <div className="w-1 h-1 bg-cyan-400 rounded-full animate-ping" />
@@ -99,15 +98,14 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
                 <span className={`text-[8px] md:text-[9px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                     T: ₹{fmt(Math.round(dayTarget))}
                 </span>
-                <span className={`text-[10px] md:text-[11px] font-black tracking-tight transition-transform group-hover:scale-105 ${
-                    !hasAmount
-                        ? isDarkMode ? "text-gray-800" : "text-gray-300"
-                        : isSelected
-                            ? "text-cyan-300"
-                            : isWeekend
-                                ? "text-purple-300"
-                                : isDarkMode ? "text-emerald-400" : "text-emerald-600"
-                }`}>
+                <span className={`text-[10px] md:text-[11px] font-black tracking-tight transition-transform group-hover:scale-105 ${!hasAmount
+                    ? isDarkMode ? "text-gray-800" : "text-gray-300"
+                    : isSelected
+                        ? "text-cyan-300"
+                        : isWeekend
+                            ? "text-purple-300"
+                            : isDarkMode ? "text-emerald-400" : "text-emerald-600"
+                    }`}>
                     {hasAmount ? `₹${fmt(day.achievedWithGST)}` : "—"}
                 </span>
             </div>
@@ -115,7 +113,7 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
             {/* Mini Progress bar if achieved */}
             {hasAmount && (
                 <div className="w-full h-0.5 bg-gray-800/50 rounded-full overflow-hidden mt-1">
-                    <div 
+                    <div
                         className={`h-full rounded-full transition-all duration-500 ${dayPct >= 100 ? "bg-emerald-500" : "bg-cyan-500"}`}
                         style={{ width: `${Math.min(dayPct, 100)}%` }}
                     />
@@ -131,18 +129,15 @@ const WeekCard = ({ week, isDarkMode, onDateToggle, selectedDates }) => {
     const progressW = Math.min(pct, 100);
 
     return (
-        <div className={`rounded-xl border overflow-hidden ${
-            isDarkMode ? "bg-[#0f1215] border-gray-800/60" : "bg-gray-50 border-gray-200"
-        }`}>
-            {/* Week header row */}
-            <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 py-3 border-b ${
-                isDarkMode ? "border-gray-800/50" : "border-gray-200"
+        <div className={`rounded-xl border overflow-hidden ${isDarkMode ? "bg-[#0f1215] border-gray-800/60" : "bg-gray-50 border-gray-200"
             }`}>
+            {/* Week header row */}
+            <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-4 py-3 border-b ${isDarkMode ? "border-gray-800/50" : "border-gray-200"
+                }`}>
                 {/* Left side: Week details */}
                 <div className="flex items-center justify-between lg:justify-start gap-3 min-w-[150px]">
-                    <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${
-                        isDarkMode ? "bg-cyan-500/10 text-cyan-400" : "bg-cyan-50 text-cyan-600"
-                    }`}>
+                    <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${isDarkMode ? "bg-cyan-500/10 text-cyan-400" : "bg-cyan-50 text-cyan-600"
+                        }`}>
                         Week {week.weekNumber}
                     </span>
                     <span className={`text-[11px] font-semibold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
@@ -152,9 +147,8 @@ const WeekCard = ({ week, isDarkMode, onDateToggle, selectedDates }) => {
 
                 {/* Middle: Target Info */}
                 <div className="flex-1 flex justify-center w-full">
-                    <div className={`px-3 py-1.5 rounded-lg border w-full lg:w-auto ${
-                        isDarkMode ? "bg-emerald-500/5 border-emerald-500/20" : "bg-emerald-50 border-emerald-100"
-                    }`}>
+                    <div className={`px-3 py-1.5 rounded-lg border w-full lg:w-auto ${isDarkMode ? "bg-emerald-500/5 border-emerald-500/20" : "bg-emerald-50 border-emerald-100"
+                        }`}>
                         <p className={`text-[10px] md:text-xs font-black uppercase tracking-wider text-center ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>
                             Target: <span className="text-xs md:text-sm">₹{fmt(week.weeklyTargetWithGST)}</span>
                             <span className={`mx-2 opacity-30 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>|</span>
@@ -212,11 +206,10 @@ const WeekCard = ({ week, isDarkMode, onDateToggle, selectedDates }) => {
                     {COL_HEADERS.map(col => (
                         <div
                             key={col}
-                            className={`text-center text-[8px] md:text-[10px] font-black uppercase tracking-widest py-1 rounded ${
-                                WEEKEND_COLS.has(col)
-                                    ? "text-purple-400"
-                                    : isDarkMode ? "text-gray-500" : "text-gray-400"
-                            }`}
+                            className={`text-center text-[8px] md:text-[10px] font-black uppercase tracking-widest py-1 rounded ${WEEKEND_COLS.has(col)
+                                ? "text-purple-400"
+                                : isDarkMode ? "text-gray-500" : "text-gray-400"
+                                }`}
                         >
                             {col}
                         </div>
@@ -245,14 +238,12 @@ const CentreCard = ({ centreData, isDarkMode, onDateToggle, selectedDates }) => 
     const [expanded, setExpanded] = useState(false);
 
     return (
-        <div className={`rounded-2xl border overflow-hidden transition-all duration-300 ${
-            isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-lg"
-        }`}>
+        <div className={`rounded-2xl border overflow-hidden transition-all duration-300 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-lg"
+            }`}>
             {/* Header */}
             <div
-                className={`flex items-center justify-between px-6 py-4 cursor-pointer select-none ${
-                    isDarkMode ? "bg-[#131619] border-b border-gray-800" : "bg-gray-50 border-b border-gray-200"
-                }`}
+                className={`flex items-center justify-between px-6 py-4 cursor-pointer select-none ${isDarkMode ? "bg-[#131619] border-b border-gray-800" : "bg-gray-50 border-b border-gray-200"
+                    }`}
                 onClick={() => setExpanded(v => !v)}
             >
                 <div className="flex items-center gap-3">
@@ -316,15 +307,31 @@ const WeeklyTarget = () => {
 
     const today = new Date();
     const [selectedMonth, setSelectedMonth] = useState(monthNames[today.getMonth()]);
-    const [selectedYear,  setSelectedYear]  = useState(today.getFullYear());
-    const [centres,        setCentres]       = useState([]);
+    const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+    const [centres, setCentres] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
-    const [selectedDays,    setSelectedDays]    = useState([]);
+    const [selectedDays, setSelectedDays] = useState([]);
     const [selectedMethods, setSelectedMethods] = useState([]);
-    const [selectedDates,   setSelectedDates]   = useState([]);
-    
-    const [data,    setData]    = useState(null);
+    const [selectedDates, setSelectedDates] = useState([]);
+
+    const [data, setData] = useState(null);
+    const [isTabular, setIsTabular] = useState(true);
+
     const [loading, setLoading] = useState(false);
+
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canView = hasPermission(user, 'sales', 'weeklyTarget', 'view') ||
+        hasPermission(user, 'sales', 'weeklyTarget', 'create') ||
+        hasPermission(user, 'sales', 'weeklyTarget', 'edit') ||
+        hasPermission(user, 'sales', 'weeklyTarget', 'delete');
+
+    useEffect(() => {
+        if (!canView && user.role !== 'superAdmin') {
+            toast.error("You don't have permission to access this page");
+            navigate("/");
+        }
+    }, [canView, user.role, navigate]);
+
 
     const years = [today.getFullYear() + 1, today.getFullYear(), today.getFullYear() - 1, today.getFullYear() - 2];
 
@@ -425,8 +432,8 @@ const WeeklyTarget = () => {
     // Summary
     const summary = data?.centres?.length ? {
         totalMonthlyTarget: data.centres.reduce((s, c) => s + c.monthlyTargetWithGST, 0),
-        totalAchieved:      data.centres.reduce((s, c) => s + c.totalAchievedWithGST, 0),
-        totalWeekend:       data.centres.reduce((s, c) => s + c.totalWeekendWithGST, 0)
+        totalAchieved: data.centres.reduce((s, c) => s + c.totalAchievedWithGST, 0),
+        totalWeekend: data.centres.reduce((s, c) => s + c.totalWeekendWithGST, 0)
     } : null;
 
     // Chart Data Preparation
@@ -473,9 +480,8 @@ const WeeklyTarget = () => {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate("/sales/centre-target")}
-                            className={`p-2 rounded-lg border transition-all ${
-                                isDarkMode ? "text-gray-400 border-gray-700 hover:text-white" : "text-gray-500 border-gray-300 hover:text-gray-800"
-                            }`}
+                            className={`p-2 rounded-lg border transition-all ${isDarkMode ? "text-gray-400 border-gray-700 hover:text-white" : "text-gray-500 border-gray-300 hover:text-gray-800"
+                                }`}
                         >
                             <FaArrowLeft size={14} />
                         </button>
@@ -492,21 +498,26 @@ const WeeklyTarget = () => {
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <button onClick={toggleTheme} className={`p-2.5 rounded-lg border text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
-                            isDarkMode ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white"
-                        }`}>
+                        <button onClick={toggleTheme} className={`p-2.5 rounded-lg border text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isDarkMode ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black" : "bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white"
+                            }`}>
                             {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}
+                        </button>
+                        <button onClick={() => setIsTabular(!isTabular)} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all border ${isTabular
+                            ? "bg-cyan-600 border-cyan-600 text-white shadow-lg shadow-cyan-600/20"
+                            : isDarkMode ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/20 hover:bg-cyan-600 hover:text-white" : "bg-cyan-50 text-cyan-600 border-cyan-200 hover:bg-cyan-600 hover:text-white"
+                            }`}>
+                            <FaTable size={12} /> Open Tabular
                         </button>
                         <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all shadow-lg shadow-green-600/20">
                             <FaDownload size={12} /> Export Excel
                         </button>
+
                     </div>
                 </div>
 
                 {/* Filters & Mini Analysis Section */}
-                <div className={`rounded-2xl border p-4 mb-6 flex flex-col lg:flex-row gap-6 ${
-                    isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-xl"
-                }`}>
+                <div className={`rounded-2xl border p-4 mb-6 flex flex-col lg:flex-row gap-6 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-xl"
+                    }`}>
                     {/* Left: Filters */}
                     <div className="flex-1 space-y-4">
                         <div className="flex flex-wrap gap-3">
@@ -561,17 +572,15 @@ const WeeklyTarget = () => {
 
                         <div className="flex items-center gap-2 pt-2">
                             <button onClick={handleWeekendOnly}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                    selectedDays.length === 2 && selectedDays.includes("Sat")
-                                        ? "bg-purple-600 border-purple-600 text-white"
-                                        : isDarkMode ? "bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20" : "bg-purple-50 border-purple-200 text-purple-600 hover:bg-purple-100"
-                                }`}>
+                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${selectedDays.length === 2 && selectedDays.includes("Sat")
+                                    ? "bg-purple-600 border-purple-600 text-white"
+                                    : isDarkMode ? "bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20" : "bg-purple-50 border-purple-200 text-purple-600 hover:bg-purple-100"
+                                    }`}>
                                 Weekends
                             </button>
                             <button onClick={() => { setSelectedDays([]); setSelectedMethods([]); setSelectedDates([]); setSelectedCentres([]); }}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
-                                    isDarkMode ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
-                                }`}>
+                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${isDarkMode ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                                    }`}>
                                 Clear
                             </button>
                             <div className="flex-1" />
@@ -595,14 +604,14 @@ const WeeklyTarget = () => {
                                             <ComposedChart data={chartData}>
                                                 <defs>
                                                     <linearGradient id="miniColor" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                                                     </linearGradient>
                                                 </defs>
                                                 <CartesianGrid strokeDasharray="2 2" vertical={false} stroke={isDarkMode ? "#2d3748" : "#f1f5f9"} />
                                                 <XAxis dataKey="day" hide />
                                                 <YAxis hide />
-                                                <Tooltip 
+                                                <Tooltip
                                                     contentStyle={{ backgroundColor: isDarkMode ? "#1a1f24" : "#fff", border: "1px solid #333", fontSize: "10px" }}
                                                 />
                                                 <Area type="monotone" dataKey="achieved" stroke="#10b981" fill="url(#miniColor)" strokeWidth={2} />
@@ -620,7 +629,7 @@ const WeeklyTarget = () => {
                                             <BarChart data={methodData} layout="vertical">
                                                 <XAxis type="number" hide />
                                                 <YAxis dataKey="name" type="category" hide />
-                                                <Tooltip contentStyle={{ fontSize: "10px" }} cursor={{fill: 'transparent'}} />
+                                                <Tooltip contentStyle={{ fontSize: "10px" }} cursor={{ fill: 'transparent' }} />
                                                 <Bar dataKey="value" barSize={10} radius={[0, 4, 4, 0]}>
                                                     {methodData.map((entry, index) => (
                                                         <Cell key={`cell-${index}`} fill={['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444'][index % 5]} />
@@ -658,8 +667,8 @@ const WeeklyTarget = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                         {[
                             { label: "Total Monthly Target", value: `₹${fmt(summary.totalMonthlyTarget)}`, color: "text-cyan-400", sub: "incl. GST" },
-                            { label: "Total Achieved",        value: `₹${fmt(summary.totalAchieved)}`,       color: "text-emerald-400", sub: "incl. GST" },
-                            { label: "Weekend Achieved",      value: `₹${fmt(summary.totalWeekend)}`,        color: "text-purple-400",  sub: "Sat + Sun" }
+                            { label: "Total Achieved", value: `₹${fmt(summary.totalAchieved)}`, color: "text-emerald-400", sub: "incl. GST" },
+                            { label: "Weekend Achieved", value: `₹${fmt(summary.totalWeekend)}`, color: "text-purple-400", sub: "Sat + Sun" }
                         ].map(s => (
                             <div key={s.label} className={`rounded-xl border p-5 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`}>
                                 <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
@@ -685,6 +694,45 @@ const WeeklyTarget = () => {
                             No monthly targets set for <strong>{selectedMonth} {selectedYear}</strong> or no transactions match the filters.
                         </p>
                     </div>
+                ) : isTabular ? (
+                    <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-xl"}`}>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className={`border-b ${isDarkMode ? "bg-[#131619] border-gray-800" : "bg-gray-50 border-gray-200"}`}>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Centre Name</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Monthly Target</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Achieved</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Weekend Total</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Achievement %</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-100"}`}>
+                                    {data.centres.map(c => (
+                                        <tr key={c.centreId} className={`transition-colors ${isDarkMode ? "hover:bg-white/5" : "hover:bg-gray-50"}`}>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-1 h-4 bg-cyan-500 rounded-full" />
+                                                    <span className={`font-black ${isDarkMode ? "text-white" : "text-gray-900"}`}>{c.centreName}</span>
+                                                </div>
+                                            </td>
+                                            <td className={`px-6 py-4 text-right font-bold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>₹{fmt(c.monthlyTargetWithGST)}</td>
+                                            <td className={`px-6 py-4 text-right font-black ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>₹{fmt(c.totalAchievedWithGST)}</td>
+                                            <td className={`px-6 py-4 text-right font-black text-purple-400`}>₹{fmt(c.totalWeekendWithGST)}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className={`text-sm font-black ${pctColor(c.overallPct)}`}>{fmtPct(c.overallPct)}</span>
+                                                    <div className={`w-20 h-1 rounded-full ${isDarkMode ? "bg-gray-800" : "bg-gray-100"}`}>
+                                                        <div className={`h-full rounded-full bg-gradient-to-r ${progressGrad(c.overallPct)}`} style={{ width: `${Math.min(parseFloat(c.overallPct), 100)}%` }} />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 ) : (
                     <div className="space-y-6">
                         {data.centres.map(c => (
@@ -698,6 +746,7 @@ const WeeklyTarget = () => {
                         ))}
                     </div>
                 )}
+
             </div>
         </Layout>
     );
