@@ -82,21 +82,39 @@ export const getProfile = async (req, res) => {
     try {
         const studentId = req.user.id;
         const student = await Student.findById(studentId)
-            .populate("course")
-            .populate("batches"); // Assuming batches ref is correct
+            .populate("course", "courseName")
+            .populate("batches", "batchName"); // Assuming batches ref is correct
 
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
 
-        // Also fetch active admissions for this student
         const admissions = await Admission.find({ student: studentId })
-            .populate("course")
-            .populate("class");
+            .populate("course", "courseName")
+            .populate("class", "className");
+
+        const formattedAdmissions = admissions.map(adm => ({
+            _id: adm._id,
+            admissionNumber: adm.admissionNumber,
+            courseName: adm.course?.courseName || "N/A",
+            className: adm.class?.className || "N/A",
+            admissionDate: adm.admissionDate,
+            paymentStatus: adm.paymentStatus,
+            totalFees: adm.totalFees,
+            totalPaidAmount: adm.totalPaidAmount
+        }));
+
+        const formattedStudent = {
+            _id: student._id,
+            name: student.studentsDetails[0]?.studentName || "N/A",
+            email: student.studentsDetails[0]?.studentEmail || "N/A",
+            courseName: student.course?.courseName || "N/A",
+            batchNames: student.batches?.map(b => b.batchName) || []
+        };
 
         res.json({
-            student,
-            admissions
+            student: formattedStudent,
+            admissions: formattedAdmissions
         });
     } catch (error) {
         console.error("Get Profile Error:", error);
@@ -140,16 +158,23 @@ export const getClasses = async (req, res) => {
         .sort({ date: -1 })
         .limit(100);
 
-        const flattenedSchedule = schedule.map(cls => ({
-            ...cls.toObject(),
+        const formattedSchedule = schedule.map(cls => ({
+            _id: cls._id,
+            className: cls.className,
+            date: cls.date,
+            startTime: cls.startTime,
+            endTime: cls.endTime,
+            classMode: cls.classMode,
+            status: cls.status,
+            teacherName: cls.teacherId?.name || "N/A",
             subjectName: cls.subjectId?.subName || "N/A",
             academicClassName: cls.acadClassId?.className || "N/A",
             academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
-            academicChapterName: cls.chapterId?.chapterName || "N/A",
-            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
+            chapterName: cls.chapterId?.chapterName || "N/A",
+            topics: cls.topicIds?.map(t => t.topicName) || []
         }));
 
-        res.json(flattenedSchedule);
+        res.json(formattedSchedule);
 
     } catch (error) {
         console.error("Get Classes Error:", error);
@@ -162,19 +187,16 @@ export const getUpcomingClasses = async (req, res) => {
     try {
         let studentId = req.params.studentId || req.user.id;
 
-        // Security check: Students can only view their own classes
         if (req.user.role === "student" && studentId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({ message: "Access denied. You can only view your own classes." });
+            return res.status(403).json({ message: "Access denied." });
         }
 
         const student = await Student.findById(studentId);
-        if (!student) {
-            return res.status(404).json({ message: "Student not found" });
-        }
+        if (!student) return res.status(404).json({ message: "Student not found" });
 
         const batchIds = student.batches || [];
-        const now = new Date();
-        const today = new Date(now.setHours(0, 0, 0, 0));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         const upcomingClasses = await ClassSchedule.find({
             $or: [
@@ -192,20 +214,27 @@ export const getUpcomingClasses = async (req, res) => {
         })
         .populate("chapterId", "chapterName")
         .populate("topicIds", "topicName")
-        .populate("teacherId", "name email")
+        .populate("teacherId", "name email designation")
         .sort({ date: 1, startTime: 1 });
 
-        const flattenedUpcoming = upcomingClasses.map(cls => ({
-            ...cls.toObject(),
+        const formatted = upcomingClasses.map(cls => ({
+            _id: cls._id,
+            className: cls.className,
+            date: cls.date,
+            startTime: cls.startTime,
+            endTime: cls.endTime,
+            classMode: cls.classMode,
+            status: cls.status,
+            teacherName: cls.teacherId?.name || "N/A",
             subjectName: cls.subjectId?.subName || "N/A",
             academicClassName: cls.acadClassId?.className || "N/A",
             academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
-            academicChapterName: cls.chapterId?.chapterName || "N/A",
-            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
+            chapterName: cls.chapterId?.chapterName || "N/A",
+            topics: cls.topicIds?.map(t => t.topicName) || [],
+            message: cls.message
         }));
 
-        res.json(flattenedUpcoming);
-
+        res.json(formatted);
     } catch (error) {
         console.error("Get Upcoming Classes Error:", error);
         res.status(500).json({ message: "Server error" });
@@ -217,15 +246,13 @@ export const getOngoingClasses = async (req, res) => {
     try {
         let studentId = req.params.studentId || req.user.id;
 
-        // Security check: Students can only view their own classes
+        // Security check
         if (req.user.role === "student" && studentId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({ message: "Access denied. You can only view your own classes." });
+            return res.status(403).json({ message: "Access denied." });
         }
 
         const student = await Student.findById(studentId);
-        if (!student) {
-            return res.status(404).json({ message: "Student not found" });
-        }
+        if (!student) return res.status(404).json({ message: "Student not found" });
 
         const batchIds = student.batches || [];
 
@@ -244,22 +271,96 @@ export const getOngoingClasses = async (req, res) => {
         })
         .populate("chapterId", "chapterName")
         .populate("topicIds", "topicName")
-        .populate("teacherId", "name email")
+        .populate("teacherId", "name email designation")
         .sort({ date: 1, startTime: 1 });
 
-        const flattenedOngoing = ongoingClasses.map(cls => ({
-            ...cls.toObject(),
+        const formatted = ongoingClasses.map(cls => ({
+            _id: cls._id,
+            className: cls.className,
+            date: cls.date,
+            startTime: cls.startTime,
+            endTime: cls.endTime,
+            classMode: cls.classMode,
+            status: cls.status,
+            teacherName: cls.teacherId?.name || "N/A",
             subjectName: cls.subjectId?.subName || "N/A",
             academicClassName: cls.acadClassId?.className || "N/A",
             academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
-            academicChapterName: cls.chapterId?.chapterName || "N/A",
-            academicTopicNames: cls.topicIds?.map(t => t.topicName) || []
+            chapterName: cls.chapterId?.chapterName || "N/A",
+            topics: cls.topicIds?.map(t => t.topicName) || [],
+            message: cls.message
         }));
 
-        res.json(flattenedOngoing);
-
+        res.json(formatted);
     } catch (error) {
         console.error("Get Ongoing Classes Error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// Get Previous Classes (Completed)
+export const getPreviousClasses = async (req, res) => {
+    try {
+        let studentId = req.params.studentId || req.user.id;
+
+        if (req.user.role === "student" && studentId.toString() !== req.user.id.toString()) {
+            return res.status(403).json({ message: "Access denied." });
+        }
+
+        const student = await Student.findById(studentId);
+        if (!student) return res.status(404).json({ message: "Student not found" });
+
+        const batchIds = student.batches || [];
+
+        const previousClasses = await ClassSchedule.find({
+            $or: [
+                { batchIds: { $in: batchIds } },
+                { batchId: { $in: batchIds } }
+            ],
+            status: "Completed"
+        })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
+        .populate({
+            path: "acadSubjectId",
+            populate: { path: "masterSubjectId", select: "subName" }
+        })
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
+        .populate("teacherId", "name email designation")
+        .sort({ date: -1, startTime: -1 })
+        .limit(50);
+
+        // Fetch attendance for these classes
+        const classIds = previousClasses.map(c => c._id);
+        const attendanceRecords = await StudentAttendance.find({
+            studentId,
+            classScheduleId: { $in: classIds }
+        });
+
+        const formatted = previousClasses.map(cls => {
+            const attendance = attendanceRecords.find(r => r.classScheduleId.toString() === cls._id.toString());
+            return {
+                _id: cls._id,
+                className: cls.className,
+                date: cls.date,
+                startTime: cls.startTime,
+                endTime: cls.endTime,
+                classMode: cls.classMode,
+                status: cls.status,
+                teacherName: cls.teacherId?.name || "N/A",
+                subjectName: cls.subjectId?.subName || "N/A",
+                academicClassName: cls.acadClassId?.className || "N/A",
+                academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+                chapterName: cls.chapterId?.chapterName || "N/A",
+                topics: cls.topicIds?.map(t => t.topicName) || [],
+                attendanceStatus: attendance ? attendance.status : "Not Marked"
+            };
+        });
+
+        res.json(formatted);
+    } catch (error) {
+        console.error("Get Previous Classes Error:", error);
         res.status(500).json({ message: "Server error" });
     }
 };
@@ -405,13 +506,33 @@ export const getSingleStudentReport = async (req, res) => {
 
         const reportData = {
             success: true,
-            profile: student,
-            admissions,
+            profile: {
+                _id: student._id,
+                name: student.studentsDetails[0]?.studentName || "N/A",
+                email: student.studentsDetails[0]?.studentEmail || "N/A",
+                courseName: student.course?.courseName || "N/A",
+                batchNames: student.batches?.map(b => b.batchName) || []
+            },
+            admissions: admissions.map(adm => ({
+                _id: adm._id,
+                admissionNumber: adm.admissionNumber,
+                courseName: adm.course?.courseName || "N/A",
+                className: adm.class?.className || "N/A"
+            })),
             attendanceReport: {
                 totalClasses: detailedAttendance.length,
                 presentCount: attendanceRecords.filter(r => r.status === "Present").length,
                 absentCount: attendanceRecords.filter(r => r.status === "Absent").length,
-                classes: detailedAttendance
+                classes: detailedAttendance.map(cls => ({
+                    _id: cls._id,
+                    className: cls.className,
+                    date: cls.date,
+                    startTime: cls.startTime,
+                    endTime: cls.endTime,
+                    teacherName: cls.teacherId?.name || "N/A",
+                    subjectName: cls.subjectId?.subName || "N/A",
+                    attendanceStatus: cls.attendanceStatus
+                }))
             }
         };
 

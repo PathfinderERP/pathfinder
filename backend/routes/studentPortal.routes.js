@@ -1,5 +1,5 @@
 import express from "express";
-import { login, getProfile, getClasses, getUpcomingClasses, getOngoingClasses, getAttendance, getTeachers, getSingleStudentReport } from "../controllers/studentPortalController.js";
+import { login, getProfile, getClasses, getUpcomingClasses, getOngoingClasses, getPreviousClasses, getAttendance, getTeachers, getSingleStudentReport } from "../controllers/studentPortalController.js";
 import protect from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -15,6 +15,8 @@ router.get("/classes/upcoming", protect, getUpcomingClasses);
 router.get("/classes/upcoming/:studentId", protect, getUpcomingClasses);
 router.get("/classes/ongoing", protect, getOngoingClasses);
 router.get("/classes/ongoing/:studentId", protect, getOngoingClasses);
+router.get("/classes/previous", protect, getPreviousClasses);
+router.get("/classes/previous/:studentId", protect, getPreviousClasses);
 router.get("/attendance", protect, getAttendance);
 router.get("/report", protect, getSingleStudentReport);
 router.get("/report/:studentId", protect, getSingleStudentReport);
