@@ -154,6 +154,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "sales",
             subItems: [
                 { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" },
+                { name: "Weekly Weekends Target", path: "/sales/weekly-target", permissionSection: "centreTarget" },
                 { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
                 { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },
                 { name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },

@@ -11,10 +11,14 @@
 
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import Employee from '../models/HR/Employee.js';
 import User from '../models/User.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, '../.env') });
 
 async function insertEmployee() {
     try {

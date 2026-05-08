@@ -15,6 +15,7 @@ import { getDiscountReport } from "../../controllers/sales/discountReportControl
 import { getTransactionReport } from "../../controllers/sales/transactionReportController.js";
 import { getDailyCollectionReport } from "../../controllers/sales/dailyCollectionController.js";
 import { getBoardReport } from "../../controllers/sales/boardReportController.js";
+import { getWeeklyTarget } from "../../controllers/sales/weeklyTargetController.js";
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.get("/centre-target", requireAuth, getCentreTargets);
 router.put("/centre-target/:id", requireAuth, updateCentreTarget);
 router.delete("/centre-target/:id", requireAuth, deleteCentreTarget);
 router.get("/quarterly-target-report", requireAuth, getQuarterlyFullReport);
+router.get("/weekly-target", requireAuth, getWeeklyTarget);
 
 export default router;
