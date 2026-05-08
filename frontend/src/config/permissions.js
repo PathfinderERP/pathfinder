@@ -33,6 +33,10 @@ export const PERMISSION_MODULES = {
                 label: "Transaction Report",
                 operations: ["create", "edit", "delete"]
             },
+            weeklyTarget: {
+                label: "Weekly & Weekend Target",
+                operations: ["create", "edit", "delete"]
+            },
             boardReport: {
                 label: "Board Analysis Report",
                 operations: ["create", "edit", "delete"]
@@ -508,15 +512,15 @@ export const PERMISSION_MODULES = {
             },
             expenditureApproval: {
                 label: "Expenditure Approval",
-                operations: ["view", "approve"]
+                operations: ["create", "edit", "delete"]
             },
             addPettyCash: {
                 label: "Add Petty Cash (Requests)",
-                operations: ["view", "create"]
+                operations: ["create", "edit", "delete"]
             },
             pettyCashRequestApproval: {
                 label: "Petty Cash Request Approval",
-                operations: ["view", "approve"]
+                operations: ["create", "edit", "delete"]
             }
         }
     }

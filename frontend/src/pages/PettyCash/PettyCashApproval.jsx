@@ -40,7 +40,9 @@ const PettyCashApproval = () => {
     const [expenditureTypes, setExpenditureTypes] = useState([]);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canApprove = hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'approve');
+    const canApprove = hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'create') || 
+                       hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'edit') || 
+                       hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'delete');
 
     const fetchMetadata = async () => {
         const token = localStorage.getItem("token");

@@ -16,7 +16,9 @@ const PettyCashRequestApproval = () => {
     const [remarks, setRemarks] = useState("");
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canApprove = hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'approve');
+    const canApprove = hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'create') || 
+                       hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'edit') || 
+                       hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'delete');
 
     const fetchRequests = async () => {
         setLoading(true);

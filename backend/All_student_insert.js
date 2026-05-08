@@ -21,11 +21,11 @@ const GENERATE_BILL = false; // Set to true if payment records/bills are needed
  */
 const student_data_list = [
     {
-        enroll: "PATH24011110",
-        name: "HAIMANTI PARAMANIK",
-        email: "abhaykumarpramanik@gmail.com",
-        phone: "8250305879",
-        centre: "BURDWAN",
+        enroll: "path20001085",
+        name: "Rudrasis Ganguly",
+        email: "rudrasismadh@gmail.com",
+        phone: "8336087162",
+        centre: "HAZRA H.O",
         courseName: "Foundation (NS)Class X (Instation) 2025-2026",
         session: "2025-2026",
         totalFees: 0,
