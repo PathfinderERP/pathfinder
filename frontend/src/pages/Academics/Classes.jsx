@@ -1451,6 +1451,7 @@ const Classes = () => {
     const isSuperAdmin = user.role === "superAdmin";
     const isCoordinator = user.role === "Class_Coordinator";
     const isTeacher = user.role === "teacher";
+    const isHod = user.role === "hod";
 
     // Filters State
     const [filters, setFilters] = useState({

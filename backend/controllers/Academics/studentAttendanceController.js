@@ -104,10 +104,10 @@ export const saveStudentAttendance = async (req, res) => {
             return res.status(404).json({ message: "Class schedule not found" });
         }
 
-        // Permission Check: Academic Admins
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor'];
+        // Permission Check: Academic Admins, Coordinators, and Teachers
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor', 'teacher', 'hod'];
         if (!allowedRoles.includes(req.user.role)) {
-            return res.status(403).json({ message: "Only Academic Admins or Class Coordinators can mark student attendance" });
+            return res.status(403).json({ message: "Only Academic Admins, Class Coordinators, or Teachers can mark student attendance" });
         }
 
         // Use bulkWrite for efficiency or a loop with upsert

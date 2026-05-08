@@ -48,6 +48,7 @@ const PreviousClass = () => {
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
     const isCoordinator = user.role === "Class_Coordinator";
     const isTeacher = user.role === "teacher";
+    const isHod = user.role === "hod";
 
     // Student Attendance State
     const [showStudentAttendance, setShowStudentAttendance] = useState(false);
@@ -546,7 +547,7 @@ const PreviousClass = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="flex flex-col gap-2 scale-90">
-                                                    {(isAdmin || isCoordinator) ? (
+                                                    {(isAdmin || isCoordinator || isTeacher || isHod) ? (
                                                         <button
                                                             onClick={() => {
                                                                 setSelectedClassId(cls._id);

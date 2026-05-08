@@ -51,6 +51,7 @@ const OngoingClass = () => {
     const isCoordinator = user.role === "Class_Coordinator";
     const isAcademicAdmin = isAdmin || isCoordinator || ["centerIncharge", "zonalManager", "zonalHead", "counsellor"].includes(user.role);
     const isTeacher = user.role === "teacher";
+    const isHod = user.role === "hod";
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -570,7 +571,7 @@ const OngoingClass = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="flex flex-col gap-2 scale-90">
-                                                    {isAcademicAdmin ? (
+                                                    {(isAcademicAdmin || isTeacher || isHod) ? (
                                                         <button
                                                             onClick={() => {
                                                                 setSelectedClassId(cls._id);
@@ -614,7 +615,7 @@ const OngoingClass = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="relative group/hover inline-block">
-                                                    {isAcademicAdmin ? (
+                                                    {(isAcademicAdmin || isTeacher || isHod) ? (
                                                         <button
                                                             onClick={() => handleEndClass(cls._id)}
                                                             className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-red-900/20"

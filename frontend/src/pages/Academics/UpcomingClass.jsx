@@ -48,6 +48,8 @@ const UpcomingClass = () => {
         isCoordinator ||
         ["centerIncharge", "zonalManager", "zonalHead", "counsellor"].includes(user.role);
 
+    const isHod = user.role === "hod";
+
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
@@ -684,7 +686,7 @@ const UpcomingClass = () => {
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicName || "-"}</td>
                                             <td className="p-4 text-center">
-                                                {isAcademicAdmin ? (
+                                                {(isAcademicAdmin || isHod) ? (
                                                     <button
                                                         onClick={() => handleStartClass(cls._id)}
                                                         className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-green-900/20 mx-auto"
