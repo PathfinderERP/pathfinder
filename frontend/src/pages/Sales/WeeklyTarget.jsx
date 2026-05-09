@@ -3,7 +3,8 @@ import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import {
-    FaCalendarWeek, FaSync, FaSun, FaMoon, FaDownload, FaArrowLeft, FaTable
+    FaCalendarWeek, FaSync, FaSun, FaMoon, FaDownload, FaArrowLeft, FaTable,
+    FaArrowUp, FaArrowDown
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -46,6 +47,19 @@ const COL_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKEND_COLS = new Set(["Sat", "Sun"]);
 const PAYMENT_METHODS = ["CASH", "CHEQUE", "ONLINE", "UPI", "NEFT", "RTGS", "OTHER"];
 
+// ── Difference Indicator ──────────────────────────────────────────────────────
+const DiffIndicator = ({ target, achieved, fontSize = "text-[9px]", isDarkMode }) => {
+    const diff = achieved - target;
+    if (Math.abs(diff) < 1) return null;
+    const isSurplus = diff > 0;
+    return (
+        <div className={`${fontSize} font-black flex items-center gap-0.5 ${isSurplus ? "text-emerald-400" : "text-red-500"} mt-0.5`}>
+            {isSurplus ? <FaArrowUp size={fontSize.includes('lg') ? 12 : 8} /> : <FaArrowDown size={fontSize.includes('lg') ? 12 : 8} />}
+            <span>₹{fmt(Math.abs(diff))}</span>
+        </div>
+    );
+};
+
 // ── Single Day Cell (calendar style) ──────────────────────────────────────────
 const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
     const isWeekend = WEEKEND_COLS.has(day.colName);
@@ -86,7 +100,9 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
                     {day.day}
                 </span>
                 {day.isWeekend && !isSelected && (
-                    <span className="text-[7px] font-black uppercase text-purple-500/60 tracking-tighter">Wknd</span>
+                    <span className="text-[7px] font-black uppercase text-purple-500/60 tracking-tighter">
+                        {day.colName === "Sat" ? "Sat (40%)" : "Sun (60%)"}
+                    </span>
                 )}
                 {isSelected && (
                     <div className="w-1 h-1 bg-cyan-400 rounded-full animate-ping" />
@@ -95,10 +111,10 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
 
             {/* Target vs Achieved Stack */}
             <div className="w-full flex flex-col items-center gap-0.5">
-                <span className={`text-[8px] md:text-[9px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                <span className={`text-[10px] md:text-[11px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                     T: ₹{fmt(Math.round(dayTarget))}
                 </span>
-                <span className={`text-[10px] md:text-[11px] font-black tracking-tight transition-transform group-hover:scale-105 ${!hasAmount
+                <span className={`text-[12px] md:text-[14px] font-black tracking-tight transition-transform group-hover:scale-105 ${!hasAmount
                     ? isDarkMode ? "text-gray-800" : "text-gray-300"
                     : isSelected
                         ? "text-cyan-300"
@@ -108,6 +124,9 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
                     }`}>
                     {hasAmount ? `₹${fmt(day.achievedWithGST)}` : "—"}
                 </span>
+                {day.day && !day.isEmpty && (
+                    <DiffIndicator target={dayTarget} achieved={day.achievedWithGST} isDarkMode={isDarkMode} />
+                )}
             </div>
 
             {/* Mini Progress bar if achieved */}
@@ -162,22 +181,24 @@ const WeekCard = ({ week, isDarkMode, onDateToggle, selectedDates }) => {
                 {/* Right side: Stats */}
                 <div className="grid grid-cols-3 lg:flex items-center gap-2 md:gap-5 text-center lg:text-right min-w-[200px] justify-between border-t lg:border-t-0 pt-2 lg:pt-0 border-gray-800/50">
                     <div>
-                        <p className={`text-[11px] md:text-sm font-black ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
+                        <p className={`text-[12px] md:text-lg font-black ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
                             ₹{fmt(week.weekTotalWithGST)}
                         </p>
+                        <DiffIndicator target={week.weeklyTargetWithGST} achieved={week.weekTotalWithGST} fontSize="text-[10px] md:text-xs" isDarkMode={isDarkMode} />
                         <p className={`text-[8px] uppercase tracking-wider ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
                             Total
                         </p>
                     </div>
                     <div>
-                        <p className={`text-[11px] md:text-sm font-black ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
-                            <span className="text-[9px] opacity-40 font-normal mr-1">T:</span>
+                        <p className={`text-[12px] md:text-sm font-black ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
+                            <span className="text-[10px] opacity-40 font-normal mr-1">T:</span>
                             ₹{fmt(Math.round(week.weekendTargetWithGST || 0))}
                         </p>
-                        <p className="text-[11px] md:text-sm font-black text-purple-400">
-                            <span className="text-[9px] opacity-40 font-normal mr-1">A:</span>
+                        <p className="text-[12px] md:text-sm font-black text-purple-400">
+                            <span className="text-[10px] opacity-40 font-normal mr-1">A:</span>
                             ₹{fmt(week.weekendTotalWithGST)}
                         </p>
+                        <DiffIndicator target={week.weekendTargetWithGST} achieved={week.weekendTotalWithGST} fontSize="text-[9px]" isDarkMode={isDarkMode} />
                         <p className={`text-[8px] uppercase tracking-wider ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
                             Weekend
                         </p>
@@ -269,6 +290,7 @@ const CentreCard = ({ centreData, isDarkMode, onDateToggle, selectedDates }) => 
                     </div>
                     <div className="text-right hidden sm:block">
                         <p className="text-lg font-black text-purple-400">₹{fmt(centreData.totalWeekendWithGST)}</p>
+                        <DiffIndicator target={centreData.weeks.reduce((acc, w) => acc + w.weekendTargetWithGST, 0)} achieved={centreData.totalWeekendWithGST} fontSize="text-[10px]" isDarkMode={isDarkMode} />
                         <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                             Weekend Total
                         </p>

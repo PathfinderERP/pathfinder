@@ -273,7 +273,17 @@ export const getWeeklyTarget = async (req, res) => {
                     let weekdayTotalWithGST = 0;
 
                     const days = week.days.map(d => {
-                        const dailyTargetWithGST = (monthlyTargetWithGST / daysInMonth);
+                        let dailyTargetWithGST = (monthlyTargetWithGST / daysInMonth);
+                        
+                        // Apply 40/60 split for weekends
+                        // Sat = 40% of weekend (2 days) = 0.4 * 2 = 0.8 of flat target
+                        // Sun = 60% of weekend (2 days) = 0.6 * 2 = 1.2 of flat target
+                        if (d.colName === "Sat") {
+                            dailyTargetWithGST = (monthlyTargetWithGST / daysInMonth) * 0.8;
+                        } else if (d.colName === "Sun") {
+                            dailyTargetWithGST = (monthlyTargetWithGST / daysInMonth) * 1.2;
+                        }
+
                         if (d.isEmpty) {
                             return {
                                 ...d,
