@@ -4,7 +4,7 @@ export const getCentres = async (req, res) => {
     try {
         const user = req.user;
         const userRole = (user.role || "").toLowerCase().replace(/\s+/g, "");
-        const isSuperAdmin = ["superadmin", "super admin"].includes(userRole);
+        const isSuperAdmin = userRole === "superadmin";
 
         // SuperAdmins see all centres
         // Other users only see centres they are assigned to
@@ -14,9 +14,10 @@ export const getCentres = async (req, res) => {
             const userCentres = user.centres || [];
             if (userCentres.length > 0) {
                 // Filter to only show active centres the user is assigned to
+                // We also include centres where status is not explicitly set (defaults to active)
                 query = {
                     _id: { $in: userCentres },
-                    status: "active"
+                    status: { $ne: "deactive" }
                 };
             } else {
                 // If user has no centres assigned, return empty array

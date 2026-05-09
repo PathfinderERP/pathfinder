@@ -154,22 +154,10 @@ const StudentRegistrationForm = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-                // If superAdmin, show all centres
-                if (user.role === "superAdmin") {
-                    setCentres(data.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
-                }
-                // If centres are restricted to the user profile
-                else if (user.centres && user.centres.length > 0) {
-                    const authorizedCentreNames = user.centres.map(c => c.centreName);
-                    const filtered = data.filter(c => authorizedCentreNames.includes(c.centreName));
-                    setCentres(filtered.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
-                }
-                // Fallback: show all if no restrictions found (or handle as per policy)
-                else {
-                    setCentres(data.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
-                }
+                // The backend already filters centres based on user authorization (SuperAdmin sees all, others see assigned)
+                // We just need to sort and set the centres.
+                const sortedCentres = Array.isArray(data) ? data.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")) : [];
+                setCentres(sortedCentres);
             } else {
                 console.error("Failed to fetch centres");
             }
