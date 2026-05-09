@@ -394,7 +394,13 @@ export const startClass = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
-        if (!currentClass.acadSubjectId || !currentClass.chapterIds || currentClass.chapterIds.length === 0 || !currentClass.topicIds || currentClass.topicIds.length === 0) {
+        // Relaxed validation: Allow starting if there is ANY subject, chapter, and topic info
+        // This supports legacy classes that might have single chapterId or topicIds.
+        const hasSubject = currentClass.acadSubjectId || currentClass.subjectId;
+        const hasChapter = (currentClass.chapterIds && currentClass.chapterIds.length > 0) || currentClass.chapterId || currentClass.chapterName;
+        const hasTopic = (currentClass.topicIds && currentClass.topicIds.length > 0) || currentClass.topicName || currentClass.topic;
+
+        if (!hasSubject || !hasChapter || !hasTopic) {
             return res.status(400).json({ message: "Please add the chapter subject topics from the class list before starting the class" });
         }
 

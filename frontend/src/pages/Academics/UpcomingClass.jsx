@@ -166,7 +166,7 @@ const UpcomingClass = () => {
 
     const handleStartClass = async (id) => {
         const cls = classes.find(c => c._id === id);
-        if (!cls?.acadSubjectId || !cls?.chapterIds?.length || !cls?.topicIds?.length) {
+        if (!cls?.subjectName || cls.subjectName === "N/A" || !cls?.chapterName || cls.chapterName === "N/A" || !cls?.topicName || cls.topicName === "N/A") {
             toast.warning("Please add the chapter subject topics from the class list before starting the class");
             return;
         }
