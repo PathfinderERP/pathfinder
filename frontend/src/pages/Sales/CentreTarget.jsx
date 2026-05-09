@@ -86,7 +86,7 @@ const CentreTarget = () => {
                 const sessionData = await sessionRes.json();
                 const sessionList = (Array.isArray(sessionData) ? sessionData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
-                
+
                 if (sessionList.length > 0 && !filterFinancialYear) {
                     const defaultSession = sessionList.find(s => s.sessionName === "2026-2027");
                     setFilterFinancialYear(defaultSession ? defaultSession.sessionName : sessionList[0].sessionName);
@@ -126,7 +126,7 @@ const CentreTarget = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                const sortedTargets = (data.targets || []).sort((a, b) => 
+                const sortedTargets = (data.targets || []).sort((a, b) =>
                     (a.centre?.centreName || "").localeCompare(b.centre?.centreName || "")
                 );
                 setTargets(sortedTargets);
@@ -329,7 +329,7 @@ const CentreTarget = () => {
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync
                         </button>
 
-                        <button 
+                        <button
                             onClick={() => navigate("/sales/quarterly-target-report")}
                             className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-sm shadow-sm ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'}`}
                         >
@@ -356,8 +356,9 @@ const CentreTarget = () => {
                                     <th className="px-6 py-4">Financial Year</th>
                                     <th className="px-6 py-4">Year</th>
                                     <th className="px-6 py-4">Month</th>
-                                    <th className="px-6 py-4 text-center">Target</th>
+                                    <th className="px-6 py-4 text-center">Target (With GST)</th>
                                     <th className="px-6 py-4 text-center">Achieved (With GST)</th>
+                                    <th className="px-6 py-4 text-center text-yellow-500">Target (Excl. GST)</th>
                                     <th className="px-6 py-4 text-center">Achieved (Excl. GST)</th>
                                     <th className="px-6 py-4 text-center">Achievement (%)</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
@@ -381,6 +382,7 @@ const CentreTarget = () => {
                                             <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'}`}>{target.month}</td>
                                             <td className={`px-6 py-4 font-bold tracking-wide text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{(target.targetAmountWithGST || (target.targetAmount * 1.18)).toLocaleString()}</td>
                                             <td className="px-6 py-4 text-blue-500 font-bold text-center">{(target.achievedAmountWithGST || target.achievedAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td className="px-6 py-4 text-yellow-500 font-bold text-center">{(target.targetAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className="px-6 py-4 text-emerald-500 font-bold text-center">{(target.achievedAmountExclGST || (target.achievedAmount / 1.18) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className={`px-6 py-4 font-black text-center ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
                                                 parseFloat(target.achievementPercentage) === 50 ? "text-yellow-500" : "text-red-500"
