@@ -282,11 +282,10 @@ const EnrolledStudentsContent = () => {
                 toast.success("Enrollment number updated successfully!");
                 // Update local modal state immediately
                 setStudentAdmissions(prev =>
-                    prev.map(ad =>
-                        ad._id === admissionId
-                            ? { ...ad, admissionNumber: data.admission.admissionNumber }
-                            : ad
-                    )
+                    prev.map(ad => ({
+                        ...ad,
+                        admissionNumber: data.admission.admissionNumber
+                    }))
                 );
                 // Also refresh the main list so the table reflects the change
                 fetchAdmissions();
@@ -743,6 +742,49 @@ const EnrolledStudentsContent = () => {
     const handleEditProfile = (studentItem) => {
         setEditAdmission(studentItem.latestAdmission);
         setShowEditModal(true);
+    };
+
+    const handleEditAdmission = (admission) => {
+        setEditAdmission(admission);
+        setShowEditModal(true);
+    };
+
+    const handleDeleteAdmission = async (admissionId) => {
+        if (!window.confirm("CRITICAL: You are about to delete this specific course enrollment. This will permanently remove all associated financial records and history for THIS course only. Continue?")) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/admission/${admissionId}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Course enrollment purged successfully");
+                
+                // Update local modal state
+                const updatedAdmissions = studentAdmissions.filter(ad => ad._id !== admissionId);
+                if (updatedAdmissions.length === 0) {
+                    // If no admissions left, close the modal
+                    closeStudentModal();
+                } else {
+                    setStudentAdmissions(updatedAdmissions);
+                }
+                
+                // Refresh main list
+                fetchAdmissions();
+            } else {
+                toast.error(data.message || "Failed to purge enrollment");
+            }
+        } catch (error) {
+            console.error("Error purging admission:", error);
+            toast.error("Network synchronization error.");
+        }
     };
 
     const openPaymentModal = (admission, installment) => {
@@ -2131,36 +2173,43 @@ const EnrolledStudentsContent = () => {
                                                             <FaTools size={14} />
                                                         </button>
                                                     )}
-                                                    {admission.admissionType === 'BOARD' ? (
-                                                        <button
-                                                            onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
-                                                            className="px-6 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 shadow-lg shadow-purple-500/20"
-                                                        >
-                                                            <FaMoneyBillWave /> BILLING
-                                                        </button>
-                                                    ) : (
-                                                        canEdit && (
+                                                    {/* Control Cluster: Edit and Purge Actions */}
+                                                    <div className="flex items-center gap-2">
+                                                        {admission.admissionType === 'BOARD' && (
                                                             <button
-                                                                onClick={() => {
-                                                                    if (selectedStudent.status === 'Deactivated') {
-                                                                        toast.error("Lifecycle locked for deactivated students.");
-                                                                        return;
-                                                                    }
-                                                                    setIsModalOpen(false);
-                                                                    setSelectedStudent(null);
-                                                                    setStudentAdmissions([]);
-                                                                    window.location.href = `/enrolled-students?edit=${admission._id}`;
-                                                                }}
+                                                                onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
+                                                                className="px-6 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 shadow-lg shadow-purple-500/20"
+                                                            >
+                                                                <FaMoneyBillWave /> BILLING
+                                                            </button>
+                                                        )}
+                                                        
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={() => handleEditAdmission(admission)}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
                                                                 className={`p-2 rounded-[4px] transition-all shadow-sm ${selectedStudent.status === 'Deactivated'
                                                                     ? (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-300')
                                                                     : (isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-yellow-50 text-yellow-600 border border-yellow-200 hover:bg-yellow-500 hover:text-white')}`}
-                                                                title={selectedStudent.status === 'Deactivated' ? "Deactivated" : "Edit Registry"}
+                                                                title={selectedStudent.status === 'Deactivated' ? "LOCKED" : "Edit Enrollment"}
                                                             >
-                                                                <FaSync size={14} />
+                                                                <FaEdit size={14} />
                                                             </button>
-                                                        )
-                                                    )}
+                                                        )}
+
+                                                        {canDelete && (
+                                                            <button
+                                                                onClick={() => handleDeleteAdmission(admission._id)}
+                                                                disabled={selectedStudent.status === 'Deactivated'}
+                                                                className={`p-2 rounded-[4px] transition-all shadow-sm ${selectedStudent.status === 'Deactivated'
+                                                                    ? (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-300')
+                                                                    : (isDarkMode ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-500 hover:text-white')}`}
+                                                                title={selectedStudent.status === 'Deactivated' ? "LOCKED" : "Purge Enrollment"}
+                                                            >
+                                                                <FaTrash size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
