@@ -37,7 +37,7 @@ const DailyCenterTrackingDetails = () => {
             if (response.ok) {
                 setData(result);
                 // Preserve active role if possible, otherwise set first
-                const roles = Object.keys(result.roles);
+                const roles = Object.keys(result.roles).filter(role => role.toUpperCase() !== 'ADMIN');
                 if (roles.length > 0) {
                     if (!activeRole || !roles.includes(activeRole)) {
                         setActiveRole(roles[0]);
@@ -100,7 +100,7 @@ const DailyCenterTrackingDetails = () => {
         </Layout>
     );
 
-    const roles = Object.keys(data.roles);
+    const roles = Object.keys(data.roles).filter(role => role.toUpperCase() !== 'ADMIN');
 
     // Filter staff members based on search query
     const getFilteredStaff = (role) => {
