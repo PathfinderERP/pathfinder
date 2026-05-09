@@ -13,6 +13,7 @@ const DailyCollection = () => {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [totalCollection, setTotalCollection] = useState(0);
     const [transactionCount, setTransactionCount] = useState(0);
+    const [activeTab, setActiveTab] = useState("centers"); // "centers" or "details"
 
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -375,8 +376,8 @@ const DailyCollection = () => {
                     <div className="flex flex-wrap gap-2 items-center">
                         <button
                             onClick={exportToExcel}
-                            className={`px-4 py-2 rounded-[4px] flex items-center gap-2 ${isDarkMode 
-                                ? "bg-blue-600 text-white hover:bg-blue-700" 
+                            className={`px-4 py-2 rounded-[4px] flex items-center gap-2 ${isDarkMode
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
                                 : "bg-blue-500 text-white hover:bg-blue-600"}`}
                         >
                             <FaDownload /> Export
@@ -714,131 +715,186 @@ const DailyCollection = () => {
                 </div>
 
                 <div className={`${cardBgClass} ${cardBorderClass} rounded-[4px] p-4`}>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className={`text-lg font-semibold ${cardTextClass}`}>Transaction Details</h2>
-                        <div className={`text-sm ${secondaryTextClass}`}>{dailyDetails.length} records</div>
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+                        <div className="flex items-center gap-2 bg-gray-900/40 p-1 rounded-lg border border-gray-800">
+                            <button
+                                onClick={() => setActiveTab("centers")}
+                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "centers"
+                                    ? "bg-blue-600 text-white shadow-lg"
+                                    : "text-gray-400 hover:text-gray-200"}`}
+                            >
+                                Centers Collection
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("details")}
+                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "details"
+                                    ? "bg-blue-600 text-white shadow-lg"
+                                    : "text-gray-400 hover:text-gray-200"}`}
+                            >
+                                Details with Bill
+                            </button>
+                        </div>
+                        <div className={`text-sm ${secondaryTextClass}`}>{activeTab === "centers" ? "Aggregated by Centre" : `${dailyDetails.length} records`}</div>
                     </div>
-                    <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-                        <table className={`min-w-[1400px] divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
-                            <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
-                                <tr>
-                                    <th className="px-4 py-3">Date</th>
-                                    <th className="px-4 py-3">Centre</th>
-                                    <th className="px-4 py-3">Student</th>
-                                    <th className="px-4 py-3">Admission No.</th>
-                                    <th className="px-4 py-3">Class</th>
-                                    <th className="px-4 py-3">Bill / Txn</th>
-                                    <th className="px-4 py-3">Course</th>
-                                    <th className="px-4 py-3">Department</th>
-                                    <th className="px-4 py-3">Method</th>
-                                    <th className="px-4 py-3 text-right">Amount</th>
-                                    <th className="px-4 py-3">Status</th>
-                                    <th className="px-4 py-3">Recorded By</th>
-                                </tr>
-                            </thead>
-                            <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
-                                {loading ? (
+
+                    {activeTab === "centers" ? (
+                        <div className="overflow-x-auto">
+                            <table className={`w-full divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
+                                <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                     <tr>
-                                        <td colSpan="12" className={`px-4 py-8 text-center ${secondaryTextClass}`}>Loading collection data...</td>
+                                        <th className="px-4 py-3">Centre Name</th>
+                                        {paymentMethodsList.map(method => (
+                                            <th key={method} className="px-4 py-3 text-right">{method}</th>
+                                        ))}
+                                        <th className="px-4 py-3 text-right font-bold text-blue-400">Total</th>
                                     </tr>
-                                ) : dailyDetails.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="12" className={`px-4 py-8 text-center ${secondaryTextClass}`}>No transactions found for this date.</td>
-                                    </tr>
-                                ) : (
-                                    paginatedDetails.map((item) => (
-                                        <tr key={item._id} className={tableRowHoverClass}>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{formatDateTime(item.date)}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.centre || "-"}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.studentName || "-"}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.admissionNumber || "-"}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.studentClass || "-"}</td>
-                                            <td className={`px-4 py-3 ${tableBillTextClass}`}>
-                                                <div>{item.billId || "-"}</div>
-                                                <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-slate-500"}`}>{item.transactionId || ""}</div>
-                                            </td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.courseName || "-"}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.departmentName || "-"}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.paymentMethod || "-"}</td>
-                                            <td className={`px-4 py-3 text-right ${tableAmountTextClass}`}>{formatAmount(item.paidAmount)}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.status || "-"}</td>
-                                            <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.recordedByName || "-"}</td>
+                                </thead>
+                                <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
+                                    {Object.entries(dailyDetails.reduce((acc, curr) => {
+                                        const c = curr.centre || "N/A";
+                                        if (!acc[c]) acc[c] = { total: 0 };
+                                        acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
+                                        acc[c].total += (curr.paidAmount || 0);
+                                        return acc;
+                                    }, {})).sort((a, b) => a[0].localeCompare(b[0])).map(([centre, data]) => (
+                                        <tr key={centre} className={tableRowHoverClass}>
+                                            <td className={`px-4 py-4 font-bold ${cardTextClass}`}>{centre}</td>
+                                            {paymentMethodsList.map(method => (
+                                                <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>
+                                                    {data[method] ? formatAmount(data[method]) : "0"}
+                                                </td>
+                                            ))}
+                                            <td className={`px-4 py-4 text-right font-black text-green-500`}>{formatAmount(data.total)}</td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div className={`text-sm ${secondaryTextClass}`}>
-                            Showing {paginatedDetails.length} of {dailyDetails.length} transactions
-                        </div>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                            <div className="flex items-center gap-2 text-sm">
-                                <label htmlFor="pageSize" className={`font-medium ${cardTextClass}`}>Rows:</label>
-                                <select
-                                    id="pageSize"
-                                    value={pageSize}
-                                    onChange={(e) => {
-                                        const size = Number(e.target.value);
-                                        setPageSize(size);
-                                        setCurrentPage(1);
-                                        setPageInput("1");
-                                    }}
-                                    className={`rounded-[4px] border px-2 py-1 ${isDarkMode ? "bg-[#15181f] border-gray-700 text-white" : "bg-white border-gray-300 text-slate-900"}`}
-                                >
-                                    {[10, 20, 50, 100].map((size) => (
-                                        <option key={size} value={size}>{size}</option>
                                     ))}
-                                </select>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                                <button
-                                    disabled={currentPage === 1}
-                                    onClick={() => {
-                                        const nextPage = Math.max(1, currentPage - 1);
-                                        setCurrentPage(nextPage);
-                                        setPageInput(String(nextPage));
-                                    }}
-                                    className={`rounded-[4px] px-3 py-1 ${isDarkMode ? "bg-slate-800 border border-gray-700" : "bg-slate-100 border border-gray-300"} ${currentPage === 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-200"}`}
-                                >Prev</button>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max={pageCount}
-                                        value={pageInput}
-                                        onChange={(e) => setPageInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                const page = Number(e.target.value) || 1;
-                                                const validPage = Math.min(Math.max(page, 1), pageCount);
-                                                setCurrentPage(validPage);
-                                                setPageInput(String(validPage));
-                                            }
-                                        }}
-                                        onBlur={() => {
-                                            const page = Number(pageInput) || 1;
-                                            const validPage = Math.min(Math.max(page, 1), pageCount);
-                                            setCurrentPage(validPage);
-                                            setPageInput(String(validPage));
-                                        }}
-                                        className={`w-20 rounded-[4px] border px-2 py-1 text-sm ${isDarkMode ? "bg-[#15181f] border-gray-700 text-white" : "bg-white border-gray-300 text-slate-900"}`}
-                                    />
-                                    <span className={tableDataTextClass}>/ {pageCount}</span>
-                                </div>
-                                <button
-                                    disabled={currentPage === pageCount}
-                                    onClick={() => {
-                                        const nextPage = Math.min(pageCount, currentPage + 1);
-                                        setCurrentPage(nextPage);
-                                        setPageInput(String(nextPage));
-                                    }}
-                                    className={`rounded-[4px] px-3 py-1 ${isDarkMode ? "bg-slate-800 border border-gray-700" : "bg-slate-100 border border-gray-300"} ${currentPage === pageCount ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-200"}`}
-                                >Next</button>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                                <table className={`min-w-[1400px] divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
+                                    <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
+                                        <tr>
+                                            <th className="px-4 py-3">Date</th>
+                                            <th className="px-4 py-3">Centre</th>
+                                            <th className="px-4 py-3">Student</th>
+                                            <th className="px-4 py-3">Admission No.</th>
+                                            <th className="px-4 py-3">Class</th>
+                                            <th className="px-4 py-3">Bill / Txn</th>
+                                            <th className="px-4 py-3">Course</th>
+                                            <th className="px-4 py-3">Department</th>
+                                            <th className="px-4 py-3">Method</th>
+                                            <th className="px-4 py-3 text-right">Amount</th>
+                                            <th className="px-4 py-3">Status</th>
+                                            <th className="px-4 py-3">Recorded By</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
+                                        {loading ? (
+                                            <tr>
+                                                <td colSpan="12" className={`px-4 py-8 text-center ${secondaryTextClass}`}>Loading collection data...</td>
+                                            </tr>
+                                        ) : dailyDetails.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="12" className={`px-4 py-8 text-center ${secondaryTextClass}`}>No transactions found for this date.</td>
+                                            </tr>
+                                        ) : (
+                                            paginatedDetails.map((item) => (
+                                                <tr key={item._id} className={tableRowHoverClass}>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{formatDateTime(item.date)}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.centre || "-"}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.studentName || "-"}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.admissionNumber || "-"}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.studentClass || "-"}</td>
+                                                    <td className={`px-4 py-3 ${tableBillTextClass}`}>
+                                                        <div>{item.billId || "-"}</div>
+                                                        <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-slate-500"}`}>{item.transactionId || ""}</div>
+                                                    </td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.courseName || "-"}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.departmentName || "-"}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.paymentMethod || "-"}</td>
+                                                    <td className={`px-4 py-3 text-right ${tableAmountTextClass}`}>{formatAmount(item.paidAmount)}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.status || "-"}</td>
+                                                    <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.recordedByName || "-"}</td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                <div className={`text-sm ${secondaryTextClass}`}>
+                                    Showing {paginatedDetails.length} of {dailyDetails.length} transactions
+                                </div>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <label htmlFor="pageSize" className={`font-medium ${cardTextClass}`}>Rows:</label>
+                                        <select
+                                            id="pageSize"
+                                            value={pageSize}
+                                            onChange={(e) => {
+                                                const size = Number(e.target.value);
+                                                setPageSize(size);
+                                                setCurrentPage(1);
+                                                setPageInput("1");
+                                            }}
+                                            className={`rounded-[4px] border px-2 py-1 ${isDarkMode ? "bg-[#15181f] border-gray-700 text-white" : "bg-white border-gray-300 text-slate-900"}`}
+                                        >
+                                            {[10, 20, 50, 100].map((size) => (
+                                                <option key={size} value={size}>{size}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <button
+                                            disabled={currentPage === 1}
+                                            onClick={() => {
+                                                const nextPage = Math.max(1, currentPage - 1);
+                                                setCurrentPage(nextPage);
+                                                setPageInput(String(nextPage));
+                                            }}
+                                            className={`rounded-[4px] px-3 py-1 ${isDarkMode ? "bg-slate-800 border border-gray-700" : "bg-slate-100 border border-gray-300"} ${currentPage === 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-200"}`}
+                                        >Prev</button>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max={pageCount}
+                                                value={pageInput}
+                                                onChange={(e) => setPageInput(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        const page = Number(e.target.value) || 1;
+                                                        const validPage = Math.min(Math.max(page, 1), pageCount);
+                                                        setCurrentPage(validPage);
+                                                        setPageInput(String(validPage));
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    const page = Number(pageInput) || 1;
+                                                    const validPage = Math.min(Math.max(page, 1), pageCount);
+                                                    setCurrentPage(validPage);
+                                                    setPageInput(String(validPage));
+                                                }}
+                                                className={`w-20 rounded-[4px] border px-2 py-1 text-sm ${isDarkMode ? "bg-[#15181f] border-gray-700 text-white" : "bg-white border-gray-300 text-slate-900"}`}
+                                            />
+                                            <span className={tableDataTextClass}>/ {pageCount}</span>
+                                        </div>
+                                        <button
+                                            disabled={currentPage === pageCount}
+                                            onClick={() => {
+                                                const nextPage = Math.min(pageCount, currentPage + 1);
+                                                setCurrentPage(nextPage);
+                                                setPageInput(String(nextPage));
+                                            }}
+                                            className={`rounded-[4px] px-3 py-1 ${isDarkMode ? "bg-slate-800 border border-gray-700" : "bg-slate-100 border border-gray-300"} ${currentPage === pageCount ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-200"}`}
+                                        >Next</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </Layout>
