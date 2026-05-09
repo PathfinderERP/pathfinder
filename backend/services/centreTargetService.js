@@ -11,7 +11,7 @@ import Admission from "../models/Admission/Admission.js";
  * @param {number} year - The year (e.g. 2025)
  * @returns {number} The total achieved amount
  */
-export const calculateCentreTargetAchieved = async (centreName, month, year) => {
+export const calculateCentreTargetAchieved = async (centreName, month, year, customStartDate = null, customEndDate = null) => {
     try {
         const monthNames = [
             "January", "February", "March", "April", "May", "June",
@@ -32,8 +32,19 @@ export const calculateCentreTargetAchieved = async (centreName, month, year) => 
             return { totalWithGST: 0, totalExclGST: 0 };
         }
 
-        const startOfMonth = new Date(year, monthIndex, 1);
-        const endOfTargetMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+        let startOfMonth = new Date(year, monthIndex, 1);
+        let endOfTargetMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+
+        // If custom range is provided, clip the month boundaries
+        if (customStartDate) {
+            const s = new Date(customStartDate);
+            if (s > startOfMonth) startOfMonth = s;
+        }
+        if (customEndDate) {
+            const e = new Date(customEndDate);
+            e.setHours(23, 59, 59, 999);
+            if (e < endOfTargetMonth) endOfTargetMonth = e;
+        }
 
         const result = await Payment.aggregate([
             {

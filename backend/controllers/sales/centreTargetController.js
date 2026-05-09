@@ -152,20 +152,26 @@ export const getCentreTargets = async (req, res) => {
                     totalWithGST = multiResult.totalWithGST;
                     totalExclGST = multiResult.totalExclGST;
                 } else {
-                    const monthlyResult = await calculateCentreTargetAchieved(t.centre.centreName, t.month, t.year);
+                    // Pass startDate and endDate to calculate range-specific achievement
+                    const monthlyResult = await calculateCentreTargetAchieved(t.centre.centreName, t.month, t.year, startDate, endDate);
                     totalWithGST = monthlyResult.totalWithGST;
                     totalExclGST = monthlyResult.totalExclGST;
                 }
                 
-                if (totalWithGST !== t.achievedAmountWithGST || totalExclGST !== t.achievedAmountExclGST) {
-                    t.achievedAmount = totalWithGST;
-                    t.achievedAmountWithGST = totalWithGST;
-                    t.achievedAmountExclGST = totalExclGST;
+                // Only update database if we're NOT in a custom range mode to avoid cache corruption
+                const isCustomRange = !!(startDate && endDate);
+                if (!isCustomRange && (totalWithGST !== t.achievedAmountWithGST || totalExclGST !== t.achievedAmountExclGST)) {
                     await CentreTarget.updateOne(
                         { _id: t._id },
                         { $set: { achievedAmount: totalWithGST, achievedAmountWithGST: totalWithGST, achievedAmountExclGST: totalExclGST } }
                     );
                 }
+
+                const targetObj = t.toObject();
+                targetObj.achievedAmount = totalWithGST;
+                targetObj.achievedAmountWithGST = totalWithGST;
+                targetObj.achievedAmountExclGST = totalExclGST;
+                return targetObj;
             }
             return t.toObject();
         }));
