@@ -75,10 +75,12 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
 
     const hasAmount = day.achievedWithGST > 0;
     const isBlurred = day.isBlurred;
-    const dayTarget = day.targetWithGST || 0;          // adjusted target (incl. rollover)
-    const baseTarget = day.baseTargetWithGST || dayTarget;
-    const deficit = day.deficit || 0;                  // weekday shortfall
-    const rollover = day.deficitAddedToWeekend || 0;  // extra added to this weekend day
+    const dayTarget   = day.targetWithGST || 0;           // adjusted target (incl. all rollovers)
+    const baseTarget  = day.baseTargetWithGST || dayTarget;
+    const deficit     = day.deficit || 0;                 // weekday shortfall
+    const rollover    = day.deficitAddedToWeekend || 0;   // this-week weekday deficit rolled in
+    const prevCarry   = day.carryoverFromPrevWeek || 0;   // prior-week weekend deficit carried in
+    const totalExtra  = rollover + prevCarry;
     const dayPct = dayTarget > 0 ? (day.achievedWithGST / dayTarget) * 100 : 0;
 
     return (
@@ -108,10 +110,16 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
                             {day.colName === "Sat" ? "Sat (40%)" : "Sun (60%)"}
                         </span>
                     )}
-                    {/* Rollover badge on weekend days */}
+                    {/* Same-week weekday rollover badge */}
                     {rollover > 0 && (
-                        <span className="text-[6px] font-black uppercase tracking-tighter text-orange-400 bg-orange-500/10 border border-orange-500/20 px-0.5 rounded">
-                            +₹{fmt(Math.round(rollover))} rollover
+                        <span className="text-[11px] font-black uppercase tracking-tighter text-orange-400 bg-orange-500/10 border border-orange-500/20 px-0.5 rounded">
+                            +₹{fmt(Math.round(rollover))} wk deficit
+                        </span>
+                    )}
+                    {/* Previous-week carryover badge */}
+                    {prevCarry > 0 && (
+                        <span className="text-[11px] font-black uppercase tracking-tighter text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-0.5 rounded">
+                            +₹{fmt(Math.round(prevCarry))} prev wk
                         </span>
                     )}
                 </div>
@@ -122,15 +130,22 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
 
             {/* Target vs Achieved Stack */}
             <div className="w-full flex flex-col items-center gap-0.5">
-                {/* Show base + rollover breakdown for weekend days that have rollover */}
-                {rollover > 0 ? (
+                {/* Show base + rollover breakdown for weekend days that have any extra */}
+                {totalExtra > 0 ? (
                     <div className="w-full text-center">
                         <span className={`text-[9px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                             T: ₹{fmt(Math.round(baseTarget))}
                         </span>
-                        <span className="text-[8px] font-black text-orange-400 opacity-80">
-                            {" +"}₹{fmt(Math.round(rollover))}
-                        </span>
+                        {rollover > 0 && (
+                            <span className="text-[13px] font-black text-orange-400 opacity-80">
+                                {" +"}₹{fmt(Math.round(rollover))}
+                            </span>
+                        )}
+                        {prevCarry > 0 && (
+                            <span className="text-[13px] font-black text-yellow-400 opacity-80">
+                                {" +"}₹{fmt(Math.round(prevCarry))}
+                            </span>
+                        )}
                     </div>
                 ) : (
                     <span className={`text-[10px] md:text-[11px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
@@ -192,6 +207,12 @@ const WeekCard = ({ week, isDarkMode, onDateToggle, selectedDates }) => {
                     <span className={`text-[11px] font-semibold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                         {week.startDay}–{week.endDay} · {week.actualDays}D
                     </span>
+                    {/* Cross-week carryover pill */}
+                    {(week.weekendCarryoverIn || 0) > 0 && (
+                        <span className="text-[13px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 whitespace-nowrap">
+                            ↩ ₹{fmt(Math.round(week.weekendCarryoverIn))} from prev wk
+                        </span>
+                    )}
                 </div>
 
                 {/* Middle: Target Info */}
