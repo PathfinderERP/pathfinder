@@ -20,7 +20,7 @@ const BoardCourseAdmissionPage = () => {
     const [totalWaiver, setTotalWaiver] = useState(0);
     const [downPayment, setDownPayment] = useState(0);
     const [billingStartDate, setBillingStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [paymentMethod, setPaymentMethod] = useState("CASH");
+    const [paymentMethod, setPaymentMethod] = useState("");
     const [transactionId, setTransactionId] = useState("");
     const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
     const [remarks, setRemarks] = useState("");
@@ -629,8 +629,10 @@ const BoardCourseAdmissionPage = () => {
                                         <select
                                             value={paymentMethod}
                                             onChange={(e) => setPaymentMethod(e.target.value)}
+                                            required
                                             className={`w-full p-4 rounded-lg border outline-none font-black text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
                                         >
+                                            <option value="">Select Method</option>
                                             <option value="CASH">CASH</option>
                                             <option value="ONLINE">ONLINE / CARD</option>
                                             <option value="UPI">UPI</option>

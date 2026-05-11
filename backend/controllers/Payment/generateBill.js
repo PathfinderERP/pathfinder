@@ -228,7 +228,10 @@ export const generateBill = async (req, res) => {
                 paidDate: installment.paidDate || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date()),
                 receivedDate: installment.receivedDate || installment.paidDate || new Date(),
                 status: installment.status || "PAID",
-                paymentMethod: installment.paymentMethod || "CASH",
+                paymentMethod: installment.paymentMethod || 
+                    (isBoardAdmission && installment.paymentTransactions?.length > 0 
+                        ? installment.paymentTransactions[installment.paymentTransactions.length - 1].paymentMethod 
+                        : "CASH"),
                 transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),
                 remarks: installment.remarks || (isBoardAdmission ? `Board Installment Month ${installment.monthNumber}` : ""),
                 recordedBy: req.user?.id || req.user?._id,
