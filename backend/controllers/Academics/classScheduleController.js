@@ -1045,13 +1045,8 @@ export const exportClassSchedulesExcel = async (req, res) => {
             .populate("chapterId", "chapterName")
             .populate("chapterIds", "chapterName")
             .populate("topicIds", "topicName")
-           if (!session || !date || !startTime || !endTime || !centreIds || centreIds.length === 0 || !batchIds || batchIds.length === 0 || !subjectId || !teacherId) {
-            return res.status(400).json({ message: "Required fields are missing (Session, Date, Time, Centers, Batches, Subject, Teacher)" });
-        }
+            .lean();
 
-        if (!acadClassId || !acadSubjectId || !chapterIds || chapterIds.length === 0 || !topicIds || topicIds.length === 0) {
-            return res.status(400).json({ message: "Academic Content (Class, Subject, Chapters, Topics) is required" });
-        }
 
         // Fetch all student attendance for these schedules
         const scheduleIds = classSchedules.map(cls => cls._id);
