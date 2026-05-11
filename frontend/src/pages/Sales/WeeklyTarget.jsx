@@ -75,7 +75,10 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
 
     const hasAmount = day.achievedWithGST > 0;
     const isBlurred = day.isBlurred;
-    const dayTarget = day.targetWithGST || 0;
+    const dayTarget = day.targetWithGST || 0;          // adjusted target (incl. rollover)
+    const baseTarget = day.baseTargetWithGST || dayTarget;
+    const deficit = day.deficit || 0;                  // weekday shortfall
+    const rollover = day.deficitAddedToWeekend || 0;  // extra added to this weekend day
     const dayPct = dayTarget > 0 ? (day.achievedWithGST / dayTarget) * 100 : 0;
 
     return (
@@ -93,17 +96,25 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
                             ? "bg-[#131619] border-gray-800/50 hover:border-gray-600"
                             : "bg-white border-gray-200 hover:border-gray-400"
                 }`}>
-            {/* Date number & Mini Tag */}
+            {/* Date number & tags row */}
             <div className="w-full flex items-center justify-between">
                 <span className={`text-[10px] font-black ${isSelected ? "text-cyan-400" : isWeekend ? "text-purple-400" : isDarkMode ? "text-gray-400" : "text-gray-500"
                     }`}>
                     {day.day}
                 </span>
-                {day.isWeekend && !isSelected && (
-                    <span className="text-[7px] font-black uppercase text-purple-500/60 tracking-tighter">
-                        {day.colName === "Sat" ? "Sat (40%)" : "Sun (60%)"}
-                    </span>
-                )}
+                <div className="flex flex-col items-end gap-0.5">
+                    {day.isWeekend && !isSelected && (
+                        <span className="text-[7px] font-black uppercase text-purple-500/60 tracking-tighter">
+                            {day.colName === "Sat" ? "Sat (40%)" : "Sun (60%)"}
+                        </span>
+                    )}
+                    {/* Rollover badge on weekend days */}
+                    {rollover > 0 && (
+                        <span className="text-[6px] font-black uppercase tracking-tighter text-orange-400 bg-orange-500/10 border border-orange-500/20 px-0.5 rounded">
+                            +₹{fmt(Math.round(rollover))} rollover
+                        </span>
+                    )}
+                </div>
                 {isSelected && (
                     <div className="w-1 h-1 bg-cyan-400 rounded-full animate-ping" />
                 )}
@@ -111,9 +122,21 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
 
             {/* Target vs Achieved Stack */}
             <div className="w-full flex flex-col items-center gap-0.5">
-                <span className={`text-[10px] md:text-[11px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                    T: ₹{fmt(Math.round(dayTarget))}
-                </span>
+                {/* Show base + rollover breakdown for weekend days that have rollover */}
+                {rollover > 0 ? (
+                    <div className="w-full text-center">
+                        <span className={`text-[9px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                            T: ₹{fmt(Math.round(baseTarget))}
+                        </span>
+                        <span className="text-[8px] font-black text-orange-400 opacity-80">
+                            {" +"}₹{fmt(Math.round(rollover))}
+                        </span>
+                    </div>
+                ) : (
+                    <span className={`text-[10px] md:text-[11px] font-bold opacity-60 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                        T: ₹{fmt(Math.round(dayTarget))}
+                    </span>
+                )}
                 <span className={`text-[12px] md:text-[14px] font-black tracking-tight transition-transform group-hover:scale-105 ${!hasAmount
                     ? isDarkMode ? "text-gray-800" : "text-gray-300"
                     : isSelected
@@ -126,6 +149,13 @@ const DayCell = ({ day, isDarkMode, onToggle, isSelected }) => {
                 </span>
                 {day.day && !day.isEmpty && (
                     <DiffIndicator target={dayTarget} achieved={day.achievedWithGST} isDarkMode={isDarkMode} />
+                )}
+                {/* Weekday deficit badge */}
+                {deficit > 0 && (
+                    <div className="text-[7px] font-black text-red-400 bg-red-500/10 border border-red-500/20 px-1 py-0.5 rounded mt-0.5 flex items-center gap-0.5">
+                        <FaArrowDown size={5} />
+                        ₹{fmt(Math.round(deficit))} short
+                    </div>
                 )}
             </div>
 

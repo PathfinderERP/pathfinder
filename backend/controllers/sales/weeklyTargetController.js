@@ -309,17 +309,44 @@ export const getWeeklyTarget = async (req, res) => {
                         satTarget = 0;
                         sunTarget = totalWeekendTarget; // Only Sun in this week
                     }
-                    // ──────────────────────────────────────────────────────────────────
+                    // ── PASS 1: Compute weekday achieved & deficits ───────────────────
+                    let totalWeekdayDeficit = 0;
+                    const weekdayResults = {}; // day → { achieved, deficit, target }
 
+                    week.days.forEach(d => {
+                        if (d.isEmpty || d.isWeekend || (dayNameList && !dayNameList.includes(d.colName))) return;
+                        const achieved = dayMap[d.day] || { withGST: 0, exclGST: 0 };
+                        const deficit = Math.max(0, perWeekdayTarget - achieved.withGST);
+                        totalWeekdayDeficit += deficit;
+                        weekdayResults[d.day] = { achieved: achieved.withGST, achievedExcl: achieved.exclGST, deficit };
+                    });
+
+                    // ── Adjust weekend targets: base + rollover deficit (same 40/60 ratio)
+                    const deficitToSat = hasSat ? totalWeekdayDeficit * (hasSun ? 0.40 : 1.0) : 0;
+                    const deficitToSun = hasSun ? totalWeekdayDeficit * (hasSat ? 0.60 : 1.0) : 0;
+
+                    const adjustedSatTarget = satTarget + deficitToSat;
+                    const adjustedSunTarget = sunTarget + deficitToSun;
+                    // ─────────────────────────────────────────────────────────────────
+
+                    // ── PASS 2: Build final day objects ───────────────────────────────
                     const days = week.days.map(d => {
-                        // Assign daily target based on day type
-                        let dailyTargetWithGST;
+                        // Base target per day type
+                        let baseTargetWithGST;
+                        let adjustedTargetWithGST;
+                        let deficitAddedToWeekend = 0;
+
                         if (d.colName === 'Sat') {
-                            dailyTargetWithGST = satTarget;
+                            baseTargetWithGST    = satTarget;
+                            adjustedTargetWithGST = adjustedSatTarget;
+                            deficitAddedToWeekend = deficitToSat;
                         } else if (d.colName === 'Sun') {
-                            dailyTargetWithGST = sunTarget;
+                            baseTargetWithGST    = sunTarget;
+                            adjustedTargetWithGST = adjustedSunTarget;
+                            deficitAddedToWeekend = deficitToSun;
                         } else {
-                            dailyTargetWithGST = perWeekdayTarget;
+                            baseTargetWithGST    = perWeekdayTarget;
+                            adjustedTargetWithGST = perWeekdayTarget;
                         }
 
                         if (d.isEmpty) {
@@ -327,17 +354,31 @@ export const getWeeklyTarget = async (req, res) => {
                                 ...d,
                                 achievedWithGST: 0,
                                 achievedExclGST: 0,
-                                targetWithGST: dailyTargetWithGST
+                                targetWithGST: adjustedTargetWithGST,
+                                baseTargetWithGST,
+                                deficit: 0,
+                                deficitAddedToWeekend: 0
                             };
                         }
+
                         const isDayFiltered = dayNameList && !dayNameList.includes(d.colName);
                         if (isDayFiltered) {
-                             return { ...d, isHidden: true, achievedWithGST: 0, achievedExclGST: 0, targetWithGST: dailyTargetWithGST };
+                            return {
+                                ...d, isHidden: true,
+                                achievedWithGST: 0, achievedExclGST: 0,
+                                targetWithGST: adjustedTargetWithGST,
+                                baseTargetWithGST,
+                                deficit: 0, deficitAddedToWeekend: 0
+                            };
                         }
 
                         const achieved = dayMap[d.day] || { withGST: 0, exclGST: 0 };
-                        
                         const isBlurred = dateList && !dateList.includes(d.day);
+
+                        // Deficit for this specific day (weekdays only; weekends show rollover)
+                        const dayDeficit = d.isWeekend
+                            ? 0
+                            : Math.max(0, perWeekdayTarget - achieved.withGST);
 
                         weekTotalWithGST  += achieved.withGST;
                         weekTotalExclGST  += achieved.exclGST;
@@ -345,10 +386,11 @@ export const getWeeklyTarget = async (req, res) => {
                         if (d.isWeekend) {
                             weekendTotalWithGST += achieved.withGST;
                             weekendTotalExclGST += achieved.exclGST;
-                            weekendTargetWithGST += dailyTargetWithGST;
+                            weekendTargetWithGST += adjustedTargetWithGST;
                         } else {
                             weekdayTotalWithGST += achieved.withGST;
                         }
+
                         return {
                             day: d.day,
                             dayName: d.dayName,
@@ -358,9 +400,14 @@ export const getWeeklyTarget = async (req, res) => {
                             isBlurred,
                             achievedWithGST: achieved.withGST,
                             achievedExclGST: achieved.exclGST,
-                            targetWithGST: dailyTargetWithGST
+                            targetWithGST: adjustedTargetWithGST,   // target shown in UI (adjusted)
+                            baseTargetWithGST,                       // original target before rollover
+                            deficit: dayDeficit,                     // shortfall for weekdays
+                            deficitAddedToWeekend                    // extra rolled into this weekend day
                         };
                     });
+                    // ─────────────────────────────────────────────────────────────────
+
 
                     const weekAchievementPct = weeklyTargetWithGST > 0
                         ? parseFloat(((weekTotalWithGST / weeklyTargetWithGST) * 100).toFixed(1))
