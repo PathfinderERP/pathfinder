@@ -272,16 +272,54 @@ export const getWeeklyTarget = async (req, res) => {
                     let weekendTargetWithGST = 0;
                     let weekdayTotalWithGST = 0;
 
+                    // ── New Target Split Logic ─────────────────────────────────────────
+                    // 50% of weekly target → Mon–Fri (10% each for a full 5-day week)
+                    // 50% of weekly target → Sat+Sun (Sat=40%, Sun=60% of that 50%)
+                    // Handles partial weeks gracefully.
+
+                    const actualWeekdayCount = week.days.filter(
+                        d => !d.isEmpty && !['Sat', 'Sun'].includes(d.colName)
+                    ).length;
+                    const hasSat = week.days.some(d => !d.isEmpty && d.colName === 'Sat');
+                    const hasSun = week.days.some(d => !d.isEmpty && d.colName === 'Sun');
+                    const hasWeekdays = actualWeekdayCount > 0;
+                    const hasWeekend = hasSat || hasSun;
+
+                    // If week has both weekdays and weekends: strict 50/50
+                    // If only weekdays: 100% to weekdays
+                    // If only weekends: 100% to weekends
+                    const weekdayShare = hasWeekdays && hasWeekend ? 0.5 : (hasWeekdays ? 1.0 : 0.0);
+                    const weekendShare = 1.0 - weekdayShare;
+
+                    // Per weekday = weekdayShare * weeklyTarget / numWeekdays
+                    const perWeekdayTarget = actualWeekdayCount > 0
+                        ? (weekdayShare * weeklyTargetWithGST) / actualWeekdayCount
+                        : 0;
+
+                    // Weekend share split: Sat=40%, Sun=60%
+                    const totalWeekendTarget = weekendShare * weeklyTargetWithGST;
+                    let satTarget, sunTarget;
+                    if (hasSat && hasSun) {
+                        satTarget = totalWeekendTarget * 0.40;
+                        sunTarget = totalWeekendTarget * 0.60;
+                    } else if (hasSat) {
+                        satTarget = totalWeekendTarget; // Only Sat in this week
+                        sunTarget = 0;
+                    } else {
+                        satTarget = 0;
+                        sunTarget = totalWeekendTarget; // Only Sun in this week
+                    }
+                    // ──────────────────────────────────────────────────────────────────
+
                     const days = week.days.map(d => {
-                        let dailyTargetWithGST = (monthlyTargetWithGST / daysInMonth);
-                        
-                        // Apply 40/60 split for weekends
-                        // Sat = 40% of weekend (2 days) = 0.4 * 2 = 0.8 of flat target
-                        // Sun = 60% of weekend (2 days) = 0.6 * 2 = 1.2 of flat target
-                        if (d.colName === "Sat") {
-                            dailyTargetWithGST = (monthlyTargetWithGST / daysInMonth) * 0.8;
-                        } else if (d.colName === "Sun") {
-                            dailyTargetWithGST = (monthlyTargetWithGST / daysInMonth) * 1.2;
+                        // Assign daily target based on day type
+                        let dailyTargetWithGST;
+                        if (d.colName === 'Sat') {
+                            dailyTargetWithGST = satTarget;
+                        } else if (d.colName === 'Sun') {
+                            dailyTargetWithGST = sunTarget;
+                        } else {
+                            dailyTargetWithGST = perWeekdayTarget;
                         }
 
                         if (d.isEmpty) {
@@ -299,8 +337,6 @@ export const getWeeklyTarget = async (req, res) => {
 
                         const achieved = dayMap[d.day] || { withGST: 0, exclGST: 0 };
                         
-                        // If specifically selected dates, blur others? The user said "others will be blur" 
-                        // so we pass isBlurred flag.
                         const isBlurred = dateList && !dateList.includes(d.day);
 
                         weekTotalWithGST  += achieved.withGST;
