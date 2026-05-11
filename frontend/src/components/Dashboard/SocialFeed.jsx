@@ -12,6 +12,7 @@ const SocialFeed = () => {
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
+    const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [taggableUsers, setTaggableUsers] = useState([]);
 
     // Create Post State
@@ -44,6 +45,7 @@ const SocialFeed = () => {
         fetchUsers();
         recordSocialVisit();
         fetchSocialActivity();
+        fetchCurrentUserProfile();
         const interval = setInterval(fetchSocialActivity, 60000); // Refresh activity every minute
 
         const handleClickOutside = (event) => {
@@ -232,6 +234,25 @@ const SocialFeed = () => {
             }
         } catch (error) {
             console.error("View record error:", error);
+        }
+    };
+
+    const fetchCurrentUserProfile = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts/activity`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                // Find the current user's enriched profile from the activity list
+                const myProfile = data.find(u => u._id === currentUser._id);
+                if (myProfile) {
+                    setCurrentUserProfile(myProfile);
+                }
+            }
+        } catch (error) {
+            console.error("Fetch current user profile error:", error);
         }
     };
 
@@ -467,13 +488,13 @@ const SocialFeed = () => {
                 {/* Social Feed - Taking exactly 80% of space (8/10 columns) */}
                 <div className="col-span-1 lg:col-span-8 space-y-8">
                     {/* Posts Filter */}
-                    <div className="flex justify-between items-center bg-white dark:bg-[#1a1f24] p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                    <div className={`flex justify-between items-center ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} p-4 rounded-xl border shadow-sm`}>
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
-                                <FaFilter className="text-cyan-600 dark:text-cyan-400" />
+                            <div className={`p-2 ${theme === 'dark' ? 'bg-cyan-900/30' : 'bg-cyan-100'} rounded-lg`}>
+                                <FaFilter className={theme === 'dark' ? 'text-cyan-400' : 'text-cyan-600'} />
                             </div>
                             <div>
-                                <h4 className="font-bold text-gray-900 dark:text-white text-sm">Filter Feed</h4>
+                                <h4 className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} text-sm`}>Filter Feed</h4>
                                 <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest">Select a specific date to view past posts</p>
                             </div>
                         </div>
@@ -482,7 +503,7 @@ const SocialFeed = () => {
                                 type="date"
                                 value={filterDate}
                                 onChange={(e) => setFilterDate(e.target.value)}
-                                className="bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-900 dark:text-white font-semibold outline-none focus:border-cyan-500 transition-colors"
+                                className={`${theme === 'dark' ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:border-cyan-500 transition-colors`}
                             />
                             {filterDate && (
                                 <button
@@ -499,7 +520,7 @@ const SocialFeed = () => {
                     <div className={`${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-xl relative`}>
                         <div className="p-6">
                             <div className="flex gap-4">
-                                <div className="w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold overflow-hidden shrink-0">
+                                <div className={`w-12 h-12 rounded-full ${theme === 'dark' ? 'bg-cyan-900 text-cyan-400' : 'bg-cyan-100 text-cyan-600'} flex items-center justify-center font-bold overflow-hidden shrink-0`}>
                                     {currentUser.profileImage ? (
                                         <img src={currentUser.profileImage} alt="" className="w-full h-full object-cover" />
                                     ) : (
@@ -593,7 +614,7 @@ const SocialFeed = () => {
                             </div>
                         </div>
 
-                        <div className="px-6 py-4 bg-gray-50 dark:bg-[#131619]/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between rounded-b-xl">
+                        <div className={`px-6 py-4 ${theme === 'dark' ? 'bg-[#131619]/50 border-gray-800' : 'bg-gray-50 border-gray-200'} border-t flex items-center justify-between rounded-b-xl`}>
                             <div className="flex items-center gap-4">
                                 <label className="cursor-pointer text-gray-400 hover:text-cyan-400 transition-colors flex items-center gap-2">
                                     <FaImage size={18} />
@@ -757,11 +778,11 @@ const SocialFeed = () => {
 
                             if (displayedPosts.length === 0) {
                                 return (
-                                    <div className="text-center py-20 bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col items-center justify-center">
-                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                                    <div className={`text-center py-20 ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} rounded-xl border shadow-sm flex flex-col items-center justify-center`}>
+                                        <div className={`w-16 h-16 ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'} rounded-full flex items-center justify-center mb-4`}>
                                             <FaFilter size={24} className="text-gray-400" />
                                         </div>
-                                        <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 mb-2">No Posts Found</h3>
+                                        <h3 className={`text-lg font-black ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'} mb-2`}>No Posts Found</h3>
                                         <p className="text-gray-500 font-semibold text-sm">{filterDate ? `There are no posts for ${filterDate}. Try another date.` : "No posts yet. Be the first to share something!"}</p>
                                         {filterDate && (
                                             <button onClick={() => setFilterDate("")} className="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg text-xs shadow-md transition-all">
@@ -848,7 +869,7 @@ const SocialFeed = () => {
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
                             <div className="space-y-4">
                                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Your Profile Summary</p>
-                                <ProfileCard user={currentUser} theme={theme} navigate={navigate} />
+                                <ProfileCard user={currentUserProfile || currentUser} theme={theme} navigate={navigate} />
                             </div>
 
                             <div className="space-y-4">
@@ -881,6 +902,7 @@ const SocialFeed = () => {
 };
 
 const ImageCarousel = ({ images }) => {
+    const { theme } = useTheme();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
@@ -915,7 +937,7 @@ const ImageCarousel = ({ images }) => {
         >
             {/* Main Display Container */}
             <div
-                className="relative aspect-video w-full cursor-zoom-in overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-black/20 group"
+                className={`relative aspect-video w-full cursor-zoom-in overflow-hidden rounded-xl border ${theme === 'dark' ? 'border-gray-800 bg-black/20' : 'border-gray-200 bg-gray-100'} group`}
                 onClick={() => setIsFullscreen(true)}
             >
                 {/* Background Blur Image (for premium effect on odd aspect ratios) */}
@@ -947,13 +969,13 @@ const ImageCarousel = ({ images }) => {
                     <>
                         <button
                             onClick={prevImage}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/5 text-white opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all hover:bg-white/20 dark:hover:bg-cyan-500/20 hover:border-cyan-500/30"
+                            className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full backdrop-blur-xl border text-white opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all ${theme === 'dark' ? 'bg-black/30 border-white/5 hover:bg-cyan-500/20 hover:border-cyan-500/30' : 'bg-white/10 border-white/20 hover:bg-white/20'}`}
                         >
                             <FaChevronLeft size={18} />
                         </button>
                         <button
                             onClick={nextImage}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 dark:bg-black/30 backdrop-blur-xl border border-white/20 dark:border-white/5 text-white opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all hover:bg-white/20 dark:hover:bg-cyan-500/20 hover:border-cyan-500/30"
+                            className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full backdrop-blur-xl border text-white opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all ${theme === 'dark' ? 'bg-black/30 border-white/5 hover:bg-cyan-500/20 hover:border-cyan-500/30' : 'bg-white/10 border-white/20 hover:bg-white/20'}`}
                         >
                             <FaChevronRight size={18} />
                         </button>
@@ -1025,13 +1047,14 @@ const ImageCarousel = ({ images }) => {
 };
 
 const VoterAvatar = ({ name, size = "md" }) => {
+    const { theme } = useTheme();
     const variants = {
         sm: "h-5 w-5 text-[7px]",
         md: "h-8 w-8 text-xs",
         lg: "h-12 w-12 text-lg"
     };
     return (
-        <div className={`${variants[size]} rounded-full bg-cyan-600 flex items-center justify-center font-black text-white shrink-0 border-2 border-white dark:border-gray-800 shadow-sm`}>
+        <div className={`${variants[size]} rounded-full bg-cyan-600 flex items-center justify-center font-black text-white shrink-0 border-2 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} shadow-sm`}>
             {(name || "A").charAt(0).toUpperCase()}
         </div>
     );
@@ -1211,7 +1234,7 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-gray-900 dark:text-white font-black text-base sm:text-lg truncate max-w-[150px] sm:max-w-none">{post.author?.name}</h4>
+                            <h4 className={`${theme === 'dark' ? 'text-white' : 'text-gray-900'} font-black text-base sm:text-lg truncate max-w-[150px] sm:max-w-none`}>{post.author?.name}</h4>
                             <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase tracking-widest border border-cyan-500/20 shrink-0">
                                 {post.author?.role}
                             </span>
@@ -1221,7 +1244,7 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                                 <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-4">
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 bg-cyan-500/5 px-2 py-1 rounded-md border border-cyan-500/10"
+                                        className={`flex items-center gap-1 ${theme === 'dark' ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'} font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 bg-cyan-500/5 px-2 py-1 rounded-md border border-cyan-500/10`}
                                         title="Edit Post"
                                     >
                                         <FaEdit size={10} /> <span className="hidden xs:inline">Edit</span>
@@ -1460,7 +1483,7 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                                                         <div
                                                             key={voter._id || idx}
                                                             title={voter.name}
-                                                            className="inline-block h-5 w-5 rounded-full ring-2 ring-white dark:ring-[#1a1f24] bg-cyan-600 flex items-center justify-center text-[7px] font-black text-white shrink-0 shadow-sm"
+                                                            className={`inline-block h-5 w-5 rounded-full ring-2 ${theme === 'dark' ? 'ring-[#1a1f24]' : 'ring-white'} bg-cyan-600 flex items-center justify-center text-[7px] font-black text-white shrink-0 shadow-sm`}
                                                         >
                                                             {(voter.name || "A").charAt(0).toUpperCase()}
                                                         </div>
@@ -1490,7 +1513,7 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                 <div className="flex items-center gap-2 group/likes">
                     <button
                         onClick={onLike}
-                        className={`flex items-center gap-1.5 font-bold text-xs sm:text-sm transition-all active:scale-125 ${isLikedByMe ? 'text-cyan-500 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                        className={`flex items-center gap-1.5 font-bold text-xs sm:text-sm transition-all active:scale-125 ${isLikedByMe ? 'text-cyan-500' : theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
                         title={isLikedByMe ? "Unlike" : "Like"}
                     >
                         <FaThumbsUp size={14} />
@@ -1504,14 +1527,14 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                 </div>
                 <button
                     onClick={() => setShowComments(!showComments)}
-                    className="flex items-center gap-2 font-bold text-xs sm:text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    className={`flex items-center gap-2 font-bold text-xs sm:text-sm transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
                 >
                     <FaComment size={14} /> {post.comments.length} <span className="hidden xs:inline">Comments</span>
                 </button>
                 {isAuthor && (
                     <button
                         onClick={() => onViewParticipants("People who viewed", post.views || [])}
-                        className="flex items-center gap-2 font-bold text-xs sm:text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                        className={`flex items-center gap-2 font-bold text-xs sm:text-sm transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
                     >
                         <FaEye size={14} /> {post.views?.length || 0} <span className="hidden xs:inline">Viewers</span>
                     </button>
@@ -1532,7 +1555,7 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                                         <div className="flex justify-between items-center mb-1">
                                             <h5 className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{comment.user?.name}</h5>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[9px] text-gray-500 dark:text-gray-400 font-bold">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                                <span className={`text-[9px] font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{new Date(comment.createdAt).toLocaleDateString()}</span>
                                                 {(currentUser.role === "superAdmin" || comment.user?._id === currentUser._id || comment.user === currentUser._id) && (
                                                     <div className="flex gap-2">
                                                         <button
@@ -1586,7 +1609,7 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                                                 </button>
                                             </div>
                                         ) : (
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">{comment.text}</p>
+                                            <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>{comment.text}</p>
                                         )}
                                     </div>
                                 </div>
@@ -1634,12 +1657,12 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
 
                                     {/* Inline Comment Tag Picker */}
                                     {showCommentTagList && (
-                                        <div className="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-[#1a1f24] shadow-2xl rounded-xl border border-gray-200 dark:border-gray-800 z-50 overflow-hidden transform origin-bottom border-t-4 border-t-cyan-500">
-                                            <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+                                        <div className={`absolute right-0 bottom-full mb-2 w-64 ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} shadow-2xl rounded-xl border z-50 overflow-hidden transform origin-bottom border-t-4 border-t-cyan-500`}>
+                                            <div className={`p-2 border-b ${theme === 'dark' ? 'border-gray-800' : 'border-gray-100'}`}>
                                                 <input
                                                     type="text"
                                                     placeholder="Search to mention..."
-                                                    className="w-full text-xs p-1.5 bg-gray-50 dark:bg-[#131619] border border-gray-200 dark:border-gray-700 rounded outline-none"
+                                                    className={`w-full text-xs p-1.5 ${theme === 'dark' ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded outline-none`}
                                                     value={commentTagSearch}
                                                     onChange={(e) => setCommentTagSearch(e.target.value)}
                                                     autoFocus
@@ -1652,14 +1675,14 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                                                     .map(user => (
                                                         <div
                                                             key={user._id}
-                                                            className="px-3 py-2 text-xs cursor-pointer hover:bg-cyan-50 dark:hover:bg-cyan-900/20 text-gray-700 dark:text-gray-300 transition-colors flex items-center gap-2"
+                                                            className={`px-3 py-2 text-xs cursor-pointer ${theme === 'dark' ? 'hover:bg-cyan-900/20 text-gray-300' : 'hover:bg-cyan-50 text-gray-700'} transition-colors flex items-center gap-2`}
                                                             onClick={() => {
                                                                 setSelectedCommentTags([...selectedCommentTags, user]);
                                                                 setShowCommentTagList(false);
                                                                 setCommentTagSearch("");
                                                             }}
                                                         >
-                                                            <div className="w-5 h-5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-600 flex items-center justify-center font-bold">{user.name.charAt(0)}</div>
+                                                            <div className={`w-5 h-5 rounded-full ${theme === 'dark' ? 'bg-cyan-900' : 'bg-cyan-100'} text-cyan-600 flex items-center justify-center font-bold`}>{user.name.charAt(0)}</div>
                                                             {user.name}
                                                         </div>
                                                     ))}
@@ -1807,7 +1830,9 @@ const ProfileCard = ({ user, theme, navigate }) => {
 
                 <div className="mt-4">
                     <h3 className={`font-black text-xl tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{user.name}</h3>
-                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-500 mt-1">{user.role}</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-500 mt-1">
+                        {user.designationName || user.role}
+                    </p>
                 </div>
 
                 <div className="mt-8 space-y-4">
@@ -1826,9 +1851,9 @@ const ProfileCard = ({ user, theme, navigate }) => {
                             <FaBriefcase size={12} />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Position & Team</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Position &amp; Team</p>
                             <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {user.designation || 'Staff'} • {user.teacherDepartment || 'General'}
+                                {user.designationName || user.designation || 'Staff'} • {user.departmentName || user.teacherDepartment || 'General'}
                             </p>
                         </div>
                     </div>
@@ -1840,7 +1865,7 @@ const ProfileCard = ({ user, theme, navigate }) => {
                         <div className="flex-1 min-w-0">
                             <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Work Location</p>
                             <p className={`text-xs font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {user.centres?.[0]?.name || 'Primary Center'}
+                                {user.centerName || user.centres?.[0]?.centreName || user.centres?.[0]?.name || 'Primary Center'}
                             </p>
                         </div>
                     </div>
@@ -1897,7 +1922,8 @@ const SocialActivity = ({ activeUsers, theme }) => {
                                 <div className="flex-1 overflow-hidden">
                                     <h4 className={`text-xs font-black truncate transition-colors group-hover:text-cyan-400 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{user.name}</h4>
                                     <p className={`text-[9px] font-bold truncate ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                        {user.designation || user.teacherDepartment || "Staff Member"}
+                                        {user.designationName || user.designation || user.teacherDepartment || "Staff Member"}
+                                        {user.departmentName ? ` • ${user.departmentName}` : ""}
                                     </p>
                                 </div>
                                 <div className="text-[8px] font-black uppercase tracking-widest text-cyan-500/50">Active</div>
