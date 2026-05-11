@@ -145,6 +145,33 @@ const CentreTarget = () => {
         );
     };
 
+    const calculateDateWiseTarget = (target, customStart, customEnd) => {
+        if (!customStart || !customEnd) return 0;
+
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        const monthIndex = monthNames.indexOf(target.month);
+        if (monthIndex === -1) return 0;
+
+        const targetYear = target.year;
+        const monthStart = new Date(targetYear, monthIndex, 1);
+        const monthEnd = new Date(targetYear, monthIndex + 1, 0); // Last day of month
+        const totalDaysInMonth = monthEnd.getDate();
+
+        const rangeStart = new Date(customStart);
+        const rangeEnd = new Date(customEnd);
+
+        const overlapStart = new Date(Math.max(monthStart, rangeStart));
+        const overlapEnd = new Date(Math.min(monthEnd, rangeEnd));
+
+        if (overlapStart > overlapEnd) return 0;
+
+        const overlappingDays = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+        return (target.targetAmount / totalDaysInMonth) * overlappingDays;
+    };
+
     const handleExport = () => {
         const filteredTargets = targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month)));
 
@@ -153,16 +180,24 @@ const CentreTarget = () => {
             return;
         }
 
-        const exportData = filteredTargets.map(t => ({
-            "Centre Name": t.centre?.centreName || "Unknown",
-            "Financial Year": t.financialYear,
-            "Year": t.year,
-            "Month": t.month,
-            "Target Amount": t.targetAmountWithGST || (t.targetAmount * 1.18),
-            "Achieved (Inc. GST)": t.achievedAmountWithGST || t.achievedAmount,
-            "Achieved (Excl. GST)": t.achievedAmountExclGST || (t.achievedAmount / 1.18).toFixed(2),
-            "Achievement %": `${t.achievementPercentage}%`
-        }));
+        const exportData = filteredTargets.map(t => {
+            const row = {
+                "Centre Name": t.centre?.centreName || "Unknown",
+                "Financial Year": t.financialYear,
+                "Year": t.year,
+                "Month": t.month,
+                "Target Amount": t.targetAmountWithGST || (t.targetAmount * 1.18),
+                "Achieved (Inc. GST)": t.achievedAmountWithGST || t.achievedAmount,
+                "Achieved (Excl. GST)": t.achievedAmountExclGST || (t.achievedAmount / 1.18).toFixed(2),
+                "Achievement %": `${t.achievementPercentage}%`
+            };
+
+            if (viewMode === "Custom" && startDate && endDate) {
+                row["Date Wise Target"] = calculateDateWiseTarget(t, startDate, endDate).toFixed(2);
+            }
+
+            return row;
+        });
 
         const workbook = XLSX.utils.book_new();
         const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -359,6 +394,9 @@ const CentreTarget = () => {
                                     <th className="px-6 py-4 text-center">Target (With GST)</th>
                                     <th className="px-6 py-4 text-center">Achieved (With GST)</th>
                                     <th className="px-6 py-4 text-center text-yellow-500">Target (Excl. GST)</th>
+                                    {viewMode === "Custom" && (
+                                        <th className="px-6 py-4 text-center text-orange-400">Date Wise Target</th>
+                                    )}
                                     <th className="px-6 py-4 text-center">Achieved (Excl. GST)</th>
                                     <th className="px-6 py-4 text-center">Achievement (%)</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
@@ -367,11 +405,11 @@ const CentreTarget = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="8" className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
+                                        <td colSpan={viewMode === "Custom" ? "11" : "10"} className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
                                     </tr>
                                 ) : targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).length === 0 ? (
                                     <tr>
-                                        <td colSpan="8" className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
+                                        <td colSpan={viewMode === "Custom" ? "11" : "10"} className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
                                     </tr>
                                 ) : (
                                     targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).map(target => (
@@ -383,6 +421,11 @@ const CentreTarget = () => {
                                             <td className={`px-6 py-4 font-bold tracking-wide text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{(target.targetAmountWithGST || (target.targetAmount * 1.18)).toLocaleString()}</td>
                                             <td className="px-6 py-4 text-blue-500 font-bold text-center">{(target.achievedAmountWithGST || target.achievedAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className="px-6 py-4 text-yellow-500 font-bold text-center">{(target.targetAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            {viewMode === "Custom" && (
+                                                <td className="px-6 py-4 text-orange-400 font-bold text-center">
+                                                    {calculateDateWiseTarget(target, startDate, endDate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4 text-emerald-500 font-bold text-center">{(target.achievedAmountExclGST || (target.achievedAmount / 1.18) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className={`px-6 py-4 font-black text-center ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
                                                 parseFloat(target.achievementPercentage) === 50 ? "text-yellow-500" : "text-red-500"
