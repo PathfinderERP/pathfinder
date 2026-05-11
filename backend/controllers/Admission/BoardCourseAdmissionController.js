@@ -47,6 +47,11 @@ export const createBoardAdmission = async (req, res) => {
             lastClass,
             receivedDate
         } = req.body;
+
+        // Normalize payment method to match Payment schema enum
+        const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const rawPaymentMethod = paymentMethod;
+        paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
         
         if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
             return res.status(400).json({ message: "A valid Student ID is required for admission" });
@@ -474,7 +479,7 @@ export const collectBoardExamFee = async (req, res) => {
         const { id } = req.params;
         const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, receivedDate } = req.body;
 
-        const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
@@ -577,7 +582,7 @@ export const collectBoardInstallment = async (req, res) => {
             receivedDate
         } = req.body;
         // Normalize payment method to match Payment schema enum
-        const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
@@ -775,7 +780,7 @@ export const collectBoardAdditionalFee = async (req, res) => {
         const { id } = req.params;
         const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, receivedDate } = req.body;
 
-        const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
@@ -876,7 +881,7 @@ export const collectNcrpFees = async (req, res) => {
             receivedDate
         } = req.body;
 
-        const methodMap = { 'ONLINE': 'UPI', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
+        const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');

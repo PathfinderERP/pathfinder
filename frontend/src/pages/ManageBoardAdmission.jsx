@@ -30,7 +30,7 @@ const ManageBoardAdmission = () => {
     const [ncrpPaymentForm, setNcrpPaymentForm] = useState({
         paidExamFee: 0,
         paidAdditionalThings: 0,
-        paymentMethod: "CASH",
+        paymentMethod: "",
         transactionId: "",
         bankName: "",
         chequeDate: new Date().toISOString().split('T')[0],
@@ -41,7 +41,7 @@ const ManageBoardAdmission = () => {
         amount: 0,
         paidExamFee: 0,
         paidAdditionalThings: 0,
-        paymentMethod: "CASH",
+        paymentMethod: "",
         transactionId: "",
         bankName: "",
         accountHolderName: "",
@@ -698,7 +698,9 @@ const ManageBoardAdmission = () => {
                                         onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                     >
+                                        <option value="">Select Method</option>
                                         <option value="CASH">CASH</option>
+                                        <option value="ONLINE">ONLINE / CARD</option>
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
@@ -746,14 +748,14 @@ const ManageBoardAdmission = () => {
                             <div>
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
                                     {paymentForm.paymentMethod === "CHEQUE" ? "Cheque Number" : "Transaction ID / Reference"}
-                                    {(paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "CHEQUE") && <span className="text-red-500 ml-1">*</span>}
+                                    {(paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "ONLINE" || paymentForm.paymentMethod === "CHEQUE") && <span className="text-red-500 ml-1">*</span>}
                                 </label>
                                 <input
                                     type="text"
                                     value={paymentForm.transactionId}
                                     onChange={(e) => setPaymentForm({ ...paymentForm, transactionId: e.target.value })}
                                     className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
-                                    required={paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "CHEQUE"}
+                                    required={paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "ONLINE" || paymentForm.paymentMethod === "CHEQUE"}
                                 />
                             </div>
 
@@ -959,7 +961,9 @@ const ManageBoardAdmission = () => {
                                         onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                     >
+                                        <option value="">Select Method</option>
                                         <option value="CASH">CASH</option>
+                                        <option value="ONLINE">ONLINE / CARD</option>
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
@@ -1007,14 +1011,14 @@ const ManageBoardAdmission = () => {
                             <div>
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
                                     {paymentForm.paymentMethod === "CHEQUE" ? "Cheque Number" : "Transaction ID / Reference"}
-                                    {(paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "CHEQUE") && <span className="text-red-500 ml-1">*</span>}
+                                    {(paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "ONLINE" || paymentForm.paymentMethod === "CHEQUE") && <span className="text-red-500 ml-1">*</span>}
                                 </label>
                                 <input
                                     type="text"
                                     value={paymentForm.transactionId}
                                     onChange={(e) => setPaymentForm({ ...paymentForm, transactionId: e.target.value })}
                                     className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
-                                    required={paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "CHEQUE"}
+                                    required={paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "ONLINE" || paymentForm.paymentMethod === "CHEQUE"}
                                 />
                             </div>
 
@@ -1135,7 +1139,9 @@ const ManageBoardAdmission = () => {
                                         onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                     >
+                                        <option value="">Select Method</option>
                                         <option value="CASH">CASH</option>
+                                        <option value="ONLINE">ONLINE / CARD</option>
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
@@ -1183,14 +1189,14 @@ const ManageBoardAdmission = () => {
                             <div>
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
                                     {paymentForm.paymentMethod === "CHEQUE" ? "Cheque Number" : "Transaction ID / Reference"}
-                                    {(paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "CHEQUE") && <span className="text-red-500 ml-1">*</span>}
+                                    {(paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "ONLINE" || paymentForm.paymentMethod === "CHEQUE") && <span className="text-red-500 ml-1">*</span>}
                                 </label>
                                 <input
                                     type="text"
                                     value={paymentForm.transactionId}
                                     onChange={(e) => setPaymentForm({ ...paymentForm, transactionId: e.target.value })}
                                     className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
-                                    required={paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "CHEQUE"}
+                                    required={paymentForm.paymentMethod === "UPI" || paymentForm.paymentMethod === "ONLINE" || paymentForm.paymentMethod === "CHEQUE"}
                                 />
                             </div>
 
@@ -1294,7 +1300,9 @@ const ManageBoardAdmission = () => {
                                         onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, paymentMethod: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                     >
+                                        <option value="">Select Method</option>
                                         <option value="CASH">CASH</option>
+                                        <option value="ONLINE">ONLINE / CARD</option>
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
@@ -1310,7 +1318,7 @@ const ManageBoardAdmission = () => {
                                         value={ncrpPaymentForm.transactionId}
                                         onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, transactionId: e.target.value })}
                                         className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
-                                        required={ncrpPaymentForm.paymentMethod === 'UPI' || ncrpPaymentForm.paymentMethod === 'CHEQUE'}
+                                        required={ncrpPaymentForm.paymentMethod === 'UPI' || ncrpPaymentForm.paymentMethod === 'ONLINE' || ncrpPaymentForm.paymentMethod === 'CHEQUE'}
                                     />
                                 </div>
                             </div>
