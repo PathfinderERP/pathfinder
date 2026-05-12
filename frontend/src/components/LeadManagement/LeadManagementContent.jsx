@@ -629,7 +629,9 @@ const LeadManagementContent = () => {
                 break;
             case 'hot':
                 title = "Hot Interest Leads";
-                filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'HOT LEAD');
+                filteredData = followUpStats.recentActivity.filter(a => 
+                    ['HOT LEAD', 'ADMISSION TAKEN'].includes(a.status?.toUpperCase())
+                );
                 break;
             case 'cold':
                 title = "Cold Lead Discussions";

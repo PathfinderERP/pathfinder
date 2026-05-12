@@ -19,6 +19,7 @@ import DailyCollection from "./pages/Sales/DailyCollection";
 import BoardReport from "./pages/Sales/BoardReport";
 import QuarterlyTargetReport from "./pages/Sales/QuarterlyTargetReport";
 import WeeklyTarget from "./pages/Sales/WeeklyTarget";
+import FinalWeekendTarget from "./pages/Sales/FinalWeekendTarget";
 import TransactionList from "./pages/Finance/TransactionList";
 import HR from "./pages/HR";
 import EnrolledStudents from "./pages/EnrolledStudents";
@@ -224,6 +225,7 @@ function App() {
         <Route path="/sales/board-report" element={<ProtectedRoute><BoardReport /></ProtectedRoute>} />
         <Route path="/sales/quarterly-target-report" element={<ProtectedRoute><QuarterlyTargetReport /></ProtectedRoute>} />
         <Route path="/sales/weekly-target" element={<ProtectedRoute><WeeklyTarget /></ProtectedRoute>} />
+        <Route path="/sales/final-weekend-target" element={<ProtectedRoute><FinalWeekendTarget /></ProtectedRoute>} />
         <Route path="/hr" element={<ProtectedRoute><HR /></ProtectedRoute>} />
         <Route path="/hr/employee/list" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
         <Route path="/hr/employee/add" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
