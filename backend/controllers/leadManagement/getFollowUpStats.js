@@ -5,13 +5,11 @@ import mongoose from "mongoose";
 export const getFollowUpStats = async (req, res) => {
     try {
         const { fromDate, toDate, centre, leadResponsibility, scheduledDate, startTime, endTime } = req.query;
-        const curUserRole = req.user.role?.toLowerCase();
 
-        // 1. Resolve potential telecaller names (handling arrays or single strings)
+        // 1. Resolve potential telecaller names
         let telecallerNames = [];
         if (leadResponsibility) {
             const namesToSearch = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-            // Match exactly or via regex for safety, ensuring we get normalized names
             const users = await User.find({ name: { $in: namesToSearch.map(n => new RegExp(`^${n}$`, "i")) } });
             telecallerNames = users.length > 0 ? users.map(u => u.name) : namesToSearch;
         }
@@ -74,16 +72,13 @@ export const getFollowUpStats = async (req, res) => {
         // 4. Access Control & Base Matches
         const baseMatch = { isCounseled: { $ne: true } };
 
-        // Everyone (even superadmin) should respect the specific filters passed from UI
         if (centreIds.length > 0) baseMatch.centre = { $in: centreIds };
 
-        // This is key: Lead owner filter vs Activity filter
         const leadOwnerMatch = { ...baseMatch };
         if (telecallerNames.length > 0) {
             leadOwnerMatch.leadResponsibility = { $in: telecallerNames };
         }
 
-        // Role-based filtering (Sync with getLeads.js)
         const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
         const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
         const isPrivileged = privilegedRoles.includes(curUserRoleStr);
@@ -102,17 +97,14 @@ export const getFollowUpStats = async (req, res) => {
                 };
 
                 if (isPrivileged && userCentreIds.length > 0) {
-                    // Privileged can see center-wide
                     accessLimit.$or.push({ centre: { $in: userCentreIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) } });
                 }
 
-                // Security Fix: Handle self-filtering logic
                 if (leadOwnerMatch.leadResponsibility && !isPrivileged) {
                     const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
                     const isFilteringSelf = filterNames.some(n => n.toLowerCase().trim() === userDoc.name.toLowerCase().trim());
                     if (isFilteringSelf) {
                         delete leadOwnerMatch.leadResponsibility;
-                        // For non-privileged users, leadOwnerMatch will now rely on accessLimit
                     }
                 }
 
@@ -127,9 +119,8 @@ export const getFollowUpStats = async (req, res) => {
         const stats = await LeadManagement.aggregate([
             {
                 $facet: {
-                    // Branch A: Recorded Activity (Who CALLED - filters by followUps.updatedBy)
                     "activityStats": [
-                        { $match: baseMatch }, // Respect centre/access filters
+                        { $match: baseMatch },
                         { $unwind: "$followUps" },
                         {
                             $project: {
@@ -168,7 +159,6 @@ export const getFollowUpStats = async (req, res) => {
                             }
                         }
                     ],
-                    // Branch B: Scheduled Tasks (Who is RESPONSIBLE - filters by leadResponsibility)
                     "scheduledStats": [
                         { $match: { ...leadOwnerMatch, ...(Object.keys(scheduledDateFilter).length > 0 ? { nextFollowUpDate: scheduledDateFilter } : {}) } },
                         {
@@ -187,7 +177,6 @@ export const getFollowUpStats = async (req, res) => {
                             }
                         }
                     ],
-                    // Branch C: Filtered Lead Population (Current status of leads matching search)
                     "leadPopulation": [
                         { $match: leadOwnerMatch },
                         {
@@ -208,15 +197,14 @@ export const getFollowUpStats = async (req, res) => {
         const sS = stats[0].scheduledStats[0] || {};
         const lP = stats[0].leadPopulation[0] || {};
 
-        // Sort and limit recent activity to latest 50 items to prevent frontend lag
+        // Increased limit to 500 to cover most cases while maintaining performance
         const recentActivity = (aS.recentActivity || [])
             .sort((a, b) => new Date(b.time) - new Date(a.time))
-            .slice(0, 50);
+            .slice(0, 500);
 
-        // Sort and limit scheduled list to latest 50 items
         const scheduledList = (sS.scheduledList || [])
             .sort((a, b) => new Date(a.time) - new Date(b.time))
-            .slice(0, 50);
+            .slice(0, 500);
 
         res.status(200).json({
             totalFollowUps: aS.totalFollowUps || 0,
@@ -233,3 +221,4 @@ export const getFollowUpStats = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+

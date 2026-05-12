@@ -64,6 +64,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
+        { name: "Red Flag Desk", icon: <FaExclamationCircle />, path: "/red-flag-desk" },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
@@ -155,6 +156,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" },
                 { name: "Weekly Weekends Target", path: "/sales/weekly-target", permissionSection: "centreTarget" },
+                { name: "Final Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },
+                { name: "Course Target", path: "/sales/course-target", permissionSection: "centreTarget" },
                 { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
                 { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },
                 { name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
