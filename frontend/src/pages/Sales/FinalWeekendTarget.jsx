@@ -92,6 +92,60 @@ const FinalWeekendTarget = () => {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
+    const handleExport = () => {
+        if (!data?.centres?.length) { toast.warn("No data to export"); return; }
+        
+        const rows = [];
+        data.centres.forEach(c => {
+            const allDays = c.weeks.flatMap(w => w.days).filter(d => !d.isEmpty && !d.isHidden);
+            
+            const processPhase = (start, end) => {
+                const phaseDays = allDays.filter(d => d.day >= start && d.day <= end);
+                const phaseAchieved = phaseDays.reduce((sum, d) => sum + d.achievedWithGST, 0);
+                const weekendAchieved = phaseDays.filter(d => d.isWeekend).reduce((sum, d) => sum + d.achievedWithGST, 0);
+                const workingAchieved = phaseAchieved - weekendAchieved;
+                
+                const phaseTarget = (c.monthlyTargetWithGST / c.daysInMonth) * phaseDays.length;
+                const workingTarget = phaseTarget * 0.40;
+                const baseWeekendTarget = phaseTarget * 0.60;
+
+                const workingDeficit = Math.max(0, workingTarget - workingAchieved);
+                const adjustedWeekendTarget = baseWeekendTarget + workingDeficit;
+                const weekendDeficit = Math.max(0, adjustedWeekendTarget - weekendAchieved);
+                const score = phaseTarget > 0 ? (phaseAchieved / phaseTarget) * 100 : 0;
+
+                rows.push({
+                    "Centre Name": c.centreName,
+                    "Month": selectedMonth,
+                    "Year": selectedYear,
+                    "Window (Days)": `${start}-${end}`,
+                    "Phase Total Target": Math.round(phaseTarget),
+                    "Phase Total Achieved": Math.round(phaseAchieved),
+                    "Working Target (40%)": Math.round(workingTarget),
+                    "Working Achieved": Math.round(workingAchieved),
+                    "Working Shortfall": Math.round(workingDeficit),
+                    "Weekend Target (Base 60%)": Math.round(baseWeekendTarget),
+                    "Carry Forward (from Working)": Math.round(workingDeficit),
+                    "Final Weekend Target (Adjusted)": Math.round(adjustedWeekendTarget),
+                    "Weekend Achieved": Math.round(weekendAchieved),
+                    "Weekend Shortfall": Math.round(weekendDeficit),
+                    "Efficiency Score (%)": score.toFixed(1) + "%"
+                });
+            };
+
+            processPhase(1, 10);
+            processPhase(11, 20);
+            processPhase(21, 31);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, "Final_Settlement_Report");
+        const fileName = `Final_Weekend_Target_${selectedMonth}_${selectedYear}.xlsx`;
+        saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }), fileName);
+        toast.success("Detailed report exported successfully");
+    };
+
     return (
         <Layout activePage="Sales">
             <div className={`min-h-screen transition-all duration-500 ${isDarkMode ? "bg-[#0a0c0f]" : "bg-gray-50"} p-4 md:p-8 relative overflow-hidden`}>
@@ -130,7 +184,10 @@ const FinalWeekendTarget = () => {
                                 {isDarkMode ? <><FaSun /> Gold Mode</> : <><FaMoon /> Night</>}
                             </button>
                         </div>
-                        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-amber-600/30 hover:scale-105 active:scale-95">
+                        <button 
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-amber-600/30 hover:scale-105 active:scale-95"
+                        >
                             <FaDownload size={14} /> Export Verified Report
                         </button>
                     </div>
@@ -251,10 +308,20 @@ const FinalWeekendTarget = () => {
                                         
                                         const phaseTarget = (c.monthlyTargetWithGST / c.daysInMonth) * phaseDays.length;
                                         const workingTarget = phaseTarget * 0.40;
-                                        const weekendTarget = phaseTarget * 0.60;
+                                        const baseWeekendTarget = phaseTarget * 0.60;
+
+                                        // Deficit Calculation
+                                        const workingDeficit = Math.max(0, workingTarget - workingAchieved);
+                                        const adjustedWeekendTarget = baseWeekendTarget + workingDeficit;
+                                        const weekendDeficit = Math.max(0, adjustedWeekendTarget - weekendAchieved);
                                         
                                         const pct = phaseTarget > 0 ? (phaseAchieved / phaseTarget) * 100 : 0;
-                                        return { phaseAchieved, workingAchieved, weekendAchieved, phaseTarget, workingTarget, weekendTarget, pct, label: `${start}-${end} Days` };
+                                        return { 
+                                            phaseAchieved, workingAchieved, weekendAchieved, 
+                                            phaseTarget, workingTarget, baseWeekendTarget, 
+                                            adjustedWeekendTarget, workingDeficit, weekendDeficit,
+                                            pct, label: `${start}-${end} Days` 
+                                        };
                                     };
 
                                     const phases = [
@@ -300,14 +367,34 @@ const FinalWeekendTarget = () => {
                                                     </td>
                                                     <td className="px-4 py-6 text-right bg-cyan-500/5">
                                                         <p className={`text-[15px] font-black text-cyan-400`}>₹{fmt(p.workingAchieved)}</p>
+                                                        {p.workingDeficit > 0 && (
+                                                            <div className="flex items-center justify-end gap-1.5 text-red-500 mt-1.5 animate-pulse">
+                                                                <FaChartLine className="rotate-180" size={12} />
+                                                                <span className="text-[12px] font-black">SHORTFALL: -₹{fmt(p.workingDeficit)}</span>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     
                                                     {/* Weekend Section */}
                                                     <td className="px-4 py-6 text-right">
-                                                        <p className={`text-[13px] font-bold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>₹{fmt(p.weekendTarget)}</p>
+                                                        <p className={`text-[13px] font-bold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>₹{fmt(p.baseWeekendTarget)}</p>
+                                                        {p.workingDeficit > 0 && (
+                                                            <div className="flex flex-col items-end mt-1.5 space-y-1">
+                                                                <span className="text-[11px] font-black text-amber-400 bg-amber-500/20 px-2 py-1 rounded-lg border border-amber-500/30 shadow-md">
+                                                                    + ₹{fmt(p.workingDeficit)} RECOVERY
+                                                                </span>
+                                                                <p className="text-[13px] font-black text-amber-500">NEW TARGET: ₹{fmt(p.adjustedWeekendTarget)}</p>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-6 text-right bg-purple-500/5">
                                                         <p className={`text-[15px] font-black text-purple-400`}>₹{fmt(p.weekendAchieved)}</p>
+                                                        {p.weekendDeficit > 0 && (
+                                                            <div className="flex items-center justify-end gap-1.5 text-red-500 mt-1.5">
+                                                                <FaChartLine className="rotate-180" size={12} />
+                                                                <span className="text-[12px] font-black">SHORTFALL: -₹{fmt(p.weekendDeficit)}</span>
+                                                            </div>
+                                                        )}
                                                     </td>
 
                                                     <td className="px-6 py-6">
