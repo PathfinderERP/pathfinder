@@ -30,6 +30,7 @@ const LeadDashboard = () => {
     const [telecallerLeads, setTelecallerLeads] = useState([]);
     const [sidebarTitle, setSidebarTitle] = useState("");
     const [selectedLead, setSelectedLead] = useState(null);
+    const [sidebarTotal, setSidebarTotal] = useState(0);
     const [sidebarLoading, setSidebarLoading] = useState(false);
 
     const fetchMetadata = useCallback(async () => {
@@ -81,21 +82,17 @@ const LeadDashboard = () => {
             const params = new URLSearchParams();
             params.append("limit", "100");
 
-            // Add base filters
-            Object.entries(filters).forEach(([key, value]) => {
+            // Merge base filters and extraParams correctly (extraParams override base filters for that key)
+            const combinedFilters = { ...filters };
+            Object.entries(extraParams).forEach(([key, value]) => {
+                combinedFilters[key] = value;
+            });
+
+            Object.entries(combinedFilters).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
                     value.forEach(v => {
                         params.append(key, v.value || v);
                     });
-                } else if (value) {
-                    params.append(key, value);
-                }
-            });
-
-            // Add extra params (category filters)
-            Object.entries(extraParams).forEach(([key, value]) => {
-                if (Array.isArray(value)) {
-                    value.forEach(v => params.append(key, v.value || v));
                 } else if (value) {
                     params.append(key, value);
                 }
@@ -107,6 +104,7 @@ const LeadDashboard = () => {
             if (res.ok) {
                 const data = await res.json();
                 setTelecallerLeads(data.leads || []);
+                setSidebarTotal(data.pagination?.totalLeads || (data.leads || []).length);
             }
         } catch (error) {
             console.error(error);
@@ -499,7 +497,7 @@ const LeadDashboard = () => {
                                             {selectedLead ? selectedLead.name : sidebarTitle}
                                         </h2>
                                         <p className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em] italic">
-                                            {selectedLead ? "DETAILED VECTOR SYNC" : "Assigned Lead Protocol"}
+                                            {selectedLead ? "DETAILED VECTOR SYNC" : `Assigned Lead Protocol | ${sidebarTotal} Vectors Detected`}
                                         </p>
                                     </div>
                                 </div>

@@ -4,10 +4,17 @@ import User from "../models/User.js";
 /**
  * Normalizes filter values that might be strings, IDs, or objects from CustomMultiSelect
  */
+/**
+ * Normalizes filter values and casts to ObjectId if necessary
+ */
 const normalizeValue = (val) => {
     if (!val) return val;
     if (Array.isArray(val)) return val.map(v => normalizeValue(v));
-    if (typeof val === 'object' && val.value !== undefined) return val.value;
+    if (typeof val === 'object' && val.value !== undefined) val = val.value;
+    
+    if (typeof val === 'string' && mongoose.Types.ObjectId.isValid(val)) {
+        return new mongoose.Types.ObjectId(val);
+    }
     return val;
 };
 
@@ -22,9 +29,10 @@ export const buildLeadQuery = async (queryParams, user) => {
     // Feedback filter
     if (feedback && (!Array.isArray(feedback) || feedback.length > 0)) {
         const feedbackArray = Array.isArray(feedback) ? normalizeValue(feedback) : [normalizeValue(feedback)];
-        if (feedbackArray.length > 0) {
+        const normalizedFeedbacks = feedbackArray.filter(f => f);
+        if (normalizedFeedbacks.length > 0) {
             query.followUps = {
-                $elemMatch: { feedback: { $in: feedbackArray } }
+                $elemMatch: { feedback: { $in: normalizedFeedbacks } }
             };
         }
     }
@@ -51,27 +59,39 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     // Multi-select fields
     if (leadType && (!Array.isArray(leadType) || leadType.length > 0)) {
-        query.leadType = Array.isArray(leadType) ? { $in: normalizeValue(leadType) } : normalizeValue(leadType);
+        const values = Array.isArray(leadType) ? normalizeValue(leadType) : [normalizeValue(leadType)];
+        query.leadType = { $in: values };
     }
     if (source && (!Array.isArray(source) || source.length > 0)) {
-        query.source = Array.isArray(source) ? { $in: normalizeValue(source) } : normalizeValue(source);
+        const values = Array.isArray(source) ? normalizeValue(source) : [normalizeValue(source)];
+        query.source = { $in: values };
     }
     if (course && (!Array.isArray(course) || course.length > 0)) {
-        query.course = Array.isArray(course) ? { $in: normalizeValue(course) } : { $in: [normalizeValue(course)] };
+        const values = Array.isArray(course) ? normalizeValue(course) : [normalizeValue(course)];
+        query.course = { $in: values };
     }
     if (board && (!Array.isArray(board) || board.length > 0)) {
-        query.board = Array.isArray(board) ? { $in: normalizeValue(board) } : { $in: [normalizeValue(board)] };
+        const values = Array.isArray(board) ? normalizeValue(board) : [normalizeValue(board)];
+        query.board = { $in: values };
     }
     if (className && (!Array.isArray(className) || className.length > 0)) {
-        query.className = Array.isArray(className) ? { $in: normalizeValue(className) } : { $in: [normalizeValue(className)] };
+        const values = Array.isArray(className) ? normalizeValue(className) : [normalizeValue(className)];
+        query.className = { $in: values };
+    }
+    if (centre && (!Array.isArray(centre) || centre.length > 0)) {
+        const values = Array.isArray(centre) ? normalizeValue(centre) : [normalizeValue(centre)];
+        query.centre = { $in: values };
     }
 
     // Responsibility filter (Telecaller names)
     if (leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0)) {
         const names = Array.isArray(leadResponsibility) ? normalizeValue(leadResponsibility) : [normalizeValue(leadResponsibility)];
-        query.leadResponsibility = {
-            $in: names.map(n => new RegExp(`^${n}$`, "i"))
-        };
+        const cleanNames = names.filter(n => typeof n === 'string');
+        if (cleanNames.length > 0) {
+            query.leadResponsibility = {
+                $in: cleanNames.map(n => new RegExp(`^${n}$`, "i"))
+            };
+        }
     }
 
     // Follow-up status
@@ -110,7 +130,7 @@ export const buildLeadQuery = async (queryParams, user) => {
         if (query.leadResponsibility && !isPrivileged) {
             const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
             const isFilteringSelf = filterNames.some(n => {
-                const normalizedFilter = n?.toLowerCase()?.trim() || "";
+                const normalizedFilter = (typeof n === 'object' ? n.value : n)?.toLowerCase()?.trim() || "";
                 const normalizedUser = userDoc.name?.toLowerCase()?.trim() || "";
                 return normalizedFilter === normalizedUser || normalizedFilter.includes(normalizedUser);
             });
@@ -123,26 +143,22 @@ export const buildLeadQuery = async (queryParams, user) => {
         query.$and = query.$and || [];
         query.$and.push({ $or: orConditions });
 
-        // Centre restriction
-        if (centre && (!Array.isArray(centre) || centre.length > 0)) {
-            const requestedCentres = Array.isArray(centre) ? normalizeValue(centre) : [normalizeValue(centre)];
-            const validRequestedCentres = requestedCentres.filter(reqC =>
-                userCentreIds.some(allowedC => allowedC.toString() === reqC.toString())
+        // Centre restriction (Already handled above for multi-select, but ensure intersection if superAdmin also passed centre)
+        if (query.centre && userCentreIds.length > 0) {
+            // Filter existing query.centre.$in to only include allowed centres
+            const currentIn = query.centre.$in || [];
+            const restrictedIn = currentIn.filter(id => 
+                userCentreIds.some(allowedId => allowedId.toString() === id.toString())
             );
-            if (validRequestedCentres.length > 0) {
-                query.centre = { 
-                    $in: validRequestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) 
-                };
+            if (restrictedIn.length > 0) {
+                query.centre = { $in: restrictedIn };
+            } else {
+                // If no requested centres are allowed, restrict to user's centres
+                query.centre = { $in: userCentreIds };
             }
-        }
-    } else {
-        if (centre && (!Array.isArray(centre) || centre.length > 0)) {
-            const requestedCentres = Array.isArray(centre) ? normalizeValue(centre) : [normalizeValue(centre)];
-            if (requestedCentres.length > 0) {
-                query.centre = { 
-                    $in: requestedCentres.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) 
-                };
-            }
+        } else if (userCentreIds.length > 0) {
+             // Handled by orConditions but if we want strict centre filtering
+             // query.centre = { $in: userCentreIds };
         }
     }
 
@@ -167,3 +183,4 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     return query;
 };
+
