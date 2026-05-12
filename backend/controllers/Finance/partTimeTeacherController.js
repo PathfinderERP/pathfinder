@@ -17,7 +17,7 @@ export const getPartTimeTeachers = async (req, res) => {
             teacherType: { $regex: /Part Time/i }
         };
 
-        if (req.user.role !== "superAdmin") {
+        if (req.user.role !== "superAdmin" && req.user.role !== "hr") {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
             const userCentres = currentUser ? currentUser.centres.map(c => c._id || c) : [];
             userQuery.centres = { $in: userCentres };

@@ -16,145 +16,177 @@ const getRange = (startDate, endDate) => {
 
 export const getRedFlags = async (req, res) => {
     try {
-        const { centreId, role, severity, isResolved, startDate, endDate } = req.query;
+        const { centreId, role, severity, startDate, endDate } = req.query;
         const { start, end } = getRange(startDate, endDate);
 
-        // Fetch ALL Active Users for the role to ensure "all active teachers" etc. are visible
-        const userQuery = { isActive: true };
-        if (role && role !== 'All Roles') userQuery.role = role;
-        if (centreId && centreId !== 'All Centers') userQuery.centres = centreId;
+        if (!role || role === 'All Roles') {
+            return res.status(200).json([]);
+        }
 
-        const users = await User.find(userQuery)
-            .select('name role employeeId profileImage centres')
-            .populate('centres', 'centreName');
+        // 1. Fetch all active users for this role
+        const userQuery = { role, isActive: true };
+        if (centreId && centreId !== 'All Centers') userQuery.centres = { $in: [centreId] };
+        
+        const users = await User.find(userQuery).populate('centres', 'centreName').lean();
 
-        // Fetch existing flags for this range
-        const flagQuery = { createdAt: { $gte: start, $lte: end } };
-        if (severity && severity !== 'All Severity') flagQuery.severity = severity;
-        if (isResolved !== undefined) flagQuery.isResolved = isResolved === 'true';
+        // 2. Fetch existing persistent flags for this range to merge status
+        const persistentFlags = await RedFlag.find({
+            role,
+            createdAt: { $gte: start, $lte: end }
+        }).lean();
 
-        const existingFlags = await RedFlag.find(flagQuery).lean();
-
-        // Calculate performance for each user to show "Live Current Data"
         const performanceData = [];
 
+        // 3. Scan ERP data for each user based on role
         for (const user of users) {
             let metricValue = 0;
-            let targetValue = 0;
-            let issue = "Performance Normal";
-            let type = "general";
+            let targetValue = 1;
+            let issue = "Operating normally";
             let currentSeverity = "Low";
+            let type = "general";
 
-            // Role specific metrics calculation
-            if (user.role === 'telecaller') {
-                metricValue = await LeadManagement.countDocuments({ "followUps.updatedBy": user.name, "followUps.date": { $gte: start, $lte: end } });
-                targetValue = 50;
+            if (role === 'telecaller') {
                 type = 'calls';
+                targetValue = 50;
+                
+                // Use Aggregation to count individual follow-up entries in the date range
+                const callStats = await LeadManagement.aggregate([
+                    { $unwind: "$followUps" },
+                    { 
+                        $match: { 
+                            "followUps.updatedBy": user.name,
+                            "followUps.date": { $gte: start, $lte: end }
+                        } 
+                    },
+                    { $count: "totalCalls" }
+                ]);
+                
+                metricValue = callStats.length > 0 ? callStats[0].totalCalls : 0;
+
                 if (metricValue < targetValue) {
-                    issue = `${targetValue - metricValue} calls short. Total: ${metricValue}/${targetValue}`;
-                    currentSeverity = 'High';
+                    currentSeverity = (metricValue < (targetValue * 0.5)) ? "Critical" : "High";
+                    issue = `${targetValue - metricValue} calls short for this period. Total: ${metricValue}/${targetValue}`;
                 }
-            } else if (user.role === 'counsellor') {
-                const counselled = await LeadManagement.countDocuments({ isCounseled: true, "followUps.updatedBy": user.name, "followUps.date": { $gte: start, $lte: end } });
-                const admN = await Admission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
-                const admB = await BoardCourseAdmission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
-                const admitted = admN + admB;
-                metricValue = counselled > 0 ? (admitted / counselled) * 100 : (admitted > 0 ? 100 : 0);
-                targetValue = 20;
+            } else if (role === 'counsellor') {
                 type = 'admission';
-                if (metricValue < targetValue || (counselled > 0 && admitted === 0)) {
-                    issue = `Conversion: ${metricValue.toFixed(1)}% (${admitted}/${counselled}). Target: ${targetValue}%`;
-                    currentSeverity = 'Critical';
-                }
-            } else if (user.role === 'teacher') {
-                const completed = await ClassSchedule.countDocuments({ teacherId: user._id, status: 'Completed', date: { $gte: start, $lte: end } });
-                const missingAtt = await ClassSchedule.countDocuments({ 
-                    teacherId: user._id, 
-                    status: 'Completed', 
-                    date: { $gte: start, $lte: end },
-                    $or: [{ isStudentAttendanceSaved: false }, { teacherAttendance: { $exists: false } }]
-                });
-                metricValue = completed - missingAtt;
-                targetValue = completed;
-                type = 'attendance';
-                if (missingAtt > 0) {
-                    issue = `Attendance missing for ${missingAtt} classes today.`;
-                    currentSeverity = 'High';
-                }
-            } else if (user.role === 'Class_Coordinator') {
-                const ongoing = await ClassSchedule.countDocuments({ coordinatorId: user._id, status: 'Ongoing', date: { $lte: end } });
-                metricValue = ongoing; 
-                targetValue = 0; // Ideal target is 0 ongoing classes after end time
-                type = 'class_end';
-                if (ongoing > 0) {
-                    issue = `${ongoing} classes still ongoing after scheduled time.`;
-                    currentSeverity = 'Critical';
-                }
-            } else if (user.role === 'marketing') {
-                metricValue = await LeadManagement.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
-                targetValue = 10;
-                type = 'marketing_target';
+                
+                const counselled = await LeadManagement.aggregate([
+                    { $unwind: "$followUps" },
+                    {
+                        $match: {
+                            "followUps.updatedBy": user.name,
+                            "followUps.date": { $gte: start, $lte: end },
+                            isCounseled: true
+                        }
+                    },
+                    { $group: { _id: "$_id" } }, // Unique leads counselled
+                    { $count: "total" }
+                ]);
+                const counselledCount = counselled.length > 0 ? counselled[0].total : 0;
+
+                const admNormal = await Admission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
+                const admBoard = await BoardCourseAdmission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
+                const admittedCount = admNormal + admBoard;
+                
+                metricValue = counselledCount > 0 ? Math.round((admittedCount / counselledCount) * 100) : 0;
+                targetValue = 20; 
+                
                 if (metricValue < targetValue) {
-                    issue = `Marketing target: ${metricValue}/${targetValue} leads.`;
-                    currentSeverity = 'Critical';
+                    currentSeverity = admittedCount === 0 && counselledCount > 0 ? "Critical" : (metricValue < targetValue ? "High" : "Low");
+                    issue = `Conversion rate at ${metricValue}% (${admittedCount}/${counselledCount} leads)`;
                 }
-            } else if (user.role === 'centerIncharge') {
-                metricValue = await LeadManagement.countDocuments({ "followUps.updatedBy": user.name, "followUps.date": { $gte: start, $lte: end } });
+            } else if (role === 'teacher') {
+                type = 'attendance';
+                const classes = await ClassSchedule.find({ 
+                    teacherId: user._id, 
+                    status: 'Completed',
+                    date: { $gte: start, $lte: end }
+                });
+                targetValue = classes.length;
+                metricValue = classes.filter(c => c.isStudentAttendanceSaved && c.teacherAttendance).length;
+                if (metricValue < targetValue) {
+                    currentSeverity = "High";
+                    issue = `Missing attendance for ${targetValue - metricValue} classes in this period.`;
+                } else {
+                    issue = "Attendance perfectly submitted for all classes.";
+                }
+            } else if (role === 'marketing') {
+                type = 'marketing_target';
+                targetValue = 10;
+                metricValue = await LeadManagement.countDocuments({ 
+                    createdBy: user._id, 
+                    createdAt: { $gte: start, $lte: end } 
+                });
+                if (metricValue < targetValue) {
+                    currentSeverity = "Critical";
+                    issue = `Only ${metricValue}/${targetValue} leads generated in this period.`;
+                }
+            } else if (role === 'Class_Coordinator') {
+                type = 'class_end';
+                const ongoing = await ClassSchedule.countDocuments({ 
+                    coordinatorId: user._id, 
+                    status: 'Ongoing',
+                    date: { $lte: end }
+                });
+                metricValue = ongoing > 0 ? 0 : 1; 
                 targetValue = 1;
-                type = 'review_note';
-                if (metricValue < 1) {
-                    issue = "No activity or review note recorded today.";
-                    currentSeverity = 'Critical';
+                if (ongoing > 0) {
+                    currentSeverity = "Critical";
+                    issue = `${ongoing} classes pending closure in ERP.`;
                 }
-            } else if (user.role === 'hr') {
-                metricValue = await EmployeeAttendance.countDocuments({ date: { $gte: start, $lte: end }, totalHours: { $lt: 9 }, status: 'Present' });
-                targetValue = 0;
-                type = 'duty_hours';
-                if (metricValue > 0) {
-                    issue = `${metricValue} employees with short duty (<9h).`;
-                    currentSeverity = 'High';
+            } else if (role === 'centerIncharge') {
+                type = 'review_note';
+                const activity = await LeadManagement.aggregate([
+                    { $unwind: "$followUps" },
+                    { 
+                        $match: { 
+                            "followUps.updatedBy": user.name, 
+                            "followUps.date": { $gte: start, $lte: end } 
+                        } 
+                    },
+                    { $count: "total" }
+                ]);
+                metricValue = activity.length > 0 ? activity[0].total : 0;
+                targetValue = 5;
+                if (metricValue < targetValue) {
+                    currentSeverity = "Critical";
+                    issue = "Insufficient center review and follow-up activity.";
                 }
             }
 
-            // Find if there's a real flag for this user and type
-            const flag = existingFlags.find(f => f.user.toString() === user._id.toString() && f.type === type);
+            const dbFlag = persistentFlags.find(f => f.user.toString() === user._id.toString() && f.type === type);
 
-            // Construct a "Virtual Flag" if none exists, to show "Live Data" for everyone
             performanceData.push({
-                _id: flag ? flag._id : `virtual_${user._id}_${type}`,
-                user: user,
+                _id: dbFlag?._id || `virtual_${user._id}_${type}`,
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    employeeId: user.employeeId,
+                    profileImage: user.profileImage
+                },
                 role: user.role,
-                centre: user.centres[0],
-                type: type,
-                severity: flag ? flag.severity : (issue === "Performance Normal" ? "Low" : currentSeverity),
-                issue: flag ? flag.issue : issue,
-                metricValue: metricValue,
-                targetValue: targetValue,
-                isResolved: flag ? flag.isResolved : (issue === "Performance Normal"),
-                createdAt: flag ? flag.createdAt : new Date(),
-                whatWentWrong: flag ? flag.whatWentWrong : "Analysis pending...",
-                businessImpact: flag ? flag.businessImpact : "Standard operational impact.",
-                recoveryAction: flag ? flag.recoveryAction : "Action required to meet targets.",
-                owner: flag ? flag.owner : "Department Head",
-                isVirtual: !flag
+                centre: user.centres?.[0] || { centreName: "N/A" },
+                type,
+                severity: dbFlag?.severity || currentSeverity,
+                issue: dbFlag?.issue || issue,
+                metricValue: dbFlag?.metricValue || metricValue,
+                targetValue: dbFlag?.targetValue || targetValue,
+                isResolved: dbFlag?.isResolved || (currentSeverity === "Low"),
+                isVirtual: !dbFlag,
+                createdAt: dbFlag?.createdAt || new Date(),
+                repeatCount: dbFlag?.repeatCount || 0
             });
         }
 
-        // Apply severity filter to virtual flags if requested
         let filteredData = performanceData;
         if (severity && severity !== 'All Severity') {
-            filteredData = performanceData.filter(p => p.severity === severity);
-        }
-
-        // If 'All Roles' and no flags, only show actual flags or top underperformers
-        if (!role || role === 'All Roles') {
-            filteredData = performanceData.filter(p => !p.isResolved || !p.isVirtual);
+            filteredData = performanceData.filter(d => d.severity === severity);
         }
 
         res.status(200).json(filteredData);
     } catch (error) {
-        console.error("Error fetching performance data:", error);
-        res.status(500).json({ message: "Server error fetching performance data" });
+        console.error("Error in getRedFlags:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
@@ -162,8 +194,7 @@ export const getRedFlagStats = async (req, res) => {
     try {
         const { startDate, endDate, role, centreId } = req.query;
         const { start, end } = getRange(startDate, endDate);
-
-        // Build query based on filters
+        
         const query = { createdAt: { $gte: start, $lte: end } };
         if (role && role !== 'All Roles') query.role = role;
         if (centreId && centreId !== 'All Centers') query.centre = centreId;
@@ -189,47 +220,48 @@ export const updateRedFlag = async (req, res) => {
     try {
         const { id } = req.params;
         const { isResolved, recoveryAction, whatWentWrong, businessImpact } = req.body;
-        // If it's a virtual flag, we need to create it first before updating
-        let flag;
+
+        let flagId = id;
         if (id.startsWith('virtual_')) {
-            const [,, userId, type] = id.split('_');
+            const [_, userId, type] = id.split('_');
             const user = await User.findById(userId);
-            // Re-calculate or use default for virtual-to-real conversion
-            flag = await RedFlag.create({
-                user: userId, role: user.role, centre: user.centres[0], type,
-                severity: 'High', issue: 'Manual flag conversion',
-                metricValue: 0, targetValue: 1, isResolved,
-                recoveryAction, whatWentWrong, businessImpact,
-                owner: "Manual", resolvedAt: isResolved ? new Date() : null, resolvedBy: isResolved ? req.user._id : null
+            const newFlag = await RedFlag.create({
+                user: userId,
+                role: user.role,
+                type,
+                centre: user.centres?.[0],
+                severity: 'High',
+                issue: "Manually escalated from performance report.",
+                metricValue: 0,
+                targetValue: 0
             });
-        } else {
-            const update = {};
-            if (isResolved !== undefined) {
-                update.isResolved = isResolved;
-                if (isResolved) {
-                    update.resolvedAt = new Date();
-                    update.resolvedBy = req.user._id;
-                }
-            }
-            if (recoveryAction) update.recoveryAction = recoveryAction;
-            if (whatWentWrong) update.whatWentWrong = whatWentWrong;
-            if (businessImpact) update.businessImpact = businessImpact;
-            flag = await RedFlag.findByIdAndUpdate(id, update, { new: true });
+            flagId = newFlag._id;
         }
+
+        const update = {};
+        if (isResolved !== undefined) {
+            update.isResolved = isResolved;
+            if (isResolved) {
+                update.resolvedAt = new Date();
+                update.resolvedBy = req.user._id;
+            }
+        }
+        if (recoveryAction) update.recoveryAction = recoveryAction;
+        if (whatWentWrong) update.whatWentWrong = whatWentWrong;
+        if (businessImpact) update.businessImpact = businessImpact;
+
+        const flag = await RedFlag.findByIdAndUpdate(flagId, update, { new: true });
         if (!flag) return res.status(404).json({ message: "Flag not found" });
         res.status(200).json(flag);
     } catch (error) {
-        console.error("Error updating flag:", error);
+        console.error("Error updating red flag:", error);
         res.status(500).json({ message: "Server error" });
     }
 };
 
 export const generateRedFlags = async (req, res) => {
     try {
-        const { startDate, endDate } = req.body;
-        const { start, end } = getRange(startDate, endDate);
-        // This is now redundant since getRedFlags calculates live, but we'll keep it for persistence
-        res.status(200).json({ message: "Live data is now active. Persistence triggered." });
+        res.status(200).json({ message: "Trigger received" });
     } catch (error) {
         res.status(500).json({ message: "Error" });
     }

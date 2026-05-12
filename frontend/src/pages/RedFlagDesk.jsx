@@ -20,13 +20,13 @@ const RedFlagDesk = () => {
     const [loading, setLoading] = useState(true);
     const [filterCenter, setFilterCenter] = useState('All Centers');
     const [filterSeverity, setFilterSeverity] = useState('All Severity');
-    const [activeRoleTab, setActiveRoleTab] = useState('All Roles');
+    const [activeRoleTab, setActiveRoleTab] = useState('Telecaller');
     const [centers, setCenters] = useState([]);
     const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString());
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const roles = ['All Roles', 'Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Class Coordinator', 'Teacher', 'HR'];
+    const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Class Coordinator', 'Teacher', 'HR'];
 
     useEffect(() => {
         fetchData();
@@ -37,10 +37,6 @@ const RedFlagDesk = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const config = { 
-                headers: { Authorization: `Bearer ${token}` },
-                params: { startDate, endDate }
-            };
             
             // Map display role name to backend role name
             let backendRole = activeRoleTab;
@@ -53,32 +49,36 @@ const RedFlagDesk = () => {
             if (activeRoleTab === 'Marketing') backendRole = 'marketing';
             if (activeRoleTab === 'HR') backendRole = 'hr';
 
-            const statsConfig = {
+            const config = { 
                 headers: { Authorization: `Bearer ${token}` },
                 params: { 
                     startDate, 
                     endDate,
-                    role: activeRoleTab !== 'All Roles' ? backendRole : undefined,
-                    centreId: filterCenter !== 'All Centers' ? filterCenter : undefined
+                    role: backendRole,
+                    centreId: filterCenter !== 'All Centers' ? filterCenter : undefined,
+                    severity: filterSeverity !== 'All Severity' ? filterSeverity : undefined
                 }
             };
 
-            // Fetch Stats with all filters
-            const statsRes = await axios.get(`${import.meta.env.VITE_API_URL}/red-flags/stats`, statsConfig);
-            setStats(statsRes.data);
-
             // Fetch Flags with filters
-            let url = `${import.meta.env.VITE_API_URL}/red-flags?`;
-            if (filterCenter !== 'All Centers') url += `centreId=${filterCenter}&`;
-            if (filterSeverity !== 'All Severity') url += `severity=${filterSeverity}&`;
-            if (activeRoleTab !== 'All Roles') url += `role=${backendRole}&`;
+            const flagsRes = await axios.get(`${import.meta.env.VITE_API_URL}/red-flags`, config);
+            const data = flagsRes.data;
+            setFlags(data);
             
-            const flagsRes = await axios.get(url, config);
-            setFlags(flagsRes.data);
+            // Calculate Stats dynamically from the data
+            const calculatedStats = {
+                total: data.filter(f => !f.isResolved && f.severity !== 'Low').length,
+                critical: data.filter(f => !f.isResolved && f.severity === 'Critical').length,
+                high: data.filter(f => !f.isResolved && f.severity === 'High').length,
+                repeat: data.filter(f => !f.isResolved && f.repeatCount > 0).length,
+                recoveredToday: data.filter(f => f.isResolved || f.severity === 'Low').length
+            };
+            setStats(calculatedStats);
+
             setLastUpdated(new Date().toLocaleTimeString());
             
-            if (flagsRes.data.length > 0) {
-                setSelectedFlag(flagsRes.data[0]);
+            if (data.length > 0) {
+                setSelectedFlag(data[0]);
             } else {
                 setSelectedFlag(null);
             }
@@ -89,6 +89,8 @@ const RedFlagDesk = () => {
             setLoading(false);
         }
     };
+
+    const isToday = startDate === new Date().toISOString().split('T')[0] && endDate === new Date().toISOString().split('T')[0];
 
     const fetchCenters = async () => {
         try {
@@ -339,10 +341,12 @@ const RedFlagDesk = () => {
                                         </div>
                                         
                                         <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{flag.isVirtual ? 'Live Metric' : 'Persistent Flag'}</p>
-                                            <p className="text-[10px] font-bold text-gray-900 dark:text-white uppercase tracking-widest">
-                                                {new Date(flag.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{flag.isVirtual ? (isToday ? 'Live Metric' : 'Period Performance') : 'Persistent Flag'}</p>
+                                            {isToday && (
+                                                <p className="text-[10px] font-bold text-gray-900 dark:text-white uppercase tracking-widest">
+                                                    {new Date(flag.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
