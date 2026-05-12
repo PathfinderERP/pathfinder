@@ -64,6 +64,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
+        { name: "Red Flag Desk", icon: <FaExclamationCircle />, path: "/red-flag-desk" },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },

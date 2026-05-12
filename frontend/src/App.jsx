@@ -165,6 +165,7 @@ import DailyUserActivityLog from "./pages/DailyUserActivityLog";
 
 import Community from "./pages/Community";
 import BoardAnalysis from "./pages/BoardAnalysis";
+import RedFlagDesk from "./pages/RedFlagDesk";
 
 function App() {
   return (
@@ -180,6 +181,7 @@ function App() {
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
         <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
+        <Route path="/red-flag-desk" element={<ProtectedRoute><RedFlagDesk /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
         <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />
