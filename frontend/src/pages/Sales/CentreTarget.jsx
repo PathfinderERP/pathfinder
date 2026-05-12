@@ -189,11 +189,18 @@ const CentreTarget = () => {
                 "Target Amount": t.targetAmountWithGST || (t.targetAmount * 1.18),
                 "Achieved (Inc. GST)": t.achievedAmountWithGST || t.achievedAmount,
                 "Achieved (Excl. GST)": t.achievedAmountExclGST || (t.achievedAmount / 1.18).toFixed(2),
-                "Achievement %": `${t.achievementPercentage}%`
+                "Achievement %": (() => {
+                    const achieved = t.achievedAmountWithGST || 0;
+                    const dateWiseTargetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) * 1.18 : (t.targetAmountWithGST || (t.targetAmount * 1.18));
+                    const percentage = dateWiseTargetWithGST > 0 ? (achieved / dateWiseTargetWithGST) * 100 : 0;
+                    return `${percentage.toFixed(1)}%`;
+                })()
             };
 
             if (viewMode === "Custom" && startDate && endDate) {
-                row["Date Wise Target"] = calculateDateWiseTarget(t, startDate, endDate).toFixed(2);
+                const dateWiseExcl = calculateDateWiseTarget(t, startDate, endDate);
+                row["Date Wise Target (With GST)"] = (dateWiseExcl * 1.18).toFixed(2);
+                row["Date Wise Target (Excl. GST)"] = dateWiseExcl.toFixed(2);
             }
 
             return row;
@@ -392,10 +399,13 @@ const CentreTarget = () => {
                                     <th className="px-6 py-4">Year</th>
                                     <th className="px-6 py-4">Month</th>
                                     <th className="px-6 py-4 text-center">Target (With GST)</th>
+                                    {viewMode === "Custom" && (
+                                        <th className="px-6 py-4 text-center text-cyan-400">Date Wise Target (With GST)</th>
+                                    )}
                                     <th className="px-6 py-4 text-center">Achieved (With GST)</th>
                                     <th className="px-6 py-4 text-center text-yellow-500">Target (Excl. GST)</th>
                                     {viewMode === "Custom" && (
-                                        <th className="px-6 py-4 text-center text-orange-400">Date Wise Target</th>
+                                        <th className="px-6 py-4 text-center text-orange-400">Date Wise Target (Excl. GST)</th>
                                     )}
                                     <th className="px-6 py-4 text-center">Achieved (Excl. GST)</th>
                                     <th className="px-6 py-4 text-center">Achievement (%)</th>
@@ -405,11 +415,11 @@ const CentreTarget = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={viewMode === "Custom" ? "11" : "10"} className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
+                                        <td colSpan={viewMode === "Custom" ? "12" : "10"} className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
                                     </tr>
                                 ) : targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).length === 0 ? (
                                     <tr>
-                                        <td colSpan={viewMode === "Custom" ? "11" : "10"} className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
+                                        <td colSpan={viewMode === "Custom" ? "12" : "10"} className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
                                     </tr>
                                 ) : (
                                     targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).map(target => (
@@ -419,6 +429,11 @@ const CentreTarget = () => {
                                             <td className="px-6 py-4">{target.year}</td>
                                             <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'}`}>{target.month}</td>
                                             <td className={`px-6 py-4 font-bold tracking-wide text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{(target.targetAmountWithGST || (target.targetAmount * 1.18)).toLocaleString()}</td>
+                                            {viewMode === "Custom" && (
+                                                <td className="px-6 py-4 text-cyan-400 font-bold text-center">
+                                                    {(calculateDateWiseTarget(target, startDate, endDate) * 1.18).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4 text-blue-500 font-bold text-center">{(target.achievedAmountWithGST || target.achievedAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             <td className="px-6 py-4 text-yellow-500 font-bold text-center">{(target.targetAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                             {viewMode === "Custom" && (
@@ -427,10 +442,18 @@ const CentreTarget = () => {
                                                 </td>
                                             )}
                                             <td className="px-6 py-4 text-emerald-500 font-bold text-center">{(target.achievedAmountExclGST || (target.achievedAmount / 1.18) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                            <td className={`px-6 py-4 font-black text-center ${parseFloat(target.achievementPercentage) > 50 ? "text-green-500" :
-                                                parseFloat(target.achievementPercentage) === 50 ? "text-yellow-500" : "text-red-500"
-                                                }`}>
-                                                {target.achievementPercentage}%
+                                            <td className={`px-6 py-4 font-black text-center ${(() => {
+                                                const achieved = target.achievedAmountWithGST || 0;
+                                                const dateWiseTargetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(target, startDate, endDate) * 1.18 : (target.targetAmountWithGST || (target.targetAmount * 1.18));
+                                                const percentage = dateWiseTargetWithGST > 0 ? (achieved / dateWiseTargetWithGST) * 100 : 0;
+                                                return percentage > 50 ? "text-green-500" : percentage === 50 ? "text-yellow-500" : "text-red-500";
+                                            })()}`}>
+                                                {(() => {
+                                                    const achieved = target.achievedAmountWithGST || 0;
+                                                    const dateWiseTargetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(target, startDate, endDate) * 1.18 : (target.targetAmountWithGST || (target.targetAmount * 1.18));
+                                                    const percentage = dateWiseTargetWithGST > 0 ? (achieved / dateWiseTargetWithGST) * 100 : 0;
+                                                    return percentage.toFixed(1);
+                                                })()}%
                                             </td>
                                             <td className="px-6 py-4 text-right flex justify-end gap-3">
                                                 {canEdit && (
