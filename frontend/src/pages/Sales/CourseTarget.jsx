@@ -349,12 +349,23 @@ const CourseTarget = () => {
                                                                 </span>
                                                             </div>
                                                             {target > 0 && (
-                                                                <div className="mt-1.5 w-full h-1.5 bg-gray-500/10 rounded-full overflow-hidden">
-                                                                    <div 
-                                                                        className={`h-full rounded-full transition-all duration-700 ${parseFloat(pct) >= 100 ? 'bg-amber-500' : 'bg-cyan-500'}`}
-                                                                        style={{ width: `${Math.min(pct, 100)}%` }}
-                                                                    />
-                                                                </div>
+                                                                <>
+                                                                    <div className="mt-1.5 w-full h-1.5 bg-gray-500/10 rounded-full overflow-hidden">
+                                                                        <div 
+                                                                            className={`h-full rounded-full transition-all duration-700 ${parseFloat(pct) >= 100 ? 'bg-amber-500' : 'bg-cyan-500'}`}
+                                                                            style={{ width: `${Math.min(pct, 100)}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="mt-1 text-center">
+                                                                        {achieved >= target ? (
+                                                                            <span className="text-[10px] font-black text-emerald-500">✓ MET</span>
+                                                                        ) : (
+                                                                            <span className="text-[10px] font-black text-red-400">
+                                                                                -{target - achieved}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </>
                                                             )}
                                                         </td>
                                                     );
