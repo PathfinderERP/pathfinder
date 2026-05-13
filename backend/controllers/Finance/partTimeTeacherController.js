@@ -1,4 +1,5 @@
 import User from "../../models/User.js";
+import Employee from "../../models/HR/Employee.js";
 import PartTimeTeacher from "../../models/Finance/PartTimeTeacher.js";
 
 // @desc    Get all part-time teachers (from User) and their finance details
@@ -12,9 +13,16 @@ export const getPartTimeTeachers = async (req, res) => {
         } = req.query;
 
         // 1. Build Query for Users (Teachers)
+        // Find users who are marked as part-time either in User model or linked Employee model
+        const partTimeEmployees = await Employee.find({ typeOfEmployment: { $regex: /Part-?Time/i } }).select("user").lean();
+        const partTimeUserIdsFromEmployee = partTimeEmployees.map(e => e.user).filter(Boolean);
+
         let userQuery = {
             role: "teacher",
-            teacherType: { $regex: /Part Time/i }
+            $or: [
+                { teacherType: { $regex: /Part-?Time/i } },
+                { _id: { $in: partTimeUserIdsFromEmployee } }
+            ]
         };
 
         if (req.user.role !== "superAdmin" && req.user.role !== "hr") {
@@ -30,6 +38,7 @@ export const getPartTimeTeachers = async (req, res) => {
                         { name: { $regex: search, $options: "i" } },
                         { email: { $regex: search, $options: "i" } },
                         { mobNum: { $regex: search, $options: "i" } },
+                        { employeeId: { $regex: search, $options: "i" } },
                         { subject: { $regex: search, $options: "i" } }
                     ]
                 }
@@ -97,17 +106,39 @@ export const getPartTimeTeachers = async (req, res) => {
             .limit(parseInt(limit))
             .lean();
 
-        // 5. Fetch Finance Details for the result set
+        // 5. Fetch Finance and Employee Details for the result set
         const resultTeacherIds = teachers.map(t => t._id);
-        const financeRecords = await PartTimeTeacher.find({ teacherId: { $in: resultTeacherIds } }).lean();
+        const [financeRecords, employeeRecords] = await Promise.all([
+            PartTimeTeacher.find({ teacherId: { $in: resultTeacherIds } }).lean(),
+            Employee.find({ user: { $in: resultTeacherIds } })
+                .populate("designation", "name")
+                .populate("department", "departmentName")
+                .lean()
+        ]);
 
         // 6. Merge Data
         const mergedTeachers = teachers.map(teacher => {
             const expenseRec = financeRecords.find(f => f.teacherId.toString() === teacher._id.toString());
+            const empRec = employeeRecords.find(e => e.user?.toString() === teacher._id.toString());
+
+            // Designation Fallback
+            const finalDesignation = teacher.designation || empRec?.designation?.name || "N/A";
+            
+            // Department Fallback
+            let finalDept = "N/A";
+            if (teacher.teacherDepartment && teacher.teacherDepartment.length > 0) {
+                finalDept = Array.isArray(teacher.teacherDepartment) ? teacher.teacherDepartment.join(", ") : teacher.teacherDepartment;
+            } else if (empRec?.department?.departmentName) {
+                finalDept = empRec.department.departmentName;
+            }
+
             return {
                 ...teacher,
-                mobile: teacher.mobNum,
-                department: teacher.teacherDepartment,
+                mobile: teacher.mobNum || empRec?.phoneNumber || "N/A",
+                department: finalDept,
+                designation: finalDesignation,
+                subject: teacher.subject || "N/A",
+                boardType: teacher.boardType || "N/A",
                 feeType: expenseRec ? expenseRec.feeType : null,
                 rate: expenseRec ? expenseRec.rate : null,
                 financeId: expenseRec ? expenseRec._id : null
