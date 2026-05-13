@@ -35,12 +35,25 @@ export const calculateCentreTargetAchieved = async (centreName, month, year, cus
         let startOfMonth = new Date(year, monthIndex, 1);
         let endOfTargetMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
-        // If custom range is provided, clip the month boundaries
-        if (customStartDate) {
+        // If custom range is provided, clip the month boundaries safely in local coordinates
+        if (typeof customStartDate === 'string' && customStartDate.includes('-')) {
+            const parts = customStartDate.split('-');
+            if (parts.length === 3) {
+                const s = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 0, 0, 0, 0);
+                if (s > startOfMonth) startOfMonth = s;
+            }
+        } else if (customStartDate) {
             const s = new Date(customStartDate);
             if (s > startOfMonth) startOfMonth = s;
         }
-        if (customEndDate) {
+
+        if (typeof customEndDate === 'string' && customEndDate.includes('-')) {
+            const parts = customEndDate.split('-');
+            if (parts.length === 3) {
+                const e = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 23, 59, 59, 999);
+                if (e < endOfTargetMonth) endOfTargetMonth = e;
+            }
+        } else if (customEndDate) {
             const e = new Date(customEndDate);
             e.setHours(23, 59, 59, 999);
             if (e < endOfTargetMonth) endOfTargetMonth = e;

@@ -268,9 +268,9 @@ const CentreTarget = () => {
                     {(() => {
                         const filtered = targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month)));
                         const totals = filtered.reduce((acc, t) => {
-                            const targetWithGST = t.targetAmountWithGST || (t.targetAmount * 1.18);
+                            const targetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) * 1.18 : (t.targetAmountWithGST || (t.targetAmount * 1.18));
                             const achievedWithGST = t.achievedAmountWithGST || t.achievedAmount || 0;
-                            const targetExclGST = t.targetAmount || 0;
+                            const targetExclGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) : (t.targetAmount || 0);
                             const achievedExclGST = t.achievedAmountExclGST || (t.achievedAmount / 1.18) || 0;
 
                             acc.totalTargetWithGST += targetWithGST;

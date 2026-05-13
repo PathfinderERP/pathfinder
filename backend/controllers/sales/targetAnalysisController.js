@@ -13,6 +13,48 @@ const getQuarterMonths = (quarter) => {
     }
 };
 
+const calculateDateWiseTarget = (targetRec, customStart, customEnd) => {
+    if (!customStart || !customEnd) return targetRec.targetAmount || 0;
+
+    const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+    const cleanMonth = (targetRec.month || "").trim();
+    const monthIndex = monthNames.findIndex(m => m.toLowerCase() === cleanMonth.toLowerCase());
+    if (monthIndex === -1) return targetRec.targetAmount || 0;
+
+    const targetYear = parseInt(targetRec.year, 10);
+    const monthStart = new Date(targetYear, monthIndex, 1);
+    const monthEnd = new Date(targetYear, monthIndex + 1, 0); // Last day of month
+    const totalDaysInMonth = monthEnd.getDate();
+
+    // Parse customStart and customEnd safely assuming YYYY-MM-DD string format
+    let rangeStart = new Date(customStart);
+    let rangeEnd = new Date(customEnd);
+
+    if (typeof customStart === 'string' && customStart.includes('-')) {
+        const parts = customStart.split('-');
+        if (parts.length === 3) {
+            rangeStart = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        }
+    }
+    if (typeof customEnd === 'string' && customEnd.includes('-')) {
+        const parts = customEnd.split('-');
+        if (parts.length === 3) {
+            rangeEnd = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        }
+    }
+
+    const overlapStart = new Date(Math.max(monthStart, rangeStart));
+    const overlapEnd = new Date(Math.min(monthEnd, rangeEnd));
+
+    if (overlapStart > overlapEnd) return 0;
+
+    const overlappingDays = Math.round((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+    return ((targetRec.targetAmount || 0) / totalDaysInMonth) * overlappingDays;
+};
+
 export const getTargetAnalysis = async (req, res) => {
     try {
         const {
@@ -100,7 +142,7 @@ export const getTargetAnalysis = async (req, res) => {
         const aggregated = {};
 
         for (const t of targets) {
-            if (!t.centre) return;
+            if (!t.centre) continue;
             const cId = t.centre._id.toString();
             const cName = t.centre.centreName;
 
@@ -113,21 +155,25 @@ export const getTargetAnalysis = async (req, res) => {
                 };
             }
 
-            aggregated[cId].target += (t.targetAmount || 0);
+            if (viewMode === "Custom" && req.query.startDate && req.query.endDate) {
+                aggregated[cId].target += calculateDateWiseTarget(t, req.query.startDate, req.query.endDate);
+            } else {
+                aggregated[cId].target += (t.targetAmount || 0);
+            }
 
             // Calculate Real-time Achievement for this target record
             let realTimeAchieved = 0;
             if (t.month === "YEARLY") {
                 const res = await calculateCentreTargetAchievedYearly(cName, t.financialYear);
-                realTimeAchieved = res.totalWithGST;
+                realTimeAchieved = res.totalExclGST;
             } else if (t.month && t.month.includes(",")) {
                 // Quarterly or specific multi-month
                 const res = await calculateCentreTargetAchievedMultiMonth(cName, t.month, t.financialYear);
-                realTimeAchieved = res.totalWithGST;
+                realTimeAchieved = res.totalExclGST;
             } else {
                 // Monthly
-                const res = await calculateCentreTargetAchieved(cName, t.month, t.year);
-                realTimeAchieved = res.totalWithGST;
+                const res = await calculateCentreTargetAchieved(cName, t.month, t.year, viewMode === "Custom" ? req.query.startDate : null, viewMode === "Custom" ? req.query.endDate : null);
+                realTimeAchieved = res.totalExclGST;
             }
 
             aggregated[cId].achieved += realTimeAchieved;

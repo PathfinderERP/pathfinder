@@ -179,6 +179,7 @@ const InstallmentPayment = () => {
         department: [],
         startDate: "",
         endDate: "",
+        installmentStatus: [],
         minRemaining: "",
         maxRemaining: "",
         searchTerm: ""
@@ -316,12 +317,22 @@ const InstallmentPayment = () => {
             department: [],
             startDate: "",
             endDate: "",
+            installmentStatus: [],
             minRemaining: "",
             maxRemaining: "",
             searchTerm: ""
         });
         fetchAdmissions();
     };
+
+    const statusOptions = [
+        { value: 'PAID', label: 'PAID' },
+        { value: 'PENDING', label: 'PENDING' },
+        { value: 'PARTIAL', label: 'PARTIAL' },
+        { value: 'OVERDUE', label: 'OVERDUE' },
+        { value: 'PENDING_CLEARANCE', label: 'IN PROCESS' },
+        { value: 'REJECTED', label: 'REJECTED' },
+    ];
 
     // Get complete financial details
     const handleSelectStudent = async (studentId) => {
@@ -347,10 +358,131 @@ const InstallmentPayment = () => {
             setLoading(false);
         }
     };
+    const isDetailedView = filters.startDate || filters.endDate || (filters.installmentStatus && filters.installmentStatus.length > 0);
+
+    const displayedList = React.useMemo(() => {
+        if (!isDetailedView) {
+            return admissionsList;
+        }
+
+        const start = filters.startDate ? new Date(filters.startDate) : new Date(0);
+        start.setHours(0, 0, 0, 0);
+        const end = filters.endDate ? new Date(filters.endDate) : new Date(8640000000000000);
+        end.setHours(23, 59, 59, 999);
+
+        const flatInstallments = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        admissionsList.forEach(adm => {
+            if (adm.paymentBreakdown && adm.paymentBreakdown.length > 0) {
+                adm.paymentBreakdown.forEach(inst => {
+                    // Date Match
+                    let dateMatch = true;
+                    if (filters.startDate || filters.endDate) {
+                        if (inst.dueDate) {
+                            const d = new Date(inst.dueDate);
+                            dateMatch = d >= start && d <= end;
+                        } else {
+                            dateMatch = false;
+                        }
+                    }
+
+                    // Status Match
+                    let statusMatch = true;
+                    if (filters.installmentStatus && filters.installmentStatus.length > 0) {
+                        const dueDate = new Date(inst.dueDate);
+                        dueDate.setHours(0, 0, 0, 0);
+                        const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                        const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
+                        statusMatch = filters.installmentStatus.includes(currentStatus);
+                    }
+
+                    if (dateMatch && statusMatch) {
+                        flatInstallments.push({
+                            ...inst,
+                            admissionId: adm.admissionId,
+                            admissionNumber: adm.admissionNumber,
+                            studentId: adm.studentId,
+                            studentName: adm.studentName,
+                            email: adm.email,
+                            mobile: adm.mobile,
+                            course: adm.course,
+                            department: adm.department,
+                            centre: adm.centre,
+                            admissionDate: adm.admissionDate,
+                            admissionTotalFees: adm.totalFees,
+                            admissionTotalPaid: adm.totalPaid,
+                            admissionRemaining: adm.remainingAmount,
+                            admissionPaymentStatus: adm.paymentStatus
+                        });
+                    }
+                });
+            }
+        });
+
+        return flatInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    }, [admissionsList, isDetailedView, filters.startDate, filters.endDate, filters.installmentStatus]);
+
+    const stats = React.useMemo(() => {
+        if (isDetailedView) {
+            const totalFees = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0), 0);
+            const totalPaid = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount) || 0), 0);
+            const totalDue = totalFees - totalPaid;
+            return { totalFees, totalPaid, totalDue };
+        } else {
+            const totalFees = admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalFees) || 0), 0);
+            const totalPaid = admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0);
+            const totalDue = admissionsList.reduce((sum, a) => sum + (parseFloat(a.remainingAmount) || 0), 0);
+            return { totalFees, totalPaid, totalDue };
+        }
+    }, [admissionsList, displayedList, isDetailedView]);
 
     const exportToExcel = () => {
-        if (admissionsList.length === 0) {
+        if (displayedList.length === 0) {
             toast.info("No data to export");
+            return;
+        }
+
+        if (isDetailedView) {
+            const dataToExport = displayedList.map(inst => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const dueDate = new Date(inst.dueDate);
+                dueDate.setHours(0, 0, 0, 0);
+                const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
+
+                return {
+                    "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
+                    "Installment #": `Installment ${inst.installmentNumber}`,
+                    "Amount Due (₹)": inst.amount,
+                    "Amount Paid (₹)": inst.paidAmount || 0,
+                    "Inst. Status": inst.status,
+                    "Due Status": dueStatus,
+                    "Student Name": inst.studentName,
+                    "Admission Code": inst.admissionNumber,
+                    "Course": inst.course,
+                    "Department": inst.department,
+                    "Centre": inst.centre,
+                    "Mobile": inst.mobile,
+                    "Email": inst.email
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Filtered Installments Report");
+
+            const columnWidths = Object.keys(dataToExport[0] || {}).map(key => ({
+                wch: Math.max(key.length, ...dataToExport.map(row => (row[key] || "").toString().length)) + 2
+            }));
+            worksheet["!cols"] = columnWidths;
+
+            const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+            const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+            saveAs(data, `Filtered_Installments_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success("Filtered report exported successfully!");
             return;
         }
 
@@ -657,54 +789,46 @@ const InstallmentPayment = () => {
                     {!selectedStudent && (
                         <div className="flex flex-col xl:flex-row gap-4">
                             {/* Financial Summary Card */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between" style={{ width: '420px', height: '140px' }}>
-                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Financial Summary</div>
-                                <div className="flex justify-between items-center gap-4">
-                                    <div className="flex-1">
-                                        <div className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Fees</div>
-                                        <div className="text-lg font-black text-white italic">₹{admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalFees) || 0), 0).toLocaleString('en-IN')}</div>
+                            <div className="bg-[#131619] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between flex-1 min-w-[540px]">
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Financial Summary</div>
+                                <div className="flex justify-between items-center gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-[8px] font-black text-gray-500 uppercase tracking-wider mb-1 truncate" title="Total Installment Fees Amount">Total Installment Fees Amount</div>
+                                        <div className="text-base xl:text-lg font-black text-white italic truncate">₹{Math.round(stats.totalFees).toLocaleString('en-IN')}</div>
                                     </div>
-                                    <div className="flex-1 border-x border-gray-800 px-4">
-                                        <div className="text-[8px] font-black text-emerald-500/70 uppercase tracking-widest mb-1">Total Paid</div>
-                                        <div className="text-lg font-black text-emerald-500 italic">₹{admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0).toLocaleString('en-IN')}</div>
+                                    <div className="flex-1 border-x border-gray-800 px-3 min-w-0">
+                                        <div className="text-[8px] font-black text-emerald-500/70 uppercase tracking-wider mb-1 truncate" title="Total Installment Amount Paid As Of Now">Total Installment Amount Paid As Of Now</div>
+                                        <div className="text-base xl:text-lg font-black text-emerald-500 italic truncate">₹{Math.round(stats.totalPaid).toLocaleString('en-IN')}</div>
                                     </div>
-                                    <div className="flex-1 text-right">
-                                        <div className="text-[8px] font-black text-red-500/70 uppercase tracking-widest mb-1">Total Due</div>
-                                        <div className="text-lg font-black text-red-500 italic">₹{admissionsList.reduce((sum, a) => sum + (parseFloat(a.remainingAmount) || 0), 0).toLocaleString('en-IN')}</div>
+                                    <div className="flex-1 text-right pl-3 min-w-0">
+                                        <div className="text-[8px] font-black text-red-500/70 uppercase tracking-wider mb-1 truncate" title="Total Installment Due As Of Now">Total Installment Due As Of Now</div>
+                                        <div className="text-base xl:text-lg font-black text-red-500 italic truncate">₹{Math.round(stats.totalDue).toLocaleString('en-IN')}</div>
                                     </div>
                                 </div>
-                                <div className="mt-2 h-1 bg-gray-800 rounded-full overflow-hidden flex">
+                                <div className="mt-3 h-1 bg-gray-800 rounded-full overflow-hidden flex">
                                     <div 
                                         className="h-full bg-emerald-500" 
                                         style={{ 
-                                            width: `${(admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0) / (admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalFees) || 0), 0) || 1)) * 100}%` 
+                                            width: `${(stats.totalPaid / (stats.totalFees || 1)) * 100}%` 
                                         }} 
                                     />
                                 </div>
                             </div>
 
                             {/* Payment Analytics Card */}
-                            <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
+                            <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4 flex-1 min-w-[420px]">
                                 <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment Analytics</div>
                                 <ResponsiveContainer width="100%" height={90}>
                                     <BarChart
                                         data={[
                                             {
-                                                name: 'Completed',
-                                                value: admissionsList.filter(a => a.paymentStatus === "COMPLETED").length,
-                                                amount: admissionsList.filter(a => a.paymentStatus === "COMPLETED").reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0),
+                                                name: 'Installment Completed',
+                                                amount: Math.round(stats.totalPaid),
                                                 color: '#10b981'
                                             },
                                             {
-                                                name: 'Partial',
-                                                value: admissionsList.filter(a => a.paymentStatus === "PARTIAL").length,
-                                                amount: admissionsList.filter(a => a.paymentStatus === "PARTIAL").reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0),
-                                                color: '#f59e0b'
-                                            },
-                                            {
-                                                name: 'Pending',
-                                                value: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).length,
-                                                amount: admissionsList.filter(a => a.paymentStatus === "PENDING" || !a.paymentStatus).reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0),
+                                                name: 'Installment Due Amount',
+                                                amount: Math.round(stats.totalDue),
                                                 color: '#ef4444'
                                             }
                                         ]}
@@ -725,29 +849,33 @@ const InstallmentPayment = () => {
                                             tick={{ fill: '#9ca3af' }}
                                             axisLine={false}
                                             tickLine={false}
+                                            tickFormatter={(val) => val >= 10000000 ? `₹${(val / 10000000).toFixed(1)}Cr` : val >= 100000 ? `₹${(val / 100000).toFixed(1)}L` : val >= 1000 ? `₹${(val / 1000).toFixed(0)}K` : `₹${val}`}
                                         />
                                         <Tooltip
-                                            contentStyle={{
-                                                backgroundColor: '#1f2937',
-                                                border: '1px solid #374151',
-                                                borderRadius: '8px',
-                                                fontSize: '11px',
-                                                fontWeight: 'bold'
-                                            }}
-                                            labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
                                             cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                                            formatter={(value, name) => {
-                                                if (name === 'value') return [value + ' Students', 'Count'];
-                                                if (name === 'amount') return ['₹' + value.toLocaleString(), 'Amount'];
-                                                return [value, name];
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div className="bg-[#1f2937] border border-gray-700 p-3 rounded-xl shadow-2xl text-white min-w-[160px] animate-fade-in pointer-events-none">
+                                                            <div className="font-black text-xs border-b border-gray-700 pb-1.5 mb-2 uppercase tracking-wider" style={{ color: data.color }}>
+                                                                {data.name}
+                                                            </div>
+                                                            <div className="text-[11px] font-bold text-gray-300 flex justify-between gap-4 py-0.5">
+                                                                <span>Total Amount:</span>
+                                                                <span className="text-white font-black">₹{data.amount?.toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
                                             }}
                                         />
-                                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
                                             {
                                                 [
-                                                    { name: 'Completed', color: '#10b981' },
-                                                    { name: 'Partial', color: '#f59e0b' },
-                                                    { name: 'Pending', color: '#ef4444' }
+                                                    { name: 'Installment Completed', color: '#10b981' },
+                                                    { name: 'Installment Due Amount', color: '#ef4444' }
                                                 ].map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                                                 ))
@@ -893,6 +1021,18 @@ const InstallmentPayment = () => {
                                     </div>
                                 </div>
                                 <div className="md:col-span-1">
+                                    <div className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em] ml-1">Installment Status</div>
+                                    <Select
+                                        isMulti
+                                        options={statusOptions}
+                                        value={statusOptions.filter(opt => filters.installmentStatus.includes(opt.value))}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, installmentStatus: selected ? selected.map(s => s.value) : [] }))}
+                                        placeholder="FILTER STATUS..."
+                                        styles={selectStyles}
+                                    />
+                                </div>
+
+                                <div className="md:col-span-1 self-end">
                                     <button
                                         onClick={resetFilters}
                                         className="w-full py-4 bg-gray-800 text-gray-400 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl hover:bg-gray-700 hover:text-white transition-all border border-gray-700 flex items-center justify-center gap-2"
@@ -937,13 +1077,13 @@ const InstallmentPayment = () => {
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-900/50 border-b border-gray-800">
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Enrollment No.</th>
+                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">{isDetailedView ? "Installment Due" : "Enrollment No."}</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Student</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Course / Dept</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Centre</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Financials</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Status</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Status</th>
+                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">{isDetailedView ? "Inst. Amount" : "Financials"}</th>
+                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">{isDetailedView ? "Inst. Status" : "Payment Status"}</th>
+                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">{isDetailedView ? "Admission Status" : "Due Status"}</th>
                                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
                                         </tr>
                                     </thead>
@@ -953,83 +1093,148 @@ const InstallmentPayment = () => {
                                                 <td colSpan="8" className="p-20 text-center">
                                                     <div className="flex justify-center flex-col items-center gap-4">
                                                         <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
-                                                        <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Students...</span>
+                                                        <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Data...</span>
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ) : admissionsList.length === 0 ? (
+                                        ) : displayedList.length === 0 ? (
                                             <tr>
-                                                <td colSpan="7" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No students found matching your criteria</td>
+                                                <td colSpan="8" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No records found matching your criteria</td>
                                             </tr>
                                         ) : (
-                                            admissionsList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((adm, idx) => (
-                                                <tr
-                                                    key={idx}
-                                                    className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
-                                                    onClick={() => handleSelectStudent(adm.studentId)}
-                                                >
-                                                    <td className="p-6">
-                                                        <span className="text-cyan-500 font-black font-mono text-sm tracking-tighter">{adm.admissionNumber}</span>
-                                                        <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{new Date(adm.admissionDate).toLocaleDateString('en-GB')}</div>
-                                                    </td>
-                                                    <td className="p-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
-                                                                {adm.studentName.charAt(0)}
+                                            displayedList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, idx) => {
+                                                if (isDetailedView) {
+                                                    return (
+                                                        <tr
+                                                            key={idx}
+                                                            className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
+                                                            onClick={() => handleSelectStudent(item.studentId)}
+                                                        >
+                                                            <td className="p-6">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-500 font-black text-xs">#{item.installmentNumber}</span>
+                                                                    <span className="text-white font-bold text-xs">{new Date(item.dueDate).toLocaleDateString('en-GB')}</span>
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{item.admissionNumber}</div>
+                                                            </td>
+                                                            <td className="p-6">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
+                                                                        {item.studentName?.charAt(0) || "S"}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-white font-black uppercase text-sm">{item.studentName}</div>
+                                                                        <div className="text-[10px] text-gray-500 mt-0.5">{item.mobile} • {item.email}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-6">
+                                                                <div className="text-gray-200 font-bold text-xs uppercase">{item.course}</div>
+                                                                <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{item.department}</div>
+                                                            </td>
+                                                            <td className="p-6">
+                                                                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-800/50 border border-gray-700/50 rounded-lg text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                                    <FaMapMarkerAlt className="text-cyan-500" />
+                                                                    {item.centre}
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-6">
+                                                                <div className="space-y-1">
+                                                                    <div className="text-[11px] flex justify-between gap-3">
+                                                                        <span className="text-gray-500 font-bold">DUE:</span>
+                                                                        <span className="text-white font-black">₹{parseFloat(item.amount || 0).toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="text-[11px] flex justify-between gap-3 border-t border-gray-800 pt-1">
+                                                                        <span className="text-emerald-500 font-bold">PAID:</span>
+                                                                        <span className="text-emerald-500 font-black">₹{parseFloat(item.paidAmount || 0).toLocaleString()}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-6">
+                                                                {getStatusBadge(item.status)}
+                                                            </td>
+                                                            <td className="p-6">
+                                                                {getStatusBadge(item.admissionPaymentStatus || "PENDING")}
+                                                            </td>
+                                                            <td className="p-6 text-right">
+                                                                <button className="h-10 w-10 rounded-xl bg-gray-800/50 group-hover:bg-cyan-500 group-hover:text-black text-cyan-500 flex items-center justify-center transition-all border border-gray-700 group-hover:border-cyan-400 shadow-lg shadow-black/20">
+                                                                    <FaChevronRight className="text-xs" />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                const adm = item;
+                                                return (
+                                                    <tr
+                                                        key={idx}
+                                                        className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
+                                                        onClick={() => handleSelectStudent(adm.studentId)}
+                                                    >
+                                                        <td className="p-6">
+                                                            <span className="text-cyan-500 font-black font-mono text-sm tracking-tighter">{adm.admissionNumber}</span>
+                                                            <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{new Date(adm.admissionDate).toLocaleDateString('en-GB')}</div>
+                                                        </td>
+                                                        <td className="p-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
+                                                                    {adm.studentName.charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-white font-black uppercase text-sm">{adm.studentName}</div>
+                                                                    <div className="text-[10px] text-gray-500 mt-0.5">{adm.mobile} • {adm.email}</div>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <div className="text-white font-black uppercase text-sm">{adm.studentName}</div>
-                                                                <div className="text-[10px] text-gray-500 mt-0.5">{adm.mobile} • {adm.email}</div>
+                                                        </td>
+                                                        <td className="p-6">
+                                                            <div className="text-gray-200 font-bold text-xs uppercase">{adm.course}</div>
+                                                            <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
+                                                        </td>
+                                                        <td className="p-6">
+                                                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-800/50 border border-gray-700/50 rounded-lg text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                                <FaMapMarkerAlt className="text-cyan-500" />
+                                                                {adm.centre}
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-6">
-                                                        <div className="text-gray-200 font-bold text-xs uppercase">{adm.course}</div>
-                                                        <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
-                                                    </td>
-                                                    <td className="p-6">
-                                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-800/50 border border-gray-700/50 rounded-lg text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                            <FaMapMarkerAlt className="text-cyan-500" />
-                                                            {adm.centre}
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-6">
-                                                        <div className="space-y-1">
-                                                            <div className="text-[10px] flex justify-between gap-4">
-                                                                <span className="text-gray-500 font-bold">TOTAL:</span>
-                                                                <span className="text-white font-black">₹{adm.totalFees.toLocaleString()}</span>
+                                                        </td>
+                                                        <td className="p-6">
+                                                            <div className="space-y-1">
+                                                                <div className="text-[10px] flex justify-between gap-4">
+                                                                    <span className="text-gray-500 font-bold">TOTAL:</span>
+                                                                    <span className="text-white font-black">₹{adm.totalFees.toLocaleString()}</span>
+                                                                </div>
+                                                                <div className="text-[10px] flex justify-between gap-4">
+                                                                    <span className="text-emerald-500 font-bold">PAID:</span>
+                                                                    <span className="text-emerald-500 font-black">₹{adm.totalPaid.toLocaleString()}</span>
+                                                                </div>
+                                                                <div className="text-[10px] flex justify-between gap-4 border-t border-gray-800 pt-1">
+                                                                    <span className="text-orange-500 font-bold">DUE:</span>
+                                                                    <span className="text-orange-500 font-black">₹{adm.remainingAmount.toLocaleString()}</span>
+                                                                </div>
                                                             </div>
-                                                            <div className="text-[10px] flex justify-between gap-4">
-                                                                <span className="text-emerald-500 font-bold">PAID:</span>
-                                                                <span className="text-emerald-500 font-black">₹{adm.totalPaid.toLocaleString()}</span>
-                                                            </div>
-                                                            <div className="text-[10px] flex justify-between gap-4 border-t border-gray-800 pt-1">
-                                                                <span className="text-orange-500 font-bold">DUE:</span>
-                                                                <span className="text-orange-500 font-black">₹{adm.remainingAmount.toLocaleString()}</span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-6">
-                                                        {getStatusBadge(adm.paymentStatus)}
-                                                    </td>
-                                                    <td className="p-6">
-                                                        {getDueStatusBadge(adm)}
-                                                    </td>
-                                                    <td className="p-6 text-right">
-                                                        <button className="h-10 w-10 rounded-xl bg-gray-800/50 group-hover:bg-cyan-500 group-hover:text-black text-cyan-500 flex items-center justify-center transition-all border border-gray-700 group-hover:border-cyan-400 shadow-lg shadow-black/20">
-                                                            <FaChevronRight className="text-xs" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))
+                                                        </td>
+                                                        <td className="p-6">
+                                                            {getStatusBadge(adm.paymentStatus)}
+                                                        </td>
+                                                        <td className="p-6">
+                                                            {getDueStatusBadge(adm)}
+                                                        </td>
+                                                        <td className="p-6 text-right">
+                                                            <button className="h-10 w-10 rounded-xl bg-gray-800/50 group-hover:bg-cyan-500 group-hover:text-black text-cyan-500 flex items-center justify-center transition-all border border-gray-700 group-hover:border-cyan-400 shadow-lg shadow-black/20">
+                                                                <FaChevronRight className="text-xs" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
                                         )}
                                     </tbody>
                                 </table>
                             </div>
-                            {!loading && admissionsList.length > 0 && (
+                            {!loading && displayedList.length > 0 && (
                                 <Pagination
                                     currentPage={currentPage}
-                                    totalItems={admissionsList.length}
+                                    totalItems={displayedList.length}
                                     itemsPerPage={itemsPerPage}
                                     onPageChange={setCurrentPage}
                                 />

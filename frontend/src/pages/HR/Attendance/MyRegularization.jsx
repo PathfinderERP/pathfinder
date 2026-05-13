@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../../components/Layout";
-import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash, FaCheckCircle } from "react-icons/fa";
+import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash, FaCheckCircle, FaSyncAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../../context/ThemeContext";
 
@@ -23,6 +23,7 @@ const MyRegularization = () => {
     const [showForm, setShowForm] = useState(false);
 
     // Camera and Location States
+    const [facingMode, setFacingMode] = useState("user");
     const [stream, setStream] = useState(null);
     const [capturedPhotos, setCapturedPhotos] = useState([]);
     const [location, setLocation] = useState({ latitude: null, longitude: null });
@@ -82,11 +83,12 @@ const MyRegularization = () => {
         }
     };
 
-    const startCamera = async () => {
+    const startCamera = async (targetModeOverride) => {
+        const mode = typeof targetModeOverride === 'string' ? targetModeOverride : facingMode;
         try {
             const constraints = {
                 video: {
-                    facingMode: { ideal: "environment" },
+                    facingMode: { ideal: mode },
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 },
@@ -101,11 +103,23 @@ const MyRegularization = () => {
             console.error("Camera access error:", err);
             if (fileInputRef.current) {
                 toast.info("Switching to native camera...");
-                fileInputRef.current.setAttribute("capture", "environment");
+                fileInputRef.current.setAttribute("capture", mode === "user" ? "user" : "environment");
                 fileInputRef.current.click();
             } else {
                 toast.error("Camera access denied or not available");
             }
+        }
+    };
+
+    const switchCamera = () => {
+        const newMode = facingMode === "user" ? "environment" : "user";
+        setFacingMode(newMode);
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            setStream(null);
+            setTimeout(() => {
+                startCamera(newMode);
+            }, 100);
         }
     };
 
@@ -377,6 +391,14 @@ const MyRegularization = () => {
                                                         className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-transform z-20"
                                                     >
                                                         <FaCamera size={24} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={switchCamera}
+                                                        title="Switch Camera"
+                                                        className="absolute top-4 left-4 bg-gray-800/80 hover:bg-gray-700 text-white p-2.5 rounded-full shadow-lg backdrop-blur-sm transition-all z-20"
+                                                    >
+                                                        <FaSyncAlt size={16} />
                                                     </button>
                                                     <button
                                                         type="button"

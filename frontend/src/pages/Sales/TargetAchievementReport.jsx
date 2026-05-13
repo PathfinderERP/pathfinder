@@ -164,7 +164,7 @@ const TargetAchievementReport = () => {
             [reportType, finYear, yearVal, currentMonth, dateRange, selectedCentreCount, generatedOn],
             [], // Empty Row 2
             // Row 3: Table Headers
-            ["Center Name", "Financial Year", "Year", "Target", "Achieved", "Achievement %", "Month"],
+            ["Center Name", "Financial Year", "Year", viewMode === "Custom" ? "Date Wise Target" : "Target (Excl. GST)", viewMode === "Custom" ? "Date Wise Achievement" : "Achieved (Excl. GST)", "Achievement %", "Month"],
             // Data Rows
             ...dataRows
         ];
@@ -467,8 +467,8 @@ const TargetAchievementReport = () => {
                                         <thead>
                                             <tr className="bg-gray-50 dark:bg-[#131619] border-b border-gray-200 dark:border-gray-700">
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">Centre Name</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Target</th>
-                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">Achieved</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">{viewMode === "Custom" ? "Date Wise Target" : "Target (Excl. GST)"}</th>
+                                                <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-right">{viewMode === "Custom" ? "Date Wise Achievement" : "Achieved (Excl. GST)"}</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Achievement %</th>
                                                 <th className="p-5 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider text-center">Status</th>
                                             </tr>
@@ -525,11 +525,11 @@ const TargetAchievementReport = () => {
 
                                                 <div className="space-y-4">
                                                     <div className="flex justify-between items-end">
-                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">Target</div>
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">{viewMode === "Custom" ? "Date Wise Target" : "Target (Excl. GST)"}</div>
                                                         <div className="text-sm font-bold text-gray-600 dark:text-gray-400">₹{item.target.toLocaleString('en-IN')}</div>
                                                     </div>
                                                     <div className="flex justify-between items-end">
-                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">Achieved</div>
+                                                        <div className="text-[10px] font-bold text-gray-400 uppercase">{viewMode === "Custom" ? "Date Wise Achievement" : "Achieved (Excl. GST)"}</div>
                                                         <div className="text-lg font-black text-gray-900 dark:text-white">₹{item.achieved.toLocaleString('en-IN')}</div>
                                                     </div>
 
