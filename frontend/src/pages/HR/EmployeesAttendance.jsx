@@ -622,7 +622,7 @@ const EmployeesAttendance = () => {
         // 2. Daily Details Sheet
         const dailyLogs = userAnalysisData.dailyData.map(d => ({
             'Date': d.fullDate,
-            'Status': d.status,
+            'Status': d.status === "Week Off" ? "DAY OFF" : d.status,
             'Check In': d.checkIn,
             'Check Out': d.checkOut,
             'Hours Worked': d.hours.toFixed(2)
@@ -707,7 +707,7 @@ const EmployeesAttendance = () => {
             'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
             'Check Out': att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--',
             'Duration': att.workingHours ? `${att.workingHours.toFixed(2)}h` : '--:--',
-            'Status': att.status || 'N/A',
+            'Status': att.status === "Week Off" ? "DAY OFF" : (att.status || 'N/A'),
             'Remarks': att.remarks || ''
         }));
 
@@ -1000,6 +1000,7 @@ const EmployeesAttendance = () => {
                         <LegendItem color="#84cc16" label="Short Leave (8.5 - 9h)" isDarkMode={isDarkMode} />
                         <LegendItem color="#10b981" label="Present (9h)" isDarkMode={isDarkMode} />
                         <LegendItem color="#6366f1" label="Overtime (>9h)" isDarkMode={isDarkMode} />
+                        <LegendItem color="#94a3b8" label="Week Off (DAY OFF)" isDarkMode={isDarkMode} />
                         <div className="ml-auto flex items-center gap-2">
                             <span className="text-[8px] font-bold text-gray-600 uppercase italic">* Rules applied as per center working hours (Default 9h target)</span>
                         </div>
@@ -1414,6 +1415,9 @@ const EmployeesAttendance = () => {
                                                             } else if (s === "Overtime" || (hours > 9.05 && att.checkOut)) {
                                                                 badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
                                                                 label = "Overtime ★";
+                                                            } else if (s === "Week Off") {
+                                                                badgeClass = "bg-gray-500/10 text-gray-500 border border-gray-500/20";
+                                                                label = "Week Off";
                                                             } else if (!att.checkOut && !isPastDate) {
                                                                 badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
                                                                 label = "Present Today";

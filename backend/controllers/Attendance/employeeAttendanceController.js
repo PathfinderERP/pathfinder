@@ -216,6 +216,67 @@ export const markAttendance = async (req, res) => {
     }
 };
 
+// Mark Week Off (Allow employees to change their week off within the current week)
+export const markWeekOff = async (req, res) => {
+    try {
+        const { date } = req.body;
+        if (!date) return res.status(400).json({ message: "Date is required" });
+
+        const userId = req.user.id;
+        const markDate = startOfDay(new Date(date));
+        const today = new Date();
+        const todayStart = startOfDay(today);
+
+        // 1. Validation: Must be today or future
+        if (markDate < todayStart) {
+            return res.status(400).json({ message: "You cannot mark week-off for past days." });
+        }
+
+        // 2. Check if a Week Off is already defined for this specific week
+        const startOfMarkWeek = startOfWeek(markDate, { weekStartsOn: 1 });
+        const endOfMarkWeek = endOfWeek(markDate, { weekStartsOn: 1 });
+
+        const existingWeekOff = await EmployeeAttendance.findOne({
+            user: userId,
+            date: { $gte: startOfMarkWeek, $lte: endOfMarkWeek },
+            status: "Week Off"
+        });
+
+        if (existingWeekOff && existingWeekOff.date.getTime() !== markDate.getTime()) {
+            return res.status(400).json({ message: `You have already marked ${format(existingWeekOff.date, 'EEEE')} as your week off for this week.` });
+        }
+
+        // 3. Get Employee
+        const employee = await Employee.findOne({ user: userId }).populate("primaryCentre");
+        if (!employee) return res.status(404).json({ message: "Employee profile not found" });
+
+        // 4. Check for existing attendance record for this specific day
+        let attendance = await EmployeeAttendance.findOne({ user: userId, date: markDate });
+
+        if (attendance) {
+            attendance.status = "Week Off";
+            attendance.checkIn = undefined;
+            attendance.checkOut = undefined;
+            attendance.workingHours = 0;
+        } else {
+            attendance = new EmployeeAttendance({
+                user: userId,
+                employeeId: employee._id,
+                centreId: employee.primaryCentre?._id || null, // Fallback if no centre
+                date: markDate,
+                status: "Week Off"
+            });
+        }
+
+        await attendance.save();
+        res.status(200).json({ message: "Day marked as Week Off successfully", attendance });
+
+    } catch (error) {
+        console.error("Mark Week Off Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
 // Get Employee's Attendance History (Full Year)
 export const getMyAttendance = async (req, res) => {
     try {

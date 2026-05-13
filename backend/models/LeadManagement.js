@@ -11,14 +11,14 @@ const leadManagementSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: true,
+        required: false,
     },
     phoneNumber: {
         type: String,
     },
     schoolName: {
         type: String,
-        required: true,
+        required: false,
     },
     className: {
         type: mongoose.Schema.Types.ObjectId,
