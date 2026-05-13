@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import {
     format, startOfYear, endOfYear, eachMonthOfInterval,
     eachDayOfInterval, startOfMonth, endOfMonth, isToday,
-    isSameDay, getDay, startOfDay, getMonth
+    isSameDay, getDay, startOfDay, getMonth, startOfWeek, endOfWeek, isWithinInterval
 } from "date-fns";
 import {
     CartesianGrid,
@@ -220,6 +220,35 @@ const EmployeeAttendance = () => {
         }
     };
 
+    const handleMarkWeekOff = async (date) => {
+        setMarking(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/mark-week-off`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ date })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                fetchAttendance();
+                setSelectedDay(null); // Close modal
+            } else {
+                toast.error(data.message || "Failed to mark week-off");
+            }
+        } catch (error) {
+            console.error("Mark week-off error:", error);
+            toast.error("Network error");
+        } finally {
+            setMarking(false);
+        }
+    };
+
     const months = eachMonthOfInterval({
         start: startOfYear(new Date(year, 0, 1)),
         end: endOfYear(new Date(year, 0, 1))
@@ -260,7 +289,8 @@ const EmployeeAttendance = () => {
 
         if (record) {
             return {
-                type: "Present",
+                type: record.status === "Week Off" ? "Off" : "Present",
+                name: record.status === "Week Off" ? "Week Off" : undefined,
                 checkIn: record.checkIn?.time ? format(new Date(record.checkIn.time), "HH:mm") : null,
                 checkOut: record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null,
                 status: record.status || "Present",
@@ -475,6 +505,41 @@ const EmployeeAttendance = () => {
                                 )}
                             </div>
                         )}
+
+                        {/* Mark as Week Off Option (Only for Current Week) */}
+                        {(() => {
+                            const today = new Date();
+                            const todayStart = startOfDay(today);
+                            
+                            // Prevent marking for past days
+                            const isPastDay = day < todayStart;
+                            
+                            // Check if a Week Off is already defined for the week of the selected 'day'
+                            const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+                            const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
+                            const hasWeekOffInThisWeek = attendanceData.some(a => {
+                                const d = new Date(a.date);
+                                return d >= weekStart && d <= weekEnd && a.status === "Week Off";
+                            });
+
+                            if (!isPastDay && status.status !== "Week Off" && !hasWeekOffInThisWeek) {
+                                return (
+                                    <div className="pt-6 mt-6 border-t border-gray-800/50">
+                                        <button
+                                            onClick={() => handleMarkWeekOff(day)}
+                                            disabled={marking}
+                                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
+                                        >
+                                            {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off</>}
+                                        </button>
+                                        <p className={`mt-2 text-[8px] font-bold text-center uppercase tracking-widest ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                                            * ALLOWED FOR CURRENT & UPCOMING WEEKS
+                                        </p>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
                     </div>
                 </div>
             </div>
@@ -523,6 +588,10 @@ const EmployeeAttendance = () => {
                                 <div className="flex items-center gap-2">
                                     <div className="w-2.5 h-2.5 bg-indigo-500 rounded-[1px]" />
                                     <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Overtime (&gt;9h) ★</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 bg-gray-400 rounded-[1px]" />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Week Off</span>
                                 </div>
                             </div>
 
@@ -769,7 +838,7 @@ const EmployeeAttendance = () => {
                                                 colorClass = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
                                                 dotColor = "bg-blue-500";
                                             } else if (status.type === "Off") {
-                                                colorClass = isDarkMode ? "bg-[#0f1113] text-gray-700 border border-gray-800/50" : "bg-gray-100/30 text-gray-300 border border-gray-100/50";
+                                                colorClass = isDarkMode ? "bg-gray-800/30 text-gray-600 border border-gray-800/50" : "bg-gray-100/50 text-gray-400 border border-gray-200/50";
                                             } else if (status.type === "NA") {
                                                 colorClass = "bg-transparent text-gray-800 dark:text-gray-200";
                                             }

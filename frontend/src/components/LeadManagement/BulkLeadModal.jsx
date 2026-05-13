@@ -91,7 +91,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         const templateData = [{
             Name: "John Doe",
             PhoneNum: "9876543210",
-            Class: "Class 10",
+            Class: "10",
             Centre: "Delhi Centre",
             Course: "JEE Main",
             Source: "Facebook",
@@ -114,7 +114,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         const templateData = [{
             Name: "John Doe",
             PhoneNum: "9876543210",
-            Class: "Class 10",
+            Class: "10",
             Centre: "Delhi Centre",
             Course: "JEE Main",
             Source: "Facebook",
@@ -424,7 +424,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${mode === "fresh"
                             ? (isDarkMode ? 'border-cyan-500 text-cyan-400' : 'border-cyan-600 text-cyan-700')
                             : (isDarkMode ? 'border-transparent text-gray-500 hover:text-gray-300' : 'border-transparent text-gray-400 hover:text-gray-700')
-                        }`}
+                            }`}
                     >
                         <FaUserPlus size={11} />
                         Fresh Leads
@@ -434,7 +434,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${mode === "contacted"
                             ? (isDarkMode ? 'border-emerald-500 text-emerald-400' : 'border-emerald-600 text-emerald-700')
                             : (isDarkMode ? 'border-transparent text-gray-500 hover:text-gray-300' : 'border-transparent text-gray-400 hover:text-gray-700')
-                        }`}
+                            }`}
                     >
                         <FaPhoneAlt size={11} />
                         Contacted Leads
@@ -447,7 +447,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     <div className={`px-4 py-3 rounded-[4px] border text-[10px] font-bold uppercase tracking-widest ${mode === "fresh"
                         ? (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-700')
                         : (isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700')
-                    }`}>
+                        }`}>
                         {mode === "fresh"
                             ? "➕ Upload new leads — these will be added as not-contacted (pending) leads"
                             : "📞 Upload contacted leads — match by Phone/Email, add feedback & remarks. Leads with Remarks = Contacted; without Remarks = Pending"
@@ -554,7 +554,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                             className={`px-10 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg flex items-center justify-center gap-3 disabled:opacity-30 ${mode === "fresh"
                                 ? (isDarkMode ? 'bg-cyan-600 text-white hover:bg-cyan-500 shadow-cyan-500/20' : 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-cyan-500/30')
                                 : (isDarkMode ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/20' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/30')
-                            }`}
+                                }`}
                         >
                             {(loading || validating) ? <FaSync className="animate-spin" /> : <><FaUpload size={14} /> Start Import</>}
                         </button>
