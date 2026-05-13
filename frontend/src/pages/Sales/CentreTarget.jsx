@@ -256,6 +256,81 @@ const CentreTarget = () => {
                     </div>
                 </div>
 
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {(() => {
+                        const filtered = targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month)));
+                        const totals = filtered.reduce((acc, t) => {
+                            const targetWithGST = t.targetAmountWithGST || (t.targetAmount * 1.18);
+                            const achievedWithGST = t.achievedAmountWithGST || t.achievedAmount || 0;
+                            const targetExclGST = t.targetAmount || 0;
+                            const achievedExclGST = t.achievedAmountExclGST || (t.achievedAmount / 1.18) || 0;
+
+                            acc.totalTargetWithGST += targetWithGST;
+                            acc.totalAchievedWithGST += achievedWithGST;
+                            acc.totalTargetExclGST += targetExclGST;
+                            acc.totalAchievedExclGST += achievedExclGST;
+                            return acc;
+                        }, { totalTargetWithGST: 0, totalAchievedWithGST: 0, totalTargetExclGST: 0, totalAchievedExclGST: 0 });
+
+                        const percentWithGST = totals.totalTargetWithGST > 0 ? (totals.totalAchievedWithGST / totals.totalTargetWithGST) * 100 : 0;
+                        const percentExclGST = totals.totalTargetExclGST > 0 ? (totals.totalAchievedExclGST / totals.totalTargetExclGST) * 100 : 0;
+
+                        const cardItems = [
+                            {
+                                label: "Total Target (With GST)",
+                                value: totals.totalTargetWithGST,
+                                color: "text-blue-500",
+                                bgColor: isDarkMode ? "bg-blue-500/10" : "bg-blue-50",
+                                iconColor: "text-blue-500"
+                            },
+                            {
+                                label: "Total Achieved (With GST)",
+                                value: totals.totalAchievedWithGST,
+                                color: "text-emerald-500",
+                                bgColor: isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50",
+                                iconColor: "text-emerald-500",
+                                percent: percentWithGST
+                            },
+                            {
+                                label: "Total Target (Excl. GST)",
+                                value: totals.totalTargetExclGST,
+                                color: "text-yellow-500",
+                                bgColor: isDarkMode ? "bg-yellow-500/10" : "bg-yellow-50",
+                                iconColor: "text-yellow-500"
+                            },
+                            {
+                                label: "Total Achieved (Excl. GST)",
+                                value: totals.totalAchievedExclGST,
+                                color: "text-purple-500",
+                                bgColor: isDarkMode ? "bg-purple-500/10" : "bg-purple-50",
+                                iconColor: "text-purple-500",
+                                percent: percentExclGST
+                            }
+                        ];
+
+                        return cardItems.map((card, i) => (
+                            <div key={i} className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-5 rounded-2xl border transition-all hover:scale-[1.02] duration-300`}>
+                                <div className="flex flex-col gap-1">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {card.label}
+                                    </span>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`text-2xl font-black ${card.color}`}>
+                                            ₹{Math.round(card.value).toLocaleString()}
+                                        </span>
+                                        {card.percent !== undefined && (
+                                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${card.percent >= 50 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                                {card.percent.toFixed(1)}%
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ));
+                    })()}
+                </div>
+
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-md'} p-4 rounded-xl border flex flex-wrap items-center justify-between gap-4`}>
                     <div className="flex items-center gap-4">
                         <h3 className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-semibold flex items-center gap-2`}>
