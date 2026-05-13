@@ -7,7 +7,8 @@ import {
     getAttendanceAnalysis,
     getAttendanceDashboardStats,
     manualMarkAttendance,
-    bulkImportAttendance
+    bulkImportAttendance,
+    markWeekOff
 } from "../../controllers/Attendance/employeeAttendanceController.js";
 
 const router = express.Router();
@@ -17,6 +18,7 @@ router.use(authMiddleware);
 
 // Employee routes
 router.post("/mark", markAttendance);
+router.post("/mark-week-off", markWeekOff);
 router.get("/my-history", getMyAttendance);
 router.get("/analysis", getAttendanceAnalysis);
 

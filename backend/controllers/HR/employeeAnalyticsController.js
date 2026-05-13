@@ -10,12 +10,13 @@ export const getEmployeeAnalytics = async (req, res) => {
         const userRole = (req.user.role || "").toLowerCase();
         const isFullAccess = ['superadmin', 'super admin', 'admin', 'hr'].includes(userRole);
         const userCentres = req.user.centres || [];
-        const { tab, department, designation, centre, status, role, search } = req.query;
+        const { tab, department, designation, centre, status, role, search, typeOfEmployment } = req.query;
         const mongoose = (await import('mongoose')).default;
 
         // Data Isolation Match Stage
         let matchStageMatch = {
             ...(status && { status: { $in: status.split(",") } }),
+            ...(typeOfEmployment && { typeOfEmployment: { $in: typeOfEmployment.split(",") } }),
             ...(department && { department: { $in: department.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
             ...(designation && { designation: { $in: designation.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
             ...(centre && { primaryCentre: { $in: centre.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
