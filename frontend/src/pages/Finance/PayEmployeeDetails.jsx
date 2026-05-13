@@ -29,6 +29,27 @@ const PayEmployeeDetails = () => {
     const [sundays, setSundays] = useState(4); // Default 4
     const [baseGrossSalary, setBaseGrossSalary] = useState(0);
     const [calculatedSalary, setCalculatedSalary] = useState(null);
+    const [leftStamp, setLeftStamp] = useState(localStorage.getItem("payslip_left_stamp") || null);
+    const [rightStamp, setRightStamp] = useState(localStorage.getItem("payslip_right_stamp") || null);
+
+    const handleStampUpload = (e, side) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result;
+                if (side === 'left') {
+                    setLeftStamp(base64String);
+                    localStorage.setItem("payslip_left_stamp", base64String);
+                } else {
+                    setRightStamp(base64String);
+                    localStorage.setItem("payslip_right_stamp", base64String);
+                }
+                toast.success(`${side === 'left' ? 'Left' : 'Right'} stamp uploaded`);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const calculateSalaryBreakdown = (grossAmount) => {
         if (!grossAmount) return {
@@ -358,6 +379,22 @@ const PayEmployeeDetails = () => {
         doc.setFont("helvetica", "italic");
         doc.text(`Amount in words: ${convertNumberToWords(structure.netSalary || 0)} Only`, 20, currentY);
 
+        // --- Stamps ---
+        if (leftStamp) {
+            try {
+                doc.addImage(leftStamp, 'PNG', 20, 235, 45, 25);
+            } catch (e) {
+                console.warn("Could not add left stamp", e);
+            }
+        }
+        if (rightStamp) {
+            try {
+                doc.addImage(rightStamp, 'PNG', 145, 235, 45, 25);
+            } catch (e) {
+                console.warn("Could not add right stamp", e);
+            }
+        }
+
         // Footer
         doc.setFont("helvetica", "normal");
         doc.text("This is a computer-generated payslip and does not require a signature.", 105, 280, { align: "center" });
@@ -557,6 +594,66 @@ const PayEmployeeDetails = () => {
                             </div>
                             <div className="text-3xl font-black text-white">
                                 ₹{salary.netSalary?.toLocaleString('en-IN') || 0}
+                            </div>
+                        </div>
+
+                        {/* Stamp Upload Section */}
+                        <div className="mt-12 pt-6 border-t border-gray-800">
+                            <h4 className="text-white font-bold text-sm mb-4 flex items-center gap-2">
+                                <span className="p-1.5 bg-purple-500/20 rounded text-purple-400">
+                                    <FaPrint size={14} />
+                                </span>
+                                Official Stamps Configuration
+                            </h4>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block">Left Stamp Image</label>
+                                    <div className="relative group h-32 bg-gray-900/50 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center overflow-hidden hover:border-purple-500/50 transition-all">
+                                        {leftStamp ? (
+                                            <>
+                                                <img src={leftStamp} alt="Left Stamp" className="max-h-full object-contain p-2" />
+                                                <button 
+                                                    onClick={() => { setLeftStamp(null); localStorage.removeItem("payslip_left_stamp"); }}
+                                                    className="absolute top-2 right-2 p-1.5 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >✕</button>
+                                            </>
+                                        ) : (
+                                            <div className="text-center p-4">
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    onChange={(e) => handleStampUpload(e, 'left')}
+                                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                                />
+                                                <p className="text-gray-500 text-[10px] font-bold uppercase">Click to Upload</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block">Right Stamp Image</label>
+                                    <div className="relative group h-32 bg-gray-900/50 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center overflow-hidden hover:border-purple-500/50 transition-all">
+                                        {rightStamp ? (
+                                            <>
+                                                <img src={rightStamp} alt="Right Stamp" className="max-h-full object-contain p-2" />
+                                                <button 
+                                                    onClick={() => { setRightStamp(null); localStorage.removeItem("payslip_right_stamp"); }}
+                                                    className="absolute top-2 right-2 p-1.5 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >✕</button>
+                                            </>
+                                        ) : (
+                                            <div className="text-center p-4">
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    onChange={(e) => handleStampUpload(e, 'right')}
+                                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                                />
+                                                <p className="text-gray-500 text-[10px] font-bold uppercase">Click to Upload</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
