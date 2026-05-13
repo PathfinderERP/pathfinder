@@ -125,6 +125,7 @@ const EmployeeAttendance = () => {
     const [year] = useState(new Date().getFullYear());
     const [location, setLocation] = useState(null);
     const [selectedDay, setSelectedDay] = useState(null);
+    const [systemNotification, setSystemNotification] = useState(null);
 
     useEffect(() => {
         fetchAttendance();
@@ -153,6 +154,10 @@ const EmployeeAttendance = () => {
                 setAssignedCentres(data.assignedCentres);
                 setDateOfJoining(data.dateOfJoining);
                 setEmployeeDetails(data.employeeDetails);
+                
+                if (data.earlyCheckoutsThisWeek >= 2) {
+                    setSystemNotification(`Careful! You have left early ${data.earlyCheckoutsThisWeek} times this week. Leaving early today will mark it as a Half Day.`);
+                }
             }
         } catch (error) {
             console.error("Fetch error:", error);
@@ -206,7 +211,12 @@ const EmployeeAttendance = () => {
 
             const data = await response.json();
             if (response.ok) {
-                toast.success(data.message);
+                if (data.warning) {
+                    toast.warning(data.warning, { autoClose: 10000 });
+                    setSystemNotification(data.warning);
+                } else {
+                    toast.success(data.message);
+                }
 
                 fetchAttendance();
             } else {
@@ -549,6 +559,18 @@ const EmployeeAttendance = () => {
     return (
         <Layout activePage="Employee Center">
             <div className={`p-4 md:p-8 max-w-[1800px] mx-auto space-y-8 transition-colors duration-300 ${isDarkMode ? '' : 'text-gray-800'}`}>
+                {/* System Notification Banner */}
+                {systemNotification && (
+                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center justify-between animate-pulse">
+                        <div className="flex items-center gap-3">
+                            <FaClock className="text-red-500" />
+                            <p className="text-xs font-black uppercase tracking-widest text-red-500 italic">{systemNotification}</p>
+                        </div>
+                        <button onClick={() => setSystemNotification(null)} className="text-red-500/50 hover:text-red-500 transition-colors">
+                            <FaTimes />
+                        </button>
+                    </div>
+                )}
 
                 {/* 1. Header & Actions */}
                 <div className={`p-8 rounded-[2rem] border transition-all duration-300 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>

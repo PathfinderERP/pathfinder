@@ -180,15 +180,56 @@ export const markAttendance = async (req, res) => {
             const targetHours = employee.workingHours || 9; // Default to 9 if not set
 
             let finalStatus = "Present";
+            let earlyCheckoutWarning = null;
 
-            if (workedHours < 4) {
-                finalStatus = "Absent";
-            } else if (workedHours < (targetHours / 2)) {
-                finalStatus = "Half Day";
-            } else if (workedHours < (targetHours - 0.5)) {
-                finalStatus = "Early Leave";
-            } else if (workedHours >= targetHours + 0.05) { // Small buffer for overtime
-                finalStatus = "Overtime";
+            // TRACK EARLY CHECKOUTS (≥ 2 hours early)
+            const isEarlyByTwoHours = (targetHours - workedHours) >= 2;
+            
+            if (isEarlyByTwoHours) {
+                // Count previous early checkouts this week
+                const startOfMarkWeek = startOfWeek(today, { weekStartsOn: 1 });
+                const endOfMarkWeek = endOfWeek(today, { weekStartsOn: 1 });
+
+                const previousEarlyCheckouts = await EmployeeAttendance.find({
+                    user: userId,
+                    date: { $gte: startOfMarkWeek, $lt: today },
+                    status: { $ne: "Week Off" }
+                });
+
+                let earlyCount = 0;
+                previousEarlyCheckouts.forEach(rec => {
+                    const recWorked = rec.workingHours || 0;
+                    if ((targetHours - recWorked) >= 2) {
+                        earlyCount++;
+                    }
+                });
+
+                if (earlyCount >= 2) {
+                    finalStatus = "Half Day";
+                    earlyCheckoutWarning = `You have left early 3 times this week (by 2+ hours), so today is marked as a Half Day.`;
+                } else {
+                    // For first two times, it's "OK" (Present) or maybe "Early Leave"?
+                    // User said "its ok", so we'll treat it as Present but maybe keep the existing Early Leave status logic if it's less than 2 hours but more than 0.5?
+                    // Let's refine the cascading logic below.
+                }
+            }
+
+            if (finalStatus === "Present") {
+                if (workedHours < 4) {
+                    finalStatus = "Absent";
+                } else if (workedHours < (targetHours / 2)) {
+                    finalStatus = "Half Day";
+                } else if (workedHours < (targetHours - 0.5)) {
+                    // If they are early by >= 2 hours but it's only 1st or 2nd time, mark as "Present" (as per "it's ok")
+                    // If they are early by < 2 hours but > 0.5 hours, it's still "Early Leave"
+                    if (isEarlyByTwoHours) {
+                        finalStatus = "Present"; 
+                    } else {
+                        finalStatus = "Early Leave";
+                    }
+                } else if (workedHours >= targetHours + 0.05) {
+                    finalStatus = "Overtime";
+                }
             }
 
             attendance.checkOut = {
@@ -201,13 +242,17 @@ export const markAttendance = async (req, res) => {
 
             attendance.workingHours = parseFloat(workedHours.toFixed(2));
             attendance.status = finalStatus;
+            
+            // Add warning to attendance object (temporary, not saved in DB unless you want to)
+            attendance._earlyCheckoutWarning = earlyCheckoutWarning;
         }
 
         await attendance.save();
         res.status(200).json({
             message: `Attendance marked from ${matchingCentre.centreName} center`,
             attendance,
-            centreName: matchingCentre.centreName
+            centreName: matchingCentre.centreName,
+            warning: attendance._earlyCheckoutWarning
         });
 
     } catch (error) {
@@ -306,6 +351,24 @@ export const getMyAttendance = async (req, res) => {
             return res.status(404).json({ message: "Employee profile not found" });
         }
 
+        // Calculate early checkouts this week for warning
+        const today = new Date();
+        const startOfMarkWeek = startOfWeek(today, { weekStartsOn: 1 });
+        const endOfMarkWeek = endOfWeek(today, { weekStartsOn: 1 });
+        const targetHours = employee.workingHours || 9;
+
+        const thisWeekRecords = attendances.filter(rec => 
+            rec.date >= startOfMarkWeek && rec.date <= today && rec.status !== "Week Off"
+        );
+
+        let earlyCheckoutsThisWeek = 0;
+        thisWeekRecords.forEach(rec => {
+            const worked = rec.workingHours || 0;
+            if (worked > 0 && (targetHours - worked) >= 2) {
+                earlyCheckoutsThisWeek++;
+            }
+        });
+
         // Collect all assigned centres for representation
         let allAssignedCentres = [];
         if (user && user.centres) {
@@ -345,17 +408,19 @@ export const getMyAttendance = async (req, res) => {
                 name: employee.name,
                 designation: employee.designation?.name || 'Employee',
                 profileImage: employee.profileImage,
-                employeeId: employee.employeeId
+                employeeId: employee.employeeId,
+                ...employee.toObject() // Include full details if needed
             },
             attendances,
             holidays,
             workingDays: normalizedWorkingDays,
-            workingHours: employee.workingHours, // Added specific working hours
+            workingHours: employee.workingHours,
             assignedCentres: {
                 primary: employee.primaryCentre,
                 others: employee.centres || [],
                 all: allAssignedCentres
-            }
+            },
+            earlyCheckoutsThisWeek
         });
     } catch (error) {
         console.error("Get My Attendance Error:", error);
