@@ -7,11 +7,13 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
     const [loading, setLoading] = useState(false);
     const [courses, setCourses] = useState([]);
     const [allDepartments, setAllDepartments] = useState([]);
+    const [examTags, setExamTags] = useState([]);
     const [targetLevel, setTargetLevel] = useState("COURSE"); // COURSE or DEPARTMENT
     const [formData, setFormData] = useState({
         centreId: "",
         courseId: "",
         departmentId: "",
+        examTag: "",
         targetType: "MONTHLY",
         year: new Date().getFullYear(),
         month: new Date().toLocaleString('default', { month: 'long' }),
@@ -24,12 +26,14 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const [coursesRes, deptsRes] = await Promise.all([
+                const [coursesRes, deptsRes, examTagsRes] = await Promise.all([
                     axios.get(`${import.meta.env.VITE_API_URL}/course`, { headers: { Authorization: `Bearer ${token}` } }),
-                    axios.get(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } })
+                    axios.get(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get(`${import.meta.env.VITE_API_URL}/examTag`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
                 setCourses(coursesRes.data || []);
                 setAllDepartments(deptsRes.data.filter(d => d.showInAdmission !== false) || []);
+                setExamTags(examTagsRes.data || []);
             } catch (e) {
                 console.error(e);
             }
@@ -148,6 +152,21 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
                             </select>
                         </div>
                     )}
+
+                    {/* Exam Tag Selection (Optional) */}
+                    <div>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Exam Tag (Optional)</label>
+                        <select
+                            value={formData.examTag}
+                            onChange={(e) => setFormData({ ...formData, examTag: e.target.value })}
+                            className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                        >
+                            <option value="">Select Exam Tag</option>
+                            {examTags.map(tag => (
+                                <option key={tag._id} value={tag._id}>{tag.tagName || tag.name}</option>
+                            ))}
+                        </select>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>

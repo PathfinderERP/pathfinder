@@ -16,6 +16,11 @@ const courseTargetSchema = new mongoose.Schema({
         ref: 'Department',
         required: true
     },
+    examTag: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ExamTag',
+        required: false
+    },
     year: {
         type: Number,
         required: true

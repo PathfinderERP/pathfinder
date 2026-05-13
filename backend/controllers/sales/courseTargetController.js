@@ -14,13 +14,13 @@ const monthNames = [
 // POST /sales/course-target
 export const saveCourseTarget = async (req, res) => {
     try {
-        const { centreId, courseId, targetType, year, month, quarter, week, targetCount, department } = req.body;
+        const { centreId, courseId, targetType, year, month, quarter, week, targetCount, department, examTag } = req.body;
 
         if (!centreId || !targetType || !year || !department || !targetCount) {
             return res.status(400).json({ message: "Missing required fields" });
         }
 
-        const filter = { centre: centreId, course: courseId || null, targetType, year };
+        const filter = { centre: centreId, course: courseId || null, targetType, year, examTag: examTag || null };
         if (targetType === 'MONTHLY') filter.month = month;
         if (targetType === 'QUARTERLY') filter.quarter = quarter;
         if (targetType === 'WEEKLY') filter.week = week;
