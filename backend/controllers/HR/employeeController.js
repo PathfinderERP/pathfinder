@@ -137,8 +137,11 @@ export const createEmployee = async (req, res) => {
             user = new User({
                 name: employeeData.name,
                 email: employeeData.email,
-                teacherType: employeeData.teacherType || null,
-                designation: employeeData.designationName || null,
+                teacherType: employeeData.typeOfEmployment || employeeData.teacherType || null,
+                designation: employeeData.designationName || employeeData.designation || null,
+                subject: employeeData.subject || null,
+                boardType: employeeData.boardType || null,
+                teacherDepartment: employeeData.teacherDepartment || (employeeData.departmentName ? [employeeData.departmentName] : []),
                 isDeptHod: employeeData.isDeptHod === 'true' || employeeData.isDeptHod === true,
                 isBoardHod: employeeData.isBoardHod === 'true' || employeeData.isBoardHod === true,
                 isSubjectHod: employeeData.isSubjectHod === 'true' || employeeData.isSubjectHod === true,
@@ -207,6 +210,7 @@ export const getEmployees = async (req, res) => {
             centre,
             status,
             role,
+            typeOfEmployment,
             page = 1,
             limit = 10
         } = req.query;
@@ -241,6 +245,11 @@ export const getEmployees = async (req, res) => {
         if (status) {
             const statusValues = status.split(',').filter(Boolean);
             query.status = { $in: statusValues };
+        }
+
+        if (typeOfEmployment) {
+            const types = typeOfEmployment.split(',').filter(Boolean);
+            query.typeOfEmployment = { $in: types };
         }
 
         if (role) {
@@ -489,6 +498,11 @@ export const updateEmployee = async (req, res) => {
         if (updateData.email) userSyncData.email = updateData.email;
         if (updateData.name) userSyncData.name = updateData.name;
         if (updateData.phoneNumber) userSyncData.mobNum = updateData.phoneNumber;
+        if (updateData.typeOfEmployment) userSyncData.teacherType = updateData.typeOfEmployment;
+        if (updateData.subject) userSyncData.subject = updateData.subject;
+        if (updateData.boardType) userSyncData.boardType = updateData.boardType;
+        if (updateData.teacherDepartment) userSyncData.teacherDepartment = updateData.teacherDepartment;
+        if (updateData.designationName) userSyncData.designation = updateData.designationName;
 
         try {
             await User.findByIdAndUpdate(employee.user, userSyncData);

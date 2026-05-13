@@ -44,7 +44,8 @@ const EmployeeList = () => {
         designation: [],
         centre: [],
         status: [{ value: "Active", label: "ACTIVE" }],
-        role: []
+        role: [],
+        typeOfEmployment: []
     });
     const [pagination, setPagination] = useState({
         currentPage: 1,
@@ -98,7 +99,8 @@ const EmployeeList = () => {
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
                 ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
-                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") })
+                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") }),
+                ...(filters.typeOfEmployment?.length > 0 && { typeOfEmployment: filters.typeOfEmployment.map(t => t.value).join(",") })
             });
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee/analytics?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -148,6 +150,7 @@ const EmployeeList = () => {
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
                 ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
                 ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") }),
+                ...(filters.typeOfEmployment?.length > 0 && { typeOfEmployment: filters.typeOfEmployment.map(t => t.value).join(",") }),
                 tab: activeTab
             });
 
@@ -201,7 +204,8 @@ const EmployeeList = () => {
             designation: [],
             centre: [],
             status: [{ value: "Active", label: "ACTIVE" }],
-            role: []
+            role: [],
+            typeOfEmployment: []
         });
         setPagination(prev => ({ ...prev, currentPage: 1 }));
         toast.info("Filters cleared");
@@ -293,7 +297,8 @@ const EmployeeList = () => {
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
                 ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
-                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") })
+                ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") }),
+                ...(filters.typeOfEmployment?.length > 0 && { typeOfEmployment: filters.typeOfEmployment.map(t => t.value).join(",") })
             });
 
             const response = await fetch(
@@ -986,7 +991,7 @@ const EmployeeList = () => {
                             </span>
                             <h3 className={`text-[12px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Organizational Filters</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
                             <div className="space-y-2">
                                 <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Search</label>
                                 <div className="relative group">
@@ -1054,6 +1059,21 @@ const EmployeeList = () => {
 
 
 
+
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Employment Type</label>
+                                <CustomMultiSelect
+                                    placeholder="ALL TYPES"
+                                    options={[
+                                        { value: "Full-time", label: "FULL-TIME" },
+                                        { value: "Part-time", label: "PART-TIME" },
+                                        { value: "Contract", label: "CONTRACT" },
+                                        { value: "Intern", label: "INTERN" }
+                                    ]}
+                                    value={filters.typeOfEmployment}
+                                    onChange={(val) => handleFilterChange("typeOfEmployment", val)}
+                                />
+                            </div>
 
                             <div className="flex items-end">
                                 <button
