@@ -2504,28 +2504,29 @@ const Classes = () => {
                                     {/* Instructor */}
                                     <div className="flex flex-col gap-2">
                                         <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Instructor</label>
-                                        <select
-                                            required
-                                            value={editingClassData.teacherId}
-                                            onChange={(e) => setEditingClassData({ ...editingClassData, teacherId: e.target.value })}
-                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all shadow-lg ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                        >
-                                            <option value="">Select Teacher</option>
-                                            {dropdownData.teachers?.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                                        </select>
+                                        <Select
+                                            options={dropdownData.teachers?.map(t => ({ value: t._id, label: t.name }))}
+                                            value={dropdownData.teachers?.filter(t => t._id === editingClassData.teacherId).map(t => ({ value: t._id, label: t.name }))[0] || null}
+                                            onChange={(selected) => setEditingClassData({ ...editingClassData, teacherId: selected ? selected.value : "" })}
+                                            placeholder="Select Teacher"
+                                            styles={customSelectStyles}
+                                            className="text-sm"
+                                            isSearchable={true}
+                                        />
                                     </div>
 
                                     {/* Coordinator */}
                                     <div className="flex flex-col gap-2">
                                         <label className="text-xs font-bold text-gray-400 uppercase">Coordinator</label>
-                                        <select
-                                            value={editingClassData.coordinatorId}
-                                            onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
-                                            className="bg-[#131619] text-white p-3 rounded-lg border border-gray-700 focus:border-yellow-500 outline-none transition-all transition-all shadow-lg"
-                                        >
-                                            <option value="">Select Coordinator</option>
-                                            {dropdownData.coordinators?.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                        </select>
+                                        <Select
+                                            options={dropdownData.coordinators?.map(c => ({ value: c._id, label: c.name }))}
+                                            value={dropdownData.coordinators?.filter(c => c._id === editingClassData.coordinatorId).map(c => ({ value: c._id, label: c.name }))[0] || null}
+                                            onChange={(selected) => setEditingClassData({ ...editingClassData, coordinatorId: selected ? selected.value : "" })}
+                                            placeholder="Select Coordinator"
+                                            styles={customSelectStyles}
+                                            className="text-sm"
+                                            isSearchable={true}
+                                        />
                                     </div>
 
 
@@ -2533,34 +2534,34 @@ const Classes = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Session</label>
-                                            <select
-                                                required
-                                                value={editingClassData.session}
-                                                onChange={(e) => setEditingClassData({ ...editingClassData, session: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            >
-                                                <option value="">Select Session</option>
-                                                {dropdownData.sessions?.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)}
-                                            </select>
+                                            <Select
+                                                options={dropdownData.sessions?.map(s => ({ value: s.sessionName, label: s.sessionName }))}
+                                                value={dropdownData.sessions?.filter(s => s.sessionName === editingClassData.session).map(s => ({ value: s.sessionName, label: s.sessionName }))[0] || null}
+                                                onChange={(selected) => setEditingClassData({ ...editingClassData, session: selected ? selected.value : "" })}
+                                                placeholder="Select Session"
+                                                styles={customSelectStyles}
+                                                className="text-sm"
+                                                isSearchable={true}
+                                            />
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Class <span className="text-red-500">*</span></label>
-                                            <select
-                                                required
-                                                value={(editingClassData.acadClassId || "").toString()}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
+                                            <Select
+                                                options={dropdownData.academicClasses?.map(c => ({ value: c._id.toString(), label: c.className || c.name }))}
+                                                value={dropdownData.academicClasses?.filter(c => c._id.toString() === (editingClassData.acadClassId || "").toString()).map(c => ({ value: c._id.toString(), label: c.className || c.name }))[0] || null}
+                                                onChange={(selected) => {
+                                                    const val = selected ? selected.value : "";
                                                     setEditingClassData({ ...editingClassData, acadClassId: val, acadSubjectId: "", chapterId: "", topicIds: [] });
                                                     setEditAcadSubjects([]);
                                                     setEditAcadChapters([]);
                                                     setEditAcadTopics([]);
                                                     if (val) fetchEditAcadSubjects(val);
                                                 }}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            >
-                                                <option value="">Select Class</option>
-                                                {dropdownData.academicClasses?.map(c => <option key={c._id.toString()} value={c._id.toString()}>{c.className || c.name}</option>)}
-                                            </select>
+                                                placeholder="Select Class"
+                                                styles={customSelectStyles}
+                                                className="text-sm"
+                                                isSearchable={true}
+                                            />
                                         </div>
                                     </div>
 
@@ -2581,36 +2582,37 @@ const Classes = () => {
                                     {/* Subject */}
                                     <div className="flex flex-col gap-2">
                                         <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject</label>
-                                        <select
-                                            required
-                                            value={(editingClassData.subjectId || "").toString()}
-                                            onChange={(e) => setEditingClassData({ ...editingClassData, subjectId: e.target.value })}
-                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                        >
-                                            <option value="">Select Subject</option>
-                                            {dropdownData.subjects?.map(s => <option key={s._id.toString()} value={s._id.toString()}>{s.subName || s.name}</option>)}
-                                        </select>
+                                        <Select
+                                            options={dropdownData.subjects?.map(s => ({ value: s._id.toString(), label: s.subName || s.name }))}
+                                            value={dropdownData.subjects?.filter(s => s._id.toString() === (editingClassData.subjectId || "").toString()).map(s => ({ value: s._id.toString(), label: s.subName || s.name }))[0] || null}
+                                            onChange={(selected) => setEditingClassData({ ...editingClassData, subjectId: selected ? selected.value : "" })}
+                                            placeholder="Select Subject"
+                                            styles={customSelectStyles}
+                                            className="text-sm"
+                                            isSearchable={true}
+                                        />
                                     </div>
 
                                     {/* Academic Subject, Chapter & Topic (cascading from Academic Class) */}
                                     <div className="grid grid-cols-2 gap-4 md:col-span-2">
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Subject <span className="text-red-500">*</span></label>
-                                            <select
-                                                value={(editingClassData.acadSubjectId || "").toString()}
-                                                disabled={!editingClassData.acadClassId}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
+                                            <Select
+                                                options={editAcadSubjects.map(s => ({ value: s._id.toString(), label: s.subjectName || s.masterSubjectId?.subName || s.name }))}
+                                                value={editAcadSubjects.filter(s => s._id.toString() === (editingClassData.acadSubjectId || "").toString()).map(s => ({ value: s._id.toString(), label: s.subjectName || s.masterSubjectId?.subName || s.name }))[0] || null}
+                                                isDisabled={!editingClassData.acadClassId}
+                                                onChange={(selected) => {
+                                                    const val = selected ? selected.value : "";
                                                     setEditingClassData({ ...editingClassData, acadSubjectId: val, chapterId: "", topicIds: [] });
                                                     setEditAcadChapters([]);
                                                     setEditAcadTopics([]);
                                                     if (val) fetchEditAcadChapters(val);
                                                 }}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all disabled:opacity-50 ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
-                                            >
-                                                <option value="">Select Subject</option>
-                                                {editAcadSubjects.map(s => <option key={s._id.toString()} value={s._id.toString()}>{s.subjectName || s.masterSubjectId?.subName || s.name}</option>)}
-                                            </select>
+                                                placeholder="Select Subject"
+                                                styles={customSelectStyles}
+                                                className="text-sm"
+                                                isSearchable={true}
+                                            />
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter <span className="text-red-500">*</span></label>
