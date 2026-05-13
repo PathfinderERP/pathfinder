@@ -404,10 +404,24 @@ const DailyCollection = () => {
                             className={`w-full rounded-[4px] p-3 ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
                         />
                     </div>
-                    <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm`}>
-                        <div className={`${secondaryTextClass} font-semibold mb-3`}>Total Collected</div>
-                        <div className={`text-3xl font-bold ${cardTextClass}`}>{formatAmount(totalCollection)}</div>
-                        <div className={`${secondaryTextClass} mt-2`}>{transactionCount} transactions</div>
+                    <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm flex flex-col justify-between`}>
+                        <div>
+                            <div className={`${secondaryTextClass} font-semibold mb-2`}>Total Collected</div>
+                            <div className="flex flex-col gap-1.5 mt-1">
+                                <div className="flex items-baseline justify-between">
+                                    <span className={`text-2xl font-bold ${cardTextClass}`}>{formatAmount(totalCollection)}</span>
+                                    <span className="text-[9px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">With GST</span>
+                                </div>
+                                <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
+                                    <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(totalCollection / 1.18)}</span>
+                                    <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Without GST</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
+                            <span>Transactions Count</span>
+                            <span className="font-bold text-gray-700 dark:text-gray-300">{transactionCount}</span>
+                        </div>
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm`}>
                         <div className={`${secondaryTextClass} font-semibold mb-3`}>Payment Methods</div>
@@ -746,7 +760,8 @@ const DailyCollection = () => {
                                         {paymentMethodsList.map(method => (
                                             <th key={method} className="px-4 py-3 text-right">{method}</th>
                                         ))}
-                                        <th className="px-4 py-3 text-right font-bold text-blue-400">Total</th>
+                                        <th className="px-4 py-3 text-right font-bold text-blue-400">Total (With GST)</th>
+                                        <th className="px-4 py-3 text-right font-bold text-amber-500">Total (Without GST)</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
@@ -765,6 +780,7 @@ const DailyCollection = () => {
                                                 </td>
                                             ))}
                                             <td className={`px-4 py-4 text-right font-black text-green-500`}>{formatAmount(data.total)}</td>
+                                            <td className={`px-4 py-4 text-right font-bold text-amber-500`}>{formatAmount(data.total / 1.18)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
