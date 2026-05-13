@@ -90,17 +90,15 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const downloadFreshTemplate = () => {
         const templateData = [{
             Name: "John Doe",
-            Email: "john@example.com",
-            PhoneNumber: "9876543210",
-            SchoolName: "Public School",
+            PhoneNum: "9876543210",
             Class: "Class 10",
             Centre: "Delhi Centre",
             Course: "JEE Main",
-            Board: "CBSE",
             Source: "Facebook",
-            TargetExam: "JEE",
             LeadType: "HOT LEAD",
-            LeadResponsibility: "Telecaller Name"
+            LeadResponse: "Telecaller Name",
+            Feedback: "",
+            Remarks: ""
         }];
         const ws = XLSX.utils.json_to_sheet(templateData);
         const wb = XLSX.utils.book_new();
@@ -115,17 +113,13 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         const feedbackList = feedbackOptions.length > 0 ? feedbackOptions.join(", ") : "Interested, Not Interested, Call back later, Busy";
         const templateData = [{
             Name: "John Doe",
-            Email: "john@example.com",
-            PhoneNumber: "9876543210",
-            SchoolName: "Public School",
+            PhoneNum: "9876543210",
             Class: "Class 10",
             Centre: "Delhi Centre",
             Course: "JEE Main",
-            Board: "CBSE",
             Source: "Facebook",
-            TargetExam: "JEE",
             LeadType: "HOT LEAD",
-            LeadResponsibility: "Telecaller Name",
+            LeadResponse: "Telecaller Name",
             Feedback: feedbackOptions[0] || "Interested",
             Remarks: "Student is interested, will visit next week"
         }];
@@ -167,17 +161,17 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     const row = jsonData[i];
                     const rowNum = i + 2;
 
-                    if (!row.Name || !row.Email || !row.SchoolName) {
-                        errors.push(`Row ${rowNum}: Missing Required Data (Name, Email, SchoolName required)`);
+                    if (!row.Name) {
+                        errors.push(`Row ${rowNum}: Missing Required Data (Name required)`);
                         continue;
                     }
 
-                    if (row.LeadResponsibility) {
+                    if (row.LeadResponse) {
                         const telecallerExists = telecallers.some(
-                            t => t.name.toLowerCase().trim() === row.LeadResponsibility.toString().toLowerCase().trim()
+                            t => t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
                         );
                         if (!telecallerExists) {
-                            errors.push(`Row ${rowNum}: Agent '${row.LeadResponsibility}' not found`);
+                            errors.push(`Row ${rowNum}: Agent '${row.LeadResponse}' not found`);
                             continue;
                         }
                     }
@@ -201,25 +195,17 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         if (crs) courseId = crs._id;
                     }
 
-                    let boardId = null;
-                    if (row.Board) {
-                        const brd = boards.find(b => b.boardCourse.toLowerCase() === row.Board.toLowerCase());
-                        if (brd) boardId = brd._id;
-                    }
+
 
                     validLeads.push({
                         name: row.Name,
-                        email: row.Email,
-                        phoneNumber: row.PhoneNumber,
-                        schoolName: row.SchoolName,
+                        phoneNumber: row.PhoneNum,
                         className: classId,
                         centre: centreId,
                         course: courseId,
-                        board: boardId,
                         source: row.Source,
-                        targetExam: row.TargetExam,
                         leadType: row.LeadType ? row.LeadType.toUpperCase() : "COLD LEAD",
-                        leadResponsibility: row.LeadResponsibility
+                        leadResponsibility: row.LeadResponse
                     });
                 }
 
@@ -304,17 +290,17 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     const firstVal = String(Object.values(row)[0] || '');
                     if (firstVal.startsWith('---')) continue;
 
-                    if (!row.Name || !row.Email || !row.SchoolName) {
-                        errors.push(`Row ${rowNum}: Missing Required Data (Name, Email, SchoolName required)`);
+                    if (!row.Name) {
+                        errors.push(`Row ${rowNum}: Missing Required Data (Name required)`);
                         continue;
                     }
 
-                    if (row.LeadResponsibility) {
+                    if (row.LeadResponse) {
                         const telecallerExists = telecallers.some(
-                            t => t.name.toLowerCase().trim() === row.LeadResponsibility.toString().toLowerCase().trim()
+                            t => t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
                         );
                         if (!telecallerExists) {
-                            errors.push(`Row ${rowNum}: Agent '${row.LeadResponsibility}' not found`);
+                            errors.push(`Row ${rowNum}: Agent '${row.LeadResponse}' not found`);
                             continue;
                         }
                     }
@@ -338,11 +324,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         if (crs) courseId = crs._id;
                     }
 
-                    let boardId = null;
-                    if (row.Board) {
-                        const brd = boards.find(b => b.boardCourse.toLowerCase() === row.Board.toLowerCase());
-                        if (brd) boardId = brd._id;
-                    }
+
 
                     if (row.Feedback) {
                         if (!validFeedbacks.includes(row.Feedback.toString().toLowerCase().trim())) {
@@ -353,17 +335,13 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     validRows.push({
                         name: row.Name,
-                        email: row.Email,
-                        phoneNumber: row.PhoneNumber ? row.PhoneNumber.toString().trim() : undefined,
-                        schoolName: row.SchoolName,
+                        phoneNumber: row.PhoneNum ? row.PhoneNum.toString().trim() : undefined,
                         className: classId,
                         centre: centreId,
                         course: courseId,
-                        board: boardId,
                         source: row.Source,
-                        targetExam: row.TargetExam,
                         leadType: row.LeadType ? row.LeadType.toString().toUpperCase() : "COLD LEAD",
-                        leadResponsibility: row.LeadResponsibility,
+                        leadResponsibility: row.LeadResponse,
                         feedback: row.Feedback ? row.Feedback.toString().trim() : '',
                         remarks: row.Remarks ? row.Remarks.toString().trim() : ''
                     });

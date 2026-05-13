@@ -16,7 +16,7 @@ export const createLead = async (req, res) => {
             leadResponsibility
         } = req.body;
 
-        if (!name || !email || !schoolName) {
+        if (!name) {
             return res.status(400).json({ message: "Required fields are missing." });
         }
 
