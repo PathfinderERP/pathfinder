@@ -8,7 +8,7 @@ export const getAdmissionById = async (req, res) => {
         // Try Normal Admission collection
         let admission = await Admission.findById(id)
             .populate('student')
-            .populate('course')
+            // .populate('course') // Handled manually below
             .populate({
                 path: 'board',
                 populate: {
@@ -21,7 +21,20 @@ export const getAdmissionById = async (req, res) => {
             .populate('createdBy', 'name');
 
         if (admission) {
-            return res.status(200).json(admission);
+            // Manual Course Population
+            const Course = (await import("../../models/Master_data/Courses.js")).default;
+            const admissionObj = admission.toObject();
+            
+            if (admissionObj.course) {
+                const courseRecord = await Course.findById(admissionObj.course).lean();
+                if (courseRecord) {
+                    admissionObj.course = courseRecord;
+                } else {
+                    // Keep the ID as a string if course not found
+                    admissionObj.course = admissionObj.course.toString();
+                }
+            }
+            return res.status(200).json(admissionObj);
         }
 
         // Try Board Course Admission collection (Structured)
