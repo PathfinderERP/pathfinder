@@ -144,8 +144,8 @@ export const getFollowUpStats = async (req, res) => {
                                 _id: null,
                                 totalFollowUps: { $sum: 1 },
                                 hotLeads: { $sum: { $cond: [{ $in: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, ["HOT LEAD", "ADMISSION TAKEN"]] }, 1, 0] } },
+                                warmLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "WARM LEAD"] }, 1, 0] } },
                                 coldLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] }, 1, 0] } },
-                                negativeLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "NEGATIVE"] }, 1, 0] } },
                                 recentActivity: {
                                     $push: {
                                         leadName: "$name",
@@ -184,8 +184,8 @@ export const getFollowUpStats = async (req, res) => {
                                 _id: null,
                                 totalLeads: { $sum: 1 },
                                 hot: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
-                                cold: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
-                                negative: { $sum: { $cond: [{ $eq: ["$leadType", "NEGATIVE"] }, 1, 0] } }
+                                warm: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
+                                cold: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } }
                             }
                         }
                     ]
@@ -209,8 +209,8 @@ export const getFollowUpStats = async (req, res) => {
         res.status(200).json({
             totalFollowUps: aS.totalFollowUps || 0,
             hotLeads: aS.hotLeads || 0,
+            warmLeads: aS.warmLeads || 0,
             coldLeads: aS.coldLeads || 0,
-            negativeLeads: aS.negativeLeads || 0,
             recentActivity,
             totalScheduled: sS.totalScheduled || 0,
             scheduledList,

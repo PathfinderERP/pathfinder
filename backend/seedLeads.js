@@ -131,7 +131,7 @@ const seedLeads = async () => {
                 course: courses[1]?._id || courses[0]?._id,
                 source: sources.find(s => s.sourceName === "YouTube")?.sourceName || "YouTube",
                 targetExam: "NEET",
-                leadType: "NEGATIVE",
+                leadType: "COLD LEAD",
                 leadResponsibility: "Jane Smith"
             },
             {
@@ -196,7 +196,7 @@ const seedLeads = async () => {
                 course: courses[0]?._id,
                 source: sources.find(s => s.sourceName === "Banner/Hoarding")?.sourceName || "Banner/Hoarding",
                 targetExam: "JEE",
-                leadType: "NEGATIVE",
+                leadType: "COLD LEAD",
                 leadResponsibility: "John Doe"
             },
             {
@@ -231,14 +231,11 @@ const seedLeads = async () => {
         const createdLeads = await LeadManagement.insertMany(leadsData);
         console.log(`✅ Successfully seeded ${createdLeads.length} leads`);
 
-        console.log("\nSeeded Leads Summary:");
         const hotLeads = createdLeads.filter(l => l.leadType === "HOT LEAD").length;
         const coldLeads = createdLeads.filter(l => l.leadType === "COLD LEAD").length;
-        const negativeLeads = createdLeads.filter(l => l.leadType === "NEGATIVE").length;
 
         console.log(`🔴 HOT LEADS: ${hotLeads}`);
         console.log(`🔵 COLD LEADS: ${coldLeads}`);
-        console.log(`⚫ NEGATIVE: ${negativeLeads}`);
 
         process.exit(0);
     } catch (error) {

@@ -41,8 +41,8 @@ const LeadManagementContent = () => {
     const [followUpStats, setFollowUpStats] = useState({
         totalFollowUps: 0,
         hotLeads: 0,
+        warmLeads: 0,
         coldLeads: 0,
-        negativeLeads: 0,
         totalScheduled: 0,
         recentActivity: [],
         scheduledList: []
@@ -443,7 +443,7 @@ const LeadManagementContent = () => {
             const pageLeadIds = leads.map(lead => lead._id);
             // Add current page IDs to selection
             setSelectedLeads(prev => [...new Set([...prev, ...pageLeadIds])]);
-            
+
             // If there are more leads than what's on the page, select all matching filters
             if (totalLeads > leads.length) {
                 setIsAllFilteredSelected(true);
@@ -467,7 +467,7 @@ const LeadManagementContent = () => {
     const handleMultipleDelete = async () => {
         const totalMatching = totalLeads;
         const visibleCount = selectedLeads.filter(id => leads.some(l => l._id === id)).length;
-        
+
         let confirmMsg = "";
         let endpoint = "bulk-delete";
         let body = {};
@@ -489,7 +489,7 @@ const LeadManagementContent = () => {
         if (!window.confirm(confirmMsg)) {
             return;
         }
-        
+
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/${endpoint}`, {
@@ -609,10 +609,10 @@ const LeadManagementContent = () => {
         switch (type) {
             case "HOT LEAD":
                 return "bg-red-500/20 text-red-400 border-red-500";
+            case "WARM LEAD":
+                return "bg-orange-500/20 text-orange-400 border-orange-500";
             case "COLD LEAD":
                 return "bg-blue-500/20 text-blue-400 border-blue-500";
-            case "NEGATIVE":
-                return "bg-gray-500/20 text-gray-400 border-gray-500";
             default:
                 return "bg-gray-500/20 text-gray-400 border-gray-500";
         }
@@ -629,17 +629,17 @@ const LeadManagementContent = () => {
                 break;
             case 'hot':
                 title = "Hot Interest Leads";
-                filteredData = followUpStats.recentActivity.filter(a => 
+                filteredData = followUpStats.recentActivity.filter(a =>
                     ['HOT LEAD', 'ADMISSION TAKEN'].includes(a.status?.toUpperCase())
                 );
+                break;
+            case 'warm':
+                title = "Warm Interest Leads";
+                filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'WARM LEAD');
                 break;
             case 'cold':
                 title = "Cold Lead Discussions";
                 filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'COLD LEAD');
-                break;
-            case 'negative':
-                title = "Negative Results History";
-                filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'NEGATIVE');
                 break;
             case 'scheduled':
                 title = `Scheduled Follow-ups (${dashboardFilters.scheduledDate})`;
@@ -940,6 +940,28 @@ const LeadManagementContent = () => {
                                     </div>
                                 </div>
 
+                                {/* Warm Leads Card */}
+                                <div
+                                    onClick={() => handleCardClick('warm')}
+                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-orange-500/10 hover:border-orange-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                Warm Interests
+                                            </p>
+                                            <h3 className="text-3xl font-black italic tracking-tighter text-orange-500">{followUpStats.warmLeads}</h3>
+                                            <p className="text-[9px] font-bold text-orange-500/80 mt-1 uppercase tracking-widest">Growing Interest</p>
+                                        </div>
+                                        <div className="p-3 bg-orange-500/10 text-orange-500 rounded-[2px]">
+                                            <FaStar size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-orange-500">
+                                        <FaStar size={100} />
+                                    </div>
+                                </div>
+
                                 {/* Cold Leads Card */}
                                 <div
                                     onClick={() => handleCardClick('cold')}
@@ -962,27 +984,7 @@ const LeadManagementContent = () => {
                                     </div>
                                 </div>
 
-                                {/* Negative Results Card */}
-                                <div
-                                    onClick={() => handleCardClick('negative')}
-                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Filtered Negative" : "Negative Results"}
-                                            </p>
-                                            <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.negativeLeads}</h3>
-                                            <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">No Interest Shown</p>
-                                        </div>
-                                        <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
-                                            <FaTrash size={20} />
-                                        </div>
-                                    </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                        <FaTrash size={100} />
-                                    </div>
-                                </div>
+
                             </>
                         )}
                     </div>
@@ -1127,8 +1129,8 @@ const LeadManagementContent = () => {
                             <CustomMultiSelect
                                 options={[
                                     { value: "HOT LEAD", label: "HOT LEAD" },
-                                    { value: "COLD LEAD", label: "COLD LEAD" },
-                                    { value: "NEGATIVE", label: "NEGATIVE" }
+                                    { value: "WARM LEAD", label: "WARM  LEAD" },
+                                    { value: "COLD LEAD", label: "COLD LEAD" }
                                 ]}
                                 value={filters.leadType}
                                 onChange={(selected) => handleFilterChange('leadType', selected)}
@@ -1303,8 +1305,8 @@ const LeadManagementContent = () => {
                                 <tr>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                         <div className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 checked={isAllFilteredSelected || (leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)))}
                                                 onChange={handleSelectAll}
                                                 className="cursor-pointer"
@@ -1348,30 +1350,30 @@ const LeadManagementContent = () => {
                                         </td>
                                     </tr>
                                 ) : <>
-                                        {/* Bulk Selection Banner */}
-                                        {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
-                                            <tr>
-                                                <td colSpan="14" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
-                                                    {isAllFilteredSelected ? (
-                                                        <div className="flex items-center justify-center gap-4">
-                                                            <span>All {totalLeads} leads matching these filters are selected.</span>
-                                                            <button onClick={clearSelection} className="underline hover:no-underline">Clear selection</button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center justify-center gap-4">
-                                                            <span>All {leads.length} leads on this page are selected.</span>
-                                                            <button onClick={handleSelectAllFiltered} className="underline hover:no-underline text-cyan-500">Select all {totalLeads} leads matching filters</button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {leads.map((lead, index) => (
+                                    {/* Bulk Selection Banner */}
+                                    {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
+                                        <tr>
+                                            <td colSpan="14" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                                {isAllFilteredSelected ? (
+                                                    <div className="flex items-center justify-center gap-4">
+                                                        <span>All {totalLeads} leads matching these filters are selected.</span>
+                                                        <button onClick={clearSelection} className="underline hover:no-underline">Clear selection</button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center justify-center gap-4">
+                                                        <span>All {leads.length} leads on this page are selected.</span>
+                                                        <button onClick={handleSelectAllFiltered} className="underline hover:no-underline text-cyan-500">Select all {totalLeads} leads matching filters</button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {leads.map((lead, index) => (
                                         <tr key={lead._id} onClick={() => handleRowClick(lead)} className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
                                             <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         checked={selectedLeads.includes(lead._id)}
                                                         onChange={(e) => handleSelectLead(e, lead._id)}
                                                         className="cursor-pointer"
@@ -1474,8 +1476,8 @@ const LeadManagementContent = () => {
                                         </tr>
                                     ))}
                                 </>
-                            }
-                        </tbody>
+                                }
+                            </tbody>
                         </table>
                     </div>
                 </div>

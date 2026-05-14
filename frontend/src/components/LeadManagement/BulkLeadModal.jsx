@@ -95,7 +95,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             Centre: "Delhi Centre",
             Course: "JEE Main",
             Source: "Facebook",
-            LeadType: "HOT LEAD",
+            LeadType: "WARM LEAD",
             LeadResponse: "Telecaller Name",
             Feedback: "",
             Remarks: ""
@@ -118,7 +118,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             Centre: "Delhi Centre",
             Course: "JEE Main",
             Source: "Facebook",
-            LeadType: "HOT LEAD",
+            LeadType: "WARM LEAD",
             LeadResponse: "Telecaller Name",
             Feedback: feedbackOptions[0] || "Interested",
             Remarks: "Student is interested, will visit next week"
@@ -204,7 +204,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         centre: centreId,
                         course: courseId,
                         source: row.Source,
-                        leadType: row.LeadType ? row.LeadType.toUpperCase() : "COLD LEAD",
+                        leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD'].includes(row.LeadType?.toUpperCase()) ? row.LeadType.toUpperCase() : "COLD LEAD",
                         leadResponsibility: row.LeadResponse
                     });
                 }
@@ -340,7 +340,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         centre: centreId,
                         course: courseId,
                         source: row.Source,
-                        leadType: row.LeadType ? row.LeadType.toString().toUpperCase() : "COLD LEAD",
+                        leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD'].includes(row.LeadType?.toString().toUpperCase()) ? row.LeadType.toString().toUpperCase() : "COLD LEAD",
                         leadResponsibility: row.LeadResponse,
                         feedback: row.Feedback ? row.Feedback.toString().trim() : '',
                         remarks: row.Remarks ? row.Remarks.toString().trim() : ''

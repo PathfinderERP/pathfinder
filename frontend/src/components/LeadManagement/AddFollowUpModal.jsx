@@ -52,7 +52,7 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         setLoading(true);
 
         if (!formData.leadType) {
-            toast.warning("Please categorize the lead (Hot/Cold/Negative)");
+            toast.warning("Please categorize the lead (Hot/Warm/Cold)");
             setLoading(false);
             return;
         }
@@ -132,8 +132,8 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                             >
                                 <option value="">CATEGORIZE LEAD</option>
                                 <option value="HOT LEAD">HOT LEAD</option>
+                                <option value="WARM LEAD">WARM LEAD</option>
                                 <option value="COLD LEAD">COLD LEAD</option>
-                                <option value="NEGATIVE">NEGATIVE</option>
                             </select>
                         </div>
 

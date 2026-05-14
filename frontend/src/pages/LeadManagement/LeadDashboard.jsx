@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout";
-import { FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevronRight, FaSpinner, FaTimes, FaPhone, FaEnvelope, FaCalendarAlt, FaIdBadge, FaSun, FaMoon, FaChevronLeft, FaRedo } from "react-icons/fa";
+import { FaStar, FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevronRight, FaSpinner, FaTimes, FaPhone, FaEnvelope, FaCalendarAlt, FaIdBadge, FaSun, FaMoon, FaChevronLeft, FaRedo } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
@@ -259,7 +259,7 @@ const LeadDashboard = () => {
                             { label: "Target Course", name: "course", type: "multi-select", options: courses.map(c => ({ value: c._id, label: c.courseName })) },
                             { label: "Origin Source", name: "source", type: "multi-select", options: sources.map(s => ({ value: s.sourceName, label: s.sourceName })) },
                             { label: "Feedback Status", name: "feedback", type: "multi-select", options: feedbacks.map(f => ({ value: f.name, label: f.name })) },
-                            { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }, { value: 'NEGATIVE', label: 'NEGATIVE' }] },
+                            { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'WARM LEAD', label: 'WARM LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }] },
                             { label: "Agent Identity", name: "leadResponsibility", type: "multi-select", options: telecallerList.map(t => ({ value: t.name, label: t.name })) },
                             { label: "Student Cipher", name: "search", type: "text", placeholder: "SEARCH..." },
                             { label: "Window Start", name: "fromDate", type: "date" },
@@ -309,8 +309,8 @@ const LeadDashboard = () => {
                     {[
                         { label: "Total Pooled leads", value: stats?.summary?.totalLeads, color: "from-blue-600 to-indigo-700", icon: FaUsers, shadow: "shadow-blue-500/20", tag: "Aggregate", filter: {} },
                         { label: "High Intent (Hot)", value: stats?.summary?.hotLeads, color: "from-emerald-600 to-teal-700", icon: FaChartLine, shadow: "shadow-emerald-500/20", tag: "Priority", pulse: true, filter: { leadType: 'HOT LEAD' } },
-                        { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-orange-600 to-amber-700", icon: FaTasks, shadow: "shadow-orange-500/20", tag: "Queue", filter: { leadType: 'COLD LEAD' } },
-                        { label: "Negative vectors", value: stats?.summary?.negativeLeads, color: "from-rose-600 to-pink-700", icon: FaTasks, shadow: "shadow-rose-500/20", tag: "Archived", filter: { leadType: 'NEGATIVE' } }
+                        { label: "Moderate (Warm)", value: stats?.summary?.warmLeads, color: "from-orange-600 to-amber-700", icon: FaStar, shadow: "shadow-orange-500/20", tag: "Growing", filter: { leadType: 'WARM LEAD' } },
+                        { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-gray-600 to-slate-700", icon: FaTasks, shadow: "shadow-gray-500/20", tag: "Queue", filter: { leadType: 'COLD LEAD' } }
                     ].map((card, i) => (
                         <div
                             key={i}
@@ -351,6 +351,7 @@ const LeadDashboard = () => {
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em]">AGENT_IDENTITY</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">LOAD_VOL</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">INTENSE (HOT)</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">ACTIVE (WARM)</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">LEVEL (COLD)</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">THROUGHPUT</th>
                                     </tr>
@@ -385,7 +386,10 @@ const LeadDashboard = () => {
                                                     <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>{tc.hotLeads}</span>
                                                 </td>
                                                 <td className="px-8 py-6 text-center">
-                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>{tc.coldLeads}</span>
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>{tc.warmLeads}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>{tc.coldLeads}</span>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
