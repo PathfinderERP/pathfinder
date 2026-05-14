@@ -18,6 +18,7 @@ const CourseTarget = () => {
     const [data, setData] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editData, setEditData] = useState(null);
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
@@ -125,11 +126,13 @@ const CourseTarget = () => {
             d.name?.trim().toLowerCase() === deptName?.trim().toLowerCase()
         );
         
-        if (!dept) return { target: 0, achieved: 0, pct: 0 };
+        if (!dept) return { target: 0, achieved: 0, pct: 0, id: null, examTags: [] };
         return {
             target: dept.target || 0,
             achieved: dept.achieved || 0,
-            pct: dept.pct || 0
+            pct: dept.pct || 0,
+            id: dept.id,
+            examTags: dept.examTags || []
         };
     };
 
@@ -149,8 +152,8 @@ const CourseTarget = () => {
         let totalTarget = 0;
         let totalAchieved = 0;
         centreData.departments.forEach(dept => {
-            totalTarget += dept.courses.reduce((sum, c) => sum + (c.target || 0), 0);
-            totalAchieved += dept.courses.reduce((sum, c) => sum + (c.achieved || 0), 0);
+            totalTarget += dept.target || 0;
+            totalAchieved += dept.achieved || 0;
         });
         const pct = totalTarget > 0 ? (totalAchieved / totalTarget) * 100 : 0;
         return { totalTarget, totalAchieved, totalPct: pct.toFixed(1) };
@@ -336,17 +339,42 @@ const CourseTarget = () => {
                                                 </td>
                                                 
                                                 {departments.map(deptName => {
-                                                    const { target, achieved, pct } = getDeptStats(centre, deptName);
+                                                    const { target, achieved, pct, id, examTags } = getDeptStats(centre, deptName);
                                                     return (
-                                                        <td key={deptName} className="px-6 py-5 text-center border-r border-inherit">
-                                                            <div className="flex justify-center items-baseline gap-2">
-                                                                <span className={`text-sm font-bold ${target > 0 ? (isDarkMode ? 'text-gray-300' : 'text-gray-800') : 'opacity-20'}`}>
-                                                                    {target}
-                                                                </span>
-                                                                <span className="text-xs opacity-30">/</span>
-                                                                <span className={`text-base font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
-                                                                    {achieved}
-                                                                </span>
+                                                        <td key={deptName} className="px-6 py-5 text-center border-r border-inherit relative group/cell">
+                                                            <div className="flex justify-center items-center gap-2">
+                                                                <div className="flex items-baseline gap-1.5">
+                                                                    <span className={`text-sm font-bold ${target > 0 ? (isDarkMode ? 'text-gray-300' : 'text-gray-800') : 'opacity-20'}`}>
+                                                                        {target}
+                                                                    </span>
+                                                                    <span className="text-xs opacity-30">/</span>
+                                                                    <span className={`text-base font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
+                                                                        {achieved}
+                                                                    </span>
+                                                                </div>
+                                                                
+                                                                {canCreate && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setEditData({
+                                                                                centreId: centre.centreId,
+                                                                                departmentId: id,
+                                                                                targetCount: target,
+                                                                                examTags: examTags,
+                                                                                targetType: viewMode,
+                                                                                year: selectedYear,
+                                                                                month: selectedMonth,
+                                                                                quarter: selectedQuarter,
+                                                                                week: selectedWeek
+                                                                            });
+                                                                            setShowAddModal(true);
+                                                                        }}
+                                                                        className="opacity-0 group-hover/cell:opacity-100 p-1.5 bg-cyan-500/10 hover:bg-cyan-500 text-cyan-500 hover:text-white rounded-md transition-all duration-200"
+                                                                        title="Edit Target"
+                                                                    >
+                                                                        <FaEdit size={10} />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                             {target > 0 && (
                                                                 <>
@@ -400,10 +428,11 @@ const CourseTarget = () => {
 
                 {showAddModal && (
                     <AddCourseTargetModal 
-                        onClose={() => setShowAddModal(false)}
-                        onSuccess={() => { setShowAddModal(false); fetchData(); }}
+                        onClose={() => { setShowAddModal(false); setEditData(null); }}
+                        onSuccess={() => { setShowAddModal(false); setEditData(null); fetchData(); }}
                         centres={centres}
                         isDarkMode={isDarkMode}
+                        initialData={editData}
                     />
                 )}
             </div>

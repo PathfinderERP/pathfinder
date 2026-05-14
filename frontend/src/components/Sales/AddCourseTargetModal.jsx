@@ -2,36 +2,46 @@ import React, { useState, useEffect } from "react";
 import { FaTimes, FaSave } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
+import CustomMultiSelect from "../common/CustomMultiSelect";
 
-const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
+const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initialData }) => {
     const [loading, setLoading] = useState(false);
-    const [courses, setCourses] = useState([]);
     const [allDepartments, setAllDepartments] = useState([]);
     const [examTags, setExamTags] = useState([]);
-    const [targetLevel, setTargetLevel] = useState("COURSE"); // COURSE or DEPARTMENT
     const [formData, setFormData] = useState({
-        centreId: "",
-        courseId: "",
-        departmentId: "",
-        examTag: "",
-        targetType: "MONTHLY",
-        year: new Date().getFullYear(),
-        month: new Date().toLocaleString('default', { month: 'long' }),
-        quarter: "Q1",
-        week: 1,
-        targetCount: ""
+        centreId: initialData?.centreId || "",
+        departmentId: initialData?.departmentId || "",
+        examTags: initialData?.examTags || [],
+        targetType: initialData?.targetType || "MONTHLY",
+        year: initialData?.year || new Date().getFullYear(),
+        month: initialData?.month || new Date().toLocaleString('default', { month: 'long' }),
+        quarter: initialData?.quarter || "Q1",
+        week: initialData?.week || 1,
+        targetCount: initialData?.targetCount || ""
     });
+
+    useEffect(() => {
+        if (initialData && examTags.length > 0) {
+            // Map simple IDs to {value, label} for CustomMultiSelect if needed
+            // But if initialData already provides objects or we can find them from examTags state
+            if (initialData.examTags && typeof initialData.examTags[0] === 'string') {
+                const mappedTags = initialData.examTags.map(id => {
+                    const found = examTags.find(t => t._id === id);
+                    return found ? { value: found._id, label: found.tagName || found.name } : null;
+                }).filter(Boolean);
+                setFormData(prev => ({ ...prev, examTags: mappedTags }));
+            }
+        }
+    }, [initialData, examTags]);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const [coursesRes, deptsRes, examTagsRes] = await Promise.all([
-                    axios.get(`${import.meta.env.VITE_API_URL}/course`, { headers: { Authorization: `Bearer ${token}` } }),
+                const [deptsRes, examTagsRes] = await Promise.all([
                     axios.get(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
                     axios.get(`${import.meta.env.VITE_API_URL}/examTag`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
-                setCourses(coursesRes.data || []);
                 setAllDepartments(deptsRes.data.filter(d => d.showInAdmission !== false) || []);
                 setExamTags(examTagsRes.data || []);
             } catch (e) {
@@ -44,30 +54,18 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!formData.centreId || !formData.targetCount) {
-            return toast.warn("Please select a centre and target count");
-        }
-
-        if (targetLevel === "COURSE" && !formData.courseId) {
-            return toast.warn("Please select a course");
-        }
-
-        if (targetLevel === "DEPARTMENT" && !formData.departmentId) {
-            return toast.warn("Please select a department");
+        if (!formData.centreId || !formData.targetCount || !formData.departmentId) {
+            return toast.warn("Please select a centre, department and target count");
         }
 
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            let finalPayload = { ...formData };
-
-            if (targetLevel === "COURSE") {
-                const course = courses.find(c => c._id === formData.courseId);
-                finalPayload.department = course?.department?._id || course?.department;
-            } else {
-                finalPayload.department = formData.departmentId;
-                delete finalPayload.courseId; // Backend should handle missing courseId
-            }
+            const finalPayload = { 
+                ...formData,
+                department: formData.departmentId,
+                examTags: formData.examTags.map(tag => tag.value) // Extract IDs only
+            };
 
             await axios.post(`${import.meta.env.VITE_API_URL}/sales/course-target`, finalPayload, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -88,7 +86,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden`}>
                 <div className={`${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'} px-6 py-4 border-b border-inherit flex justify-between items-center`}>
                     <h3 className={`text-xl font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Set Performance Target
+                        {initialData ? 'Update Performance Target' : 'Set Performance Target'}
                     </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
                         <FaTimes size={20} />
@@ -96,20 +94,6 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                    {/* Target Level Toggle */}
-                    <div className="flex gap-2 p-1 bg-black/20 rounded-xl">
-                        {["COURSE", "DEPARTMENT"].map(level => (
-                            <button
-                                key={level}
-                                type="button"
-                                onClick={() => setTargetLevel(level)}
-                                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${targetLevel === level ? 'bg-cyan-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
-                            >
-                                {level} LEVEL
-                            </button>
-                        ))}
-                    </div>
-
                     {/* Centre Selection */}
                     <div>
                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Centre *</label>
@@ -124,48 +108,33 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
                         </select>
                     </div>
 
-                    {/* Dynamic Selection based on Level */}
-                    {targetLevel === "COURSE" ? (
-                        <div>
-                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Course *</label>
-                            <select
-                                required
-                                value={formData.courseId}
-                                onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
-                                className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            >
-                                <option value="">Select Course</option>
-                                {courses.map(c => <option key={c._id} value={c._id}>{c.courseName}</option>)}
-                            </select>
-                        </div>
-                    ) : (
-                        <div>
-                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Department *</label>
-                            <select
-                                required
-                                value={formData.departmentId}
-                                onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                                className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            >
-                                <option value="">Select Department</option>
-                                {allDepartments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Exam Tag Selection (Optional) */}
+                    {/* Department Selection */}
                     <div>
-                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Exam Tag (Optional)</label>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Department *</label>
                         <select
-                            value={formData.examTag}
-                            onChange={(e) => setFormData({ ...formData, examTag: e.target.value })}
+                            required
+                            value={formData.departmentId}
+                            onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
                             className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                         >
-                            <option value="">Select Exam Tag</option>
-                            {examTags.map(tag => (
-                                <option key={tag._id} value={tag._id}>{tag.tagName || tag.name}</option>
-                            ))}
+                            <option value="">Select Department</option>
+                            {allDepartments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
                         </select>
+                    </div>
+
+                    {/* Exam Tag Selection (Optional - Multiple) */}
+                    <div>
+                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Exam Tags (Optional)</label>
+                        <CustomMultiSelect
+                            options={examTags.map(tag => ({
+                                value: tag._id,
+                                label: tag.tagName || tag.name
+                            }))}
+                            value={formData.examTags}
+                            onChange={(vals) => setFormData({ ...formData, examTags: vals || [] })}
+                            placeholder="Select Exam Tags"
+                            isDarkMode={isDarkMode}
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -174,7 +143,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
                             <select
                                 value={formData.targetType}
                                 onChange={(e) => setFormData({ ...formData, targetType: e.target.value })}
-                                className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             >
                                 <option value="WEEKLY">Weekly</option>
                                 <option value="MONTHLY">Monthly</option>
@@ -254,7 +223,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode }) => {
                         disabled={loading}
                         className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black uppercase tracking-widest py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-95 mt-4"
                     >
-                        {loading ? "Establishing Goal..." : <><FaSave /> Set Admission Goal</>}
+                        {loading ? "Establishing Goal..." : <><FaSave /> {initialData ? 'Update Admission Goal' : 'Set Admission Goal'}</>}
                     </button>
                 </form>
             </div>

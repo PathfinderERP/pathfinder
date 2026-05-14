@@ -6,21 +6,16 @@ const courseTargetSchema = new mongoose.Schema({
         ref: 'Centre',
         required: true
     },
-    course: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Course',
-        required: false // Changed to false to allow department-level targets
-    },
     department: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Department',
         required: true
     },
-    examTag: {
+    examTags: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ExamTag',
         required: false
-    },
+    }],
     year: {
         type: Number,
         required: true
@@ -51,7 +46,7 @@ const courseTargetSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Ensure uniqueness based on type and period
-courseTargetSchema.index({ centre: 1, course: 1, year: 1, month: 1, quarter: 1, week: 1, targetType: 1 }, { unique: true });
+courseTargetSchema.index({ centre: 1, department: 1, year: 1, month: 1, quarter: 1, week: 1, targetType: 1 }, { unique: true });
 
 const CourseTarget = mongoose.model('CourseTarget', courseTargetSchema);
 

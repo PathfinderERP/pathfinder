@@ -14,18 +14,18 @@ const monthNames = [
 // POST /sales/course-target
 export const saveCourseTarget = async (req, res) => {
     try {
-        const { centreId, courseId, targetType, year, month, quarter, week, targetCount, department, examTag } = req.body;
+        const { centreId, targetType, year, month, quarter, week, targetCount, department, examTags } = req.body;
 
         if (!centreId || !targetType || !year || !department || !targetCount) {
             return res.status(400).json({ message: "Missing required fields" });
         }
 
-        const filter = { centre: centreId, course: courseId || null, targetType, year, examTag: examTag || null };
+        const filter = { centre: centreId, department, targetType, year };
         if (targetType === 'MONTHLY') filter.month = month;
         if (targetType === 'QUARTERLY') filter.quarter = quarter;
         if (targetType === 'WEEKLY') filter.week = week;
 
-        const update = { targetCount, department, createdBy: req.user._id };
+        const update = { targetCount, examTags: examTags || [], createdBy: req.user._id };
 
         console.log("Saving Course Target with Filter:", JSON.stringify(filter));
         console.log("Saving Course Target with Update:", JSON.stringify(update));
@@ -123,13 +123,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const deptTargetAgg = {};
             targets.forEach(t => {
                 const dId = t.department.toString();
-                if (!deptTargetAgg[dId]) deptTargetAgg[dId] = { direct: 0, courseSum: 0 };
-                
-                if (t.course) {
-                    deptTargetAgg[dId].courseSum += (t.targetCount || 0);
-                } else {
-                    deptTargetAgg[dId].direct = (t.targetCount || 0);
-                }
+                deptTargetAgg[dId] = t;
             });
 
             console.log("Dept Target Map:", JSON.stringify(deptTargetAgg));
@@ -167,10 +161,9 @@ export const getCourseTargetAnalysis = async (req, res) => {
             // Map master departments to final results
             const finalDeptStats = masterDepartments.map(dept => {
                 const dId = dept._id.toString();
-                const targetData = deptTargetAgg[dId] || { direct: 0, courseSum: 0 };
+                const targetDoc = deptTargetAgg[dId];
+                const finalTarget = targetDoc ? targetDoc.targetCount : 0;
                 const achieved = deptAdmissionMap[dId] || 0;
-                
-                const finalTarget = targetData.direct > 0 ? targetData.direct : targetData.courseSum;
                 const finalPct = finalTarget > 0 ? (achieved / finalTarget) * 100 : 0;
 
                 return {
@@ -179,6 +172,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     target: finalTarget,
                     achieved: achieved,
                     pct: parseFloat(finalPct.toFixed(1)),
+                    examTags: targetDoc ? targetDoc.examTags : [],
                     courses: [] 
                 };
             });
