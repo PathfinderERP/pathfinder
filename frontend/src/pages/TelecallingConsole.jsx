@@ -375,7 +375,6 @@ const TelecallingConsole = () => {
         totalFollowUps: 0,
         hotLeads: 0,
         coldLeads: 0,
-        negativeLeads: 0,
         recentActivity: []
     });
 
@@ -474,7 +473,9 @@ const TelecallingConsole = () => {
 
             row['Admissions'] = item.admissions || 0;
             row['Counselled'] = item.counselledCount || 0;
-            row['Hot interest'] = item.hotLeads || 0;
+            row['Hot Leads'] = item.hotLeads || 0;
+            row['Warm Leads'] = item.warmLeads || 0;
+            row['Cold Leads'] = item.coldLeads || 0;
             row['Conversion %'] = item.currentCalls > 0 ? ((item.admissions / item.currentCalls) * 100).toFixed(2) + '%' : '0%';
             row['Report Type'] = timePeriod.toUpperCase();
 
@@ -508,18 +509,19 @@ const TelecallingConsole = () => {
                     item.status?.toUpperCase() === 'HOT LEAD'
                 );
                 break;
+            case 'WARM':
+                title = "Warm Interest Leads Discussions";
+                data = (followUpStats.recentActivity || []).filter(item =>
+                    item.status?.toUpperCase() === 'WARM LEAD'
+                );
+                break;
             case 'COLD':
                 title = "Cold Leads Discussions";
                 data = (followUpStats.recentActivity || []).filter(item =>
                     item.status?.toUpperCase() === 'COLD LEAD'
                 );
                 break;
-            case 'NEGATIVE':
-                title = "Negative Results Records";
-                data = (followUpStats.recentActivity || []).filter(item =>
-                    item.status?.toUpperCase() === 'NEGATIVE'
-                );
-                break;
+
             default:
                 return;
         }
@@ -1118,22 +1120,22 @@ const TelecallingConsole = () => {
                                             </div>
                                         </div>
 
-                                        {/* Positive Leads Card */}
+                                        {/* Warm Leads Card */}
                                         <div
-                                            onClick={() => handleActivityCardClick('POSITIVE')}
-                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-green-500/5 border-green-500/20 hover:border-green-500/50' : 'bg-green-50 border-green-100 shadow-sm hover:border-green-500/50'}`}>
+                                            onClick={() => handleActivityCardClick('WARM')}
+                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-orange-500/5 border-orange-500/20 hover:border-orange-500/50' : 'bg-orange-50 border-orange-100 shadow-sm hover:border-orange-500/50'}`}>
                                             <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                                 <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 text-green-500">Positive</p>
-                                                    <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.positiveLeads}</h3>
-                                                    <p className="text-[9px] font-bold text-green-500 mt-1 uppercase tracking-widest">Interested Leads</p>
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 text-orange-500">Warm</p>
+                                                    <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.warmLeads}</h3>
+                                                    <p className="text-[9px] font-bold text-orange-500 mt-1 uppercase tracking-widest">High Interest</p>
                                                 </div>
-                                                <div className={`p-2.5 rounded-[20px] transition-all bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]`}>
-                                                    <FaCheckCircle size={16} />
+                                                <div className={`p-2.5 rounded-[20px] transition-all bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.4)]`}>
+                                                    <FaStar size={16} />
                                                 </div>
                                             </div>
-                                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-green-500">
-                                                <FaCheckCircle size={100} />
+                                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-orange-500">
+                                                <FaStar size={100} />
                                             </div>
                                         </div>
 
@@ -1153,25 +1155,6 @@ const TelecallingConsole = () => {
                                             </div>
                                             <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-blue-500">
                                                 <FaClock size={100} />
-                                            </div>
-                                        </div>
-
-                                        {/* Negative Results Card */}
-                                        <div
-                                            onClick={() => handleActivityCardClick('NEGATIVE')}
-                                            className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${isDarkMode ? 'bg-gray-500/5 border-gray-500/20 hover:border-gray-500/50' : 'bg-gray-50 border-gray-100 shadow-sm hover:border-gray-500/50'}`}>
-                                            <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 text-gray-500">Negative</p>
-                                                    <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.negativeLeads}</h3>
-                                                    <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">Non-Conversions</p>
-                                                </div>
-                                                <div className={`p-2.5 rounded-[20px] transition-all bg-gray-500 text-white shadow-[0_0_15px_rgba(107,114,128,0.4)]`}>
-                                                    <FaTimesCircle size={16} />
-                                                </div>
-                                            </div>
-                                            <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-gray-500">
-                                                <FaTimesCircle size={100} />
                                             </div>
                                         </div>
                                     </div>

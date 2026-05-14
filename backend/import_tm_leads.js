@@ -93,7 +93,7 @@ const importLeads = async () => {
                     course: mappedCourse?._id,
                     source: row['SOURSE'] || row['Source'] || 'Bulk Excel Import',
                     targetExam: row['TARGET EXAM'] || row['TargetExam'] || '',
-                    leadType: ['HOT LEAD', 'COLD LEAD', 'NEGATIVE'].includes(row['LEAD TYPE']) ? row['LEAD TYPE'] : 'COLD LEAD',
+                    leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD'].includes(row['LEAD TYPE']) ? row['LEAD TYPE'] : 'COLD LEAD',
                     leadResponsibility: respName,
                     createdBy: responsibleUser?._id || null
                 };

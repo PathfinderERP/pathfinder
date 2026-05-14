@@ -273,8 +273,8 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                     <select name="leadType" required value={formData.leadType} onChange={handleChange} className={selectClasses}>
                                         <option value="">Select Priority</option>
                                         <option value="HOT LEAD">HOT LEAD</option>
+                                        <option value="WARM LEAD">WARM LEAD</option>
                                         <option value="COLD LEAD">COLD LEAD</option>
-                                        <option value="NEGATIVE">NEGATIVE</option>
                                     </select>
                                 </div>
                             </div>

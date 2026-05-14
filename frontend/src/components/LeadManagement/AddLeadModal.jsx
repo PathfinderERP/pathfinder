@@ -299,8 +299,8 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                     <CustomSearchSelect
                                         options={[
                                             { value: "HOT LEAD", label: "HOT LEAD" },
-                                            { value: "COLD LEAD", label: "COLD LEAD" },
-                                            { value: "NEGATIVE", label: "NEGATIVE" }
+                                            { value: "WARM LEAD", label: "WARM LEAD" },
+                                            { value: "COLD LEAD", label: "COLD LEAD" }
                                         ]}
                                         value={formData.leadType}
                                         onChange={(val) => setFormData({ ...formData, leadType: val })}

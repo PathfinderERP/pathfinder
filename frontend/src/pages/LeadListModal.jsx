@@ -92,9 +92,9 @@ const LeadListModal = ({ title, leads, onClose }) => {
                                                 </div>
                                             </td>
                                             <td className="p-6 text-center">
-                                                <span className={`text-[9px] font-black px-3 py-1 rounded-[4px] border uppercase ${lead.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-green-50 text-green-600 border-green-200') :
-                                                    lead.leadType === 'NEGATIVE LEAD' ? (isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-red-50 text-red-600 border-red-200') :
-                                                        (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-gray-100 text-gray-500 border-gray-200')
+                                                <span className={`text-[9px] font-black px-3 py-1 rounded-[4px] border uppercase ${lead.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-red-50 text-red-600 border-red-200') :
+                                                        lead.leadType === 'WARM LEAD' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-orange-50 text-orange-600 border-orange-200') :
+                                                        (isDarkMode ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-200')
                                                     }`}>
                                                     {lead.leadType || 'NEW LEAD'}
                                                 </span>

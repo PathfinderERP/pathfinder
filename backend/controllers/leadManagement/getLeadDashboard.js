@@ -19,13 +19,13 @@ export const getLeadDashboardStats = async (req, res) => {
                     _id: null,
                     totalLeads: { $sum: 1 },
                     hotLeads: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
-                    coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
-                    negativeLeads: { $sum: { $cond: [{ $eq: ["$leadType", "NEGATIVE"] }, 1, 0] } }
+                    warmLeads: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
+                    coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } }
                 }
             }
         ]);
 
-        const summary = summaryArr[0] || { totalLeads: 0, hotLeads: 0, coldLeads: 0, negativeLeads: 0 };
+        const summary = summaryArr[0] || { totalLeads: 0, hotLeads: 0, warmLeads: 0, coldLeads: 0 };
 
         // Telecaller Performance Aggregation (using baseQuery - respects current leadType filter)
         const telecallers = await LeadManagement.aggregate([
@@ -35,8 +35,8 @@ export const getLeadDashboardStats = async (req, res) => {
                     _id: "$leadResponsibility",
                     totalLeads: { $sum: 1 },
                     hotLeads: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
+                    warmLeads: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
                     coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
-                    negativeLeads: { $sum: { $cond: [{ $eq: ["$leadType", "NEGATIVE"] }, 1, 0] } },
                     totalFollowUps: { $sum: { $size: { $ifNull: ["$followUps", []] } } }
                 }
             },

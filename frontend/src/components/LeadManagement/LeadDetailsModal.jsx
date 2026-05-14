@@ -33,8 +33,8 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     const getLeadTypeColor = (type) => {
         switch (type) {
             case "HOT LEAD": return isDarkMode ? "text-red-400 border-red-500/50 bg-red-500/10" : "text-red-600 border-red-200 bg-red-50";
+            case "WARM LEAD": return isDarkMode ? "text-orange-400 border-orange-500/50 bg-orange-500/10" : "text-orange-600 border-orange-200 bg-orange-50";
             case "COLD LEAD": return isDarkMode ? "text-blue-400 border-blue-500/50 bg-blue-500/10" : "text-blue-600 border-blue-200 bg-blue-50";
-            case "NEGATIVE": return isDarkMode ? "text-gray-400 border-gray-500/50 bg-gray-500/10" : "text-gray-600 border-gray-200 bg-gray-50";
             default: return isDarkMode ? "text-gray-400 border-gray-500/50 bg-gray-500/10" : "text-gray-600 border-gray-200 bg-gray-50";
         }
     };

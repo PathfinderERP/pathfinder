@@ -13,19 +13,19 @@ const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode }) => 
                     border: 'border-red-500/20',
                     icon: <FaCheckCircle className="text-red-500" />
                 };
+            case 'WARM LEAD':
+                return {
+                    bg: isDarkMode ? 'bg-orange-500/10' : 'bg-orange-50',
+                    text: 'text-orange-500',
+                    border: 'border-orange-500/20',
+                    icon: <FaStar className="text-orange-500" />
+                };
             case 'COLD LEAD':
                 return {
                     bg: isDarkMode ? 'bg-blue-500/10' : 'bg-blue-50',
                     text: 'text-blue-500',
                     border: 'border-blue-500/20',
                     icon: <FaExclamationCircle className="text-blue-500" />
-                };
-            case 'NEGATIVE':
-                return {
-                    bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50',
-                    text: 'text-gray-500',
-                    border: 'border-gray-500/20',
-                    icon: <FaTimesCircle className="text-gray-500" />
                 };
             default:
                 return {
