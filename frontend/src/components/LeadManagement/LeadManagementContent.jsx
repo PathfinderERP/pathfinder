@@ -82,7 +82,7 @@ const LeadManagementContent = () => {
     });
 
     const [filters, setFilters] = useState({
-        leadType: [],
+        leadType: [{ value: "HOT LEAD", label: "HOT LEAD" }],
         source: [],
         centre: [],
         course: [],
@@ -396,7 +396,7 @@ const LeadManagementContent = () => {
 
     const resetFilters = () => {
         setFilters({
-            leadType: [],
+            leadType: [{ value: "HOT LEAD", label: "HOT LEAD" }],
             source: [],
             centre: [],
             course: [],
@@ -1097,6 +1097,34 @@ const LeadManagementContent = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Status Quick Filters */}
+                <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
+                    <button 
+                        onClick={() => handleFilterChange('leadType', [])}
+                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 0 ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-white hover:border-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300')}`}
+                    >
+                        All Data
+                    </button>
+                    <button 
+                        onClick={() => handleFilterChange('leadType', [{ value: "HOT LEAD", label: "HOT LEAD" }])}
+                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "HOT LEAD" ? 'bg-red-500 text-white border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-red-500 hover:border-red-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-red-500')}`}
+                    >
+                        Only Hot Lead
+                    </button>
+                    <button 
+                        onClick={() => handleFilterChange('leadType', [{ value: "WARM LEAD", label: "WARM LEAD" }])}
+                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "WARM LEAD" ? 'bg-orange-500 text-white border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-orange-500 hover:border-orange-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-500')}`}
+                    >
+                        Only Warm Lead
+                    </button>
+                    <button 
+                        onClick={() => handleFilterChange('leadType', [{ value: "COLD LEAD", label: "COLD LEAD" }])}
+                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "COLD LEAD" ? 'bg-blue-500 text-white border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-blue-500 hover:border-blue-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-500')}`}
+                    >
+                        Only Cold Lead
+                    </button>
+                </div>
 
                 {/* Search Bar - Reduced Padding (p-4 instead of p-6) */}
                 <div className={`border rounded-[2px] p-4 relative group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 focus-within:border-cyan-500/30' : 'bg-white border-gray-200 focus-within:border-cyan-500/30 shadow-sm'}`}>
