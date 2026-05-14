@@ -337,20 +337,37 @@ const EmployeeDetails = () => {
 
                                     const activeEarnings = earnings.filter(e => e.val > 0);
 
+                                    let pf = latest.pf;
+                                    let esi = latest.esi;
+                                    let pTax = latest.pTax;
+                                    let tds = latest.tds;
+                                    let lossOfPay = latest.lossOfPay;
+                                    let adjustment = latest.adjustment;
+
+                                    if (!employee.isDeductions) {
+                                        pf = 0; esi = 0; pTax = 0; tds = 0; lossOfPay = 0; adjustment = 0;
+                                    }
+
                                     // Define Deductions - exactly matching HR view order and labels
                                     const deductions = [
-                                        { label: "Provident Fund (PF)", val: latest.pf },
-                                        { label: "ESI Contribution", val: latest.esi },
-                                        { label: "Professional Tax", val: latest.pTax || 0 },
-                                        { label: "TDS / Income Tax", val: latest.tds || 0 },
-                                        { label: "Loss of Pay", val: latest.lossOfPay || 0 },
-                                        { label: "Adjustment", val: latest.adjustment || 0 },
+                                        { label: "Provident Fund (PF)", val: pf },
+                                        { label: "ESI Contribution", val: esi },
+                                        { label: "Professional Tax", val: pTax || 0 },
+                                        { label: "TDS / Income Tax", val: tds || 0 },
+                                        { label: "Loss of Pay", val: lossOfPay || 0 },
+                                        { label: "Adjustment", val: adjustment || 0 },
                                     ].filter(d => Math.abs(d.val) > 0); // Include if non-zero (positive or negative)
 
                                     // Use stored totals from DB for consistency
                                     const totalEarnings = latest.totalEarnings || activeEarnings.reduce((sum, item) => sum + item.val, 0);
-                                    const totalDeductions = latest.totalDeductions || deductions.reduce((sum, item) => sum + item.val, 0);
-                                    const netSalary = latest.netSalary || (totalEarnings - totalDeductions);
+                                    let totalDeductions = latest.totalDeductions || deductions.reduce((sum, item) => sum + item.val, 0);
+                                    let netSalary = latest.netSalary || (totalEarnings - totalDeductions);
+                                    
+                                    if (!employee.isDeductions) {
+                                        totalDeductions = 0;
+                                        netSalary = totalEarnings || latest.amount;
+                                    }
+                                    
                                     const ctc = latest.amount;
 
                                     return (

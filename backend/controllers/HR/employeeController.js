@@ -372,6 +372,10 @@ export const getEmployeeById = async (req, res) => {
             .populate("department", "departmentName")
             .populate("designation", "name")
             .populate("manager", "name employeeId")
+            .populate({
+                path: "user",
+                select: "role designation teacherDepartment subject"
+            })
             .populate("createdBy", "name")
             .populate("updatedBy", "name")
             .populate("deactivatedBy", "name");

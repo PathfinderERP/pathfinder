@@ -171,6 +171,10 @@ const employeeSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    isDeductions: {
+        type: Boolean,
+        default: false
+    },
     salaryStructure: [salaryStructureSchema],
     currentSalary: {
         type: Number,
