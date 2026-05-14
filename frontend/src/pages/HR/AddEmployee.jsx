@@ -62,7 +62,8 @@ const AddEmployee = () => {
         role: "",
         isDeptHod: false,
         isBoardHod: false,
-        isSubjectHod: false
+        isSubjectHod: false,
+        isDeductions: false
     });
 
     const [files, setFiles] = useState({});
@@ -145,12 +146,35 @@ const AddEmployee = () => {
                     manager: data.manager?._id || "",
                     workingHours: data.workingHours || 0,
                     specialAllowance: data.specialAllowance || 0,
-                    salaryStructure: data.salaryStructure?.map(s => ({
-                        ...s,
-                        effectiveDate: s.effectiveDate ? new Date(s.effectiveDate).toISOString().split('T')[0] : "",
-                        amount: s.amount || 0,
-                        netSalary: s.netSalary || 0
-                    })) || [],
+                    salaryStructure: data.salaryStructure?.map(s => {
+                        const isDeductions = data.isDeductions || false;
+                        
+                        let deductionsObj = {
+                            pf: s.pf,
+                            esi: s.esi,
+                            pTax: s.pTax,
+                            tds: s.tds,
+                            lossOfPay: s.lossOfPay,
+                            adjustment: s.adjustment,
+                            totalDeductions: s.totalDeductions,
+                            netSalary: s.netSalary || 0
+                        };
+
+                        if (!isDeductions) {
+                            deductionsObj = {
+                                pf: 0, esi: 0, pTax: 0, tds: 0, lossOfPay: 0, adjustment: 0,
+                                totalDeductions: 0,
+                                netSalary: s.totalEarnings || s.amount || 0
+                            };
+                        }
+
+                        return {
+                            ...s,
+                            ...deductionsObj,
+                            effectiveDate: s.effectiveDate ? new Date(s.effectiveDate).toISOString().split('T')[0] : "",
+                            amount: s.amount || 0
+                        };
+                    }) || [],
                     workingDays: {
                         sunday: data.workingDays?.sunday || false,
                         monday: data.workingDays?.monday || false,
@@ -159,7 +183,8 @@ const AddEmployee = () => {
                         thursday: data.workingDays?.thursday || false,
                         friday: data.workingDays?.friday || false,
                         saturday: data.workingDays?.saturday || false,
-                    }
+                    },
+                    isDeductions: data.isDeductions || false
                 };
                 setFormData(formattedData);
             } else {
@@ -175,10 +200,17 @@ const AddEmployee = () => {
 
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === "checkbox" ? checked : value
-        }));
+        const val = type === "checkbox" ? checked : value;
+        setFormData(prev => {
+            const newData = { ...prev, [name]: val };
+            if (name === "isDeductions") {
+                newData.salaryStructure = newData.salaryStructure.map(s => {
+                    const breakdown = calculateSalaryBreakdown(s.amount || 0, val);
+                    return { ...s, ...breakdown, amount: s.amount, netSalary: breakdown.netSalary };
+                });
+            }
+            return newData;
+        });
     };
 
     const handleWorkingDayChange = (day) => {
@@ -256,7 +288,7 @@ const AddEmployee = () => {
             if (field === "amount" || field === "netSalary") {
                 const amountValue = parseFloat(value) || 0;
                 // Forward calculation: Input is Gross
-                const breakdown = calculateSalaryBreakdown(amountValue);
+                const breakdown = calculateSalaryBreakdown(amountValue, prev.isDeductions);
                 newSalaryStructure[index] = {
                     ...updatedSalary,
                     ...breakdown,
@@ -276,28 +308,29 @@ const AddEmployee = () => {
                     (parseFloat(s.specialAllowance) || 0);
 
                 // PF
-                let pf;
-                if (basic <= 15000) {
-                    pf = Math.round(basic * 0.12);
-                } else {
-                    pf = 1800;
-                }
-
-                // ESI
-                let esi;
-                if (totalEarnings <= 21000) {
-                    esi = Math.ceil(totalEarnings * 0.0075);
-                } else {
-                    esi = 0;
-                }
-
-                // P.Tax
+                let pf = 0;
+                let esi = 0;
                 let pTax = 0;
-                if (totalEarnings <= 10000) pTax = 0;
-                else if (totalEarnings <= 15000) pTax = 110;
-                else if (totalEarnings <= 25000) pTax = 130;
-                else if (totalEarnings <= 40000) pTax = 150;
-                else pTax = 200;
+
+                if (prev.isDeductions) {
+                    if (basic <= 15000) {
+                        pf = Math.round(basic * 0.12);
+                    } else {
+                        pf = 1800;
+                    }
+
+                    if (totalEarnings <= 21000) {
+                        esi = Math.ceil(totalEarnings * 0.0075);
+                    } else {
+                        esi = 0;
+                    }
+
+                    if (totalEarnings <= 10000) pTax = 0;
+                    else if (totalEarnings <= 15000) pTax = 110;
+                    else if (totalEarnings <= 25000) pTax = 130;
+                    else if (totalEarnings <= 40000) pTax = 150;
+                    else pTax = 200;
+                }
 
                 const totalDeductions = pf + esi + pTax +
                     (parseFloat(s.tds) || 0) +
@@ -317,7 +350,7 @@ const AddEmployee = () => {
         });
     };
 
-    const calculateSalaryBreakdown = (grossAmount) => {
+    function calculateSalaryBreakdown(grossAmount, applyDeductions) {
         if (!grossAmount) return {};
 
         const gross = parseFloat(grossAmount);
@@ -336,29 +369,32 @@ const AddEmployee = () => {
         const specialAllowance = gross - currentEarnings;
 
         // Deductions
-        // PF
-        let pf;
-        if (basic <= 15000) {
-            pf = Math.round(basic * 0.12);
-        } else {
-            pf = 1800;
-        }
-
-        // ESI
-        let esi;
-        if (gross <= 21000) {
-            esi = Math.ceil(gross * 0.0075);
-        } else {
-            esi = 0;
-        }
-
-        // P. Tax
+        let pf = 0;
+        let esi = 0;
         let pTax = 0;
-        if (gross <= 10000) pTax = 0;
-        else if (gross <= 15000) pTax = 110;
-        else if (gross <= 25000) pTax = 130;
-        else if (gross <= 40000) pTax = 150;
-        else pTax = 200;
+
+        if (applyDeductions) {
+            // PF
+            if (basic <= 15000) {
+                pf = Math.round(basic * 0.12);
+            } else {
+                pf = 1800;
+            }
+
+            // ESI
+            if (gross <= 21000) {
+                esi = Math.ceil(gross * 0.0075);
+            } else {
+                esi = 0;
+            }
+
+            // P. Tax
+            if (gross <= 10000) pTax = 0;
+            else if (gross <= 15000) pTax = 110;
+            else if (gross <= 25000) pTax = 130;
+            else if (gross <= 40000) pTax = 150;
+            else pTax = 200;
+        }
 
         const totalDeductions = pf + esi + pTax;
 
@@ -406,7 +442,7 @@ const AddEmployee = () => {
             const updated = { ...prev.tempData, [field]: val };
 
             if (field === "amount" || field === "grossSalary") {
-                const breakdown = calculateSalaryBreakdown(val);
+                const breakdown = calculateSalaryBreakdown(val, formData.isDeductions);
                 return {
                     ...prev,
                     tempData: {
@@ -426,28 +462,29 @@ const AddEmployee = () => {
                 (parseFloat(updated.specialAllowance) || 0);
 
             // PF
-            let pf;
-            if (basic <= 15000) {
-                pf = Math.round(basic * 0.12);
-            } else {
-                pf = 1800;
-            }
-
-            // ESI
-            let esi;
-            if (totalEarnings <= 21000) {
-                esi = Math.ceil(totalEarnings * 0.0075);
-            } else {
-                esi = 0;
-            }
-
-            // P.Tax
+            let pf = 0;
+            let esi = 0;
             let pTax = 0;
-            if (totalEarnings <= 10000) pTax = 0;
-            else if (totalEarnings <= 15000) pTax = 110;
-            else if (totalEarnings <= 25000) pTax = 130;
-            else if (totalEarnings <= 40000) pTax = 150;
-            else pTax = 200;
+
+            if (formData.isDeductions) {
+                if (basic <= 15000) {
+                    pf = Math.round(basic * 0.12);
+                } else {
+                    pf = 1800;
+                }
+
+                if (totalEarnings <= 21000) {
+                    esi = Math.ceil(totalEarnings * 0.0075);
+                } else {
+                    esi = 0;
+                }
+
+                if (totalEarnings <= 10000) pTax = 0;
+                else if (totalEarnings <= 15000) pTax = 110;
+                else if (totalEarnings <= 25000) pTax = 130;
+                else if (totalEarnings <= 40000) pTax = 150;
+                else pTax = 200;
+            }
 
             const totalDeductions = pf + esi + pTax +
                 (parseFloat(updated.tds) || 0) +
@@ -938,6 +975,19 @@ const AddEmployee = () => {
                                         className="font-bold"
                                         placeholder="Default (Auto)"
                                     />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="isDeductions"
+                                        name="isDeductions"
+                                        checked={formData.isDeductions}
+                                        onChange={handleInputChange}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <label htmlFor="isDeductions" className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-tight">
+                                        Enable Deductions
+                                    </label>
                                 </div>
                             </div>
 

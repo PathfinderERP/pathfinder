@@ -272,7 +272,21 @@ const ViewEmployee = () => {
 
                         {/* Salary Breakdown Table */}
                         {employee.salaryStructure && employee.salaryStructure.length > 0 && (() => {
-                            const latestSalary = [...employee.salaryStructure].sort((a, b) => new Date(b.effectiveDate) - new Date(a.effectiveDate))[0];
+                            const rawLatestSalary = [...employee.salaryStructure].sort((a, b) => new Date(b.effectiveDate) - new Date(a.effectiveDate))[0];
+                            
+                            let latestSalary = { ...rawLatestSalary };
+                            
+                            if (!employee.isDeductions) {
+                                latestSalary.pf = 0;
+                                latestSalary.esi = 0;
+                                latestSalary.pTax = 0;
+                                latestSalary.tds = 0;
+                                latestSalary.lossOfPay = 0;
+                                latestSalary.adjustment = 0;
+                                latestSalary.totalDeductions = 0;
+                                latestSalary.netSalary = latestSalary.totalEarnings || latestSalary.amount;
+                            }
+
                             return (
                                 <div className="md:col-span-3 mt-6">
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
