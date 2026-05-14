@@ -152,6 +152,7 @@ const CashReceive = () => {
             "From Collection": req.fromDate ? new Date(req.fromDate).toLocaleDateString() : "N/A",
             "To Collection": req.toDate ? new Date(req.toDate).toLocaleDateString() : "N/A",
             "Transfer Date": new Date(req.transferDate).toLocaleDateString(),
+            "Accepted By": req.receivedBy?.name || "N/A",
             "Remarks": req.remarks || ""
         }));
 
@@ -302,13 +303,14 @@ const CashReceive = () => {
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Collection Period</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Debited</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Timestamp</th>
+                                    <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Accepted By</th>
                                     <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="8" className="p-20 text-center">
+                                        <td colSpan="10" className="p-20 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <div className="w-10 h-10 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin"></div>
                                                 <p className="text-gray-500 uppercase text-[10px] tracking-widest font-bold">Scanning Ledger...</p>
@@ -373,6 +375,20 @@ const CashReceive = () => {
                                             <td className="p-5 text-xs text-gray-400 font-bold whitespace-nowrap">
                                                 {new Date(req.transferDate).toLocaleDateString()}
                                             </td>
+                                            <td className="p-5">
+                                                <div className="flex items-center gap-2">
+                                                    {req.receivedBy ? (
+                                                        <div className="flex flex-col">
+                                                            <span className="text-white font-black text-[10px] uppercase tracking-tight">{req.receivedBy.name}</span>
+                                                            <span className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                                <FaCheckCircle size={8} /> Confirmed
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-600 text-[9px] font-black uppercase tracking-widest italic animate-pulse">Waiting...</span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="p-5 text-center">
                                                 <div className="flex items-center justify-center gap-2">
                                                     {req.receiptFile && (
@@ -412,7 +428,7 @@ const CashReceive = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-[0.3em] italic">
+                                        <td colSpan="10" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-[0.3em] italic">
                                             No incoming movements found
                                         </td>
                                     </tr>

@@ -147,6 +147,7 @@ export const getCashReceiveRequests = async (req, res) => {
             .populate("fromCentre", "centreName")
             .populate("toCentre", "centreName")
             .populate("transferredBy", "name")
+            .populate("receivedBy", "name")
             .sort({ createdAt: -1 });
 
         // Resolve signed URLs
@@ -376,6 +377,7 @@ export const getCashReport = async (req, res) => {
             .populate("fromCentre", "centreName")
             .populate("toCentre", "centreName")
             .populate("transferredBy", "name")
+            .populate("receivedBy", "name")
             .sort({ createdAt: -1 })
             .limit(serialNumber || referenceNumber ? 100 : 20);
 
