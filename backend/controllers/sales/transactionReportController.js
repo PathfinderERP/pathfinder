@@ -13,7 +13,7 @@ export const getTransactionReport = async (req, res) => {
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
 
         // REDIS CACHING LOGIC START
-        const cacheKey = generateCacheKey("finance:transaction_report_v3", {
+        const cacheKey = generateCacheKey("finance:transaction_report_v5", {
             query: req.query,
             userId: req.user._id,
             role: req.user.role,
@@ -88,22 +88,18 @@ export const getTransactionReport = async (req, res) => {
             const start = new Date(startDate);
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
-            paymentMatch.$expr = {
-                $and: [
-                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, start] },
-                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, end] }
-                ]
-            };
+
+            // Date filter will be applied via $addFields + $match in pipelines for better reliability
+            paymentMatch.isDateFiltered = true; // Flag to indicate date filter is active
+            paymentMatch.filterStart = start;
+            paymentMatch.filterEnd = end;
         } else if (year && !isNaN(parseInt(year))) {
             const targetYear = parseInt(year);
             const startOfYear = new Date(targetYear, 0, 1);
             const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
-            paymentMatch.$expr = {
-                $and: [
-                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, startOfYear] },
-                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, endOfYear] }
-                ]
-            };
+            paymentMatch.isDateFiltered = true;
+            paymentMatch.filterStart = startOfYear;
+            paymentMatch.filterEnd = endOfYear;
         } else if (!search) {
             // Default: All transactions up to now
             // Using a simple date comparison if possible to leverage indexes
@@ -206,9 +202,20 @@ export const getTransactionReport = async (req, res) => {
         const needsAdmissionLookup = session || centreIds || courseIds || examTagId || departmentIds;
 
         const chartPipeline = [
-            { $match: paymentMatch },
-            { $addFields: { reportDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] }, revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] } } }
+            { $match: baseAttributesMatch },
+            { $addFields: { 
+                reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }, 
+                revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] } 
+            } },
         ];
+
+        if (paymentMatch.isDateFiltered) {
+            chartPipeline.push({
+                $match: {
+                    reportDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd }
+                }
+            });
+        }
 
         if (needsAdmissionLookup) {
             chartPipeline.push(
@@ -248,8 +255,19 @@ export const getTransactionReport = async (req, res) => {
 
         // Process Detailed Report (Separate Query for Flattened Data)
         const detailedPipeline = [
-            { $match: paymentMatch },
-            { $addFields: { effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] } } },
+            { $match: baseAttributesMatch },
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
+        ];
+
+        if (paymentMatch.isDateFiltered) {
+            detailedPipeline.push({
+                $match: {
+                    effectiveDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd }
+                }
+            });
+        }
+
+        detailedPipeline.push(
             { $sort: { createdAt: -1, effectiveDate: -1 } },
             { $limit: 5000 }, // Prevent massive data dumps that cause timeouts
             // 2. Lookup Admission Details from both potential collections
@@ -361,7 +379,7 @@ export const getTransactionReport = async (req, res) => {
             },
             {
                 $addFields: {
-                    receivedDate: { $ifNull: ["$receivedDate", "$paidDate"] }
+                    receivedDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }] }
                 }
             },
             {
@@ -375,7 +393,7 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
+                    paymentDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] },
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",
@@ -426,7 +444,7 @@ export const getTransactionReport = async (req, res) => {
                     }
                 }
             }
-        ];
+        );
         const detailedData = await Payment.aggregate(detailedPipeline).option({ allowDiskUse: true });
 
 
@@ -452,7 +470,7 @@ export const getTransactionReport = async (req, res) => {
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] } } }
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } }
         ];
 
         if (needsAdmissionLookup) {
