@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Layout from "../../components/Layout";
 import {
+    FaClock, FaTimes,
     FaBuilding, FaStopwatch,
     FaMapMarkerAlt, FaCalendarCheck, FaBolt, FaCheckCircle, FaCheck
 } from "react-icons/fa";
@@ -154,7 +155,7 @@ const EmployeeAttendance = () => {
                 setAssignedCentres(data.assignedCentres);
                 setDateOfJoining(data.dateOfJoining);
                 setEmployeeDetails(data.employeeDetails);
-                
+
                 if (data.earlyCheckoutsThisWeek >= 2) {
                     setSystemNotification(`Careful! You have left early ${data.earlyCheckoutsThisWeek} times this week. Leaving early today will mark it as a Half Day.`);
                 }
@@ -455,11 +456,10 @@ const EmployeeAttendance = () => {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Status</p>
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                                status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400' :
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400' :
                                                 status.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                                'bg-indigo-500/20 text-indigo-400'
-                                            }`}>
+                                                    'bg-indigo-500/20 text-indigo-400'
+                                                }`}>
                                                 {status.status}
                                             </span>
                                         </div>
@@ -492,11 +492,10 @@ const EmployeeAttendance = () => {
                             </div>
                         ) : (
                             <div className={`p-12 rounded-3xl border text-center ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                                    status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
+                                <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
                                     status.type === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                    'bg-gray-500/20 text-gray-400'
-                                }`}>
+                                        'bg-gray-500/20 text-gray-400'
+                                    }`}>
                                     {status.type === 'Holiday' ? <FaCalendarCheck size={32} /> : <FaBuilding size={32} />}
                                 </div>
                                 <h3 className={`text-2xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -520,10 +519,10 @@ const EmployeeAttendance = () => {
                         {(() => {
                             const today = new Date();
                             const todayStart = startOfDay(today);
-                            
+
                             // Prevent marking for past days
                             const isPastDay = day < todayStart;
-                            
+
                             // Check if a Week Off is already defined for the week of the selected 'day'
                             const weekStart = startOfWeek(day, { weekStartsOn: 1 });
                             const weekEnd = endOfWeek(day, { weekStartsOn: 1 });

@@ -4,6 +4,7 @@ import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Department from "../../models/Master_data/Department.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
 import mongoose from "mongoose";
 
 const monthNames = [
@@ -134,14 +135,18 @@ export const getCourseTargetAnalysis = async (req, res) => {
             
             console.log(`Fetching admissions for ${centreName} from ${startDate} to ${endDate}`);
 
-            const [normalAdmissions, boardAdmissions] = await Promise.all([
+            const [normalAdmissions, boardAdmissions, allExamTags] = await Promise.all([
                 Admission.aggregate([
                     { $match: { 
                         centre: centreRegex, 
                         admissionDate: { $gte: startDate, $lte: endDate }, 
-                        admissionStatus: "ACTIVE" 
+                        admissionStatus: "ACTIVE",
+                        admissionType: "NORMAL"
                     } },
-                    { $group: { _id: "$department", count: { $sum: 1 } } }
+                    { $group: { 
+                        _id: { department: "$department", examTag: "$examTag" }, 
+                        count: { $sum: 1 } 
+                    } }
                 ]),
                 BoardCourseAdmission.aggregate([
                     { $match: { 
@@ -150,13 +155,40 @@ export const getCourseTargetAnalysis = async (req, res) => {
                         status: "ACTIVE" 
                     } },
                     { $group: { _id: "$boardId", count: { $sum: 1 } } }
-                ])
+                ]),
+                ExamTag.find({}).lean()
             ]);
 
-            console.log("Normal Admissions found:", JSON.stringify(normalAdmissions));
+            const examTagMap = {};
+            allExamTags.forEach(t => examTagMap[t._id.toString()] = t.name);
 
-            const deptAdmissionMap = {};
-            normalAdmissions.forEach(a => { if (a._id) deptAdmissionMap[a._id.toString()] = a.count; });
+            console.log("Normal Admissions found (grouped):", JSON.stringify(normalAdmissions));
+
+            const deptAdmissionMap = {}; // Total count per department
+            const deptExamTagBreakdown = {}; // Breakdown per department
+
+            normalAdmissions.forEach(a => { 
+                if (a._id && a._id.department) {
+                    const dId = a._id.department.toString();
+                    deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + a.count;
+                    
+                    if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
+                    deptExamTagBreakdown[dId].push({
+                        tagId: a._id.examTag,
+                        tagName: a._id.examTag ? (examTagMap[a._id.examTag.toString()] || "Other") : "Uncategorized",
+                        count: a.count
+                    });
+                } 
+            });
+
+            // Include Board Admissions
+            boardAdmissions.forEach(a => {
+                if (a._id) {
+                    const dId = a._id.toString();
+                    deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + a.count;
+                    // Boards usually don't have exam tags, but we could add a default entry if needed
+                }
+            });
             
             // Map master departments to final results
             const finalDeptStats = masterDepartments.map(dept => {
@@ -173,6 +205,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     achieved: achieved,
                     pct: parseFloat(finalPct.toFixed(1)),
                     examTags: targetDoc ? targetDoc.examTags : [],
+                    examTagAchieved: deptExamTagBreakdown[dId] || [],
                     courses: [] 
                 };
             });

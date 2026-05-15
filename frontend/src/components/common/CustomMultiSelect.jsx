@@ -3,7 +3,7 @@ import Select from 'react-select';
 
 import { useTheme } from '../../context/ThemeContext';
 
-const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, theme: propTheme, isDarkMode, ...rest }) => {
+const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, isMulti = true, theme: propTheme, isDarkMode, ...rest }) => {
     // Try to get theme from context, but don't crash if context is missing
     let contextTheme = 'light';
     try {
@@ -94,7 +94,7 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
 
     return (
         <Select
-            isMulti
+            isMulti={isMulti}
             options={options}
             value={value}
             onChange={onChange}

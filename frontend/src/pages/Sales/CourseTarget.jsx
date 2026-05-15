@@ -18,6 +18,8 @@ const CourseTarget = () => {
     const [data, setData] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [detailData, setDetailData] = useState(null);
     const [editData, setEditData] = useState(null);
 
     // Filters
@@ -126,13 +128,14 @@ const CourseTarget = () => {
             d.name?.trim().toLowerCase() === deptName?.trim().toLowerCase()
         );
         
-        if (!dept) return { target: 0, achieved: 0, pct: 0, id: null, examTags: [] };
+        if (!dept) return { target: 0, achieved: 0, pct: 0, id: null, examTags: [], examTagAchieved: [] };
         return {
             target: dept.target || 0,
             achieved: dept.achieved || 0,
             pct: dept.pct || 0,
             id: dept.id,
-            examTags: dept.examTags || []
+            examTags: dept.examTags || [],
+            examTagAchieved: dept.examTagAchieved || []
         };
     };
 
@@ -339,9 +342,25 @@ const CourseTarget = () => {
                                                 </td>
                                                 
                                                 {departments.map(deptName => {
-                                                    const { target, achieved, pct, id, examTags } = getDeptStats(centre, deptName);
+                                                    const { target, achieved, pct, id, examTags, examTagAchieved } = getDeptStats(centre, deptName);
                                                     return (
-                                                        <td key={deptName} className="px-6 py-5 text-center border-r border-inherit relative group/cell">
+                                                        <td 
+                                                            key={deptName} 
+                                                            className="px-6 py-5 text-center border-r border-inherit relative group/cell cursor-pointer hover:bg-cyan-500/5 transition-colors"
+                                                            onClick={(e) => {
+                                                                // Prevent click if clicking the edit button
+                                                                if (e.target.closest('button')) return;
+                                                                if (achieved > 0) {
+                                                                    setDetailData({
+                                                                        centreName: centre.centreName,
+                                                                        deptName: deptName,
+                                                                        achieved: achieved,
+                                                                        breakdown: examTagAchieved
+                                                                    });
+                                                                    setShowDetailModal(true);
+                                                                }
+                                                            }}
+                                                        >
                                                             <div className="flex justify-center items-center gap-2">
                                                                 <div className="flex items-baseline gap-1.5">
                                                                     <span className={`text-sm font-bold ${target > 0 ? (isDarkMode ? 'text-gray-300' : 'text-gray-800') : 'opacity-20'}`}>
@@ -384,6 +403,19 @@ const CourseTarget = () => {
                                                                             style={{ width: `${Math.min(pct, 100)}%` }}
                                                                         />
                                                                     </div>
+                                                                    
+                                                                    {/* Exam Tag Breakdown */}
+                                                                    {examTagAchieved && examTagAchieved.length > 0 && (
+                                                                        <div className="mt-2 space-y-0.5">
+                                                                            {examTagAchieved.map((tag, idx) => (
+                                                                                <div key={idx} className="flex justify-between items-center text-[8px] font-bold px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                                                                                    <span className="opacity-60 truncate max-w-[60px]" title={tag.tagName}>{tag.tagName}</span>
+                                                                                    <span className="text-cyan-400">{tag.count}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+
                                                                     <div className="mt-1 text-center">
                                                                         {achieved >= target ? (
                                                                             <span className="text-[10px] font-black text-emerald-500">✓ MET</span>
@@ -434,6 +466,54 @@ const CourseTarget = () => {
                         isDarkMode={isDarkMode}
                         initialData={editData}
                     />
+                )}
+
+                {showDetailModal && detailData && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200`}>
+                            <div className="p-6 border-b border-inherit flex justify-between items-center">
+                                <div>
+                                    <h3 className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter`}>Breakdown Details</h3>
+                                    <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest">{detailData.centreName} • {detailData.deptName}</p>
+                                </div>
+                                <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded-full transition-colors">
+                                    <FaPlus className="rotate-45" />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="flex justify-between items-baseline mb-2">
+                                    <span className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500 uppercase'}`}>Total Achieved</span>
+                                    <span className="text-2xl font-black text-emerald-500">{detailData.achieved}</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <h4 className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-[0.2em] mb-3`}>Exam Tag Wise Achieved</h4>
+                                    {detailData.breakdown.length > 0 ? (
+                                        <div className="grid gap-2">
+                                            {detailData.breakdown.map((tag, idx) => (
+                                                <div key={idx} className={`flex justify-between items-center p-3 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-800 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-100 hover:border-cyan-500/50'} transition-all group`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 group-hover:animate-ping" />
+                                                        <span className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{tag.tagName}</span>
+                                                    </div>
+                                                    <span className="text-sm font-black text-cyan-500">{tag.count} Admissions</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 opacity-40 italic text-sm">No specific exam tags recorded.</div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className={`p-4 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50'} border-t border-inherit flex justify-end`}>
+                                <button 
+                                    onClick={() => setShowDetailModal(false)}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </Layout>
