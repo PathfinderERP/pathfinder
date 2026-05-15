@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaFilter, FaSync, FaEdit, FaTrash, FaDownload, FaChevronDown, FaSun, FaMoon, FaTable, FaBullseye, FaArrowUp, FaArrowDown } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { useNavigate } from "react-router-dom";
-import AddCourseTargetModal from "../../components/Sales/AddCourseTargetModal";
+// import AddCourseTargetModal from "../../components/Sales/AddCourseTargetModal";
 import { hasPermission } from "../../config/permissions";
 
 const CourseTarget = () => {
@@ -17,10 +17,8 @@ const CourseTarget = () => {
     const [centres, setCentres] = useState([]);
     const [data, setData] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [showAddModal, setShowAddModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [detailData, setDetailData] = useState(null);
-    const [editData, setEditData] = useState(null);
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
@@ -29,6 +27,8 @@ const CourseTarget = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
     const [selectedQuarter, setSelectedQuarter] = useState("Q1");
     const [selectedWeek, setSelectedWeek] = useState(1);
+    const [customStartDate, setCustomStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
+    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = hasPermission(user, 'sales', 'centreTarget', 'create'); // Reusing centreTarget permission for now
@@ -49,7 +49,7 @@ const CourseTarget = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             let centerList = res.data;
-            
+
             if (user.role !== 'superAdmin' && user.centres) {
                 const allowed = user.centres.map(id => typeof id === 'object' ? id._id : id);
                 centerList = centerList.filter(c => allowed.includes(c._id));
@@ -91,13 +91,17 @@ const CourseTarget = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
+            // selectedCentres is an array of plain _id strings
+            const centreParam = selectedCentres.join(',');
             const params = {
-                centre: selectedCentres.includes('all') || (selectedCentres.length === centres.length && centres.length > 0) ? 'all' : selectedCentres.join(','),
+                centre: centreParam || 'all',
                 year: selectedYear,
                 targetType: viewMode,
                 month: selectedMonth,
                 quarter: selectedQuarter,
-                week: selectedWeek
+                week: selectedWeek,
+                startDate: customStartDate,
+                endDate: customEndDate
             };
 
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/course-target/analysis`, {
@@ -105,7 +109,7 @@ const CourseTarget = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            console.log("Analysis Data Received:", res.data.data);
+            console.log("Analysis Data Received:", res.data.data?.length, "centres");
             setData(res.data.data || []);
 
         } catch (e) {
@@ -114,7 +118,7 @@ const CourseTarget = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, centres.length]);
+    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate]);
 
     useEffect(() => {
         fetchData();
@@ -122,12 +126,12 @@ const CourseTarget = () => {
 
     const getDeptStats = (centreData, deptName) => {
         if (!centreData || !centreData.departments) return { target: 0, achieved: 0, pct: 0 };
-        
+
         // Find department by name (case-insensitive and trimmed)
-        const dept = centreData.departments.find(d => 
+        const dept = centreData.departments.find(d =>
             d.name?.trim().toLowerCase() === deptName?.trim().toLowerCase()
         );
-        
+
         if (!dept) return { target: 0, achieved: 0, pct: 0, id: null, examTags: [], examTagAchieved: [] };
         return {
             target: dept.target || 0,
@@ -139,38 +143,24 @@ const CourseTarget = () => {
         };
     };
 
-    const getCentreTotal = (centreData) => {
-        if (!centreData || !centreData.departments) return { target: 0, achieved: 0, pct: 0 };
-        let target = 0;
-        let achieved = 0;
-        centreData.departments.forEach(d => {
-            target += d.target || 0;
-            achieved += d.achieved || 0;
-        });
-        const pct = target > 0 ? (achieved / target) * 100 : 0;
-        return { target, achieved, pct: parseFloat(pct.toFixed(1)) };
+    const getCentreTotalAchieved = (centreData) => {
+        if (!centreData || !centreData.departments) return 0;
+        return centreData.departments.reduce((sum, d) => sum + (d.achieved || 0), 0);
     };
 
-    const getTotalStats = (centreData) => {
-        let totalTarget = 0;
-        let totalAchieved = 0;
-        centreData.departments.forEach(dept => {
-            totalTarget += dept.target || 0;
-            totalAchieved += dept.achieved || 0;
-        });
-        const pct = totalTarget > 0 ? (totalAchieved / totalTarget) * 100 : 0;
-        return { totalTarget, totalAchieved, totalPct: pct.toFixed(1) };
+    const getTotalAchieved = (centreData) => {
+        return centreData.departments.reduce((sum, dept) => sum + (dept.achieved || 0), 0);
     };
 
     return (
         <Layout activePage="Sales">
             <div className={`space-y-6 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'} p-4 md:p-8`}>
-                
+
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Course Target</h1>
-                        <p className={`${isDarkMode ? 'text-amber-400' : 'text-amber-600'} font-semibold uppercase text-xs tracking-widest`}>Department-wise Admission Matrix</p>
+                        <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Admission Matrix</h1>
+                        <p className={`${isDarkMode ? 'text-amber-400' : 'text-amber-600'} font-semibold uppercase text-xs tracking-widest`}>Department-wise Performance Report</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <button
@@ -199,14 +189,14 @@ const CourseTarget = () => {
                         <h3 className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-semibold flex items-center gap-2`}>
                             <FaFilter className="text-cyan-400" /> Filters
                         </h3>
-                        <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg p-1 flex`}>
-                            {["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"].map(mode => (
+                        <div className={`flex p-1 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                            {["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "CUSTOM"].map(mode => (
                                 <button
                                     key={mode}
                                     onClick={() => setViewMode(mode)}
-                                    className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${viewMode === mode
-                                        ? "bg-blue-600 text-white shadow-lg"
-                                        : `${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
+                                    className={`px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${viewMode === mode
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                        : `${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
                                         }`}
                                 >
                                     {mode}
@@ -236,7 +226,7 @@ const CourseTarget = () => {
                             />
                         </div>
 
-                        {viewMode === "MONTHLY" && (
+                        {(viewMode === "MONTHLY" || viewMode === "WEEKLY") && (
                             <div className="min-w-[120px] z-20">
                                 <select
                                     value={selectedMonth}
@@ -244,6 +234,33 @@ const CourseTarget = () => {
                                     className={`border text-xs rounded-lg block px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
                                 >
                                     {monthNames.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                            </div>
+                        )}
+
+                        {viewMode === "WEEKLY" && (
+                            <div className="min-w-[150px] z-20">
+                                <select
+                                    value={selectedWeek}
+                                    onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
+                                    className={`border text-xs rounded-lg block w-full px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
+                                >
+                                    {(() => {
+                                        const mIdx = monthNames.indexOf(selectedMonth);
+                                        const daysInMonth = new Date(selectedYear, mIdx + 1, 0).getDate();
+                                        const weekOptions = [];
+                                        for (let i = 0; i < Math.ceil(daysInMonth / 7); i++) {
+                                            const weekNum = i + 1;
+                                            const startDay = i * 7 + 1;
+                                            const endDay = Math.min((i + 1) * 7, daysInMonth);
+                                            weekOptions.push(
+                                                <option key={weekNum} value={weekNum}>
+                                                    Week {weekNum} ({startDay} {selectedMonth.substring(0, 3)} - {endDay} {selectedMonth.substring(0, 3)})
+                                                </option>
+                                            );
+                                        }
+                                        return weekOptions;
+                                    })()}
                                 </select>
                             </div>
                         )}
@@ -260,13 +277,33 @@ const CourseTarget = () => {
                             </div>
                         )}
 
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(e.target.value)}
-                            className={`border text-xs rounded-lg block px-3 py-2 outline-none font-bold transition-all w-28 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
-                        >
-                            {years.map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
+                        {viewMode === "CUSTOM" && (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    className={`border text-xs rounded-lg block px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
+                                />
+                                <span className="text-gray-500">to</span>
+                                <input
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    className={`border text-xs rounded-lg block px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
+                                />
+                            </div>
+                        )}
+
+                        {viewMode !== "CUSTOM" && (
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(e.target.value)}
+                                className={`border text-xs rounded-lg block px-3 py-2 outline-none font-bold transition-all w-28 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
+                            >
+                                {years.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                        )}
 
                         <button
                             className="p-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase"
@@ -274,15 +311,6 @@ const CourseTarget = () => {
                         >
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync
                         </button>
-
-                        {canCreate && (
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/20 text-xs font-bold uppercase"
-                            >
-                                <FaPlus /> Add Target
-                            </button>
-                        )}
                     </div>
                 </div>
 
@@ -298,22 +326,16 @@ const CourseTarget = () => {
                                             <div className="flex flex-col items-center">
                                                 <span className="text-cyan-500 mb-1">{dept}</span>
                                                 <div className="flex gap-4 text-[9px] opacity-60">
-                                                    <span>TARGET</span>
-                                                    <span>ACHIEVED</span>
+                                                    <span>ADMISSIONS</span>
                                                 </div>
                                             </div>
                                         </th>
                                     ))}
                                     <th className="px-6 py-4 text-center border-r border-inherit bg-amber-500/5">
                                         <div className="flex flex-col items-center">
-                                            <span className="text-amber-500">TOTAL MATRIX</span>
-                                            <div className="flex gap-4 text-[9px] opacity-60">
-                                                <span>T</span>
-                                                <span>A</span>
-                                            </div>
+                                            <span className="text-amber-500 uppercase tracking-widest">Grand Total</span>
                                         </div>
                                     </th>
-                                    <th className="px-6 py-4 text-center">SCORE (%)</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
@@ -331,25 +353,24 @@ const CourseTarget = () => {
                                     </tr>
                                 ) : (
                                     data.map((centre) => {
-                                        const { totalTarget, totalAchieved, totalPct } = getTotalStats(centre);
                                         return (
-                                            <tr key={centre.centreId} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-300 group`}>
-                                                <td className={`px-6 py-5 text-sm font-black sticky left-0 z-10 border-r border-inherit shadow-sm ${isDarkMode ? 'bg-[#1a1f24] text-white' : 'bg-white text-gray-900'}`}>
+                                            <tr key={centre.centreId} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
+                                                <td className="px-6 py-5 sticky left-0 z-10 bg-inherit border-r border-inherit">
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`w-2 h-2 rounded-full ${parseFloat(totalPct) >= 50 ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-                                                        {centre.centreName}
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                        <span className={`text-xs font-black uppercase tracking-tighter ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                                                            {centre.centreName}
+                                                        </span>
                                                     </div>
                                                 </td>
-                                                
+
                                                 {departments.map(deptName => {
-                                                    const { target, achieved, pct, id, examTags, examTagAchieved } = getDeptStats(centre, deptName);
+                                                    const { achieved, examTagAchieved } = getDeptStats(centre, deptName);
                                                     return (
-                                                        <td 
-                                                            key={deptName} 
+                                                        <td
+                                                            key={deptName}
                                                             className="px-6 py-5 text-center border-r border-inherit relative group/cell cursor-pointer hover:bg-cyan-500/5 transition-colors"
-                                                            onClick={(e) => {
-                                                                // Prevent click if clicking the edit button
-                                                                if (e.target.closest('button')) return;
+                                                            onClick={() => {
                                                                 if (achieved > 0) {
                                                                     setDetailData({
                                                                         centreName: centre.centreName,
@@ -361,93 +382,29 @@ const CourseTarget = () => {
                                                                 }
                                                             }}
                                                         >
-                                                            <div className="flex justify-center items-center gap-2">
-                                                                <div className="flex items-baseline gap-1.5">
-                                                                    <span className={`text-sm font-bold ${target > 0 ? (isDarkMode ? 'text-gray-300' : 'text-gray-800') : 'opacity-20'}`}>
-                                                                        {target}
-                                                                    </span>
-                                                                    <span className="text-xs opacity-30">/</span>
-                                                                    <span className={`text-base font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
-                                                                        {achieved}
-                                                                    </span>
-                                                                </div>
-                                                                
-                                                                {canCreate && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setEditData({
-                                                                                centreId: centre.centreId,
-                                                                                departmentId: id,
-                                                                                targetCount: target,
-                                                                                examTags: examTags,
-                                                                                targetType: viewMode,
-                                                                                year: selectedYear,
-                                                                                month: selectedMonth,
-                                                                                quarter: selectedQuarter,
-                                                                                week: selectedWeek
-                                                                            });
-                                                                            setShowAddModal(true);
-                                                                        }}
-                                                                        className="opacity-0 group-hover/cell:opacity-100 p-1.5 bg-cyan-500/10 hover:bg-cyan-500 text-cyan-500 hover:text-white rounded-md transition-all duration-200"
-                                                                        title="Edit Target"
-                                                                    >
-                                                                        <FaEdit size={10} />
-                                                                    </button>
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className={`text-xl font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
+                                                                    {achieved}
+                                                                </span>
+
+                                                                {/* Exam Tag Breakdown - Shown always if data exists */}
+                                                                {examTagAchieved && examTagAchieved.length > 0 && (
+                                                                    <div className="mt-2 w-full space-y-0.5">
+                                                                        {examTagAchieved.map((tag, idx) => (
+                                                                            <div key={idx} className="flex justify-between items-center text-[8px] font-bold px-1.5 py-1 rounded bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                                                                                <span className="opacity-60 truncate max-w-[70px]" title={tag.tagName}>{tag.tagName}</span>
+                                                                                <span className="text-cyan-400">{tag.count}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
                                                                 )}
                                                             </div>
-                                                            {target > 0 && (
-                                                                <>
-                                                                    <div className="mt-1.5 w-full h-1.5 bg-gray-500/10 rounded-full overflow-hidden">
-                                                                        <div 
-                                                                            className={`h-full rounded-full transition-all duration-700 ${parseFloat(pct) >= 100 ? 'bg-amber-500' : 'bg-cyan-500'}`}
-                                                                            style={{ width: `${Math.min(pct, 100)}%` }}
-                                                                        />
-                                                                    </div>
-                                                                    
-                                                                    {/* Exam Tag Breakdown */}
-                                                                    {examTagAchieved && examTagAchieved.length > 0 && (
-                                                                        <div className="mt-2 space-y-0.5">
-                                                                            {examTagAchieved.map((tag, idx) => (
-                                                                                <div key={idx} className="flex justify-between items-center text-[8px] font-bold px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                                                                                    <span className="opacity-60 truncate max-w-[60px]" title={tag.tagName}>{tag.tagName}</span>
-                                                                                    <span className="text-cyan-400">{tag.count}</span>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-
-                                                                    <div className="mt-1 text-center">
-                                                                        {achieved >= target ? (
-                                                                            <span className="text-[10px] font-black text-emerald-500">✓ MET</span>
-                                                                        ) : (
-                                                                            <span className="text-[10px] font-black text-red-400">
-                                                                                -{target - achieved}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </>
-                                                            )}
                                                         </td>
                                                     );
                                                 })}
 
                                                 <td className="px-6 py-5 text-center border-r border-inherit bg-amber-500/5">
-                                                    <div className="flex justify-center items-baseline gap-2">
-                                                        <span className="text-base font-black text-amber-500">{totalTarget}</span>
-                                                        <span className="text-xs opacity-30">/</span>
-                                                        <span className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalAchieved}</span>
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-6 py-5 text-center">
-                                                    <div className="flex flex-col items-center gap-1">
-                                                        <span className={`text-base font-black ${parseFloat(totalPct) >= 80 ? 'text-emerald-500' : parseFloat(totalPct) >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
-                                                            {totalPct}%
-                                                        </span>
-                                                        <div className="flex gap-1">
-                                                            {parseFloat(totalPct) >= 100 ? <FaArrowUp className="text-emerald-500" size={10} /> : <FaArrowDown className="text-red-500 opacity-30" size={10} />}
-                                                        </div>
-                                                    </div>
+                                                    <span className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getCentreTotalAchieved(centre)}</span>
                                                 </td>
                                             </tr>
                                         );
@@ -457,16 +414,6 @@ const CourseTarget = () => {
                         </table>
                     </div>
                 </div>
-
-                {showAddModal && (
-                    <AddCourseTargetModal 
-                        onClose={() => { setShowAddModal(false); setEditData(null); }}
-                        onSuccess={() => { setShowAddModal(false); setEditData(null); fetchData(); }}
-                        centres={centres}
-                        isDarkMode={isDarkMode}
-                        initialData={editData}
-                    />
-                )}
 
                 {showDetailModal && detailData && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -505,7 +452,7 @@ const CourseTarget = () => {
                                 </div>
                             </div>
                             <div className={`p-4 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50'} border-t border-inherit flex justify-end`}>
-                                <button 
+                                <button
                                     onClick={() => setShowDetailModal(false)}
                                     className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
                                 >
