@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaExchangeAlt, FaPaperPlane, FaBuilding, FaWallet, FaLock, FaKey, FaArrowRight, FaCheckCircle, FaHashtag, FaFileInvoice, FaCloudUploadAlt, FaTimes, FaCalendarAlt } from "react-icons/fa";
+import { FaExchangeAlt, FaPaperPlane, FaBuilding, FaWallet, FaLock, FaKey, FaArrowRight, FaCheckCircle, FaHashtag, FaFileInvoice, FaCloudUploadAlt, FaTimes, FaCalendarAlt, FaHistory, FaSearch } from "react-icons/fa";
 import axios from "axios";
 import { toast } from "react-toastify";
 
 import { useNavigate } from "react-router-dom";
+import CustomSearchSelect from "../../components/common/CustomSearchSelect";
 
 const CashTransfer = () => {
     const navigate = useNavigate();
@@ -158,8 +159,8 @@ const CashTransfer = () => {
 
     const handleTransfer = async (e) => {
         e.preventDefault();
-        if (!formData.fromCentreId || !formData.toCentreId || !formData.amount || !formData.accountNumber) {
-            return toast.warn("Please fill all required fields");
+        if (!formData.fromCentreId || !formData.toCentreId || !formData.amount || !formData.accountNumber || !formData.fromDate || !formData.toDate) {
+            return toast.warn("Please fill all required fields (including Collection Period)");
         }
 
         try {
@@ -252,9 +253,18 @@ const CashTransfer = () => {
         <Layout activePage="Cash Transfer">
             <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-10 duration-700">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white">Cash Transfer</h1>
-                        <p className="text-gray-400 text-sm mt-1">Securely move funds with unique password authentication</p>
+                    <div className="flex items-center gap-6">
+                        <button
+                            onClick={() => navigate("/finance/cash/transfer-history")}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-cyan-400 rounded-2xl border border-gray-700 transition-all font-bold text-xs uppercase tracking-widest shadow-lg active:scale-95"
+                        >
+                            <FaHistory />
+                            View History
+                        </button>
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-bold text-white">Cash Transfer</h1>
+                            <p className="text-gray-400 text-sm mt-1">Securely move funds with unique password authentication</p>
+                        </div>
                     </div>
                     {serialNumber && (
                         <div className="bg-gray-800/50 px-4 py-2 rounded-lg border border-gray-700">
@@ -347,25 +357,24 @@ const CashTransfer = () => {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-400 ml-1">Account Number</label>
                                     <div className="relative">
-                                        <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-                                        <select
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none"
+                                        <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 z-10" />
+                                        <CustomSearchSelect
+                                            options={[
+                                                ...masterAccounts.map(acc => ({
+                                                    value: acc.accno,
+                                                    label: `${acc.accname} (${acc.accno})`
+                                                })),
+                                                // Fallback if the centre's account isn't in master accounts but we have a value
+                                                ...(formData.accountNumber && !masterAccounts.some(a => a.accno === formData.accountNumber) 
+                                                    ? [{ value: formData.accountNumber, label: `Centre Default: ${formData.accountNumber}` }] 
+                                                    : [])
+                                            ]}
                                             value={formData.accountNumber}
-                                            onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                                        >
-                                            <option value="">Select Account</option>
-                                            {masterAccounts.map(acc => (
-                                                <option key={acc._id} value={acc.accno}>
-                                                    ({acc.accno})
-                                                </option>
-                                            ))}
-                                            {/* Fallback if the centre's account isn't in master accounts but we have a value */}
-                                            {formData.accountNumber && !masterAccounts.some(a => a.accno === formData.accountNumber) && (
-                                                <option value={formData.accountNumber}>
-                                                    Centre Default: {formData.accountNumber}
-                                                </option>
-                                            )}
-                                        </select>
+                                            onChange={(val) => setFormData({ ...formData, accountNumber: val })}
+                                            placeholder="Select Account"
+                                            isDarkMode={true}
+                                            className="pl-8"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -402,7 +411,7 @@ const CashTransfer = () => {
                             {/* From Date / To Date Filter Row */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">From Date</label>
+                                    <label className="text-sm font-medium text-gray-400 ml-1">From Date <span className="text-red-500">*</span></label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
@@ -411,11 +420,12 @@ const CashTransfer = () => {
                                             value={formData.fromDate}
                                             onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
                                             max={formData.toDate || yesterdayStr}
+                                            required
                                         />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">To Date</label>
+                                    <label className="text-sm font-medium text-gray-400 ml-1">To Date <span className="text-red-500">*</span></label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
@@ -425,6 +435,7 @@ const CashTransfer = () => {
                                             onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
                                             min={formData.fromDate}
                                             max={yesterdayStr}
+                                            required
                                         />
                                     </div>
                                 </div>

@@ -38,8 +38,8 @@ export const initiateCashTransfer = async (req, res) => {
     try {
         const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber, debitedDate, fromDate, toDate } = req.body;
 
-        if (!fromCentreId || !toCentreId || !amount || !accountNumber) {
-            return res.status(400).json({ message: "Missing required fields" });
+        if (!fromCentreId || !toCentreId || !amount || !accountNumber || !fromDate || !toDate) {
+            return res.status(400).json({ message: "Missing required fields (including Collection Period dates)" });
         }
 
         let receiptFileKey = null;
