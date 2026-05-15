@@ -4,6 +4,7 @@ import { FaHistory, FaSearch, FaTimes, FaArrowLeft, FaSyncAlt } from "react-icon
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import CustomSearchSelect from "../../components/common/CustomSearchSelect";
 
 const CashTransferHistory = () => {
     const navigate = useNavigate();
@@ -12,12 +13,30 @@ const CashTransferHistory = () => {
     const [historySearch, setHistorySearch] = useState("");
     const [filters, setFilters] = useState({
         startDate: "",
-        endDate: ""
+        endDate: "",
+        centreId: ""
     });
+    const [allCentres, setAllCentres] = useState([]);
+
+    useEffect(() => {
+        fetchCentres();
+    }, []);
 
     useEffect(() => {
         fetchHistory();
-    }, [filters.startDate, filters.endDate]);
+    }, [filters.startDate, filters.endDate, filters.centreId]);
+
+    const fetchCentres = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/centres?status=active`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setAllCentres(response.data || []);
+        } catch (error) {
+            console.error("Failed to fetch centres", error);
+        }
+    };
 
     const fetchHistory = async () => {
         try {
@@ -26,7 +45,8 @@ const CashTransferHistory = () => {
             const response = await axios.get(`${import.meta.env.VITE_API_URL}/finance/cash/report`, {
                 params: {
                     startDate: filters.startDate,
-                    endDate: filters.endDate
+                    endDate: filters.endDate,
+                    centreId: filters.centreId
                 },
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -61,6 +81,21 @@ const CashTransferHistory = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 bg-gray-900/40 p-4 rounded-3xl border border-gray-800 backdrop-blur-xl">
+                        <div className="flex items-center gap-3 min-w-[240px]">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Centre</label>
+                            <div className="flex-1">
+                                <CustomSearchSelect
+                                    options={[
+                                        { value: "", label: "ALL CENTRES" },
+                                        ...allCentres.map(c => ({ value: c._id, label: c.centreName }))
+                                    ]}
+                                    value={filters.centreId}
+                                    onChange={(val) => setFilters({...filters, centreId: val})}
+                                    placeholder="SELECT CENTRE..."
+                                    isDarkMode={true}
+                                />
+                            </div>
+                        </div>
                         <div className="flex items-center gap-2">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">From</label>
                             <input 
@@ -123,6 +158,7 @@ const CashTransferHistory = () => {
                                     <th className="p-6">Status</th>
                                     <th className="p-6 text-cyan-400">Secret Key</th>
                                     <th className="p-6">Initiated By</th>
+                                    <th className="p-6">Action Details</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800/50">
@@ -186,15 +222,34 @@ const CashTransferHistory = () => {
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] font-black text-gray-400 uppercase leading-none">{transfer.transferredBy?.name || 'System'}</span>
-                                                    <span className="text-[8px] font-bold text-gray-600 uppercase mt-1">{new Date(transfer.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    <span className="text-[8px] font-bold text-gray-600 uppercase mt-1">{new Date(transfer.createdAt).toLocaleDateString('en-GB')} {new Date(transfer.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td className="p-6">
+                                            {transfer.receivedBy ? (
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-[10px] font-black border shadow-inner ${
+                                                        transfer.status === 'RECEIVED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' : 'bg-red-500/20 text-red-400 border-red-500/20'
+                                                    }`}>
+                                                        {transfer.receivedBy?.name?.charAt(0) || 'U'}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black text-gray-400 uppercase leading-none">{transfer.receivedBy?.name}</span>
+                                                        <span className="text-[8px] font-bold text-gray-600 uppercase mt-1">
+                                                            {new Date(transfer.receivedDate || transfer.updatedAt).toLocaleDateString('en-GB')} {new Date(transfer.receivedDate || transfer.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase italic tracking-widest opacity-40">Pending Action</span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
                                 {recentTransfers.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan="9" className="p-32 text-center">
+                                        <td colSpan="10" className="p-32 text-center">
                                             <div className="flex flex-col items-center gap-4 opacity-20">
                                                 <FaHistory size={64} className="text-gray-500" />
                                                 <p className="text-sm font-black uppercase tracking-[0.5em] text-gray-500">

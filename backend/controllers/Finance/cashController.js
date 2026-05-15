@@ -354,10 +354,18 @@ export const getCashReport = async (req, res) => {
 
         // Fetch Recent Transfers with Filters
         let transferQuery = {};
+        
+        // Base query for non-superAdmins (only their authorized centres)
         if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             transferQuery.$or = [
                 { fromCentre: { $in: centres.map(c => c._id) } },
                 { toCentre: { $in: centres.map(c => c._id) } }
+            ];
+        } else if (centreId) {
+            // For superAdmins, if centreId is provided, filter by it
+            transferQuery.$or = [
+                { fromCentre: centreId },
+                { toCentre: centreId }
             ];
         }
 

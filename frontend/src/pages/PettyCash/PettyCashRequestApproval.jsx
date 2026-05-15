@@ -4,6 +4,8 @@ import { FaCheck, FaTimes, FaSearch, FaEye } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
+import CustomSearchSelect from '../../components/common/CustomSearchSelect';
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const PettyCashRequestApproval = () => {
     const [requests, setRequests] = useState([]);
@@ -14,20 +16,53 @@ const PettyCashRequestApproval = () => {
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [approvedAmount, setApprovedAmount] = useState("");
     const [remarks, setRemarks] = useState("");
+    
+    // Filters & Pagination
+    const [filters, setFilters] = useState({
+        startDate: "",
+        endDate: "",
+        centreId: ""
+    });
+    const [allCentres, setAllCentres] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const limit = 10;
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canApprove = hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'create') || 
                        hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'edit') || 
                        hasPermission(user, 'pettyCashManagement', 'pettyCashRequestApproval', 'delete');
 
+    const fetchCentres = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/centres?status=active`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setAllCentres(response.data || []);
+        } catch (error) {
+            console.error("Failed to fetch centres", error);
+        }
+    };
+
     const fetchRequests = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/finance/petty-cash/requests`, {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/finance/petty-cash/request-approval`, {
+                params: {
+                    startDate: filters.startDate,
+                    endDate: filters.endDate,
+                    centreId: filters.centreId,
+                    page: currentPage,
+                    limit: limit
+                },
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setRequests(response.data);
+            setRequests(response.data.requests || []);
+            setTotalPages(response.data.totalPages || 1);
+            setTotalItems(response.data.totalItems || 0);
         } catch (error) {
             toast.error("Failed to load requests");
         } finally {
@@ -74,8 +109,12 @@ const PettyCashRequestApproval = () => {
     };
 
     useEffect(() => {
-        fetchRequests();
+        fetchCentres();
     }, []);
+
+    useEffect(() => {
+        fetchRequests();
+    }, [filters, currentPage]);
 
     const filteredRequests = requests.filter(req =>
         req.centre?.centreName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -90,17 +129,55 @@ const PettyCashRequestApproval = () => {
                         <h2 className="text-2xl font-bold">Petty Cash Approval</h2>
                         <p className="text-gray-400 text-sm">Review, approve, or reject petty cash requests from centers.</p>
                     </div>
-                    <div className="relative">
+                <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6 flex flex-wrap items-center gap-4 shadow-xl">
+                    <div className="flex items-center gap-3 min-w-[240px]">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Centre</label>
+                        <div className="flex-1">
+                            <CustomSearchSelect
+                                options={[
+                                    { value: "", label: "ALL CENTRES" },
+                                    ...allCentres.map(c => ({ value: c._id, label: c.centreName }))
+                                ]}
+                                value={filters.centreId}
+                                onChange={(val) => { setFilters({...filters, centreId: val}); setCurrentPage(1); }}
+                                placeholder="SELECT CENTRE..."
+                                isDarkMode={true}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">From</label>
+                        <input 
+                            type="date"
+                            className="bg-[#131619] border border-gray-700 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500 [color-scheme:dark]"
+                            value={filters.startDate}
+                            onChange={(e) => { setFilters({...filters, startDate: e.target.value}); setCurrentPage(1); }}
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">To</label>
+                        <input 
+                            type="date"
+                            className="bg-[#131619] border border-gray-700 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500 [color-scheme:dark]"
+                            value={filters.endDate}
+                            onChange={(e) => { setFilters({...filters, endDate: e.target.value}); setCurrentPage(1); }}
+                        />
+                    </div>
+
+                    <div className="flex-1 relative min-w-[200px]">
                         <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
                             type="text"
-                            placeholder="Search centre..."
+                            placeholder="Search in table..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-[#1a1f24] border border-gray-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-64 shadow-lg"
+                            className="w-full bg-[#131619] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-xs focus:outline-none focus:border-blue-500"
                         />
                     </div>
                 </div>
+            </div>
 
                 <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden shadow-2xl">
                     <div className="overflow-x-auto">
@@ -173,6 +250,46 @@ const PettyCashRequestApproval = () => {
                         </table>
                     </div>
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="mt-6 flex items-center justify-between bg-[#1a1f24] p-4 rounded-xl border border-gray-800 shadow-xl">
+                        <div className="text-xs text-gray-500 font-bold uppercase tracking-widest">
+                            Showing <span className="text-white">{(currentPage - 1) * limit + 1}</span> to <span className="text-white">{Math.min(currentPage * limit, totalItems)}</span> of <span className="text-white">{totalItems}</span> requests
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 bg-[#131619] border border-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+                            >
+                                <FaChevronLeft size={12} />
+                            </button>
+                            <div className="flex items-center gap-1">
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                                            currentPage === i + 1 
+                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                                            : 'bg-[#131619] text-gray-500 border border-gray-700 hover:bg-gray-800'
+                                        }`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 bg-[#131619] border border-gray-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+                            >
+                                <FaChevronRight size={12} />
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {showApprovalModal && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">

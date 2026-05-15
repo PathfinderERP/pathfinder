@@ -37,7 +37,7 @@ const AddPettyCash = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
-            setRequests(reqRes.data);
+            setRequests(Array.isArray(reqRes.data.requests) ? reqRes.data.requests : (Array.isArray(reqRes.data) ? reqRes.data : []));
 
             // If superAdmin, show all centres. Otherwise, only show assigned centres.
             if (isSuperAdmin) {
@@ -84,9 +84,9 @@ const AddPettyCash = () => {
         fetchData();
     }, []);
 
-    const filteredRequests = requests.filter(req =>
-        req.centre?.centreName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredRequests = Array.isArray(requests) ? requests.filter(req =>
+        req.centre?.centreName?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) : [];
 
     return (
         <Layout activePage="Petty Cash Management">
