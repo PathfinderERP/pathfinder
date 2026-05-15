@@ -5,7 +5,9 @@ import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
 import CustomSearchSelect from '../../components/common/CustomSearchSelect';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaFileExcel } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const PettyCashRequestApproval = () => {
     const [requests, setRequests] = useState([]);
@@ -108,6 +110,52 @@ const PettyCashRequestApproval = () => {
         }
     };
 
+    const exportToExcel = async () => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/finance/petty-cash/request-approval`, {
+                params: {
+                    startDate: filters.startDate,
+                    endDate: filters.endDate,
+                    centreId: filters.centreId,
+                    isExport: true
+                },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const allData = response.data || [];
+            
+            if (allData.length === 0) {
+                toast.info("No data to export");
+                return;
+            }
+
+            const dataToExport = allData.map(item => ({
+                "Date": new Date(item.createdAt).toLocaleDateString(),
+                "Approval Date": item.approvalDate ? new Date(item.approvalDate).toLocaleDateString() : "-",
+                "Centre": item.centre?.centreName,
+                "Requested Amount": item.requestedAmount,
+                "Approved Amount": item.approvedAmount || 0,
+                "Status": item.status?.toUpperCase(),
+                "Created By": item.requestedBy?.name || "N/A",
+                "Approved By": item.approvedBy?.name || "-"
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Petty Cash Requests");
+            const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+            const excelData = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+            saveAs(excelData, `Petty_Cash_Approval_Full_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success(`Exported ${allData.length} records to Excel`);
+        } catch (error) {
+            toast.error("Failed to export data");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchCentres();
     }, []);
@@ -129,6 +177,13 @@ const PettyCashRequestApproval = () => {
                         <h2 className="text-2xl font-bold">Petty Cash Approval</h2>
                         <p className="text-gray-400 text-sm">Review, approve, or reject petty cash requests from centers.</p>
                     </div>
+                    <button
+                        onClick={exportToExcel}
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20"
+                    >
+                        <FaFileExcel /> Export Excel
+                    </button>
+                </div>
                 <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6 flex flex-wrap items-center gap-4 shadow-xl">
                     <div className="flex items-center gap-3 min-w-[240px]">
                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">Centre</label>
@@ -177,7 +232,6 @@ const PettyCashRequestApproval = () => {
                         />
                     </div>
                 </div>
-            </div>
 
                 <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden shadow-2xl">
                     <div className="overflow-x-auto">
