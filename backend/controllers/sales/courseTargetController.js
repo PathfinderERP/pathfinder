@@ -68,11 +68,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
         } else {
             centreIds = centre.split(',').filter(id => id.trim() !== '');
         }
-        
+
         if (centreIds.length === 0) {
             return res.status(200).json({ year: parsedYear, targetType, data: [] });
         }
-        
+
         const masterDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
         const allCentres = await Centre.find({ _id: { $in: centreIds } }).lean();
         const centreMap = {};
@@ -98,7 +98,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 endDate = new Date(parsedYear + 1, 2, 31, 23, 59, 59, 999);
             }
         } else if (targetType === 'YEARLY') {
-            startDate = new Date(parsedYear, 3, 1); 
+            startDate = new Date(parsedYear, 3, 1);
             endDate = new Date(parsedYear + 1, 2, 31, 23, 59, 59, 999);
         } else if (targetType === 'WEEKLY') {
             const mIdx = monthNames.indexOf(month);
@@ -133,68 +133,78 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const [normalAdmissions, boardAdmissions] = await Promise.all([
                 Admission.aggregate([
-                    { $match: { 
-                        centre: centreRegex, 
-                        admissionDate: { $gte: startDate, $lte: endDate }, 
-                        admissionStatus: "ACTIVE",
-                        admissionType: "NORMAL"
-                    } },
-                    { $group: { 
-                        _id: { department: "$department", examTag: "$examTag" }, 
-                        count: { $sum: 1 } 
-                    } }
+                    {
+                        $match: {
+                            centre: centreRegex,
+                            admissionDate: { $gte: startDate, $lte: endDate },
+                            admissionStatus: "ACTIVE",
+                            admissionType: "NORMAL"
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: { department: "$department", examTag: "$examTag" },
+                            count: { $sum: 1 }
+                        }
+                    }
                 ]),
                 BoardCourseAdmission.aggregate([
-                    { $match: { 
-                        centre: centreRegex, 
-                        admissionDate: { $gte: startDate, $lte: endDate }, 
-                        status: "ACTIVE" 
-                    } },
-                    { $lookup: {
-                        from: "boards",
-                        localField: "boardId",
-                        foreignField: "_id",
-                        as: "boardInfo"
-                    }},
+                    {
+                        $match: {
+                            centre: centreRegex,
+                            admissionDate: { $gte: startDate, $lte: endDate },
+                            status: "ACTIVE"
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: "boards",
+                            localField: "boardId",
+                            foreignField: "_id",
+                            as: "boardInfo"
+                        }
+                    },
                     { $unwind: { path: "$boardInfo", preserveNullAndEmptyArrays: true } },
-                    { $group: { 
-                        _id: "$boardInfo.boardCourse", 
-                        count: { $sum: 1 } 
-                    } }
+                    {
+                        $group: {
+                            _id: "$boardInfo.boardCourse",
+                            count: { $sum: 1 }
+                        }
+                    }
                 ])
             ]);
 
             console.log(`Centre: ${centreName} | Normal: ${normalAdmissions.length} | Board: ${boardAdmissions.length}`);
 
-            const deptAdmissionMap = {}; 
-            const deptExamTagBreakdown = {}; 
+            const deptAdmissionMap = {};
+            const deptExamTagBreakdown = {};
 
-            normalAdmissions.forEach(a => { 
+            normalAdmissions.forEach(a => {
                 if (a._id && a._id.department) {
                     const dId = a._id.department.toString();
                     deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + a.count;
-                    
+
                     if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
                     deptExamTagBreakdown[dId].push({
                         tagId: a._id.examTag,
                         tagName: a._id.examTag ? (examTagMap[a._id.examTag.toString()] || "Other") : "Uncategorized",
                         count: a.count
                     });
-                } 
+                }
             });
 
             boardAdmissions.forEach(a => {
                 if (a._id) {
                     const boardName = a._id.toString().toUpperCase();
-                    const matchingDept = masterDepartments.find(d => 
-                        d.departmentName.toUpperCase().includes(boardName) || 
+                    const matchingDept = masterDepartments.find(d =>
+                        d.departmentName.toUpperCase().includes(boardName) ||
                         boardName.includes(d.departmentName.toUpperCase())
                     );
 
                     if (matchingDept) {
                         const dId = matchingDept._id.toString();
                         deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + a.count;
-                        
+
                         if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
                         deptExamTagBreakdown[dId].push({
                             tagId: "board-tag",
@@ -204,7 +214,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     }
                 }
             });
-            
+
             const finalDeptStats = masterDepartments.map(dept => {
                 const dId = dept._id.toString();
                 return {
@@ -212,7 +222,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     id: dept._id,
                     achieved: deptAdmissionMap[dId] || 0,
                     examTagAchieved: deptExamTagBreakdown[dId] || [],
-                    courses: [] 
+                    courses: []
                 };
             });
 
@@ -227,6 +237,51 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
     } catch (error) {
         console.error("getCourseTargetAnalysis error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+// GET /sales/course-target/admissions
+export const getAdmissionDetails = async (req, res) => {
+    try {
+        const { centreName, departmentId, startDate, endDate } = req.query;
+
+        if (!centreName || !departmentId || !startDate || !endDate) {
+            return res.status(400).json({ message: "Missing required parameters" });
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        const centreRegex = new RegExp(`^${centreName.trim()}$`, 'i');
+
+        // Fetch Normal Admissions
+        const admissions = await Admission.find({
+            centre: centreRegex,
+            department: departmentId,
+            admissionDate: { $gte: start, $lte: end },
+            admissionStatus: "ACTIVE",
+            admissionType: "NORMAL"
+        })
+            .populate('course', 'courseName')
+            .populate('examTag', 'name tagName')
+            .lean();
+
+        // Standardize output
+        const results = admissions.map(a => ({
+            _id: a._id,
+            admissionNumber: a.admissionNumber,
+            studentName: a.studentName || "N/A",
+            phone: a.mobileNum || "N/A",
+            admissionDate: a.admissionDate,
+            examTag: a.examTag?.name || a.examTag?.tagName || "NORMAL",
+            course: a.course?.courseName || "N/A"
+        }));
+
+        res.status(200).json({ success: true, data: results });
+
+    } catch (error) {
+        console.error("getAdmissionDetails error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

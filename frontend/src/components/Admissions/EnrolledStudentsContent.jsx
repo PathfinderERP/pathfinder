@@ -479,7 +479,7 @@ const EnrolledStudentsContent = () => {
                     // Check if any admission matches this specific term
                     const admissionMatch = item.admissions.some(admission => {
                         const admissionNumber = (admission.admissionNumber || "").toLowerCase();
-                        const courseName = (admission.course?.courseName || admission.boardCourseName || "").toLowerCase();
+                        const courseName = resolveCourseName(admission).toLowerCase();
                         const centre = (admission.centre || student.centre || "").toLowerCase();
                         return admissionNumber.includes(query) ||
                             courseName.includes(query) ||
@@ -525,7 +525,7 @@ const EnrolledStudentsContent = () => {
         if (filterCourse.length > 0) {
             result = result.filter(item =>
                 item.admissions.some(admission => {
-                    const courseName = admission.course?.courseName || admission.boardCourseName || "";
+                    const courseName = resolveCourseName(admission);
                     return filterCourse.includes(courseName);
                 })
             );
@@ -1369,7 +1369,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Course"
                                 placeholder="ALL COURSES"
-                                options={Array.from(new Set(masterCourses.map(c => c.courseName))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
+                                options={Array.from(new Set([...masterCourses.map(c => c.courseName), "Foundation (NORMAL)"])).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterCourse}
                                 onChange={setFilterCourse}
                                 theme={isDarkMode ? 'dark' : 'light'}
