@@ -203,13 +203,20 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
+            // Construct full Date objects on frontend to preserve user's local timezone intent
+            const payload = {
+                ...formData,
+                checkIn: formData.checkIn ? new Date(`${formData.date}T${formData.checkIn}:00`).toISOString() : null,
+                checkOut: formData.checkOut ? new Date(`${formData.date}T${formData.checkOut}:00`).toISOString() : null
+            };
+
             const res = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/manual-mark`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (res.ok) {
@@ -623,8 +630,8 @@ const EmployeesAttendance = () => {
         const dailyLogs = userAnalysisData.dailyData.map(d => ({
             'Date': d.fullDate,
             'Status': d.status === "Week Off" ? "DAY OFF" : d.status,
-            'Check In': d.checkIn,
-            'Check Out': d.checkOut,
+            'Check In': (d.checkIn && d.checkIn !== '-') ? format(new Date(d.checkIn), 'HH:mm') : '--:--',
+            'Check Out': (d.checkOut && d.checkOut !== '-') ? format(new Date(d.checkOut), 'HH:mm') : '--:--',
             'Hours Worked': d.hours.toFixed(2)
         }));
 

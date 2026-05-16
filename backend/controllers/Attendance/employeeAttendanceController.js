@@ -694,8 +694,8 @@ export const getAttendanceAnalysis = async (req, res) => {
                     fullDate: format(day, 'dd MMM'),
                     hours: wh,
                     status: status,
-                    checkIn: att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '-',
-                    checkOut: (att.checkOut?.time && status !== 'Absent') ? format(new Date(att.checkOut.time), 'HH:mm') : '-'
+                    checkIn: att.checkIn?.time || '-',
+                    checkOut: (att.checkOut?.time && status !== 'Absent') ? att.checkOut.time : '-'
                 };
             } else {
                 const isWeekendDay = day.getDay() === 0; // Sunday
@@ -973,16 +973,27 @@ export const manualMarkAttendance = async (req, res) => {
         };
 
         if (checkIn) {
-            const [hours, minutes] = checkIn.split(':');
-            const checkInTime = new Date(markDate);
-            checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            // Check if it's an ISO date string (sent by frontend) or just HH:mm (legacy/other clients)
+            let checkInTime;
+            if (checkIn.includes('T')) {
+                checkInTime = new Date(checkIn);
+            } else {
+                const [hours, minutes] = checkIn.split(':');
+                checkInTime = new Date(markDate);
+                checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            }
             updateData.checkIn = { time: checkInTime, address: "HR Manual Entry" };
         }
 
         if (checkOut) {
-            const [hours, minutes] = checkOut.split(':');
-            const checkOutTime = new Date(markDate);
-            checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            let checkOutTime;
+            if (checkOut.includes('T')) {
+                checkOutTime = new Date(checkOut);
+            } else {
+                const [hours, minutes] = checkOut.split(':');
+                checkOutTime = new Date(markDate);
+                checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            }
             updateData.checkOut = { time: checkOutTime, address: "HR Manual Entry" };
 
             if (updateData.checkIn) {
@@ -1072,18 +1083,26 @@ export const bulkImportAttendance = async (req, res) => {
 
                 // 4. Handle Times
                 if (checkIn && checkIn !== '--:--' && checkIn !== '-') {
-                    // Check In is expected in HH:mm format
-                    const [hours, minutes] = checkIn.split(':');
-                    const checkInTime = new Date(markDate);
-                    checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    let checkInTime;
+                    if (checkIn.includes('T')) {
+                        checkInTime = new Date(checkIn);
+                    } else {
+                        const [hours, minutes] = checkIn.split(':');
+                        checkInTime = new Date(markDate);
+                        checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    }
                     updateData.checkIn = { time: checkInTime, address: "Bulk Import" };
                 }
 
                 if (checkOut && checkOut !== '--:--' && checkOut !== '-') {
-                    // Check Out is expected in HH:mm format
-                    const [hours, minutes] = checkOut.split(':');
-                    const checkOutTime = new Date(markDate);
-                    checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    let checkOutTime;
+                    if (checkOut.includes('T')) {
+                        checkOutTime = new Date(checkOut);
+                    } else {
+                        const [hours, minutes] = checkOut.split(':');
+                        checkOutTime = new Date(markDate);
+                        checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    }
                     updateData.checkOut = { time: checkOutTime, address: "Bulk Import" };
 
                     if (updateData.checkIn) {
