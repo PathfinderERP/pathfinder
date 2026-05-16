@@ -13,7 +13,7 @@ export const getTransactionReport = async (req, res) => {
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
 
         // REDIS CACHING LOGIC START
-        const cacheKey = generateCacheKey("finance:transaction_report_v5", {
+        const cacheKey = generateCacheKey("finance:transaction_report_v7", {
             query: req.query,
             userId: req.user._id,
             role: req.user.role,
@@ -44,11 +44,12 @@ export const getTransactionReport = async (req, res) => {
 
         // Base Match for Payment (Inclusive: Show all transactions with activity)
         let baseAttributesMatch = {
-            billId: { $regex: /^PATH/i }
+            billId: { $regex: /^PATH/i },
+            paidAmount: { $gt: 0 }
         };
 
         if (minAmount || maxAmount) {
-            baseAttributesMatch.paidAmount = {};
+            baseAttributesMatch.paidAmount = { $gt: 0 };
             if (minAmount) baseAttributesMatch.paidAmount.$gte = parseFloat(minAmount);
             if (maxAmount) baseAttributesMatch.paidAmount.$lte = parseFloat(maxAmount);
         }
@@ -61,6 +62,15 @@ export const getTransactionReport = async (req, res) => {
         if (req.query.status) {
             const statuses = req.query.status.split(',');
             baseAttributesMatch.status = { $in: statuses };
+        } else {
+            // Default: Match Daily Collection logic for successful/pending payments
+            baseAttributesMatch.$or = [
+                { status: { $in: ["PAID", "PARTIAL"] } },
+                {
+                    paymentMethod: "CHEQUE",
+                    status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                }
+            ];
         }
 
         if (transactionType) {
@@ -204,7 +214,7 @@ export const getTransactionReport = async (req, res) => {
         const chartPipeline = [
             { $match: baseAttributesMatch },
             { $addFields: { 
-                reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }, 
+                reportDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] }, 
                 revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] } 
             } },
         ];
@@ -256,7 +266,7 @@ export const getTransactionReport = async (req, res) => {
         // Process Detailed Report (Separate Query for Flattened Data)
         const detailedPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] } } },
         ];
 
         if (paymentMatch.isDateFiltered) {
@@ -393,7 +403,7 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] },
+                    paymentDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] },
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",
@@ -470,7 +480,7 @@ export const getTransactionReport = async (req, res) => {
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } }
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] } } }
         ];
 
         if (needsAdmissionLookup) {
