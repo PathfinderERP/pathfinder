@@ -274,7 +274,7 @@ const MarketingCRM = () => {
                         {/* NAVIGATION */}
                         <div className="flex flex-wrap items-center gap-2">
                             {[
-                                "Command Centre", "Tomorrow Planner", "Day-End Submission", "Activity Audit", "Management View"
+                                "Command Centre", "Tomorrow Planner", "Day-End Submission", "Activity Audit"
                             ].map((tab, idx) => (
                                 <button
                                     key={idx}

@@ -30,7 +30,7 @@ export const getStudentsForAttendance = async (req, res) => {
         const studentQuery = {
             batches: { $in: batchIds },
             isEnrolled: true,
-            status: "Active"
+            status: { $ne: "Deactivated" }
         };
 
         // Only apply center filter if center names are available
