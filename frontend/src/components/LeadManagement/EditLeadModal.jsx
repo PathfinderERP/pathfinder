@@ -7,6 +7,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         name: "",
         email: "",
         phoneNumber: "",
+        secondPhoneNumber: "",
         schoolName: "",
         className: "",
         centre: "",
@@ -127,6 +128,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                 name: lead.name || "",
                 email: lead.email || "",
                 phoneNumber: lead.phoneNumber || "",
+                secondPhoneNumber: lead.secondPhoneNumber || "",
                 schoolName: lead.schoolName || "",
                 className: lead.className?._id || "",
                 centre: lead.centre?._id || "",
@@ -208,18 +210,22 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                 <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
                                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Contact Information</h4>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
-                                    <label className={labelClasses}>Full Name *</label>
-                                    <input type="text" name="name" required value={formData.name} onChange={handleChange} className={inputClasses} placeholder="Student Name..." />
+                                     <label className={labelClasses}>Full Name *</label>
+                                     <input type="text" name="name" required value={formData.name} onChange={handleChange} className={inputClasses} placeholder="Student Name..." />
                                 </div>
                                 <div>
-                                    <label className={labelClasses}>Primary Email *</label>
-                                    <input type="email" name="email" required value={formData.email} onChange={handleChange} className={inputClasses} placeholder="Email Address..." />
+                                     <label className={labelClasses}>Primary Email *</label>
+                                     <input type="email" name="email" required value={formData.email} onChange={handleChange} className={inputClasses} placeholder="Email Address..." />
                                 </div>
                                 <div>
-                                    <label className={labelClasses}>Phone Number *</label>
-                                    <input type="text" name="phoneNumber" required value={formData.phoneNumber} onChange={handleChange} className={inputClasses} placeholder="Phone Number..." />
+                                     <label className={labelClasses}>Phone Number *</label>
+                                     <input type="text" name="phoneNumber" required value={formData.phoneNumber} onChange={handleChange} className={inputClasses} placeholder="Phone Number..." />
+                                </div>
+                                <div>
+                                     <label className={labelClasses}>Second Phone Number</label>
+                                     <input type="text" name="secondPhoneNumber" value={formData.secondPhoneNumber || ""} onChange={handleChange} className={inputClasses} placeholder="Second Phone..." />
                                 </div>
                             </div>
                         </div>

@@ -91,7 +91,9 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         const templateData = [{
             Name: "John Doe",
             PhoneNum: "9876543210",
+            SecondPhoneNum: "9876543211",
             Class: "10",
+            Board: "CBSE",
             Centre: "Delhi Centre",
             Course: "JEE Main",
             Source: "Facebook",
@@ -114,7 +116,9 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         const templateData = [{
             Name: "John Doe",
             PhoneNum: "9876543210",
+            SecondPhoneNum: "9876543211",
             Class: "10",
+            Board: "CBSE",
             Centre: "Delhi Centre",
             Course: "JEE Main",
             Source: "Facebook",
@@ -195,14 +199,20 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         if (crs) courseId = crs._id;
                     }
 
-
+                    let boardId = null;
+                    if (row.Board) {
+                        const bd = boards.find(b => (b.boardName || b.boardCourse || '').toLowerCase() === row.Board.toString().toLowerCase().trim());
+                        if (bd) boardId = bd._id;
+                    }
 
                     validLeads.push({
                         name: row.Name,
                         phoneNumber: row.PhoneNum,
+                        secondPhoneNumber: row.SecondPhoneNum,
                         className: classId,
                         centre: centreId,
                         course: courseId,
+                        board: boardId,
                         source: row.Source,
                         leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD'].includes(row.LeadType?.toUpperCase()) ? row.LeadType.toUpperCase() : "COLD LEAD",
                         leadResponsibility: row.LeadResponse
@@ -324,7 +334,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         if (crs) courseId = crs._id;
                     }
 
-
+                    let boardId = null;
+                    if (row.Board) {
+                        const bd = boards.find(b => (b.boardName || b.boardCourse || '').toLowerCase() === row.Board.toString().toLowerCase().trim());
+                        if (bd) boardId = bd._id;
+                    }
 
                     if (row.Feedback) {
                         if (!validFeedbacks.includes(row.Feedback.toString().toLowerCase().trim())) {
@@ -336,9 +350,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     validRows.push({
                         name: row.Name,
                         phoneNumber: row.PhoneNum ? row.PhoneNum.toString().trim() : undefined,
+                        secondPhoneNumber: row.SecondPhoneNum ? row.SecondPhoneNum.toString().trim() : undefined,
                         className: classId,
                         centre: centreId,
                         course: courseId,
+                        board: boardId,
                         source: row.Source,
                         leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD'].includes(row.LeadType?.toString().toUpperCase()) ? row.LeadType.toString().toUpperCase() : "COLD LEAD",
                         leadResponsibility: row.LeadResponse,

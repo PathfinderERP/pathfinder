@@ -16,6 +16,9 @@ const leadManagementSchema = new mongoose.Schema({
     phoneNumber: {
         type: String,
     },
+    secondPhoneNumber: {
+        type: String,
+    },
     schoolName: {
         type: String,
         required: false,

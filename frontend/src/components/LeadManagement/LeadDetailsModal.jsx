@@ -95,6 +95,16 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
                             <div className="flex items-center gap-3 group">
                                 <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center transition-all ${isDarkMode ? 'bg-[#131619] text-gray-500 group-hover:text-cyan-400' : 'bg-gray-50 text-gray-400 group-hover:text-cyan-600'}`}>
+                                    <FaPhone size={12} className="rotate-90" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[9px] font-black uppercase text-gray-500 tracking-wider">Second Phone Number</p>
+                                    <p className={`text-[12px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{lead.secondPhoneNumber || "N/A"}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 group">
+                                <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center transition-all ${isDarkMode ? 'bg-[#131619] text-gray-500 group-hover:text-cyan-400' : 'bg-gray-50 text-gray-400 group-hover:text-cyan-600'}`}>
                                     <FaSchool size={12} />
                                 </div>
                                 <div className="flex-1">

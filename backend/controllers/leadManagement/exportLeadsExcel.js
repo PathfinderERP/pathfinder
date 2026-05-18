@@ -26,6 +26,7 @@ export const exportLeadsExcel = async (req, res) => {
             "Name": lead.name,
             "Email": lead.email,
             "Phone": lead.phoneNumber,
+            "Second Phone Number": lead.secondPhoneNumber || "N/A",
             "School": lead.schoolName || "N/A",
             "Class": lead.className?.name || "N/A",
             "Board": lead.board?.boardName || lead.board?.boardCourse || "N/A",

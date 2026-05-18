@@ -24,6 +24,7 @@ export const bulkContactedLeads = async (req, res) => {
                     name,
                     email,
                     phoneNumber,
+                    secondPhoneNumber,
                     schoolName,
                     className,
                     centre,
@@ -62,6 +63,7 @@ export const bulkContactedLeads = async (req, res) => {
                         name,
                         email,
                         phoneNumber,
+                        secondPhoneNumber,
                         schoolName,
                         source,
                         targetExam,
@@ -87,6 +89,7 @@ export const bulkContactedLeads = async (req, res) => {
                     if (board) lead.board = board;
                     if (source) lead.source = source;
                     if (targetExam) lead.targetExam = targetExam;
+                    if (secondPhoneNumber) lead.secondPhoneNumber = secondPhoneNumber;
                     if (leadResponsibility) {
                         lead.leadResponsibility = leadResponsibility;
                         if (!lead.assignedAt) lead.assignedAt = new Date();
