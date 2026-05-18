@@ -18,6 +18,7 @@ export const getRedFlags = async (req, res) => {
     try {
         const { centreId, role, severity, startDate, endDate } = req.query;
         const { start, end } = getRange(startDate, endDate);
+        const daysDiff = Math.max(1, Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
 
         if (!role || role === 'All Roles') {
             return res.status(200).json([]);
@@ -39,17 +40,45 @@ export const getRedFlags = async (req, res) => {
 
         // 3. Scan ERP data for each user based on role
         for (const user of users) {
-            let metricValue = 0;
-            let targetValue = 1;
-            let issue = "Operating normally";
-            let currentSeverity = "Low";
-            let type = "general";
+            const evaluateAndPush = async (metricType, targetValue, metricValue, severityLogic, issueLogic) => {
+                let currentSeverity = "Low";
+                let issue = "Operating normally";
 
-            if (role === 'telecaller') {
-                type = 'calls';
-                targetValue = 50;
-                
-                // Use Aggregation to count individual follow-up entries in the date range
+                if (metricValue < targetValue) {
+                    currentSeverity = severityLogic(metricValue, targetValue);
+                    issue = issueLogic(metricValue, targetValue);
+                }
+
+                const dbFlag = persistentFlags.find(f => f.user.toString() === user._id.toString() && f.type === metricType);
+
+                performanceData.push({
+                    _id: dbFlag?._id || `virtual_${user._id}_${metricType}`,
+                    user: {
+                        _id: user._id,
+                        name: user.name,
+                        employeeId: user.employeeId,
+                        profileImage: user.profileImage
+                    },
+                    role: user.role,
+                    centre: user.centres?.[0] || { centreName: "N/A" },
+                    type: metricType,
+                    severity: dbFlag?.severity || currentSeverity,
+                    issue: dbFlag?.issue || issue,
+                    metricValue: dbFlag?.metricValue || metricValue,
+                    targetValue: dbFlag?.targetValue || targetValue,
+                    isResolved: dbFlag?.isResolved || (currentSeverity === "Low"),
+                    isVirtual: !dbFlag,
+                    createdAt: dbFlag?.createdAt || new Date(),
+                    repeatCount: dbFlag?.repeatCount || 0
+                });
+            };
+
+            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager'].includes(role);
+            const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
+            const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
+
+            if (hasCalls) {
+                // Call Volume Check
                 const callStats = await LeadManagement.aggregate([
                     { $unwind: "$followUps" },
                     { 
@@ -61,15 +90,25 @@ export const getRedFlags = async (req, res) => {
                     { $count: "totalCalls" }
                 ]);
                 
-                metricValue = callStats.length > 0 ? callStats[0].totalCalls : 0;
+                const callMetricValue = callStats.length > 0 ? callStats[0].totalCalls : 0;
+                const callTargetValue = 50 * daysDiff;
 
-                if (metricValue < targetValue) {
-                    currentSeverity = (metricValue < (targetValue * 0.5)) ? "Critical" : "High";
-                    issue = `${targetValue - metricValue} calls short for this period. Total: ${metricValue}/${targetValue}`;
-                }
-            } else if (role === 'counsellor') {
-                type = 'admission';
-                
+                await evaluateAndPush(
+                    'calls',
+                    callTargetValue,
+                    callMetricValue,
+                    (m) => {
+                        if (m < 30 * daysDiff) return "Critical";
+                        if (m < 35 * daysDiff) return "High";
+                        if (m < 45 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} calls short for this period. Total: ${m}/${t}`
+                );
+            }
+
+            if (hasCounsellings) {
+                // Counselling Volume Check
                 const counselled = await LeadManagement.aggregate([
                     { $unwind: "$followUps" },
                     {
@@ -82,100 +121,93 @@ export const getRedFlags = async (req, res) => {
                     { $group: { _id: "$_id" } }, // Unique leads counselled
                     { $count: "total" }
                 ]);
-                const counselledCount = counselled.length > 0 ? counselled[0].total : 0;
+                
+                const counselMetricValue = counselled.length > 0 ? counselled[0].total : 0;
+                const counselTargetValue = 5 * daysDiff;
 
+                await evaluateAndPush(
+                    'counselling',
+                    counselTargetValue,
+                    counselMetricValue,
+                    (m) => {
+                        if (m < 1 * daysDiff) return "Critical";
+                        if (m < 3 * daysDiff) return "High";
+                        if (m < 5 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} counsellings short for this period. Total: ${m}/${t}`
+                );
+            }
+
+            if (hasAdmissions) {
+                // Admission Volume Check
                 const admNormal = await Admission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
                 const admBoard = await BoardCourseAdmission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
-                const admittedCount = admNormal + admBoard;
+                const admissionMetric = admNormal + admBoard;
+                const admissionTarget = 10 * daysDiff;
                 
-                metricValue = counselledCount > 0 ? Math.round((admittedCount / counselledCount) * 100) : 0;
-                targetValue = 20; 
-                
-                if (metricValue < targetValue) {
-                    currentSeverity = admittedCount === 0 && counselledCount > 0 ? "Critical" : (metricValue < targetValue ? "High" : "Low");
-                    issue = `Conversion rate at ${metricValue}% (${admittedCount}/${counselledCount} leads)`;
-                }
-            } else if (role === 'teacher') {
-                type = 'attendance';
+                await evaluateAndPush(
+                    'admission',
+                    admissionTarget,
+                    admissionMetric,
+                    (m) => {
+                        if (m < 1 * daysDiff) return "Critical";
+                        if (m < 4 * daysDiff) return "High";
+                        if (m < 8 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} admissions short for this period. Total: ${m}/${t}`
+                );
+            }
+
+            if (role === 'teacher') {
                 const classes = await ClassSchedule.find({ 
                     teacherId: user._id, 
                     status: 'Completed',
                     date: { $gte: start, $lte: end }
                 });
-                targetValue = classes.length;
-                metricValue = classes.filter(c => c.isStudentAttendanceSaved && c.teacherAttendance).length;
-                if (metricValue < targetValue) {
-                    currentSeverity = "High";
-                    issue = `Missing attendance for ${targetValue - metricValue} classes in this period.`;
-                } else {
-                    issue = "Attendance perfectly submitted for all classes.";
-                }
-            } else if (role === 'marketing') {
-                type = 'marketing_target';
-                targetValue = 10;
-                metricValue = await LeadManagement.countDocuments({ 
+                const teacherTarget = classes.length;
+                const teacherMetric = classes.filter(c => c.isStudentAttendanceSaved && c.teacherAttendance).length;
+                
+                await evaluateAndPush(
+                    'attendance',
+                    teacherTarget,
+                    teacherMetric,
+                    () => "High",
+                    (m, t) => `Missing attendance for ${t - m} classes in this period.`
+                );
+            }
+            
+            if (role === 'marketing') {
+                const marketingMetric = await LeadManagement.countDocuments({ 
                     createdBy: user._id, 
                     createdAt: { $gte: start, $lte: end } 
                 });
-                if (metricValue < targetValue) {
-                    currentSeverity = "Critical";
-                    issue = `Only ${metricValue}/${targetValue} leads generated in this period.`;
-                }
-            } else if (role === 'Class_Coordinator') {
-                type = 'class_end';
+                
+                await evaluateAndPush(
+                    'marketing_target',
+                    10,
+                    marketingMetric,
+                    () => "Critical",
+                    (m, t) => `Only ${m}/${t} leads generated in this period.`
+                );
+            }
+            
+            if (role === 'Class_Coordinator') {
                 const ongoing = await ClassSchedule.countDocuments({ 
                     coordinatorId: user._id, 
                     status: 'Ongoing',
                     date: { $lte: end }
                 });
-                metricValue = ongoing > 0 ? 0 : 1; 
-                targetValue = 1;
-                if (ongoing > 0) {
-                    currentSeverity = "Critical";
-                    issue = `${ongoing} classes pending closure in ERP.`;
-                }
-            } else if (role === 'centerIncharge') {
-                type = 'review_note';
-                const activity = await LeadManagement.aggregate([
-                    { $unwind: "$followUps" },
-                    { 
-                        $match: { 
-                            "followUps.updatedBy": user.name, 
-                            "followUps.date": { $gte: start, $lte: end } 
-                        } 
-                    },
-                    { $count: "total" }
-                ]);
-                metricValue = activity.length > 0 ? activity[0].total : 0;
-                targetValue = 5;
-                if (metricValue < targetValue) {
-                    currentSeverity = "Critical";
-                    issue = "Insufficient center review and follow-up activity.";
-                }
+                
+                await evaluateAndPush(
+                    'class_end',
+                    1,
+                    ongoing > 0 ? 0 : 1,
+                    () => "Critical",
+                    (m, t) => `${ongoing} classes pending closure in ERP.`
+                );
             }
-
-            const dbFlag = persistentFlags.find(f => f.user.toString() === user._id.toString() && f.type === type);
-
-            performanceData.push({
-                _id: dbFlag?._id || `virtual_${user._id}_${type}`,
-                user: {
-                    _id: user._id,
-                    name: user.name,
-                    employeeId: user.employeeId,
-                    profileImage: user.profileImage
-                },
-                role: user.role,
-                centre: user.centres?.[0] || { centreName: "N/A" },
-                type,
-                severity: dbFlag?.severity || currentSeverity,
-                issue: dbFlag?.issue || issue,
-                metricValue: dbFlag?.metricValue || metricValue,
-                targetValue: dbFlag?.targetValue || targetValue,
-                isResolved: dbFlag?.isResolved || (currentSeverity === "Low"),
-                isVirtual: !dbFlag,
-                createdAt: dbFlag?.createdAt || new Date(),
-                repeatCount: dbFlag?.repeatCount || 0
-            });
         }
 
         let filteredData = performanceData;

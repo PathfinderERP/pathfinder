@@ -14,6 +14,7 @@ import { generateMonthlyBill, getMonthlyBreakdown, updateBoardSubjects } from ".
 import { getStudentSections, allotSection, getPortalSections, bulkAllotSections } from "../../controllers/Admission/sectionAllotmentController.js";
 import { divideRemainingInstallments } from "../../controllers/Admission/divideRemainingInstallments.js";
 import { manualFeeAdjustment } from "../../controllers/Admission/manualFeeAdjustment.js";
+import { getBillsForAdmission } from "../../controllers/Admission/getBillsForAdmission.js";
 import { updateEnrollmentNumber } from "../../controllers/Admission/updateEnrollmentNumber.js";
 import { permanentlyDeleteStudent } from "../../controllers/Admission/permanentlyDeleteStudent.js";
 import { getAdmissionPerformanceReport } from "../../controllers/Admission/getAdmissionPerformanceReport.js";
@@ -44,6 +45,7 @@ router.put("/:admissionId/payment/:installmentNumber", requireAnyGranularPermiss
 router.put("/:admissionId/board-subjects", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateBoardSubjects);
 router.post("/:admissionId/monthly-bill", requireGranularPermission("admissions", "enrolledStudents", "edit"), generateMonthlyBill);
 router.get("/:admissionId/monthly-breakdown", requireAuth, getMonthlyBreakdown);
+router.get("/:admissionId/bills", requireAuth, getBillsForAdmission);
 
 router.put("/student/:studentId/status", requireAnyGranularPermission([
     { module: "admissions", section: "enrolledStudents", action: "deactivate" },
