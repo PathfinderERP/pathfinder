@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaTimes, FaPhoneAlt, FaEnvelope, FaClock, FaCalendarAlt, FaHistory, FaTimesCircle, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaStar, FaTimes, FaPhoneAlt, FaEnvelope, FaClock, FaCalendarAlt, FaHistory, FaTimesCircle, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 
 const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode }) => {
     if (!isOpen) return null;

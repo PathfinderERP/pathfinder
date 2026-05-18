@@ -13,7 +13,7 @@ export const getTransactionReport = async (req, res) => {
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
 
         // REDIS CACHING LOGIC START
-        const cacheKey = generateCacheKey("finance:transaction_report_v3", {
+        const cacheKey = generateCacheKey("finance:transaction_report_v4", {
             query: req.query,
             userId: req.user._id,
             role: req.user.role,
@@ -375,7 +375,16 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    paymentDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
+                    // For CHEQUE payments: always show the original cheque submission date (chequeDate),
+                    // NOT the paidDate (which reflected the clearance date historically).
+                    // For all other methods: use paidDate → receivedDate → createdAt.
+                    paymentDate: {
+                        $cond: {
+                            if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                            then: { $ifNull: ["$chequeDate", "$paidDate", "$receivedDate", "$createdAt"] },
+                            else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
+                        }
+                    },
                     amount: "$paidAmount",
                     method: "$paymentMethod",
                     status: "$status",

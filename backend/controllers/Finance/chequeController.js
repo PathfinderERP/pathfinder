@@ -250,7 +250,9 @@ export const clearCheque = async (req, res) => {
 
         // 1. Update Payment record
         payment.status = "PAID";
-        payment.paidDate = new Date();
+        // NOTE: Do NOT overwrite paidDate here. paidDate holds the original date when
+        // the cheque was received/submitted, which is what the Transaction List must show.
+        // clearedOrRejectedDate captures the bank clearance date separately.
         payment.clearedOrRejectedDate = new Date(clearedDate);
         payment.processedBy = req.user.id || req.user._id;
 
