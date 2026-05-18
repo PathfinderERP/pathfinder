@@ -7,6 +7,8 @@ import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import Payment from "../../models/Payment/Payment.js";
 import User from "../../models/User.js";
 import Student from "../../models/Students.js";
+import Employee from "../../models/HR/Employee.js";
+import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
 
@@ -285,29 +287,33 @@ export const getDailyCenterDetails = async (req, res) => {
 
             const collectionsAmount = collections.length > 0 ? collections[0].total : 0;
 
-            let callHistory = [];
-            if (user.role && (user.role.toLowerCase() === 'telecaller' || user.role.toLowerCase() === 'centralizedtelecaller')) {
-                for (let i = 4; i >= 0; i--) {
-                    let dDate = new Date(startDate);
-                    dDate.setDate(dDate.getDate() - i);
-                    let dStart = new Date(dDate);
-                    dStart.setHours(0,0,0,0);
-                    let dEnd = new Date(dDate);
-                    dEnd.setHours(23,59,59,999);
+            let profileImage = null;
+            const emp = await Employee.findOne({ user: userId }).select("profileImage").lean();
+            if (emp && emp.profileImage) {
+                profileImage = await getSignedFileUrl(emp.profileImage);
+            }
 
-                    const cCount = await LeadManagement.countDocuments({
-                        $or: [
-                            { createdBy: userId, createdAt: { $gte: dStart, $lte: dEnd } },
-                            { followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: dStart, $lte: dEnd } } } }
-                        ]
-                    });
-                    
-                    callHistory.push({
-                        date: dStart.toISOString(),
-                        calls: cCount,
-                        target: 50
-                    });
-                }
+            let callHistory = [];
+            for (let i = 4; i >= 0; i--) {
+                let dDate = new Date(startDate);
+                dDate.setDate(dDate.getDate() - i);
+                let dStart = new Date(dDate);
+                dStart.setHours(0,0,0,0);
+                let dEnd = new Date(dDate);
+                dEnd.setHours(23,59,59,999);
+
+                const cCount = await LeadManagement.countDocuments({
+                    $or: [
+                        { createdBy: userId, createdAt: { $gte: dStart, $lte: dEnd } },
+                        { followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: dStart, $lte: dEnd } } } }
+                    ]
+                });
+                
+                callHistory.push({
+                    date: dStart.toISOString(),
+                    calls: cCount,
+                    target: 50
+                });
             }
 
             return {
@@ -315,6 +321,7 @@ export const getDailyCenterDetails = async (req, res) => {
                 name: user.name,
                 role: user.role,
                 employeeId: user.employeeId,
+                profileImage,
                 performance: {
                     dailyCalls,
                     counselled: userCounselledNormalCount + userCounselledBoardCount,
@@ -371,6 +378,13 @@ export const getDailyUserActivity = async (req, res) => {
         // 1. Fetch User Info
         const user = await User.findById(userId).lean();
         if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Fetch corresponding Employee to check for profile image
+        let profileImage = null;
+        const employee = await Employee.findOne({ user: userId }).select("profileImage").lean();
+        if (employee && employee.profileImage) {
+            profileImage = await getSignedFileUrl(employee.profileImage);
+        }
 
         // 2. Lead Follow-up Analysis
         const freshLeadsCount = await LeadManagement.countDocuments({
@@ -725,6 +739,7 @@ export const getDailyUserActivity = async (req, res) => {
         res.status(200).json({
             userName: user.name,
             role: user.role,
+            profileImage,
             date: startDate,
             leads: {
                 fresh: freshLeadsCount,

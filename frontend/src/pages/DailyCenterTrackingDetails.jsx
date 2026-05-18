@@ -221,8 +221,16 @@ const DailyCenterTrackingDetails = () => {
                             }`}>
                                 <div className="flex justify-between items-start mb-6">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg`}>
-                                            <FaUserTie className="text-xl" />
+                                        <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg overflow-hidden`}>
+                                            {user.profileImage ? (
+                                                <img 
+                                                    src={user.profileImage} 
+                                                    alt={user.name} 
+                                                    className="w-full h-full object-cover" 
+                                                />
+                                            ) : (
+                                                <FaUserTie className="text-xl" />
+                                            )}
                                         </div>
                                         <div>
                                             <h3 className="font-black text-sm uppercase tracking-wider">{user.name}</h3>
