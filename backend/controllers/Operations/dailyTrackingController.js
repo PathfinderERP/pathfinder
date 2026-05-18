@@ -216,7 +216,7 @@ export const getDailyCenterDetails = async (req, res) => {
                 updatedAt: dateFilter,
                 $or: [
                     { createdBy: userId },
-                    { "followUps.updatedBy": user.name, "followUps.date": dateFilter }
+                    { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
                 ]
             }).distinct('_id');
 
@@ -261,7 +261,7 @@ export const getDailyCenterDetails = async (req, res) => {
             const dailyCalls = await LeadManagement.countDocuments({
                 $or: [
                     { createdBy: userId, createdAt: dateFilter },
-                    { "followUps.updatedBy": user.name, "followUps.date": dateFilter }
+                    { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
                 ]
             });
 
@@ -284,6 +284,31 @@ export const getDailyCenterDetails = async (req, res) => {
 
             const collectionsAmount = collections.length > 0 ? collections[0].total : 0;
 
+            let callHistory = [];
+            if (user.role && (user.role.toLowerCase() === 'telecaller' || user.role.toLowerCase() === 'centralizedtelecaller')) {
+                for (let i = 4; i >= 0; i--) {
+                    let dDate = new Date(startDate);
+                    dDate.setDate(dDate.getDate() - i);
+                    let dStart = new Date(dDate);
+                    dStart.setHours(0,0,0,0);
+                    let dEnd = new Date(dDate);
+                    dEnd.setHours(23,59,59,999);
+
+                    const cCount = await LeadManagement.countDocuments({
+                        $or: [
+                            { createdBy: userId, createdAt: { $gte: dStart, $lte: dEnd } },
+                            { followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: dStart, $lte: dEnd } } } }
+                        ]
+                    });
+                    
+                    callHistory.push({
+                        date: dStart.toISOString(),
+                        calls: cCount,
+                        target: 50
+                    });
+                }
+            }
+
             return {
                 userId: user._id,
                 name: user.name,
@@ -294,7 +319,8 @@ export const getDailyCenterDetails = async (req, res) => {
                     counselled: userCounselledNormalCount + userCounselledBoardCount,
                     admissions: admissionNormal + admissionBoard,
                     collection: collectionsAmount
-                }
+                },
+                callHistory
             };
         }));
 
@@ -355,8 +381,7 @@ export const getDailyUserActivity = async (req, res) => {
         // Contacted leads (Follow-ups added today by this user on leads created BEFORE today)
         const contactedLeadsCount = await LeadManagement.countDocuments({
             createdAt: { $lt: startDate },
-            "followUps.updatedBy": user.name,
-            "followUps.date": dateFilter
+            followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
         });
 
         // 3. Counseling Analysis
@@ -366,7 +391,7 @@ export const getDailyUserActivity = async (req, res) => {
             updatedAt: dateFilter,
             $or: [
                 { createdBy: userId },
-                { "followUps.updatedBy": user.name, "followUps.date": dateFilter }
+                { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
             ]
         }).distinct('_id');
 
@@ -520,7 +545,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
                 updatedAt: dateFilter,
                 $or: [
                     { createdBy: userId },
-                    { "followUps.updatedBy": userName, "followUps.date": dateFilter }
+                    { followUps: { $elemMatch: { updatedBy: userName, date: dateFilter } } }
                 ]
             }).distinct('_id');
 
@@ -547,7 +572,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             const dailyCalls = await LeadManagement.countDocuments({
                 $or: [
                     { createdBy: userId, createdAt: dateFilter },
-                    { "followUps.updatedBy": userName, "followUps.date": dateFilter }
+                    { followUps: { $elemMatch: { updatedBy: userName, date: dateFilter } } }
                 ]
             });
 

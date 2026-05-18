@@ -268,6 +268,40 @@ const DailyCenterTrackingDetails = () => {
                                     </div>
                                 </div>
 
+                                {user.callHistory && user.callHistory.length > 0 && (
+                                    <div className={`mt-4 p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#15191c] border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <FaChartLine className="text-[10px] text-cyan-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Call History (5 Days)</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {user.callHistory.map((history, idx) => {
+                                                const percentage = Math.min((history.calls / history.target) * 100, 100);
+                                                return (
+                                                    <div key={idx} className="flex flex-col gap-1.5">
+                                                        <div className="flex justify-between items-center text-[10px]">
+                                                            <span className={`font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                {new Date(history.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                            </span>
+                                                            <span className={`font-black ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                {history.calls} <span className="text-gray-500 font-medium">/ {history.target}</span>
+                                                            </span>
+                                                        </div>
+                                                        <div className={`w-full rounded-full h-1.5 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                                                            <div 
+                                                                className={`h-1.5 rounded-full transition-all duration-500 ${percentage >= 100 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : percentage >= 50 ? 'bg-amber-500' : 'bg-red-500'}`} 
+                                                                style={{ width: `${percentage}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <button 
                                     onClick={() => navigate(`/daily-center-tracking/user/${user.userId}?fromDate=${fromDate}&toDate=${toDate}`)}
                                     className={`mt-6 w-full py-2.5 rounded-[2px] text-[10px] font-black uppercase tracking-[0.2em] transition-all ${

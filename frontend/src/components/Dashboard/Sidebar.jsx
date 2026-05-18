@@ -60,7 +60,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     const userPermissions = user.permissions || [];
     const granularPermissions = user.granularPermissions || {};
-    const isSuperAdmin = user.role === "superAdmin";
+    const isSuperAdmin = Array.isArray(user.role) ? user.role.includes("superAdmin") : user.role === "superAdmin";
 
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
@@ -539,7 +539,19 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-gray-900 dark:text-white text-sm font-semibold truncate">{user.name || "User"}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.role ? (user.role === 'centerIncharge' ? 'Center Incharge' : user.role === 'zonalManager' ? 'Zonal Manager' : user.role === 'zonalHead' ? 'Zonal Head' : user.role.charAt(0).toUpperCase() + user.role.slice(1)) : "Role"}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                            {user.role ? (() => {
+                                const roles = Array.isArray(user.role) ? user.role : [user.role];
+                                return roles.map(r => {
+                                    if (r === 'centerIncharge') return 'Center Incharge';
+                                    if (r === 'zonalManager') return 'Zonal Manager';
+                                    if (r === 'zonalHead') return 'Zonal Head';
+                                    if (r === 'superAdmin') return 'SuperAdmin';
+                                    if (r === 'hr') return 'HR';
+                                    return (typeof r === 'string' && r.length > 0) ? r.charAt(0).toUpperCase() + r.slice(1) : r;
+                                }).join(", ");
+                            })() : "Role"}
+                        </p>
                     </div>
                 </div>
             </div>

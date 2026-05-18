@@ -262,8 +262,12 @@ const Header = ({ toggleSidebar }) => {
     };
 
     const getRoleDisplayName = (role) => {
-        if (role === "superAdmin") return "SuperAdmin";
-        return role.charAt(0).toUpperCase() + role.slice(1);
+        const roles = Array.isArray(role) ? role : [role];
+        return roles.map(r => {
+            if (r === "superAdmin") return "SuperAdmin";
+            if (!r) return "";
+            return r.charAt(0).toUpperCase() + r.slice(1);
+        }).join(", ");
     };
 
     return (
@@ -288,7 +292,7 @@ const Header = ({ toggleSidebar }) => {
                 <div className="flex items-center gap-4">
                     <ThemeToggle />
 
-                    {userRole === "superAdmin" ? (
+                    {(Array.isArray(userRole) ? userRole.includes("superAdmin") : userRole === "superAdmin") ? (
                         <div onClick={() => navigate("/profile")} className="hidden sm:flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 p-2 rounded-lg transition-colors">
                             <div className="w-8 h-8 rounded-full bg-cyan-900 border border-cyan-500/30 flex items-center justify-center overflow-hidden">
                                 {userInfo.profileImage && !userInfo.profileImage.startsWith('undefined/') ? (
