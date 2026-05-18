@@ -6,6 +6,7 @@ import BoardCourseCounselling from "../../models/Admission/BoardCourseCounsellin
 import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import Payment from "../../models/Payment/Payment.js";
 import User from "../../models/User.js";
+import Student from "../../models/Students.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
 
@@ -465,12 +466,12 @@ export const getDailyUserActivity = async (req, res) => {
         const freshLeadsDetailed = await LeadManagement.find({
             createdBy: userId,
             createdAt: dateFilter
-        }).select('name phoneNumber leadType isCounseled followUps createdAt').lean();
+        }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
 
         const contactedLeadsDetailed = await LeadManagement.find({
             createdAt: { $lt: startDate },
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        }).select('name phoneNumber leadType isCounseled followUps').lean();
+        }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
 
         let hotCount = 0, warmCount = 0, coldCount = 0;
         const callDetails = [];
@@ -492,7 +493,8 @@ export const getDailyUserActivity = async (req, res) => {
                 feedback: lead.followUps?.[0]?.feedback || '-',
                 remarks: lead.followUps?.[0]?.remarks || '',
                 nextFollowUpDate: lead.followUps?.[0]?.nextFollowUpDate || null,
-                date: lead.createdAt
+                date: lead.createdAt,
+                updatedAt: lead.updatedAt
             });
         });
 
@@ -518,9 +520,203 @@ export const getDailyUserActivity = async (req, res) => {
                     feedback: fu.feedback || '-',
                     remarks: fu.remarks || '',
                     nextFollowUpDate: fu.nextFollowUpDate || null,
-                    date: fu.date
+                    date: fu.date,
+                    updatedAt: lead.updatedAt
                 });
             });
+        });
+
+        // Fetch all direct admissions and counselling today to populate them if they are not in lead list
+        const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
+            Admission.find({ createdBy: userId, createdAt: dateFilter }).populate('student').lean(),
+            BoardCourseAdmission.find({ createdBy: userId, createdAt: dateFilter }).populate('studentId').lean(),
+            BoardCourseCounselling.find({ counselledBy: userId, counselledDate: dateFilter }).populate('studentId').lean()
+        ]);
+
+        const extraPhones = [
+            ...allNormalAdmissionsToday.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum),
+            ...allBoardAdmissionsToday.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum),
+            ...allBoardCounsellingsToday.map(couns => couns.studentId?.studentsDetails?.[0]?.mobileNum)
+        ].filter(p => p && p !== '-');
+
+        let leadMapByPhone = {};
+        if (extraPhones.length > 0) {
+            const leads = await LeadManagement.find({ phoneNumber: { $in: extraPhones } }).lean();
+            leads.forEach(l => {
+                leadMapByPhone[l.phoneNumber] = l;
+            });
+        }
+
+        const existingPhones = new Set(callDetails.map(c => c.phoneNumber).filter(p => p && p !== '-'));
+        const existingNames = new Set(callDetails.map(c => (c.studentName || '').toLowerCase()));
+
+        allNormalAdmissionsToday.forEach(adm => {
+            const studentDetails = adm.student?.studentsDetails?.[0];
+            const phone = studentDetails?.mobileNum || '-';
+            const name = studentDetails?.studentName || 'Unknown Student';
+            
+            if (phone !== '-' && existingPhones.has(phone)) return;
+            if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
+            
+            const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
+            
+            callDetails.push({
+                leadId: existingLead ? existingLead._id : null,
+                studentName: name,
+                phoneNumber: phone,
+                callType: 'FOLLOW-UP',
+                leadType: existingLead ? existingLead.leadType : 'UNTAGGED',
+                isCounseled: true,
+                feedback: 'ADMISSION COMPLETED',
+                remarks: 'Normal Course Admission',
+                nextFollowUpDate: null,
+                date: adm.createdAt || new Date(),
+                updatedAt: adm.createdAt || new Date(),
+                leadTick: true,
+                leadDate: existingLead ? existingLead.createdAt : adm.createdAt,
+                counselledTick: true,
+                counselledDate: adm.createdAt,
+                enrolledTick: true,
+                enrolledDate: adm.createdAt
+            });
+            
+            if (phone !== '-') existingPhones.add(phone);
+            existingNames.add(name.toLowerCase());
+        });
+
+        allBoardAdmissionsToday.forEach(adm => {
+            const studentDetails = adm.studentId?.studentsDetails?.[0];
+            const phone = studentDetails?.mobileNum || '-';
+            const name = studentDetails?.studentName || 'Unknown Student';
+            
+            if (phone !== '-' && existingPhones.has(phone)) return;
+            if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
+            
+            const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
+            
+            callDetails.push({
+                leadId: existingLead ? existingLead._id : null,
+                studentName: name,
+                phoneNumber: phone,
+                callType: 'FOLLOW-UP',
+                leadType: existingLead ? existingLead.leadType : 'UNTAGGED',
+                isCounseled: true,
+                feedback: 'BOARD ADMISSION COMPLETED',
+                remarks: 'Board Course Admission',
+                nextFollowUpDate: null,
+                date: adm.createdAt || new Date(),
+                updatedAt: adm.createdAt || new Date(),
+                leadTick: true,
+                leadDate: existingLead ? existingLead.createdAt : adm.createdAt,
+                counselledTick: true,
+                counselledDate: adm.createdAt,
+                enrolledTick: true,
+                enrolledDate: adm.createdAt
+            });
+            
+            if (phone !== '-') existingPhones.add(phone);
+            existingNames.add(name.toLowerCase());
+        });
+
+        allBoardCounsellingsToday.forEach(couns => {
+            const studentDetails = couns.studentId?.studentsDetails?.[0];
+            const phone = studentDetails?.mobileNum || '-';
+            const name = studentDetails?.studentName || 'Unknown Student';
+            
+            if (phone !== '-' && existingPhones.has(phone)) return;
+            if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
+            
+            const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
+            const hasAdmission = allBoardAdmissionsToday.some(adm => 
+                adm.studentId?._id?.toString() === couns.studentId?._id?.toString()
+            );
+            
+            callDetails.push({
+                leadId: existingLead ? existingLead._id : null,
+                studentName: name,
+                phoneNumber: phone,
+                callType: 'FOLLOW-UP',
+                leadType: existingLead ? existingLead.leadType : 'UNTAGGED',
+                isCounseled: true,
+                feedback: 'BOARD COUNSELLING COMPLETED',
+                remarks: 'Board Course Counselling',
+                nextFollowUpDate: null,
+                date: couns.counselledDate || new Date(),
+                updatedAt: couns.counselledDate || new Date(),
+                leadTick: true,
+                leadDate: existingLead ? existingLead.createdAt : couns.counselledDate,
+                counselledTick: true,
+                counselledDate: couns.counselledDate,
+                enrolledTick: hasAdmission,
+                enrolledDate: hasAdmission ? couns.counselledDate : null
+            });
+            
+            if (phone !== '-') existingPhones.add(phone);
+            existingNames.add(name.toLowerCase());
+        });
+
+        // Fetch students and admissions in bulk to determine stage status and timestamps
+        const phoneNumbers = callDetails.map(c => c.phoneNumber).filter(p => p && p !== '-');
+        
+        let studentMapByPhone = {};
+        let admissionMapByStudentId = {};
+        let counsellingMapByStudentId = {};
+
+        if (phoneNumbers.length > 0) {
+            const students = await Student.find({ "studentsDetails.mobileNum": { $in: phoneNumbers } }).lean();
+            
+            students.forEach(s => {
+                const phone = s.studentsDetails?.[0]?.mobileNum;
+                if (phone) {
+                    studentMapByPhone[phone] = s;
+                }
+            });
+
+            const studentIds = students.map(s => s._id);
+            const [normalAdmissions, boardAdmissions, boardCounsellings] = await Promise.all([
+                Admission.find({ student: { $in: studentIds } }).lean(),
+                BoardCourseAdmission.find({ studentId: { $in: studentIds } }).lean(),
+                BoardCourseCounselling.find({ studentId: { $in: studentIds } }).lean()
+            ]);
+
+            normalAdmissions.forEach(a => {
+                admissionMapByStudentId[a.student.toString()] = {
+                    date: a.createdAt || a.admissionDate
+                };
+            });
+            boardAdmissions.forEach(a => {
+                admissionMapByStudentId[a.studentId.toString()] = {
+                    date: a.createdAt || a.admissionDate
+                };
+            });
+            boardCounsellings.forEach(c => {
+                counsellingMapByStudentId[c.studentId.toString()] = {
+                    date: c.counselledDate || c.createdAt
+                };
+            });
+        }
+
+        // Augment each item in callDetails with stage metadata
+        callDetails.forEach(detail => {
+            const phone = detail.phoneNumber;
+            const student = phone !== '-' ? studentMapByPhone[phone] : null;
+
+            // 1. Lead tick & date
+            detail.leadTick = true;
+            detail.leadDate = detail.date;
+
+            // 2. Counselled tick & date
+            detail.counselledTick = detail.isCounseled;
+            detail.counselledDate = null;
+            if (detail.isCounseled) {
+                const bCouns = student ? counsellingMapByStudentId[student._id.toString()] : null;
+                detail.counselledDate = bCouns ? bCouns.date : (detail.updatedAt || detail.date);
+            }
+
+            // 3. Enrolled tick & date
+            const adm = student ? admissionMapByStudentId[student._id.toString()] : null;
+            detail.enrolledTick = !!adm;
+            detail.enrolledDate = adm ? adm.date : null;
         });
 
         // Sort newest first

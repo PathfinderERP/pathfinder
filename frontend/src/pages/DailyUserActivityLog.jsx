@@ -8,17 +8,18 @@ import {
     FaFire, FaSnowflake, FaThermometerHalf, FaCheckCircle, FaSearch
 } from 'react-icons/fa';
 import { toast } from "react-toastify";
+import { BarChart, Bar, Cell, AreaChart, Area, PieChart, Pie, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const LEAD_TYPE_CONFIG = {
-    'HOT LEAD':  { color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/30',    icon: <FaFire />,            label: 'HOT'  },
-    'WARM LEAD': { color: 'text-amber-400',   bg: 'bg-amber-500/10',  border: 'border-amber-500/30',  icon: <FaThermometerHalf />, label: 'WARM' },
-    'COLD LEAD': { color: 'text-cyan-400',    bg: 'bg-cyan-500/10',   border: 'border-cyan-500/30',   icon: <FaSnowflake />,       label: 'COLD' },
-    'UNTAGGED':  { color: 'text-gray-400',    bg: 'bg-gray-500/10',   border: 'border-gray-500/30',   icon: <FaPhoneAlt />,        label: '-'    },
+    'HOT LEAD': { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <FaFire />, label: 'HOT' },
+    'WARM LEAD': { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: <FaThermometerHalf />, label: 'WARM' },
+    'COLD LEAD': { color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', icon: <FaSnowflake />, label: 'COLD' },
+    'UNTAGGED': { color: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/30', icon: <FaPhoneAlt />, label: '-' },
 };
 
 const getLeadConfig = (type) => {
     const key = (type || '').toUpperCase();
-    if (key.includes('HOT'))  return LEAD_TYPE_CONFIG['HOT LEAD'];
+    if (key.includes('HOT')) return LEAD_TYPE_CONFIG['HOT LEAD'];
     if (key.includes('WARM')) return LEAD_TYPE_CONFIG['WARM LEAD'];
     if (key.includes('COLD')) return LEAD_TYPE_CONFIG['COLD LEAD'];
     return LEAD_TYPE_CONFIG['UNTAGGED'];
@@ -35,12 +36,14 @@ const DailyUserActivityLog = () => {
     const initialDate = new Date().toISOString().split('T')[0];
 
     const [fromDate, setFromDate] = useState(queryParams.get('fromDate') || queryParams.get('date') || initialDate);
-    const [toDate, setToDate]     = useState(queryParams.get('toDate')   || queryParams.get('date') || initialDate);
-    const [data, setData]         = useState(null);
-    const [loading, setLoading]   = useState(true);
+    const [toDate, setToDate] = useState(queryParams.get('toDate') || queryParams.get('date') || initialDate);
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [callSearch, setCallSearch] = useState('');
     const [callTypeFilter, setCallTypeFilter] = useState('ALL'); // ALL | FRESH | FOLLOW-UP
     const [leadTypeFilter, setLeadTypeFilter] = useState('ALL'); // ALL | HOT | WARM | COLD
+    const [activeChartTab, setActiveChartTab] = useState('bar'); // bar | area | pie
+    const [selectedSection, setSelectedSection] = useState('ALL'); // ALL | CALLS | COUNSELLED | ADMISSIONS | COLLECTION | HOT | WARM | COLD
 
     useEffect(() => {
         const fetchActivity = async () => {
@@ -92,14 +95,38 @@ const DailyUserActivityLog = () => {
             call.studentName.toLowerCase().includes(callSearch.toLowerCase()) ||
             call.phoneNumber.includes(callSearch) ||
             (call.feedback || '').toLowerCase().includes(callSearch.toLowerCase());
-        const matchType   = callTypeFilter === 'ALL' || call.callType === callTypeFilter;
-        const cfg         = getLeadConfig(call.leadType);
-        const matchLead   = leadTypeFilter === 'ALL' || cfg.label === leadTypeFilter;
-        return matchSearch && matchType && matchLead;
+        const matchType = callTypeFilter === 'ALL' || call.callType === callTypeFilter;
+        const cfg = getLeadConfig(call.leadType);
+        const matchLead = leadTypeFilter === 'ALL' || cfg.label === leadTypeFilter;
+        
+        let matchSection = true;
+        if (selectedSection === 'CALLS') {
+            matchSection = true;
+        } else if (selectedSection === 'COUNSELLED') {
+            matchSection = call.counselledTick === true;
+        } else if (selectedSection === 'ADMISSIONS') {
+            matchSection = call.enrolledTick === true;
+        } else if (selectedSection === 'COLLECTION') {
+            matchSection = call.enrolledTick === true;
+        } else if (selectedSection === 'HOT') {
+            matchSection = (call.leadType || '').toUpperCase().includes('HOT');
+        } else if (selectedSection === 'WARM') {
+            matchSection = (call.leadType || '').toUpperCase().includes('WARM');
+        } else if (selectedSection === 'COLD') {
+            matchSection = (call.leadType || '').toUpperCase().includes('COLD');
+        }
+        
+        return matchSearch && matchType && matchLead && matchSection;
     });
 
     const totalCalls = data.leads.totalFollowUps;
     const collectionTotal = (data.collections.freshAdmissionTotal || 0) + (data.collections.installmentTotal || 0);
+
+    const conversionChartData = [
+        { name: 'Lead', value: totalCalls, displayValue: totalCalls },
+        { name: 'Counselled', value: data.counselled.total, displayValue: data.counselled.total },
+        { name: 'Enrolled', value: data.admissions.total, displayValue: data.admissions.total }
+    ];
 
     return (
         <Layout activePage="Daily Center Tracking">
@@ -132,6 +159,138 @@ const DailyUserActivityLog = () => {
                             </div>
                         </div>
 
+                        {/* Conversion Funnel Widget with Interactive Charts - Fully Expanded */}
+                        <div className={`flex-1 flex items-center justify-between gap-6 px-6 py-2.5 rounded-xl border ${isDark ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'} max-h-[190px] overflow-hidden`}>
+
+                            {/* Charts Area */}
+                            <div className="flex-grow flex-1 flex flex-col items-center justify-between h-full">
+                                {/* Chart Selector Tabs */}
+                                <div className={`flex rounded bg-black/30 p-0.5 text-[8px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1.5`}>
+                                    {['bar', 'area', 'pie'].map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveChartTab(tab)}
+                                            className={`px-3 py-0.5 rounded transition-all ${activeChartTab === tab
+                                                ? 'bg-cyan-500 text-white font-black'
+                                                : 'hover:text-white'}`}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Recharts Display */}
+                                <div className="h-[52px] w-full bg-transparent">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        {activeChartTab === 'bar' && (
+                                            <BarChart data={conversionChartData} margin={{ top: 0, right: 10, left: -30, bottom: 0 }}>
+                                                <XAxis dataKey="name" tick={{ fontSize: 7, fill: isDark ? '#9ca3af' : '#4b5563' }} axisLine={false} tickLine={false} />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: isDark ? '#1a1f24' : '#fff',
+                                                        borderColor: isDark ? '#374151' : '#e5e7eb',
+                                                        fontSize: '8px',
+                                                        padding: '2px 4px'
+                                                    }}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                                />
+                                                <Bar dataKey="value" radius={[2, 2, 0, 0]}>
+                                                    {conversionChartData.map((entry, index) => {
+                                                        const colors = ['#22d3ee', '#c084fc', '#34d399'];
+                                                        return <Cell key={`cell-${index}`} fill={colors[index]} />;
+                                                    })}
+                                                </Bar>
+                                            </BarChart>
+                                        )}
+
+                                        {activeChartTab === 'area' && (
+                                            <AreaChart data={conversionChartData} margin={{ top: 2, right: 10, left: -30, bottom: 0 }}>
+                                                <defs>
+                                                    <linearGradient id="conversionGrad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <XAxis dataKey="name" tick={{ fontSize: 7, fill: isDark ? '#9ca3af' : '#4b5563' }} axisLine={false} tickLine={false} />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: isDark ? '#1a1f24' : '#fff',
+                                                        borderColor: isDark ? '#374151' : '#e5e7eb',
+                                                        fontSize: '8px',
+                                                        padding: '2px 4px'
+                                                    }}
+                                                />
+                                                <Area type="monotone" dataKey="value" stroke="#06b6d4" strokeWidth={1} fillOpacity={1} fill="url(#conversionGrad)" />
+                                            </AreaChart>
+                                        )}
+
+                                        {activeChartTab === 'pie' && (
+                                            <PieChart>
+                                                <Pie
+                                                    data={conversionChartData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={10}
+                                                    outerRadius={20}
+                                                    paddingAngle={2}
+                                                    dataKey="value"
+                                                >
+                                                    {conversionChartData.map((entry, index) => {
+                                                        const colors = ['#22d3ee', '#c084fc', '#34d399'];
+                                                        return <Cell key={`cell-${index}`} fill={colors[index]} />;
+                                                    })}
+                                                </Pie>
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: isDark ? '#1a1f24' : '#fff',
+                                                        borderColor: isDark ? '#374151' : '#e5e7eb',
+                                                        fontSize: '8px',
+                                                        padding: '2px 4px'
+                                                    }}
+                                                />
+                                            </PieChart>
+                                        )}
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* Vertical Divider */}
+                            <div className={`h-16 w-[1px] ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`} />
+
+                            {/* Current Analysis section (keep it!) */}
+                            <div className="flex flex-col gap-2 justify-center min-w-[150px]">
+                                {/* Lead -> Counselled */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="text-left">
+                                        <span className="block text-[8px] font-bold text-gray-500 uppercase tracking-widest leading-none">Lead ➔ Counselled</span>
+                                        <span className="text-xs font-black text-cyan-400 mt-1 block leading-none">
+                                            {totalCalls > 0
+                                                ? `${Math.round((data.counselled.total / totalCalls) * 100)}%`
+                                                : '0%'}
+                                        </span>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black ${isDark ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
+                                        ➔
+                                    </div>
+                                </div>
+
+                                {/* Counselled -> Admitted */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="text-left">
+                                        <span className="block text-[8px] font-bold text-gray-500 uppercase tracking-widest leading-none">Counselling ➔ Admitted</span>
+                                        <span className="text-xs font-black text-purple-400 mt-1 block leading-none">
+                                            {data.counsembled?.total || data.counselled.total > 0
+                                                ? `${Math.round((data.admissions.total / (data.counsembled?.total || data.counselled.total)) * 100)}%`
+                                                : '0%'}
+                                        </span>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black ${isDark ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600'}`}>
+                                        ➔
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Date Pickers */}
                         <div className={`flex flex-wrap items-center gap-3 p-2 rounded-lg border ${isDark ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="flex items-center gap-2 px-2">
@@ -152,31 +311,43 @@ const DailyUserActivityLog = () => {
                 {/* Top KPI Row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     {[
-                        { label: 'Total Calls',   value: totalCalls,                  color: 'text-cyan-400',   bg: 'bg-cyan-500/10',   icon: <FaPhoneAlt /> },
-                        { label: 'Counselled',    value: data.counselled.total,        color: 'text-purple-400', bg: 'bg-purple-500/10', icon: <FaUsers /> },
-                        { label: 'Admissions',    value: data.admissions.total,        color: 'text-green-400',  bg: 'bg-green-500/10',  icon: <FaUserGraduate /> },
-                        { label: 'Collection',    value: `₹${collectionTotal.toLocaleString('en-IN')}`, color: 'text-amber-400', bg: 'bg-amber-500/10', icon: <FaMoneyBillWave /> },
-                    ].map((kpi, i) => (
-                        <div key={i} className={`p-5 rounded-xl border ${card} flex items-center gap-4`}>
-                            <div className={`p-3 rounded-lg ${kpi.bg} ${kpi.color} text-lg`}>{kpi.icon}</div>
-                            <div>
-                                <p className={`text-[10px] font-black uppercase tracking-widest ${subText}`}>{kpi.label}</p>
-                                <p className={`text-2xl font-black tracking-tighter ${kpi.color}`}>{kpi.value}</p>
+                        { label: 'Total Calls', value: totalCalls, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
+                        { label: 'Counselled', value: data.counselled.total, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: <FaUsers />, section: 'COUNSELLED', activeBorder: 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' },
+                        { label: 'Admissions', value: data.admissions.total, color: 'text-green-400', bg: 'bg-green-500/10', icon: <FaUserGraduate />, section: 'ADMISSIONS', activeBorder: 'border-green-500 shadow-lg shadow-green-900/20 bg-green-950/10' },
+                        { label: 'Collection', value: `₹${collectionTotal.toLocaleString('en-IN')}`, color: 'text-amber-400', bg: 'bg-amber-500/10', icon: <FaMoneyBillWave />, section: 'COLLECTION', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
+                    ].map((kpi, i) => {
+                        const isActive = selectedSection === kpi.section;
+                        return (
+                            <div 
+                                key={i} 
+                                onClick={() => setSelectedSection(isActive ? 'ALL' : kpi.section)}
+                                className={`p-5 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? kpi.activeBorder : card} flex items-center gap-4`}
+                            >
+                                <div className={`p-3 rounded-lg ${kpi.bg} ${kpi.color} text-lg`}>{kpi.icon}</div>
+                                <div>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest ${subText}`}>{kpi.label}</p>
+                                    <p className={`text-2xl font-black tracking-tighter ${kpi.color}`}>{kpi.value}</p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* HOT / WARM / COLD breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     {[
-                        { label: 'Hot Leads',  value: data.leads.hot,  cfg: LEAD_TYPE_CONFIG['HOT LEAD']  },
-                        { label: 'Warm Leads', value: data.leads.warm, cfg: LEAD_TYPE_CONFIG['WARM LEAD'] },
-                        { label: 'Cold Leads', value: data.leads.cold, cfg: LEAD_TYPE_CONFIG['COLD LEAD'] },
+                        { label: 'Hot Leads', value: data.leads.hot, cfg: LEAD_TYPE_CONFIG['HOT LEAD'], section: 'HOT', activeBorder: 'border-red-500 shadow-lg shadow-red-900/20 bg-red-950/10' },
+                        { label: 'Warm Leads', value: data.leads.warm, cfg: LEAD_TYPE_CONFIG['WARM LEAD'], section: 'WARM', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
+                        { label: 'Cold Leads', value: data.leads.cold, cfg: LEAD_TYPE_CONFIG['COLD LEAD'], section: 'COLD', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
                     ].map((item, i) => {
                         const pct = totalCalls > 0 ? Math.round((item.value / totalCalls) * 100) : 0;
+                        const isActive = selectedSection === item.section;
                         return (
-                            <div key={i} className={`p-5 rounded-xl border ${card} flex items-center justify-between gap-4`}>
+                            <div 
+                                key={i} 
+                                onClick={() => setSelectedSection(isActive ? 'ALL' : item.section)}
+                                className={`p-5 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? item.activeBorder : card} flex items-center justify-between gap-4`}
+                            >
                                 <div className="flex items-center gap-3">
                                     <div className={`p-3 rounded-lg text-lg ${item.cfg.bg} ${item.cfg.color}`}>{item.cfg.icon}</div>
                                     <div>
@@ -201,11 +372,19 @@ const DailyUserActivityLog = () => {
                     <div className={`p-5 border-b flex flex-wrap items-center gap-4 justify-between ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
                         <div className="flex items-center gap-3">
                             <div className="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400"><FaPhoneAlt /></div>
-                            <h3 className="font-black text-xs uppercase tracking-[0.2em]">
+                            <h3 className="font-black text-xs uppercase tracking-[0.2em] flex items-center flex-wrap gap-2">
                                 Call Activity Log
-                                <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                                     {filteredCalls.length} / {data.callDetails?.length || 0}
                                 </span>
+                                {selectedSection !== 'ALL' && (
+                                    <span 
+                                        onClick={() => setSelectedSection('ALL')}
+                                        className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer hover:bg-red-500/20 transition-all flex items-center gap-1"
+                                    >
+                                        Filter: {selectedSection} ✕
+                                    </span>
+                                )}
                             </h3>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -261,7 +440,9 @@ const DailyUserActivityLog = () => {
                                     <th className="px-5 py-3 font-black text-center">Lead Status</th>
                                     <th className="px-5 py-3 font-black">Feedback</th>
                                     <th className="px-5 py-3 font-black">Remarks</th>
+                                    <th className="px-5 py-3 font-black text-center">Lead</th>
                                     <th className="px-5 py-3 font-black text-center">Counselled</th>
+                                    <th className="px-5 py-3 font-black text-center">Enrolled</th>
                                     <th className="px-5 py-3 font-black">Next Follow-up</th>
                                     <th className="px-5 py-3 font-black">Date</th>
                                 </tr>
@@ -269,7 +450,7 @@ const DailyUserActivityLog = () => {
                             <tbody className={`divide-y ${divider}`}>
                                 {filteredCalls.length === 0 ? (
                                     <tr>
-                                        <td colSpan="10" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
+                                        <td colSpan="12" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
                                             No call records found for the selected filters.
                                         </td>
                                     </tr>
@@ -285,10 +466,16 @@ const DailyUserActivityLog = () => {
                                             <td className={`px-5 py-3 text-xs font-mono ${subText}`}>{call.phoneNumber}</td>
                                             <td className="px-5 py-3 text-center">
                                                 <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${
-                                                    isFresh
+                                                    call.callType === 'FRESH'
                                                         ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                                        : call.callType === 'ADMISSION'
+                                                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                        : call.callType === 'BOARD-ADMIT'
+                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                        : call.callType === 'BOARD-COUNSEL'
+                                                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                                                         : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                                                }`}>
+                                                    }`}>
                                                     {call.callType}
                                                 </span>
                                             </td>
@@ -303,10 +490,50 @@ const DailyUserActivityLog = () => {
                                             <td className={`px-5 py-3 text-xs max-w-[160px] truncate ${subText}`} title={call.remarks}>
                                                 {call.remarks || '-'}
                                             </td>
+                                            {/* Lead column */}
                                             <td className="px-5 py-3 text-center">
-                                                {call.isCounseled
-                                                    ? <FaCheckCircle className="text-green-400 mx-auto" />
-                                                    : <span className={`text-xs ${subText}`}>–</span>}
+                                                {call.leadTick ? (
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <FaCheckCircle className="text-red-500 text-sm mb-1" />
+                                                        <span className="text-[10px] text-gray-500 font-bold whitespace-nowrap block mt-0.5 leading-tight">
+                                                            {new Date(call.leadDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                            <br />
+                                                            {new Date(call.leadDate).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className={`text-xs ${subText}`}>–</span>
+                                                )}
+                                            </td>
+                                            {/* Counselled column */}
+                                            <td className="px-5 py-3 text-center">
+                                                {call.counselledTick ? (
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <FaCheckCircle className="text-yellow-400 text-sm mb-1" />
+                                                        <span className="text-[10px] text-gray-500 font-bold whitespace-nowrap block mt-0.5 leading-tight">
+                                                            {new Date(call.counselledDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                            <br />
+                                                            {new Date(call.counselledDate).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className={`text-xs ${subText}`}>–</span>
+                                                )}
+                                            </td>
+                                            {/* Enrolled column */}
+                                            <td className="px-5 py-3 text-center">
+                                                {call.enrolledTick ? (
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <FaCheckCircle className="text-emerald-400 text-sm mb-1" />
+                                                        <span className="text-[10px] text-gray-500 font-bold whitespace-nowrap block mt-0.5 leading-tight">
+                                                            {new Date(call.enrolledDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                            <br />
+                                                            {new Date(call.enrolledDate).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className={`text-xs ${subText}`}>–</span>
+                                                )}
                                             </td>
                                             <td className={`px-5 py-3 text-xs whitespace-nowrap ${call.nextFollowUpDate ? 'text-amber-400 font-bold' : subText}`}>
                                                 {call.nextFollowUpDate
