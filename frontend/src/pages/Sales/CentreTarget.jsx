@@ -466,10 +466,10 @@ const CentreTarget = () => {
 
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                             <thead>
                                 <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                    <th className="px-6 py-4">Centre Name</th>
+                                    <th className={`px-6 py-4 sticky left-0 z-20 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-gray-50'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.3)' }}>Centre Name</th>
                                     <th className="px-6 py-4">Financial Year</th>
                                     <th className="px-6 py-4">Year</th>
                                     <th className="px-6 py-4">Month</th>
@@ -499,7 +499,7 @@ const CentreTarget = () => {
                                 ) : (
                                     targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).map(target => (
                                         <tr key={target._id} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-300`}>
-                                            <td className={`px-6 py-4 font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{target.centre?.centreName || "Unknown"}</td>
+                                            <td className={`px-6 py-4 font-bold sticky left-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] text-white' : 'bg-white text-gray-900'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>{target.centre?.centreName || "Unknown"}</td>
                                             <td className="px-6 py-4">{target.financialYear}</td>
                                             <td className="px-6 py-4">{target.year}</td>
                                             <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'}`}>{target.month}</td>

@@ -58,7 +58,7 @@ export const getAdmissions = async (req, res) => {
         }
 
         // Fetch Normal Admissions
-        const normalAdmissions = await Admission.find(query)
+        const admissions = await Admission.find(query)
             .populate({
                 path: 'student',
                 populate: [
@@ -66,7 +66,7 @@ export const getAdmissions = async (req, res) => {
                     { path: 'allocatedItems.allocatedBy', select: 'name' }
                 ]
             })
-            .populate('course')
+            // .populate('course') // Removed automatic populate to handle missing courses manually
             .populate('class')
             .populate('board')
             .populate('examTag')
@@ -75,7 +75,64 @@ export const getAdmissions = async (req, res) => {
             .sort({ createdAt: -1 })
             .lean();
 
-        res.status(200).json(normalAdmissions);
+        // Fetch Board Admissions (Sequential lookup to merge results)
+        // Adjusting query for Board model (it uses studentId instead of student)
+        let boardQuery = { ...query };
+        if (boardQuery.student) {
+            boardQuery.studentId = boardQuery.student;
+            delete boardQuery.student;
+        }
+
+        const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
+            .populate({
+                path: 'studentId',
+                populate: [
+                    { path: 'batches' },
+                    { path: 'allocatedItems.allocatedBy', select: 'name' }
+                ]
+            })
+            .populate('boardId')
+            .populate('createdBy', 'name')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Standardize board admissions to match the main Admission structure
+        const mappedBoardAdmissions = boardAdmissions.map(ba => ({
+            ...ba,
+            student: ba.studentId,
+            board: ba.boardId,
+            admissionType: "BOARD",
+            admissionDate: ba.admissionDate || ba.createdAt,
+            totalFees: ba.totalExpectedAmount,
+            totalPaidAmount: ba.totalPaidAmount,
+            paymentStatus: ba.totalPaidAmount >= ba.totalExpectedAmount ? "COMPLETED" : (ba.totalPaidAmount > 0 ? "PARTIAL" : "PENDING"),
+            admissionStatus: ba.status || "ACTIVE"
+        }));
+
+        // Merge both lists
+        const combinedAdmissions = [...admissions, ...mappedBoardAdmissions].sort((a, b) => 
+            new Date(b.admissionDate || b.createdAt) - new Date(a.admissionDate || a.createdAt)
+        );
+
+        // Manual Course Population to handle orphaned courseId references
+        const Course = (await import("../../models/Master_data/Courses.js")).default;
+        const allCourses = await Course.find({}).lean();
+        const courseMap = new Map(allCourses.map(c => [c._id.toString(), c]));
+
+        const populatedAdmissions = combinedAdmissions.map(admission => {
+            if (admission.admissionType === 'NORMAL' && admission.course) {
+                const courseIdStr = admission.course.toString();
+                if (courseMap.has(courseIdStr)) {
+                    admission.course = courseMap.get(courseIdStr);
+                } else {
+                    // Keep the ID as a string if course not found (prevents it from being null)
+                    admission.course = courseIdStr;
+                }
+            }
+            return admission;
+        });
+
+        res.status(200).json(populatedAdmissions);
     } catch (err) {
         console.error("getAdmissions error:", err);
         res.status(500).json({ message: "Server error", error: err.message });

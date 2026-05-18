@@ -140,6 +140,42 @@ const EnrolledStudentsContent = () => {
             console.error("Error fetching master data:", error);
         }
     }, [apiUrl]);
+    
+    // Helper to resolve course name from ID if populate failed
+    const resolveCourseName = React.useCallback((admission) => {
+        if (!admission) return "N/A";
+        
+        // 1. If course is populated as an object, return courseName
+        if (admission.course && typeof admission.course === 'object' && admission.course.courseName) {
+            return admission.course.courseName;
+        }
+        
+        // 2. If it's a Board course, return the constructed boardCourseName or the board's own name
+        if (admission.admissionType === 'BOARD') {
+            return admission.boardCourseName || admission.board?.boardCourse || admission.board?.name || "Board Course";
+        }
+        
+        // 3. Fallback: If course is just an ID (string), try to find it in masterCourses
+        const courseId = typeof admission.course === 'string' ? admission.course : 
+                         (admission.course?._id || admission.course);
+        
+        if (courseId && typeof courseId === 'string' && courseId.length > 5) {
+            const matchedCourse = masterCourses.find(c => c._id === courseId.toString());
+            if (matchedCourse) {
+                return matchedCourse.courseName;
+            }
+            // If still not found in master data, return the ID itself (so it's not "UNSPECIFIED")
+            return `COURSE ID: ${courseId}`;
+        }
+        
+        // 4. Final Fallback: If course field is null/missing, try to show Department + Admission Type
+        const deptInfo = admission.department?.departmentName || admission.department?.name || "";
+        const typeInfo = admission.admissionType || "NORMAL";
+        
+        if (deptInfo) return `${deptInfo} (${typeInfo})`;
+        
+        return "UNKNOWN COURSE";
+    }, [masterCourses]);
 
     const fetchAllowedCentres = React.useCallback(async () => {
         try {
@@ -443,7 +479,7 @@ const EnrolledStudentsContent = () => {
                     // Check if any admission matches this specific term
                     const admissionMatch = item.admissions.some(admission => {
                         const admissionNumber = (admission.admissionNumber || "").toLowerCase();
-                        const courseName = (admission.course?.courseName || admission.boardCourseName || "").toLowerCase();
+                        const courseName = resolveCourseName(admission).toLowerCase();
                         const centre = (admission.centre || student.centre || "").toLowerCase();
                         return admissionNumber.includes(query) ||
                             courseName.includes(query) ||
@@ -489,7 +525,7 @@ const EnrolledStudentsContent = () => {
         if (filterCourse.length > 0) {
             result = result.filter(item =>
                 item.admissions.some(admission => {
-                    const courseName = admission.course?.courseName || admission.boardCourseName || "";
+                    const courseName = resolveCourseName(admission);
                     return filterCourse.includes(courseName);
                 })
             );
@@ -1333,7 +1369,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Course"
                                 placeholder="ALL COURSES"
-                                options={Array.from(new Set(masterCourses.map(c => c.courseName))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
+                                options={Array.from(new Set([...masterCourses.map(c => c.courseName), "Foundation (NORMAL)"])).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterCourse}
                                 onChange={setFilterCourse}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -1581,10 +1617,7 @@ const EnrolledStudentsContent = () => {
                                                 <td className={`p-4 text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{latestAdmission?.mobileNum || student.mobileNum || "N/A"}</td>
                                                 <td className="p-4">
                                                     <div className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        {latestAdmission?.course?.courseName ||
-                                                            latestAdmission?.boardCourseName ||
-                                                            latestAdmission?.board?.boardCourse ||
-                                                            (typeof latestAdmission?.course === 'string' ? latestAdmission.course : "N/A")}
+                                                        {resolveCourseName(latestAdmission)}
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-center">
@@ -2075,7 +2108,7 @@ const EnrolledStudentsContent = () => {
                                             <div className={`p-5 flex flex-col lg:flex-row justify-between lg:items-center gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-b border-gray-800' : 'bg-white border-b border-gray-100'}`}>
                                                 <div>
                                                     <h5 className={`text-lg font-black uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        COURSE {index + 1}: {admission.course?.courseName || admission.boardCourseName || admission.board?.boardCourse || "UNSPECIFIED"}
+                                                        COURSE {index + 1}: {resolveCourseName(admission)}
                                                     </h5>
                                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                                                         {/* ── Inline-editable Enrollment Number ── */}

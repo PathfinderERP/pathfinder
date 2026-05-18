@@ -38,8 +38,8 @@ export const initiateCashTransfer = async (req, res) => {
     try {
         const { fromCentreId, toCentreId, amount, accountNumber, remarks, referenceNumber, debitedDate, fromDate, toDate } = req.body;
 
-        if (!fromCentreId || !toCentreId || !amount || !accountNumber) {
-            return res.status(400).json({ message: "Missing required fields" });
+        if (!fromCentreId || !toCentreId || !amount || !accountNumber || !fromDate || !toDate) {
+            return res.status(400).json({ message: "Missing required fields (including Collection Period dates)" });
         }
 
         let receiptFileKey = null;
@@ -354,10 +354,18 @@ export const getCashReport = async (req, res) => {
 
         // Fetch Recent Transfers with Filters
         let transferQuery = {};
+        
+        // Base query for non-superAdmins (only their authorized centres)
         if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             transferQuery.$or = [
                 { fromCentre: { $in: centres.map(c => c._id) } },
                 { toCentre: { $in: centres.map(c => c._id) } }
+            ];
+        } else if (centreId) {
+            // For superAdmins, if centreId is provided, filter by it
+            transferQuery.$or = [
+                { fromCentre: centreId },
+                { toCentre: centreId }
             ];
         }
 

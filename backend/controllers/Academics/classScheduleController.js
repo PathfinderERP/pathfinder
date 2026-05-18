@@ -2314,7 +2314,7 @@ export const exportClassSchedulesExcel = async (req, res) => {
         const allStudents = await Student.find({
             batches: { $in: allBatchIds },
             isEnrolled: true,
-            status: "Active"
+            status: { $ne: "Deactivated" }
         }).select("studentsDetails batches");
 
         // Admission details

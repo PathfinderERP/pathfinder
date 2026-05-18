@@ -153,6 +153,7 @@ const CashReceive = () => {
             "To Collection": req.toDate ? new Date(req.toDate).toLocaleDateString() : "N/A",
             "Transfer Date": new Date(req.transferDate).toLocaleDateString(),
             "Accepted By": req.receivedBy?.name || "N/A",
+            "Accepted Date": req.receivedDate ? new Date(req.receivedDate).toLocaleDateString() : "N/A",
             "Remarks": req.remarks || ""
         }));
 
@@ -381,7 +382,7 @@ const CashReceive = () => {
                                                         <div className="flex flex-col">
                                                             <span className="text-white font-black text-[10px] uppercase tracking-tight">{req.receivedBy.name}</span>
                                                             <span className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                                                <FaCheckCircle size={8} /> Confirmed
+                                                                <FaCheckCircle size={8} /> {req.receivedDate ? new Date(req.receivedDate).toLocaleDateString() : 'Confirmed'}
                                                             </span>
                                                         </div>
                                                     ) : (

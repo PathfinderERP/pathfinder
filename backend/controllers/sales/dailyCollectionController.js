@@ -4,7 +4,7 @@ import { getCache, setCache, generateCacheKey } from "../../utils/redisCache.js"
 export const getDailyCollectionReport = async (req, res) => {
     try {
         // REDIS CACHING START
-        const cacheKey = generateCacheKey("finance:daily_collection", {
+        const cacheKey = generateCacheKey("finance:daily_collection_v2", {
             query: req.query,
             userId: req.user._id,
             role: req.user.role,

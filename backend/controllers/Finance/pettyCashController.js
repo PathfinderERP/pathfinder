@@ -353,33 +353,70 @@ export const requestPettyCash = async (req, res) => {
 
 export const getPettyCashRequests = async (req, res) => {
     try {
-        const { status, centreId } = req.query;
+        const { status, centreId, startDate, endDate, page = 1, limit = 10, isExport } = req.query;
         let query = {};
+        
         if (status) query.status = status;
 
         if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
             const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
             if (centreId) {
-                if (!userCentres.includes(centreId)) {
-                    return res.status(403).json({ message: "Access denied to this centre's requests" });
+                const requestedCentres = centreId.split(',').filter(id => id.trim() !== "");
+                const filteredCentres = requestedCentres.filter(id => userCentres.includes(id));
+                if (filteredCentres.length === 0) {
+                    return res.status(200).json(isExport === 'true' ? [] : { requests: [], totalPages: 0, currentPage: Number(page), totalItems: 0 });
                 }
-                query.centre = centreId;
+                query.centre = { $in: filteredCentres };
             } else {
                 query.centre = { $in: userCentres };
             }
         } else if (centreId) {
-            query.centre = centreId;
+            if (centreId.includes(',')) {
+                query.centre = { $in: centreId.split(',').filter(id => id.trim() !== "") };
+            } else {
+                query.centre = centreId;
+            }
         }
 
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
+        }
+
+        if (isExport === 'true') {
+            const requests = await PettyCashRequest.find(query)
+                .populate("centre", "centreName")
+                .populate("requestedBy", "name")
+                .populate("approvedBy", "name")
+                .sort({ createdAt: -1 });
+            return res.status(200).json(requests);
+        }
+
+        const skip = (Number(page) - 1) * Number(limit);
+        const totalRequests = await PettyCashRequest.countDocuments(query);
+        
         const requests = await PettyCashRequest.find(query)
             .populate("centre", "centreName")
             .populate("requestedBy", "name")
             .populate("approvedBy", "name")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(Number(limit));
 
-        res.status(200).json(requests);
+        res.status(200).json({
+            requests,
+            totalPages: Math.ceil(totalRequests / Number(limit)),
+            currentPage: Number(page),
+            totalItems: totalRequests
+        });
     } catch (err) {
+        console.error("Get Petty Cash Requests Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

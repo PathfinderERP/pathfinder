@@ -97,29 +97,27 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
                     {/* Centre Selection */}
                     <div>
                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Centre *</label>
-                        <select
-                            required
-                            value={formData.centreId}
-                            onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
-                            className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                        >
-                            <option value="">Select Centre</option>
-                            {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                        </select>
+                        <CustomMultiSelect
+                            isMulti={false}
+                            options={centres.map(c => ({ value: c._id, label: c.centreName }))}
+                            value={formData.centreId ? { value: formData.centreId, label: centres.find(c => c._id === formData.centreId)?.centreName || "Select Centre" } : null}
+                            onChange={(val) => setFormData({ ...formData, centreId: val ? val.value : "" })}
+                            placeholder="Select Centre"
+                            isDarkMode={isDarkMode}
+                        />
                     </div>
 
                     {/* Department Selection */}
                     <div>
                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Department *</label>
-                        <select
-                            required
-                            value={formData.departmentId}
-                            onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                            className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                        >
-                            <option value="">Select Department</option>
-                            {allDepartments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
-                        </select>
+                        <CustomMultiSelect
+                            isMulti={false}
+                            options={allDepartments.map(d => ({ value: d._id, label: d.departmentName }))}
+                            value={formData.departmentId ? { value: formData.departmentId, label: allDepartments.find(d => d._id === formData.departmentId)?.departmentName || "Select Department" } : null}
+                            onChange={(val) => setFormData({ ...formData, departmentId: val ? val.value : "" })}
+                            placeholder="Select Department"
+                            isDarkMode={isDarkMode}
+                        />
                     </div>
 
                     {/* Exam Tag Selection (Optional - Multiple) */}

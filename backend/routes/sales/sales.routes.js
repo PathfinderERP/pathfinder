@@ -16,7 +16,7 @@ import { getTransactionReport } from "../../controllers/sales/transactionReportC
 import { getDailyCollectionReport } from "../../controllers/sales/dailyCollectionController.js";
 import { getBoardReport } from "../../controllers/sales/boardReportController.js";
 import { getWeeklyTarget } from "../../controllers/sales/weeklyTargetController.js";
-import { saveCourseTarget, getCourseTargetAnalysis } from "../../controllers/sales/courseTargetController.js";
+import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
 
 const router = express.Router();
 
@@ -39,5 +39,6 @@ router.get("/weekly-target", requireAuth, getWeeklyTarget);
 // Course Target Routes
 router.post("/course-target", requireAuth, saveCourseTarget);
 router.get("/course-target/analysis", requireAuth, getCourseTargetAnalysis);
+router.get("/course-target/admissions", requireAuth, getAdmissionDetails);
 
 export default router;

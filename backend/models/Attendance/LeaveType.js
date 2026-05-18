@@ -11,6 +11,12 @@ const leaveTypeSchema = new mongoose.Schema({
         required: true,
         min: 0
     },
+    // Optional override: days allowed specifically for teachers
+    teacherDays: {
+        type: Number,
+        min: 0,
+        default: null
+    },
     designations: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Designation'

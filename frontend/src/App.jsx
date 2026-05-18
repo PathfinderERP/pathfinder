@@ -144,6 +144,7 @@ import ChequeManagement from "./pages/Finance/ChequeManagement";
 import CancelChequePayment from "./pages/Finance/CancelChequePayment";
 import CashReport from "./pages/Finance/CashReport";
 import CashTransfer from "./pages/Finance/CashTransfer";
+import CashTransferHistory from "./pages/Finance/CashTransferHistory";
 import CashReceive from "./pages/Finance/CashReceive";
 import CashCentreDetails from "./pages/Finance/CashCentreDetails";
 import FinancialAnalysis from "./pages/Finance/FinancialAnalysis";
@@ -205,6 +206,7 @@ function App() {
         <Route path="/finance/cancel-cheque" element={<ProtectedRoute><CancelChequePayment /></ProtectedRoute>} />
         <Route path="/finance/cash/report" element={<ProtectedRoute><CashReport /></ProtectedRoute>} />
         <Route path="/finance/cash/transfer" element={<ProtectedRoute><CashTransfer /></ProtectedRoute>} />
+        <Route path="/finance/cash/transfer-history" element={<ProtectedRoute><CashTransferHistory /></ProtectedRoute>} />
         <Route path="/finance/cash/receive" element={<ProtectedRoute><CashReceive /></ProtectedRoute>} />
         <Route path="/finance/cash/centre/:centreId" element={<ProtectedRoute><CashCentreDetails /></ProtectedRoute>} />
         <Route path="/finance/transaction-list" element={<ProtectedRoute><TransactionList /></ProtectedRoute>} />

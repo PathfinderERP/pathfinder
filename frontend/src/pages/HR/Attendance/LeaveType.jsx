@@ -12,6 +12,7 @@ const LeaveType = () => {
     const [formData, setFormData] = useState({
         name: "",
         days: "",
+        teacherDays: "",
         designations: []
     });
 
@@ -68,20 +69,28 @@ const LeaveType = () => {
                 : `${import.meta.env.VITE_API_URL}/hr/attendance/leave-types`;
             const method = editingType ? "PUT" : "POST";
 
+            // Normalize teacherDays: convert empty string to null
+            const payload = {
+                ...formData,
+                teacherDays: formData.teacherDays !== "" && formData.teacherDays !== null
+                    ? Number(formData.teacherDays)
+                    : null
+            };
+
             const response = await fetch(url, {
                 method,
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
                 toast.success(editingType ? "Leave type updated" : "Leave type added");
                 setShowModal(false);
                 setEditingType(null);
-                setFormData({ name: "", days: "", designations: [] });
+                setFormData({ name: "", days: "", teacherDays: "", designations: [] });
                 fetchLeaveTypes();
             }
         } catch (error) {
@@ -116,7 +125,7 @@ const LeaveType = () => {
                     <button
                         onClick={() => {
                             setEditingType(null);
-                            setFormData({ name: "", days: "", designations: [] });
+                            setFormData({ name: "", days: "", teacherDays: "", designations: [] });
                             setShowModal(true);
                         }}
                         className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 font-bold text-sm"
@@ -132,7 +141,8 @@ const LeaveType = () => {
                                 <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Sl no.</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Days</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Days (General)</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Days (Teacher)</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Designation</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
@@ -140,14 +150,29 @@ const LeaveType = () => {
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="5" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td>
+                                        <td colSpan="6" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td>
                                     </tr>
                                 ) : leaveTypes.length > 0 ? (
                                     leaveTypes.map((type, index) => (
                                         <tr key={type._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                                             <td className="px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">{index + 1}</td>
                                             <td className="px-6 py-4 text-sm font-bold text-gray-800 dark:text-white">{type.name}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{type.days}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400">
+                                                    {type.days}
+                                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">days</span>
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {type.teacherDays != null ? (
+                                                    <span className="inline-flex items-center gap-1 text-sm font-bold text-purple-600 dark:text-purple-400">
+                                                        {type.teacherDays}
+                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">days</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400 italic">Same as general</span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                                                 {type.designations && type.designations.length > 0
                                                     ? type.designations.map(d => d.name).join(', ')
@@ -160,6 +185,7 @@ const LeaveType = () => {
                                                         setFormData({
                                                             name: type.name,
                                                             days: type.days,
+                                                            teacherDays: type.teacherDays ?? "",
                                                             designations: type.designations?.map(d => d._id) || []
                                                         });
                                                         setShowModal(true);
@@ -170,7 +196,7 @@ const LeaveType = () => {
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan="5" className="px-6 py-10 text-center text-gray-500 italic text-sm">No leave types defined</td></tr>
+                                    <tr><td colSpan="6" className="px-6 py-10 text-center text-gray-500 italic text-sm">No leave types defined</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -203,16 +229,31 @@ const LeaveType = () => {
                                 />
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Enter Days*</label>
-                                <input
-                                    type="number"
-                                    required
-                                    value={formData.days}
-                                    onChange={(e) => setFormData({ ...formData, days: e.target.value })}
-                                    placeholder="Days"
-                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none dark:text-white text-sm placeholder:text-gray-400"
-                                />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Days (All Roles) *</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        value={formData.days}
+                                        onChange={(e) => setFormData({ ...formData, days: e.target.value })}
+                                        placeholder="e.g. 14"
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none dark:text-white text-sm placeholder:text-gray-400"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-purple-600 dark:text-purple-400">Teacher Days (Optional)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={formData.teacherDays}
+                                        onChange={(e) => setFormData({ ...formData, teacherDays: e.target.value })}
+                                        placeholder="e.g. 12"
+                                        className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg outline-none dark:text-white text-sm placeholder:text-gray-400"
+                                    />
+                                    <p className="text-[10px] text-purple-500">Leave blank to use general days</p>
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">
