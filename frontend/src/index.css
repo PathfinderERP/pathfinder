@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --variant-dark: .dark &;
   --radius-sm: 4px;
   --radius-md: 4px;
   --radius-lg: 4px;

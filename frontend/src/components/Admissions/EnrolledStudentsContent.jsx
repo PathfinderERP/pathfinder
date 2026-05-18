@@ -81,6 +81,11 @@ const EnrolledStudentsContent = () => {
     const [editingEnrollmentValue, setEditingEnrollmentValue] = useState("");
     const [isSavingEnrollment, setIsSavingEnrollment] = useState(false);
 
+    // Bills tab — per-admission state
+    const [admissionActiveTabs, setAdmissionActiveTabs] = useState({});
+    const [admissionBillsData, setAdmissionBillsData] = useState({});
+    const [loadingBills, setLoadingBills] = useState({});
+
     // Permanent delete confirmation state
     const [deleteConfirm, setDeleteConfirm] = useState({ show: false, studentItem: null, inputValue: '' });
     const [isDeleting, setIsDeleting] = useState(false);
@@ -447,6 +452,42 @@ const EnrolledStudentsContent = () => {
             toast.error("Network error. Please try again.");
         } finally {
             setIsDividing(false);
+        }
+    };
+
+    // --- Bills Tab Helpers ---
+    const getAdmissionTab = (admissionId) => admissionActiveTabs[admissionId] || 'schedule';
+
+    const fetchBillsForAdmission = React.useCallback(async (admissionId) => {
+        setLoadingBills(prev => ({ ...prev, [admissionId]: true }));
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${apiUrl}/admission/${admissionId}/bills`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const sorted = (data.bills || []).sort((a, b) => {
+                    const da = new Date(a.receivedDate || a.paidDate || a.createdAt);
+                    const db = new Date(b.receivedDate || b.paidDate || b.createdAt);
+                    return db - da;
+                });
+                setAdmissionBillsData(prev => ({ ...prev, [admissionId]: sorted }));
+            } else {
+                toast.error('Failed to load bills history');
+            }
+        } catch (err) {
+            console.error('fetchBillsForAdmission error:', err);
+            toast.error('Network error loading bills');
+        } finally {
+            setLoadingBills(prev => ({ ...prev, [admissionId]: false }));
+        }
+    }, [apiUrl]);
+
+    const handleSwitchAdmissionTab = (admissionId, tab) => {
+        setAdmissionActiveTabs(prev => ({ ...prev, [admissionId]: tab }));
+        if (tab === 'bills' && !admissionBillsData[admissionId]) {
+            fetchBillsForAdmission(admissionId);
         }
     };
 
@@ -2403,12 +2444,25 @@ const EnrolledStudentsContent = () => {
                                                     </div>
                                                 )}
 
-                                                {/* Payment Breakdown / Monthly Breakdown */}
-                                                <div>
-                                                    <h6 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        <FaCalendar /> {admission.admissionType === 'BOARD' ? 'Monthly Payment History' : 'Payment Schedule'}
-                                                    </h6>
-                                                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
+                                                {/* Payment Schedule & Bills Tabs */}
+                                                <div className={`flex items-center gap-4 border-b mb-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                    <button
+                                                        onClick={() => handleSwitchAdmissionTab(admission._id, 'schedule')}
+                                                        className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all ${getAdmissionTab(admission._id) === 'schedule' ? (isDarkMode ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-cyan-600 border-b-2 border-cyan-600') : 'text-gray-500 hover:text-gray-400'}`}
+                                                    >
+                                                        <span className="flex items-center gap-2"><FaCalendar /> {admission.admissionType === 'BOARD' ? 'Monthly History' : 'Payment Schedule'}</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleSwitchAdmissionTab(admission._id, 'bills')}
+                                                        className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all ${getAdmissionTab(admission._id) === 'bills' ? (isDarkMode ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-cyan-600 border-b-2 border-cyan-600') : 'text-gray-500 hover:text-gray-400'}`}
+                                                    >
+                                                        <span className="flex items-center gap-2"><FaFileInvoice /> Bills Ledger</span>
+                                                    </button>
+                                                </div>
+
+                                                {getAdmissionTab(admission._id) === 'schedule' ? (
+                                                    <div>
+                                                        <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
                                                         {admission.admissionType === 'BOARD' ? (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                                 {admission.monthlySubjectHistory?.length > 0 ? (
@@ -2591,6 +2645,68 @@ const EnrolledStudentsContent = () => {
                                                         )}
                                                     </div>
                                                 </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        {loadingBills[admission._id] ? (
+                                                            <div className="py-8 flex flex-col items-center justify-center text-gray-500">
+                                                                <FaSync className="animate-spin text-2xl mb-2 text-cyan-500" />
+                                                                <p className="text-[10px] font-black uppercase tracking-widest">Compiling historical financial records...</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
+                                                                <table className="w-full text-left">
+                                                                    <thead>
+                                                                        <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-100 text-gray-500'}`}>
+                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Txn Date</th>
+                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Bill/Ref ID</th>
+                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Collected</th>
+                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Vector</th>
+                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Status</th>
+                                                                            {canEdit && <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em] text-center">Receipt</th>}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                                                                        {admissionBillsData[admission._id]?.length > 0 ? (
+                                                                            admissionBillsData[admission._id].map((bill, bIdx) => (
+                                                                                <tr key={bill._id} className={`transition-all ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                                                                    <td className="p-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{formatDate(bill.receivedDate || bill.paidDate || bill.createdAt)}</td>
+                                                                                    <td className={`p-4 font-black text-[10px] tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{bill.billId || "MANUAL_ADJ"}</td>
+                                                                                    <td className="p-4 text-green-500 font-black text-[11px] tracking-widest italic">₹{fmt(bill.paidAmount)}</td>
+                                                                                    <td className="p-4 text-[9px] font-black uppercase tracking-widest text-gray-500">{bill.paymentMethod || "UNSET"}</td>
+                                                                                    <td className="p-4">
+                                                                                        <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-tighter border text-center ${getInstallmentStatusColor(bill.status)}`}>
+                                                                                            {bill.status === "PENDING_CLEARANCE" ? "IN PROCESS" : bill.status}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    {canEdit && (
+                                                                                        <td className="p-4 text-center">
+                                                                                            {bill.billId && (["PAID", "COMPLETED"].includes(bill.status) || bill.status === "PENDING_CLEARANCE") && bill.paidAmount > 0 && (
+                                                                                                <button
+                                                                                                    onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: bill })}
+                                                                                                    disabled={selectedStudent.status === 'Deactivated'}
+                                                                                                    className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
+                                                                                                    title="Extract Receipt"
+                                                                                                >
+                                                                                                    <FaFileInvoice size={10} /> REC
+                                                                                                </button>
+                                                                                            )}
+                                                                                        </td>
+                                                                                    )}
+                                                                                </tr>
+                                                                            ))
+                                                                        ) : (
+                                                                            <tr>
+                                                                                <td colSpan={canEdit ? 6 : 5} className="p-8 text-center text-gray-500 text-[10px] font-black uppercase tracking-widest italic">
+                                                                                    No financial transaction history recorded
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
