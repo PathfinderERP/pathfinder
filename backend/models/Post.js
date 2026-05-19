@@ -40,7 +40,14 @@ const postSchema = new mongoose.Schema({
     views: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
-    }]
+    }],
+    isPinned: {
+        type: Boolean,
+        default: false
+    },
+    pinnedAt: {
+        type: Date
+    }
 }, {
     timestamps: true
 });

@@ -242,6 +242,32 @@ const EnrolledStudentsContent = () => {
             return item;
         });
 
+        // Sort students by system entry date (createdAt) descending
+        // Push any admissions with future admission dates to the end
+        const now = new Date().getTime();
+        studentsArray.sort((a, b) => {
+            const getSortValues = (student) => {
+                const adm = student.latestAdmission || {};
+                const admDate = adm.admissionDate ? new Date(adm.admissionDate).getTime() : 0;
+                // Fallback to admissionDate if createdAt is missing
+                const createdDate = adm.createdAt ? new Date(adm.createdAt).getTime() : admDate;
+                // Consider a date "future" if it is strictly greater than the end of today
+                const isFuture = admDate > new Date().setHours(23, 59, 59, 999);
+                return { isFuture, createdDate };
+            };
+
+            const valA = getSortValues(a);
+            const valB = getSortValues(b);
+
+            // If one has a future admission date and the other doesn't, put the future one at the end
+            if (valA.isFuture !== valB.isFuture) {
+                return valA.isFuture ? 1 : -1;
+            }
+
+            // Otherwise, sort by system entry date (createdAt) descending
+            return valB.createdDate - valA.createdDate;
+        });
+
         setStudents(studentsArray);
         setFilteredStudents(studentsArray);
     }, []);
@@ -1532,6 +1558,7 @@ const EnrolledStudentsContent = () => {
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Courses</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Assets</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Counselled By</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admitted By</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
                             </tr>
@@ -1597,7 +1624,7 @@ const EnrolledStudentsContent = () => {
                                                             {latestAdmission?.admissionDate ? new Date(latestAdmission.admissionDate).toLocaleDateString('en-GB') : "N/A"}
                                                         </span>
                                                         <span className={`text-[8px] font-black tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                                            {latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "N/A")}
+                                                            {latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "N/A")}
                                                         </span>
                                                     </div>
                                                 </td>
@@ -1691,6 +1718,18 @@ const EnrolledStudentsContent = () => {
                                                             Not Allotted
                                                         </span>
                                                     )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
+                                                            {studentItem.student?.counselledBy
+                                                                ? studentItem.student.counselledBy.charAt(0).toUpperCase()
+                                                                : "N"}
+                                                        </div>
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                            {studentItem.student?.counselledBy || "N/A"}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaDownload, FaSun, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
@@ -391,8 +391,8 @@ const CourseTarget = () => {
                                                                 {examTagAchieved && examTagAchieved.length > 0 && (
                                                                     <div className="mt-2 w-full space-y-0.5">
                                                                         {examTagAchieved.map((tag, idx) => (
-                                                                            <div key={idx} className="flex justify-between items-center text-[8px] font-bold px-1.5 py-1 rounded bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                                                                                <span className="opacity-60 truncate max-w-[70px]" title={tag.tagName}>{tag.tagName}</span>
+                                                                            <div key={idx} className={`flex justify-between items-center text-[8px] font-bold px-1.5 py-1 rounded border ${isDarkMode ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-black/5 border-black/5 text-gray-700'}`}>
+                                                                                <span className="opacity-80 truncate max-w-[70px]" title={tag.tagName}>{tag.tagName}</span>
                                                                                 <span className="text-cyan-400">{tag.count}</span>
                                                                             </div>
                                                                         ))}

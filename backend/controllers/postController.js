@@ -147,7 +147,7 @@ export const createPost = async (req, res) => {
 export const getAllPosts = async (req, res) => {
     try {
         const posts = await Post.find()
-            .sort({ createdAt: -1 })
+            .sort({ isPinned: -1, createdAt: -1 })
             .populate("author", "name email role designation teacherDepartment")
             .populate("tags", "name email")
             .populate("likes", "name email role designation teacherDepartment")
@@ -332,9 +332,8 @@ export const deletePost = async (req, res) => {
         const post = await Post.findById(req.params.id);
         if (!post) return res.status(404).json({ message: "Post not found" });
 
-        // Check if user is author
-        if (post.author.toString() !== req.user.id) {
-            return res.status(403).json({ message: "Unauthorized to delete this post" });
+        if (req.user.role !== 'superAdmin') {
+            return res.status(403).json({ message: "Only superadmin can delete posts" });
         }
 
         await Post.findByIdAndDelete(req.params.id);
@@ -523,5 +522,34 @@ export const getSocialActivity = async (req, res) => {
     } catch (error) {
         console.error("Social activity error:", error);
         res.status(500).json({ message: "Error fetching social activity" });
+    }
+};
+
+export const pinPost = async (req, res) => {
+    try {
+        if (req.user.role !== 'superAdmin') {
+            return res.status(403).json({ message: "Only superadmin can pin posts" });
+        }
+        
+        const post = await Post.findById(req.params.id).populate("author");
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        if (post.author.role !== 'superAdmin') {
+            return res.status(403).json({ message: "Only posts from superadmin can be pinned" });
+        }
+
+        post.isPinned = !post.isPinned;
+        if (post.isPinned) {
+            post.pinnedAt = new Date();
+        }
+        await post.save();
+        
+        const updatedPost = await Post.findById(post._id)
+            .populate("author", "name email role designation teacherDepartment");
+        const postObj = await enhancePostAuthor(updatedPost);
+        res.json(postObj);
+    } catch (error) {
+        console.error("Pin Post Error:", error);
+        res.status(500).json({ message: "Error pinning post" });
     }
 };

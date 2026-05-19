@@ -146,6 +146,29 @@ const SocialFeed = () => {
         }
     };
 
+    const handlePinPost = async (postId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts/${postId}/pin`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const updatedPost = await response.json();
+                setPosts(posts.map(p => p._id === postId ? updatedPost : p));
+                toast.success(updatedPost.isPinned ? "Post pinned to top" : "Post unpinned");
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to pin post");
+            }
+        } catch {
+            toast.error("Error pinning post");
+        }
+    };
+
     const handleUpdatePost = async (postId, formData) => {
         try {
             const token = localStorage.getItem("token");
@@ -807,6 +830,7 @@ const SocialFeed = () => {
                                     onUpdateComment={(commentId, text) => handleUpdateComment(post._id, commentId, text)}
                                     onViewParticipants={(title, users) => setParticipantModalData({ title, users })}
                                     onView={() => handlePostView(post._id)}
+                                    onPin={() => handlePinPost(post._id)}
                                     currentUser={currentUser}
                                     theme={theme}
                                 />
@@ -1123,7 +1147,7 @@ const ParticipantModal = ({ data, onClose, theme }) => {
     );
 };
 
-const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onUpdateComment, onViewParticipants, onView, currentUser, theme }) => {
+const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, onUpdate, onDeleteComment, onUpdateComment, onViewParticipants, onView, onPin, currentUser, theme }) => {
     const [commentText, setCommentText] = useState("");
     const [showComments, setShowComments] = useState(false);
     const [showCommentTagList, setShowCommentTagList] = useState(false);
@@ -1234,7 +1258,10 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h4 className={`${theme === 'dark' ? 'text-white' : 'text-gray-900'} font-black text-base sm:text-lg truncate max-w-[150px] sm:max-w-none`}>{post.author?.name}</h4>
+                            <h4 className={`${theme === 'dark' ? 'text-white' : 'text-gray-900'} font-black text-base sm:text-lg truncate max-w-[150px] sm:max-w-none flex items-center gap-2`}>
+                                {post.author?.name}
+                                {post.isPinned && <FaMapMarkerAlt className="text-amber-500 text-sm" title="Pinned Post" />}
+                            </h4>
                             <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase tracking-widest border border-cyan-500/20 shrink-0">
                                 {post.author?.role}
                             </span>
@@ -1242,6 +1269,15 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                             {/* Action Buttons for SuperAdmin only */}
                             {currentUser.role === "superAdmin" && !isEditing && (
                                 <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-4">
+                                    {post.author?.role === 'superAdmin' && (
+                                        <button
+                                            onClick={onPin}
+                                            className={`flex items-center gap-1 ${post.isPinned ? 'text-amber-500 hover:text-amber-600 bg-amber-500/10 border-amber-500/20' : 'text-gray-500 hover:text-amber-500 bg-gray-500/5 border-gray-500/10'} font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 px-2 py-1 rounded-md border`}
+                                            title={post.isPinned ? "Unpin Post" : "Pin Post"}
+                                        >
+                                            <FaMapMarkerAlt size={10} /> <span className="hidden xs:inline">{post.isPinned ? 'Unpin' : 'Pin'}</span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => setIsEditing(true)}
                                         className={`flex items-center gap-1 ${theme === 'dark' ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'} font-black text-[9px] uppercase tracking-widest transition-all hover:scale-105 bg-cyan-500/5 px-2 py-1 rounded-md border border-cyan-500/10`}

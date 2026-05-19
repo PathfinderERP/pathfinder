@@ -132,7 +132,30 @@ export const getAdmissions = async (req, res) => {
             return admission;
         });
 
-        res.status(200).json(populatedAdmissions);
+        // Manually resolve counselledBy if it's an ObjectID for students
+        const mongoose = (await import("mongoose")).default;
+        const userIds = populatedAdmissions
+            .map(a => a.student && a.student.counselledBy)
+            .filter(id => id && mongoose.Types.ObjectId.isValid(id));
+
+        const uniqueUserIds = [...new Set(userIds)];
+        
+        const User = (await import("../../models/User.js")).default;
+        const users = await User.find({ _id: { $in: uniqueUserIds } }).select('name').lean();
+        const userMap = users.reduce((map, user) => {
+            map[user._id.toString().toLowerCase()] = user.name;
+            return map;
+        }, {});
+
+        const finalAdmissions = populatedAdmissions.map(admission => {
+            if (admission.student && admission.student.counselledBy && mongoose.Types.ObjectId.isValid(admission.student.counselledBy)) {
+                const idLower = admission.student.counselledBy.toString().toLowerCase();
+                admission.student.counselledBy = userMap[idLower] || admission.student.counselledBy;
+            }
+            return admission;
+        });
+
+        res.status(200).json(finalAdmissions);
     } catch (err) {
         console.error("getAdmissions error:", err);
         res.status(500).json({ message: "Server error", error: err.message });

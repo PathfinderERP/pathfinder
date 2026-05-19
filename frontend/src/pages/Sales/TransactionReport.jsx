@@ -311,7 +311,7 @@ const TransactionReport = () => {
             "Date", "Received Date", "Enroll No.", "Receipt No", "Student Name", 
             "Student Email", "Student Mobile", "Whatsapp", "Student Address", "Guardian Name", "Guardian Mobile",
             "Session", "Department", "Course Name", "Transaction Type", "Transaction ID", 
-            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Taken By",
+            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Billed By",
             "Total Classes", "Present", "Absent", "Attendance %", "Attendance Status"
         ];
         const ws3Data = detailedReport.map(item => [

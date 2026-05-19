@@ -662,7 +662,7 @@ const UserManagementContent = () => {
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-2 transition-opacity">
                                     {canEditUsers && (
                                         <div className="flex flex-col gap-1">
                                             <button

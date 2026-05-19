@@ -282,7 +282,7 @@ const TransactionList = () => {
             "Date", "Received Date", "Enroll No.", "Receipt No", "Student Name",
             "Student Email", "Student Mobile", "Whatsapp", "Address", "Guardian Name", "Guardian Mobile",
             "Session", "Department", "Course Name", "Transaction Type", "Transaction ID",
-            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Taken By",
+            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Billed By",
             "Total Classes", "Present", "Absent", "Attendance %", "Attendance Status"
         ];
         const data = filteredReport.map(item => [
@@ -780,7 +780,7 @@ const TransactionList = () => {
                                     <th className={`p-4 text-xs font-black text-purple-500 uppercase tracking-wider`}>GST (18%)</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Total (Inc. GST)</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Status</th>
-                                    <th className={`p-4 text-xs font-black text-blue-500 uppercase tracking-wider`}>Taken By</th>
+                                    <th className={`p-4 text-xs font-black text-blue-500 uppercase tracking-wider`}>Billed By</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDark ? 'divide-gray-800' : 'divide-gray-100'}`}>

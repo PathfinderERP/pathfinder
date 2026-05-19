@@ -1537,6 +1537,8 @@ export const getClassSchedules = async (req, res) => {
             .populate("chapterId", "chapterName")
             .populate("chapterIds", "chapterName")
             .populate("topicIds", "topicName")
+            .populate("startedBy", "name userId")
+            .populate("endedBy", "name userId")
             .sort({ date: -1 })
             .skip(skip)
             .limit(parseInt(limit))
@@ -1653,6 +1655,7 @@ export const startClass = async (req, res) => {
 
         currentClass.status = "Ongoing";
         currentClass.actualStartTime = new Date();
+        currentClass.startedBy = req.user._id;
         await currentClass.save();
 
         res.status(200).json({ message: "Class started successfully", class: currentClass });
@@ -1680,6 +1683,7 @@ export const endClass = async (req, res) => {
 
         currentClass.status = "Completed";
         currentClass.actualEndTime = new Date();
+        currentClass.endedBy = req.user._id;
         await currentClass.save();
 
         res.status(200).json({ message: "Class ended successfully", class: currentClass });

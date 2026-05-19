@@ -131,7 +131,15 @@ const classScheduleSchema = new mongoose.Schema({
     coordinatorAttendance: { type: Boolean, default: false },
     coordinatorAttendanceLatitude: { type: Number },
     coordinatorAttendanceLongitude: { type: Number },
-    studyStartTime: { type: Date }
+    studyStartTime: { type: Date },
+    startedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    },
+    endedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    }
 }, { timestamps: true });
 
 export default mongoose.model("ClassSchedule", classScheduleSchema);

@@ -273,12 +273,6 @@ const CancelChequePayment = () => {
                                         value: cheques.filter(c => c.status === "Rejected").length,
                                         amount: cheques.filter(c => c.status === "Rejected").reduce((sum, c) => sum + (c.amount || 0), 0),
                                         color: '#ef4444'
-                                    },
-                                    {
-                                        name: 'Cancelled',
-                                        value: cheques.filter(c => c.status === "Cancelled").length,
-                                        amount: cheques.filter(c => c.status === "Cancelled").reduce((sum, c) => sum + (c.amount || 0), 0),
-                                        color: '#f97316'
                                     }
                                 ]}
                                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
@@ -308,6 +302,7 @@ const CancelChequePayment = () => {
                                         fontWeight: 'bold'
                                     }}
                                     labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                                    itemStyle={{ color: '#e5e7eb' }}
                                     cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                                     formatter={(value, name) => {
                                         if (name === 'value') return [value + ' Cheques', 'Count'];
@@ -319,8 +314,7 @@ const CancelChequePayment = () => {
                                     {
                                         [
                                             { name: 'Cleared', color: '#10b981' },
-                                            { name: 'Rejected', color: '#ef4444' },
-                                            { name: 'Cancelled', color: '#f97316' }
+                                            { name: 'Rejected', color: '#ef4444' }
                                         ].map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                                         ))

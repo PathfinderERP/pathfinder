@@ -29,9 +29,9 @@ export const processDailyPenalty = async (req, res) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const telecallers = await User.find({ role: 'telecaller' });
+        const targetUsers = await User.find({ role: { $in: ['telecaller', 'marketing'] } });
 
-        for (const tc of telecallers) {
+        for (const tc of targetUsers) {
             // Skip if already penalized today
             if (tc.lastPenaltyDate && new Date(tc.lastPenaltyDate) >= today) continue;
 

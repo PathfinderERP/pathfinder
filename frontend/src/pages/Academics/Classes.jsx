@@ -1425,6 +1425,115 @@ import Select from "react-select";
 import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
 
+// Searchable Dropdown Component
+const SearchableSelect = ({
+    label,
+    value,
+    options,
+    onChange,
+    placeholder,
+    isDarkMode,
+    required = false,
+    name,
+    disabled = false,
+    displayPath = "name",
+    valuePath = "_id",
+    filterFunc = null,
+    fullWidth = false,
+    labelClassName = ""
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const filteredOptions = options.filter(opt => {
+        const displayVal = typeof opt === 'string' ? opt : opt[displayPath];
+        const matchesSearch = displayVal?.toLowerCase().includes(search.toLowerCase());
+        if (filterFunc) return matchesSearch && filterFunc(opt);
+        return matchesSearch;
+    });
+
+    const selectedOption = options.find(opt => (typeof opt === 'string' ? opt : opt[valuePath]) === value);
+    const displayLabel = selectedOption
+        ? (typeof selectedOption === 'string' ? selectedOption : selectedOption[displayPath])
+        : placeholder;
+
+    return (
+        <div className={fullWidth ? "md:col-span-2 flex flex-col gap-2" : "flex flex-col gap-2"} ref={dropdownRef}>
+            {label && (
+                <label className={labelClassName || `text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {label}{required ? '*' : ''}
+                </label>
+            )}
+            <div className="relative">
+                <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => { if (!disabled) setIsOpen(!isOpen); setSearch(""); }}
+                    className={`w-full rounded-lg p-2.5 outline-none transition-all border text-left flex justify-between items-center text-sm ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                >
+                    <span className={value ? '' : 'text-gray-400'}>
+                        {displayLabel}
+                    </span>
+                    <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+
+                {isOpen && (
+                    <div className={`absolute z-50 w-full mt-1 rounded-lg border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-2 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                            <input
+                                type="text"
+                                autoFocus
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder={`Search ${label}...`}
+                                className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`}
+                            />
+                        </div>
+                        <div className="max-h-52 overflow-y-auto">
+                            <button
+                                type="button"
+                                onClick={() => { onChange({ target: { name, value: "" } }); setIsOpen(false); }}
+                                className={`w-full text-left px-4 py-2 text-sm ${isDarkMode ? 'text-gray-400 hover:bg-[#131619]' : 'text-gray-400 hover:bg-gray-50'}`}
+                            >
+                                {placeholder}
+                            </button>
+                            {filteredOptions.map((opt, i) => {
+                                const val = typeof opt === 'string' ? opt : opt[valuePath];
+                                const labelText = typeof opt === 'string' ? opt : opt[displayPath];
+                                return (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => { onChange({ target: { name, value: val } }); setIsOpen(false); setSearch(""); }}
+                                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${value === val ? (isDarkMode ? 'bg-cyan-900/40 text-cyan-300' : 'bg-cyan-50 text-cyan-700 font-semibold') : (isDarkMode ? 'text-gray-200 hover:bg-[#131619]' : 'text-gray-800 hover:bg-gray-50')}`}
+                                    >
+                                        {labelText}
+                                    </button>
+                                );
+                            })}
+                            {filteredOptions.length === 0 && (
+                                <div className={`px-4 py-3 text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>No results found</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+            {required && !value && <input type="text" value="" required className="opacity-0 absolute h-0 w-0" onChange={() => { }} />}
+        </div>
+    );
+};
+
 const Classes = () => {
     const navigate = useNavigate();
     const [classes, setClasses] = useState([]);
@@ -2120,7 +2229,8 @@ const Classes = () => {
                                 name="fromDate"
                                 value={filters.fromDate}
                                 onChange={handleFilterChange}
-                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                             />
                         </div>
 
@@ -2132,7 +2242,8 @@ const Classes = () => {
                                 name="toDate"
                                 value={filters.toDate}
                                 onChange={handleFilterChange}
-                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                             />
                         </div>
                     </div>
@@ -2344,7 +2455,7 @@ const Classes = () => {
                                                 </div>
                                             </td>
                                             <td className="p-4 text-right">
-                                                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex justify-end gap-3 transition-opacity">
                                                     {(canEdit || isAdmin || isCoordinator) && (
                                                         <button onClick={() => handleEdit(cls)} title="Edit Class" className="text-yellow-400 hover:text-yellow-200 transition-colors">
                                                             <FaEdit />
@@ -2441,7 +2552,8 @@ const Classes = () => {
                                             required
                                             value={editingClassData.date}
                                             onChange={(e) => setEditingClassData({ ...editingClassData, date: e.target.value })}
-                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                            style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                         />
                                     </div>
 
@@ -2454,7 +2566,8 @@ const Classes = () => {
                                                 required
                                                 value={editingClassData.startTime}
                                                 onChange={(e) => setEditingClassData({ ...editingClassData, startTime: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                             />
                                         </div>
                                         <div className="flex flex-col gap-2">
@@ -2464,7 +2577,8 @@ const Classes = () => {
                                                 required
                                                 value={editingClassData.endTime}
                                                 onChange={(e) => setEditingClassData({ ...editingClassData, endTime: e.target.value })}
-                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                                className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                             />
                                         </div>
                                         <div className="flex flex-col gap-2">
@@ -2502,32 +2616,32 @@ const Classes = () => {
                                     </div>
 
                                     {/* Instructor */}
-                                    <div className="flex flex-col gap-2">
-                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Instructor</label>
-                                        <Select
-                                            options={dropdownData.teachers?.map(t => ({ value: t._id, label: t.name }))}
-                                            value={dropdownData.teachers?.filter(t => t._id === editingClassData.teacherId).map(t => ({ value: t._id, label: t.name }))[0] || null}
-                                            onChange={(selected) => setEditingClassData({ ...editingClassData, teacherId: selected ? selected.value : "" })}
-                                            placeholder="Select Teacher"
-                                            styles={customSelectStyles}
-                                            className="text-sm"
-                                            isSearchable={true}
-                                        />
-                                    </div>
+                                    <SearchableSelect
+                                        label="Instructor"
+                                        name="teacherId"
+                                        value={editingClassData.teacherId}
+                                        options={dropdownData.teachers || []}
+                                        displayPath="name"
+                                        valuePath="_id"
+                                        onChange={(e) => setEditingClassData({ ...editingClassData, teacherId: e.target.value })}
+                                        placeholder="Select Teacher"
+                                        isDarkMode={isDarkMode}
+                                        fullWidth={false}
+                                    />
 
                                     {/* Coordinator */}
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase">Coordinator</label>
-                                        <Select
-                                            options={dropdownData.coordinators?.map(c => ({ value: c._id, label: c.name }))}
-                                            value={dropdownData.coordinators?.filter(c => c._id === editingClassData.coordinatorId).map(c => ({ value: c._id, label: c.name }))[0] || null}
-                                            onChange={(selected) => setEditingClassData({ ...editingClassData, coordinatorId: selected ? selected.value : "" })}
-                                            placeholder="Select Coordinator"
-                                            styles={customSelectStyles}
-                                            className="text-sm"
-                                            isSearchable={true}
-                                        />
-                                    </div>
+                                    <SearchableSelect
+                                        label="Coordinator"
+                                        name="coordinatorId"
+                                        value={editingClassData.coordinatorId}
+                                        options={dropdownData.coordinators || []}
+                                        displayPath="name"
+                                        valuePath="_id"
+                                        onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
+                                        placeholder="Select Coordinator"
+                                        isDarkMode={isDarkMode}
+                                        fullWidth={false}
+                                    />
 
 
                                     {/* Session & Academic Class */}

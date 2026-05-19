@@ -137,3 +137,17 @@
 .hover-wave-row:hover td {
   border-color: rgba(6, 182, 212, 0.3) !important;
 }
+
+/* Fix date and time picker icons in dark mode */
+html.dark input[type="date"],
+html.dark input[type="time"],
+.dark-picker {
+  color-scheme: dark !important;
+}
+
+html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark-picker::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2) !important;
+  opacity: 1 !important;
+}

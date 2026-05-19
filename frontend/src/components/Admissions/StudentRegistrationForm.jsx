@@ -625,7 +625,7 @@ const StudentRegistrationForm = () => {
                                         <h4 className={sectionTitle}>STUDENT IDENTIFICATION CORE</h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                             <div>
-                                                <label className={labelClass}>STUDENT NAME *</label>
+                                                <label className={labelClass}>STUDENT NAME <span className="text-red-500">*</span></label>
                                                 <input type="text" name="studentName" required value={formData.studentName} onChange={handleChange} placeholder="LEGAL NAME AS PER IDENTIFICATION" className={inputClass} />
                                             </div>
                                             <div>
@@ -642,7 +642,7 @@ const StudentRegistrationForm = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>CENTRE HQ *</label>
+                                                <label className={labelClass}>CENTRE HQ <span className="text-red-500">*</span></label>
                                                 <select name="centre" required value={formData.centre} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT ALLOCATED CENTRE</option>
                                                     {centres.map((centre) => (
@@ -669,7 +669,7 @@ const StudentRegistrationForm = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>EMAIL ADDRESS *</label>
+                                                <label className={labelClass}>EMAIL ADDRESS <span className="text-red-500">*</span></label>
                                                 <input
                                                     type="email"
                                                     name="studentEmail"
@@ -691,7 +691,7 @@ const StudentRegistrationForm = () => {
                                                 )}
                                             </div>
                                             <div>
-                                                <label className={labelClass}>MOBILE NUMBER *</label>
+                                                <label className={labelClass}>MOBILE NUMBER <span className="text-red-500">*</span></label>
                                                 <input
                                                     type="text"
                                                     name="mobileNum"
@@ -715,7 +715,7 @@ const StudentRegistrationForm = () => {
                                                 )}
                                             </div>
                                             <div>
-                                                <label className={labelClass}>WHATSAPP NUMBER *</label>
+                                                <label className={labelClass}>WHATSAPP NUMBER <span className="text-red-500">*</span></label>
                                                 <input type="text" name="whatsappNumber" required pattern="[0-9]{10}" value={formData.whatsappNumber} onChange={handleChange} placeholder="MESSAGING CHANNEL" className={inputClass} />
                                             </div>
                                             <div>
@@ -737,7 +737,7 @@ const StudentRegistrationForm = () => {
                                             </div>
 
                                             <div>
-                                                <label className={labelClass}>ACADEMIC SESSION *</label>
+                                                <label className={labelClass}>ACADEMIC SESSION <span className="text-red-500">*</span></label>
                                                 <select name="session" required value={formData.session} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT YEAR CYCLE</option>
                                                     {sessions.map((session) => (
@@ -748,7 +748,7 @@ const StudentRegistrationForm = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>DEPARTMENT SECTOR *</label>
+                                                <label className={labelClass}>DEPARTMENT SECTOR <span className="text-red-500">*</span></label>
                                                 <Select
                                                     options={departments.map(dept => ({ value: dept._id, label: dept.departmentName.toUpperCase() }))}
                                                     value={departments.find(d => d._id === formData.department) ? { value: formData.department, label: departments.find(d => d._id === formData.department).departmentName.toUpperCase() } : null}
@@ -887,7 +887,7 @@ const StudentRegistrationForm = () => {
                                         <h4 className={sectionTitle}>PRIOR ACADEMIC PERFORMANCE MATRIX</h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                             <div>
-                                                <label className={labelClass}>EXAM TAG IDENTIFIER *</label>
+                                                <label className={labelClass}>EXAM TAG IDENTIFIER <span className="text-red-500">*</span></label>
                                                 <Select
                                                     options={examTags.map(tag => ({ value: tag.name, label: tag.name.toUpperCase() }))}
                                                     value={formData.examName ? { value: formData.examName, label: formData.examName.toUpperCase() } : null}
@@ -974,7 +974,7 @@ const StudentRegistrationForm = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label className={labelClass}>LAST ACADEMIC CLASS *</label>
+                                                <label className={labelClass}>LAST ACADEMIC CLASS <span className="text-red-500">*</span></label>
                                                 <select name="class" required value={formData.class} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT CLASS</option>
                                                     {classes.map(c => (

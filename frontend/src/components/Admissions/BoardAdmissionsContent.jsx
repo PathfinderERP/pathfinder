@@ -438,22 +438,22 @@ const BoardAdmissionsContent = () => {
                 // Hide if student is already in enrolledBoard list (Strong check: ID, UID, or Name+Mobile)
                 const isAlreadyEnrolled = boardAdmissions.some(ba => {
                     // 1. Direct ID Check
-                    const baId = (ba.studentId?._id || ba.studentId || "").toString();
-                    const csId = (cs.studentId?._id || cs.studentId || "").toString();
-                    if (baId && csId && baId === csId) return true;
+                    const baId = (ba.studentId?._id || ba.studentId || "ba").toString();
+                    const csId = (cs.studentId?._id || cs.studentId || "cs").toString();
+                    if (baId !== "ba" && csId !== "cs" && baId === csId) return true;
 
                     // 2. UID Check (derived from ID)
                     const baUID = baId.slice(-8).toUpperCase();
                     const csUID = csId.slice(-8).toUpperCase();
-                    if (baUID && csUID && baUID === csUID) return true;
+                    if (baUID !== "BA" && csUID !== "CS" && baUID === csUID) return true;
 
                     // 3. Fallback Name + Mobile check (strict stringification to prevent type mismatch)
-                    // We specifically check the document's explicitly stored studentName and mobileNum, NOT the nested student profile.
-                    // This bypasses any database Mongoose populate references mismatches (from old buggy enrollments).
-                    const baName = String(ba.studentName || "").toLowerCase().trim();
-                    const csName = String(cs.studentName || "").toLowerCase().trim();
-                    const baMobile = String(ba.mobileNum || "").trim();
-                    const csMobile = String(cs.mobileNum || "").trim();
+                    const baDetails = ba.studentId?.studentsDetails?.[0] || {};
+                    const csDetails = cs.studentId?.studentsDetails?.[0] || {};
+                    const baName = String(ba.studentName || baDetails.studentName || "").toLowerCase().trim();
+                    const csName = String(cs.studentName || csDetails.studentName || "").toLowerCase().trim();
+                    const baMobile = String(ba.mobileNum || baDetails.mobileNum || "").trim();
+                    const csMobile = String(cs.mobileNum || csDetails.mobileNum || "").trim();
 
                     return baName && baMobile && baName === csName && baMobile === csMobile;
                 });
@@ -740,6 +740,7 @@ const BoardAdmissionsContent = () => {
         if (!studentId && (!studentName || !mobileNum || !centre)) {
             return toast.error("Please provide student details (Name, Mobile, Centre)");
         }
+        if (!studentEmail) return toast.error("Please provide an email address");
         if (!programme) return toast.error("Please select a programme (CRP/NCRP)");
         if (!lastClass) return toast.error("Please specify the student's last class");
         if (!boardId) return toast.error("Please select a board");
@@ -852,20 +853,21 @@ const BoardAdmissionsContent = () => {
 
     // Statistics Calculations
     const statsMetrics = React.useMemo(() => {
+        const activeData = activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents;
         const today = new Date().toDateString();
         // Today's total WITHIN the filtered set
-        const todayTotalFiltered = filteredBoardAdmissions.filter(ba => (new Date(ba.admissionDate || ba.createdAt)).toDateString() === today).length;
+        const todayTotalFiltered = activeData.filter(item => (new Date(item.admissionDate || item.createdAt || new Date())).toDateString() === today).length;
 
-        // Class Distribution (from FILTERED board admissions)
-        const classDist = filteredBoardAdmissions.reduce((acc, ba) => {
-            const cls = ba.lastClass || "N/A";
+        // Class Distribution (from FILTERED set)
+        const classDist = activeData.reduce((acc, item) => {
+            const cls = item.lastClass || "N/A";
             acc[cls] = (acc[cls] || 0) + 1;
             return acc;
         }, {});
 
-        // Subject Distribution (from FILTERED board admissions)
-        const subDist = filteredBoardAdmissions.reduce((acc, ba) => {
-            const subjects = ba.selectedSubjects?.map(s => s.subjectId?.subName || s.name) || [];
+        // Subject Distribution (from FILTERED set)
+        const subDist = activeData.reduce((acc, item) => {
+            const subjects = item.selectedSubjects?.map(s => s.subjectId?.subName || s.name) || [];
             subjects.forEach(sub => {
                 acc[sub] = (acc[sub] || 0) + 1;
             });
@@ -878,11 +880,11 @@ const BoardAdmissionsContent = () => {
 
         return {
             todayTotal: todayTotalFiltered,
-            grandTotal: filteredBoardAdmissions.length,
+            grandTotal: activeData.length,
             classDist: sortedClassDist,
             subDist: sortedSubDist
         };
-    }, [filteredBoardAdmissions]);
+    }, [filteredBoardAdmissions, filteredStudents, activeTab]);
 
     return (
         <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
@@ -963,7 +965,7 @@ const BoardAdmissionsContent = () => {
                     <div className="absolute -right-4 -top-4 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all duration-700"></div>
                     <div className="flex justify-between items-start relative z-10">
                         <div>
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Admissions (Filtered)</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total {activeTab === "Enrolled" ? "Admissions" : "Counselled"} (Filtered)</p>
                             <h4 className={`text-4xl font-black italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{statsMetrics.grandTotal}</h4>
                         </div>
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
@@ -1380,7 +1382,7 @@ const BoardAdmissionsContent = () => {
                                 <h4 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4 border-l-4 border-cyan-500 pl-3">I. Personal Identification</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Student Name *</label>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Student Name <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
@@ -1390,7 +1392,7 @@ const BoardAdmissionsContent = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Mobile Number *</label>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Mobile Number <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             maxLength="10"
@@ -1419,7 +1421,7 @@ const BoardAdmissionsContent = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Email Address</label>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Email Address <span className="text-red-500">*</span></label>
                                         <input
                                             type="email"
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${emailCheck.taken
@@ -1458,7 +1460,7 @@ const BoardAdmissionsContent = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Centre *</label>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Centre <span className="text-red-500">*</span></label>
                                         <select
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             value={counsellingForm.centre}
@@ -1469,7 +1471,7 @@ const BoardAdmissionsContent = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Programme *</label>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Programme <span className="text-red-500">*</span></label>
                                         <select
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             value={counsellingForm.programme}
@@ -1567,7 +1569,7 @@ const BoardAdmissionsContent = () => {
                                 <h4 className="text-[11px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-4 border-l-4 border-cyan-500 pl-3">III. Academic Performance Matrix</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Last Class *</label>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Last Class <span className="text-red-500">*</span></label>
                                         <select
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             value={counsellingForm.lastClass}
@@ -1578,7 +1580,7 @@ const BoardAdmissionsContent = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Exam Identifier *</label>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Exam Identifier <span className="text-red-500">*</span></label>
                                         <Select
                                             options={examTags.map(tag => ({ value: tag.name, label: tag.name.toUpperCase() }))}
                                             value={counsellingForm.examName ? { value: counsellingForm.examName, label: counsellingForm.examName.toUpperCase() } : null}

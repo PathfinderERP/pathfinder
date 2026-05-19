@@ -405,7 +405,8 @@ const AddClass = () => {
                                 name="date"
                                 value={formData.date}
                                 onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500 dark-picker' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 required
                             />
                         </div>
@@ -427,7 +428,8 @@ const AddClass = () => {
                                 name="startTime"
                                 value={formData.startTime}
                                 onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500 dark-picker' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 required
                             />
                         </div>
@@ -451,7 +453,8 @@ const AddClass = () => {
                                 name="endTime"
                                 value={formData.endTime}
                                 onChange={handleChange}
-                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500 dark-picker' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 required
                             />
                         </div>

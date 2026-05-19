@@ -382,7 +382,8 @@ const PreviousClass = () => {
                                     type="date"
                                     value={filters.fromDate}
                                     onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 dark-picker' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -391,7 +392,8 @@ const PreviousClass = () => {
                                     type="date"
                                     value={filters.toDate}
                                     onChange={(e) => handleFilterChange("toDate", e.target.value)}
-                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 dark-picker' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -400,7 +402,8 @@ const PreviousClass = () => {
                                     type="time"
                                     value={filters.startTime}
                                     onChange={(e) => handleFilterChange("startTime", e.target.value)}
-                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 dark-picker' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -409,7 +412,8 @@ const PreviousClass = () => {
                                     type="time"
                                     value={filters.endTime}
                                     onChange={(e) => handleFilterChange("endTime", e.target.value)}
-                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    className={`w-full p-2.5 rounded-lg border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 dark-picker' : 'bg-[#f8fafc] border-gray-300 text-gray-900 focus:border-blue-500'}`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
                             <div className="flex items-end gap-2">
@@ -519,6 +523,8 @@ const PreviousClass = () => {
                                     <th className="p-4 text-center">Teacher Attendance</th>
                                     <th className="p-4 text-center">Student Attendance</th>
                                     <th className="p-4 text-center">Study Started</th>
+                                    <th className="p-4 text-center">Started By</th>
+                                    <th className="p-4 text-center">End By</th>
                                     <th className="p-4 text-center">Status</th>
                                     <th className="p-4 text-center">Actions</th>
                                 </tr>
@@ -592,6 +598,20 @@ const PreviousClass = () => {
                                             </td>
                                             <td className="p-4 text-center font-mono text-xs text-cyan-400">
                                                 {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "-"}
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                {cls.startedBy ? (
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{cls.startedBy.name || cls.startedBy.userId || "-"}</span>
+                                                ) : (
+                                                    <span className="text-gray-500">-</span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                {cls.endedBy ? (
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{cls.endedBy.name || cls.endedBy.userId || "-"}</span>
+                                                ) : (
+                                                    <span className="text-gray-500">-</span>
+                                                )}
                                             </td>
                                             <td className="p-4 text-center">
                                                 {cls.status === "Not Taken" ? (

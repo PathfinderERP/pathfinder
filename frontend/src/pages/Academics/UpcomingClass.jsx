@@ -277,7 +277,7 @@ const UpcomingClass = () => {
 
     // ── Styles helpers ──
     const inputCls = `px-3 py-2 rounded-lg border focus:border-blue-500 outline-none transition-all text-sm
-        ${isDarkMode ? "bg-[#131619] text-white border-gray-700 placeholder-gray-600" : "bg-gray-50 text-gray-900 border-gray-300 placeholder-gray-400"}`;
+        ${isDarkMode ? "bg-[#131619] text-white border-gray-700 placeholder-gray-600 dark-picker" : "bg-gray-50 text-gray-900 border-gray-300 placeholder-gray-400"}`;
 
     const selectCls = `px-3 py-2 rounded-lg border focus:border-blue-500 outline-none transition-all text-sm
         ${isDarkMode ? "bg-[#131619] text-white border-gray-700" : "bg-gray-50 text-gray-900 border-gray-300"}`;
@@ -464,6 +464,7 @@ const UpcomingClass = () => {
                                     value={filters.fromDate}
                                     onChange={(e) => handleFilterChange("fromDate", e.target.value)}
                                     className={`${inputCls} w-full`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
 
@@ -475,6 +476,7 @@ const UpcomingClass = () => {
                                     value={filters.toDate}
                                     onChange={(e) => handleFilterChange("toDate", e.target.value)}
                                     className={`${inputCls} w-full`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
 
@@ -515,6 +517,7 @@ const UpcomingClass = () => {
                                     value={filters.startTime}
                                     onChange={(e) => handleFilterChange("startTime", e.target.value)}
                                     className={`${inputCls} w-full`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
 
@@ -526,6 +529,7 @@ const UpcomingClass = () => {
                                     value={filters.endTime}
                                     onChange={(e) => handleFilterChange("endTime", e.target.value)}
                                     className={`${inputCls} w-full`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
 

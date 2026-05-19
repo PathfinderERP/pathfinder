@@ -73,7 +73,7 @@ export const getRedFlags = async (req, res) => {
                 });
             };
 
-            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager'].includes(role);
+            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager', 'marketing'].includes(role);
             const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
             const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
 
@@ -178,20 +178,7 @@ export const getRedFlags = async (req, res) => {
                 );
             }
             
-            if (role === 'marketing') {
-                const marketingMetric = await LeadManagement.countDocuments({ 
-                    createdBy: user._id, 
-                    createdAt: { $gte: start, $lte: end } 
-                });
-                
-                await evaluateAndPush(
-                    'marketing_target',
-                    10,
-                    marketingMetric,
-                    () => "Critical",
-                    (m, t) => `Only ${m}/${t} leads generated in this period.`
-                );
-            }
+
             
             if (role === 'Class_Coordinator') {
                 const ongoing = await ClassSchedule.countDocuments({ 
