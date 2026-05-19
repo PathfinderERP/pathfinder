@@ -25,6 +25,7 @@ const RedFlagDesk = () => {
     const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString());
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [activeStatFilter, setActiveStatFilter] = useState('Open Flags');
 
     const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Class Coordinator', 'Teacher', 'HR'];
 
@@ -70,15 +71,31 @@ const RedFlagDesk = () => {
                 total: data.filter(f => !f.isResolved && f.severity !== 'Low').length,
                 critical: data.filter(f => !f.isResolved && f.severity === 'Critical').length,
                 high: data.filter(f => !f.isResolved && f.severity === 'High').length,
-                repeat: data.filter(f => !f.isResolved && f.repeatCount > 0).length,
-                recoveredToday: data.filter(f => f.isResolved || f.severity === 'Low').length
+                medium: data.filter(f => !f.isResolved && f.severity === 'Medium').length,
+                low: data.filter(f => f.isResolved || f.severity === 'Low').length
             };
             setStats(calculatedStats);
 
             setLastUpdated(new Date().toLocaleTimeString());
             
             if (data.length > 0) {
-                setSelectedFlag(data[0]);
+                const firstUser = data[0].user._id;
+                const firstUserIssues = data.filter(f => f.user._id === firstUser);
+                
+                // Find highest severity among firstUserIssues for the initial selection
+                let maxSeverity = 'Low';
+                const severityRank = { 'Low': 0, 'Medium': 1, 'High': 2, 'Critical': 3 };
+                firstUserIssues.forEach(f => {
+                    if (severityRank[f.severity] > severityRank[maxSeverity]) {
+                        maxSeverity = f.severity;
+                    }
+                });
+
+                setSelectedFlag({
+                    ...data[0],
+                    severity: maxSeverity,
+                    issuesList: firstUserIssues
+                });
             } else {
                 setSelectedFlag(null);
             }
@@ -104,14 +121,20 @@ const RedFlagDesk = () => {
         }
     };
 
-    const handleResolve = async (id) => {
+    const handleResolve = async (groupOrFlagId) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.put(`${import.meta.env.VITE_API_URL}/red-flags/${id}`, 
-                { isResolved: true }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            toast.success("Flag marked as recovered");
+            const group = groupedFlags.find(g => g._id === groupOrFlagId);
+            const issuesToResolve = group ? group.issuesList : [{ _id: groupOrFlagId }];
+            
+            for (const issue of issuesToResolve) {
+                // If it's virtual, resolving it might not make sense unless backend handles it, but let's fire for all anyway just in case backend creates the virtual flag
+                await axios.put(`${import.meta.env.VITE_API_URL}/red-flags/${issue._id}`, 
+                    { isResolved: true }, 
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+            }
+            toast.success("Flag(s) marked as recovered");
             fetchData();
         } catch (error) {
             toast.error("Failed to update flag");
@@ -130,6 +153,45 @@ const RedFlagDesk = () => {
             toast.error("Failed to trigger scan");
         }
     };
+
+    const groupedFlags = Object.values(flags.reduce((acc, flag) => {
+        if (!acc[flag.user._id]) {
+            acc[flag.user._id] = {
+                ...flag,
+                issuesList: [flag]
+            };
+        } else {
+            acc[flag.user._id].issuesList.push(flag);
+            const severityRank = { 'Low': 0, 'Medium': 1, 'High': 2, 'Critical': 3 };
+            const currRank = severityRank[flag.severity] || 0;
+            const existingRank = severityRank[acc[flag.user._id].severity] || 0;
+            
+            if (currRank > existingRank) {
+                acc[flag.user._id].severity = flag.severity;
+            }
+            if (flag.isVirtual === false) acc[flag.user._id].isVirtual = false;
+        }
+        return acc;
+    }, {}));
+
+    const displayFlags = groupedFlags.filter(group => {
+        if (activeStatFilter === 'Open Flags') {
+            return group.issuesList.some(i => !i.isResolved && i.severity !== 'Low');
+        }
+        if (activeStatFilter === 'Critical') {
+            return group.issuesList.some(i => !i.isResolved && i.severity === 'Critical');
+        }
+        if (activeStatFilter === 'High Risk') {
+            return group.issuesList.some(i => !i.isResolved && i.severity === 'High');
+        }
+        if (activeStatFilter === 'Medium Risk') {
+            return group.issuesList.some(i => !i.isResolved && i.severity === 'Medium');
+        }
+        if (activeStatFilter === 'Low Risk') {
+            return group.issuesList.every(i => i.isResolved || i.severity === 'Low'); // Low means clean/resolved
+        }
+        return true;
+    });
 
     return (
         <Layout activePage="Red Flag Desk">
@@ -155,6 +217,7 @@ const RedFlagDesk = () => {
                                         type="date" 
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
+                                        style={{ colorScheme: 'dark' }}
                                         className="bg-transparent text-white text-xs border-none outline-none focus:ring-0 cursor-pointer"
                                     />
                                 </div>
@@ -165,6 +228,7 @@ const RedFlagDesk = () => {
                                         type="date" 
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
+                                        style={{ colorScheme: 'dark' }}
                                         className="bg-transparent text-white text-xs border-none outline-none focus:ring-0 cursor-pointer"
                                     />
                                 </div>
@@ -187,16 +251,24 @@ const RedFlagDesk = () => {
                 {/* Stats Row */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                     {[
-                        { label: 'Open Flags', value: stats.total, sub: 'Due Issues', icon: <FaExclamationCircle />, color: 'blue' },
-                        { label: 'Critical', value: stats.critical, sub: 'Same-day action', icon: <FaExclamationTriangle />, color: 'red' },
-                        { label: 'High Risk', value: stats.high, sub: 'CI/ZM push', icon: <FaInfoCircle />, color: 'orange' },
-                        { label: 'Repeat', value: stats.repeat, sub: '2+ days missed', icon: <FaRedo />, color: 'purple' },
-                        { label: 'Recovered', value: stats.recoveredToday, sub: 'Closed today', icon: <FaCheckCircle />, color: 'green' }
+                        { label: 'Open Flags', value: stats.total, sub: 'Due Issues', icon: <FaExclamationCircle />, colorClass: 'text-blue-500 dark:text-blue-400', key: 'Open Flags' },
+                        { label: 'Critical', value: stats.critical, sub: 'Same-day action', icon: <FaExclamationTriangle />, colorClass: 'text-red-500 dark:text-red-400', key: 'Critical' },
+                        { label: 'High Risk', value: stats.high, sub: 'CI/ZM push', icon: <FaInfoCircle />, colorClass: 'text-orange-500 dark:text-orange-400', key: 'High Risk' },
+                        { label: 'Medium Risk', value: stats.medium, sub: 'Monitor closely', icon: <FaInfoCircle />, colorClass: 'text-yellow-500 dark:text-yellow-400', key: 'Medium Risk' },
+                        { label: 'Low Risk', value: stats.low, sub: 'Operating normally', icon: <FaCheckCircle />, colorClass: 'text-green-500 dark:text-green-400', key: 'Low Risk' }
                     ].map((stat, i) => (
-                        <div key={i} className="bg-white dark:bg-[#1a1f24] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
+                        <div 
+                            key={i} 
+                            onClick={() => setActiveStatFilter(stat.key)}
+                            className={`bg-white dark:bg-[#1a1f24] rounded-2xl p-5 border shadow-sm transition-all cursor-pointer hover:shadow-md hover:-translate-y-1 ${
+                                activeStatFilter === stat.key 
+                                    ? `border-cyan-500 shadow-cyan-500/20 shadow-lg ring-1 ring-cyan-500` 
+                                    : `border-gray-200 dark:border-gray-800`
+                            }`}
+                        >
                             <div className="flex justify-between items-start mb-3">
                                 <p className="text-sm font-bold text-gray-500 dark:text-gray-400">{stat.label}</p>
-                                <span className={`text-${stat.color}-500 text-lg`}>{stat.icon}</span>
+                                <span className={`${stat.colorClass} text-lg`}>{stat.icon}</span>
                             </div>
                             <div className="flex items-baseline gap-2">
                                 <p className="text-3xl font-black text-gray-900 dark:text-white">{stat.value}</p>
@@ -265,7 +337,7 @@ const RedFlagDesk = () => {
                                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mb-4"></div>
                                 <p className="text-sm font-bold animate-pulse">Scanning live ERP data...</p>
                             </div>
-                        ) : flags.length === 0 ? (
+                        ) : displayFlags.length === 0 ? (
                             <div className="bg-white dark:bg-[#1a1f24] rounded-3xl p-20 text-center border border-gray-200 dark:border-gray-800 shadow-sm">
                                 <div className="bg-green-100 dark:bg-green-900/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
                                     <FaCheckCircle className="text-green-500 text-4xl" />
@@ -275,14 +347,14 @@ const RedFlagDesk = () => {
                             </div>
                         ) : (
                             <div className="space-y-4 pr-2 max-h-[700px] overflow-y-auto custom-scrollbar">
-                                {flags.map(flag => (
+                                {displayFlags.map(flagGroup => (
                                     <div 
-                                        key={flag._id}
-                                        onClick={() => setSelectedFlag(flag)}
+                                        key={flagGroup._id}
+                                        onClick={() => setSelectedFlag(flagGroup)}
                                         className={`group relative bg-white dark:bg-[#1a1f24] rounded-3xl p-6 border-2 transition-all cursor-pointer hover:shadow-xl ${
-                                            selectedFlag?._id === flag._id 
+                                            selectedFlag?._id === flagGroup._id 
                                             ? 'border-gray-900 dark:border-white shadow-lg translate-x-2' 
-                                            : flag.severity === 'Low' || flag.isResolved
+                                            : flagGroup.severity === 'Low' || flagGroup.isResolved
                                                 ? 'border-transparent dark:border-gray-800 hover:border-green-500/30'
                                                 : 'border-transparent dark:border-gray-800 hover:border-red-500/30'
                                         }`}
@@ -290,61 +362,65 @@ const RedFlagDesk = () => {
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-[#131619] border border-gray-200 dark:border-gray-800 flex items-center justify-center text-gray-400">
-                                                    {flag.user?.profileImage ? (
-                                                        <img src={flag.user.profileImage} alt="" className="w-full h-full object-cover rounded-2xl" />
+                                                    {flagGroup.user?.profileImage ? (
+                                                        <img src={flagGroup.user.profileImage} alt="" className="w-full h-full object-cover rounded-2xl" />
                                                     ) : (
                                                         <FaUser />
                                                     )}
                                                 </div>
                                                 <div>
                                                     <h4 className="font-black text-lg text-gray-900 dark:text-white group-hover:text-red-500 transition-colors">
-                                                        {flag.user?.name}
+                                                        {flagGroup.user?.name}
                                                     </h4>
                                                     <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">
-                                                        {flag.role} - {flag.centre?.centreName || 'No Center'}
+                                                        {flagGroup.role} - {flagGroup.centre?.centreName || 'No Center'}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end gap-2">
                                                 <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                                    flag.severity === 'Critical' ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' :
-                                                    flag.severity === 'High' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' :
+                                                    flagGroup.severity === 'Critical' ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' :
+                                                    flagGroup.severity === 'High' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' :
                                                     'bg-green-500 text-white shadow-lg shadow-green-500/30'
                                                 }`}>
-                                                    {flag.severity === 'Low' || flag.isResolved ? 'Clean' : flag.severity}
+                                                    {flagGroup.severity === 'Low' || flagGroup.isResolved ? 'Clean' : flagGroup.severity}
                                                 </span>
-                                                <span className="text-[10px] text-gray-400 font-mono tracking-tighter">#{flag.user?.employeeId}</span>
+                                                <span className="text-[10px] text-gray-400 font-mono tracking-tighter">#{flagGroup.user?.employeeId}</span>
                                             </div>
                                         </div>
                                         
-                                        <div className="mb-6">
-                                            <div className="flex justify-between items-end mb-2">
-                                                <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-wider truncate pr-4">{flag.issue}</p>
-                                                <p className="text-xs font-bold text-gray-500">
-                                                    {flag.role === 'teacher' ? (
-                                                        `${flag.metricValue} Correct`
-                                                    ) : (
-                                                        `${flag.metricValue}/${flag.targetValue}`
-                                                    )}
-                                                </p>
-                                            </div>
-                                            <div className="h-2.5 bg-gray-100 dark:bg-[#131619] rounded-full overflow-hidden p-0.5 border border-gray-200 dark:border-gray-800">
-                                                <div 
-                                                    className={`h-full rounded-full transition-all duration-1000 ${
-                                                        flag.severity === 'Low' || flag.isResolved ? 'bg-gradient-to-r from-green-600 to-green-400' : 
-                                                        flag.severity === 'Critical' ? 'bg-gradient-to-r from-red-600 to-red-400' : 
-                                                        'bg-gradient-to-r from-orange-600 to-orange-400'
-                                                    }`}
-                                                    style={{ width: `${Math.min((flag.metricValue/(flag.targetValue || 1)) * 100 || 0, 100)}%` }}
-                                                ></div>
-                                            </div>
+                                        <div className="mb-6 space-y-4">
+                                            {flagGroup.issuesList.map((issue, idx) => (
+                                                <div key={idx}>
+                                                    <div className="flex justify-between items-end mb-2">
+                                                        <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-wider truncate pr-4">{issue.issue}</p>
+                                                        <p className="text-xs font-bold text-gray-500">
+                                                            {issue.role === 'teacher' ? (
+                                                                `${issue.metricValue} Correct`
+                                                            ) : (
+                                                                `${issue.metricValue}/${issue.targetValue}`
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <div className="h-2.5 bg-gray-100 dark:bg-[#131619] rounded-full overflow-hidden p-0.5 border border-gray-200 dark:border-gray-800">
+                                                        <div 
+                                                            className={`h-full rounded-full transition-all duration-1000 ${
+                                                                issue.severity === 'Low' || issue.isResolved ? 'bg-gradient-to-r from-green-600 to-green-400' : 
+                                                                issue.severity === 'Critical' ? 'bg-gradient-to-r from-red-600 to-red-400' : 
+                                                                'bg-gradient-to-r from-orange-600 to-orange-400'
+                                                            }`}
+                                                            style={{ width: `${Math.min((issue.metricValue/(issue.targetValue || 1)) * 100 || 0, 100)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                         
                                         <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{flag.isVirtual ? (isToday ? 'Live Metric' : 'Period Performance') : 'Persistent Flag'}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{flagGroup.isVirtual ? (isToday ? 'Live Metric' : 'Period Performance') : 'Persistent Flag'}</p>
                                             {isToday && (
                                                 <p className="text-[10px] font-bold text-gray-900 dark:text-white uppercase tracking-widest">
-                                                    {new Date(flag.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(flagGroup.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             )}
                                         </div>
@@ -390,69 +466,24 @@ const RedFlagDesk = () => {
                                                     Status: {selectedFlag.isResolved ? 'Resolved' : 'Live Check'}
                                                 </span>
                                             </div>
-                                            <p className="text-xs font-black mb-2 uppercase tracking-wide text-gray-900 dark:text-white">Metric Progress</p>
-                                            <div className="flex justify-between items-center gap-4">
-                                                <div className="flex-1 h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                    <div 
-                                                        className={`h-full rounded-full ${selectedFlag.severity === 'Low' || selectedFlag.isResolved ? 'bg-green-500' : 'bg-red-500'}`}
-                                                        style={{ width: `${(selectedFlag.metricValue/(selectedFlag.targetValue || 1)) * 100 || 0}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-xs font-bold text-gray-900 dark:text-white">{Math.round((selectedFlag.metricValue/(selectedFlag.targetValue || 1)) * 100 || 0)}%</span>
+                                            <p className="text-xs font-black mb-4 uppercase tracking-wide text-gray-900 dark:text-white">Metric Progress</p>
+                                            <div className="space-y-4">
+                                                {selectedFlag.issuesList.map((issue, idx) => (
+                                                    <div key={idx} className="flex flex-col gap-2">
+                                                        <div className="flex justify-between items-end">
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{issue.type}</span>
+                                                            <span className="text-[10px] font-bold text-gray-900 dark:text-white">{Math.round((issue.metricValue/(issue.targetValue || 1)) * 100 || 0)}%</span>
+                                                        </div>
+                                                        <div className="flex-1 h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={`h-full rounded-full ${issue.severity === 'Low' || issue.isResolved ? 'bg-green-500' : 'bg-red-500'}`}
+                                                                style={{ width: `${Math.min((issue.metricValue/(issue.targetValue || 1)) * 100 || 0, 100)}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
-
-                                        <div>
-                                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">What Went Wrong</p>
-                                            <div className="bg-gray-50 dark:bg-[#131619] p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                    {selectedFlag.whatWentWrong || "Details not specified"}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-2">Business Impact</p>
-                                            <div className="bg-gray-50 dark:bg-[#131619] p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                    {selectedFlag.businessImpact || "Details not specified"}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2">Recovery Action</p>
-                                            <div className="bg-red-50 dark:bg-red-500/5 p-4 rounded-2xl border border-red-100 dark:border-red-500/20">
-                                                <p className="text-sm font-bold text-red-700 dark:text-red-400">
-                                                    {selectedFlag.recoveryAction || "Corrective action needed immediately"}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Owner</p>
-                                                <p className="text-xs font-bold">{selectedFlag.owner || "N/A"}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Escalation</p>
-                                                <p className="text-xs font-bold text-red-600 dark:text-red-400">{selectedFlag.escalation || "Immediate"}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 relative z-10">
-                                        <button 
-                                            className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-red-600/20 transition-all active:scale-95"
-                                        >
-                                            <FaPaperPlane /> Send Escalation
-                                        </button>
-                                        <button 
-                                            onClick={() => handleResolve(selectedFlag._id)}
-                                            className="w-full bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 text-green-700 dark:text-green-400 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 border border-green-200 dark:border-green-500/30 transition-all active:scale-95"
-                                        >
-                                            <FaCheck /> Mark Recovery Done
-                                        </button>
                                     </div>
                                 </div>
                             )}
