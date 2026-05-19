@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema({
     boardType: { type: String }, // e.g. JEE, NEET, CBSE
     teacherType: {
         type: String,
-        enum: ['Full Time', 'Part Time'],
+        enum: ['Full Time', 'Part Time', 'Full-time', 'Part-time'],
         default: null
     },
     onlineOfflineType: {
@@ -154,6 +154,13 @@ userSchema.pre('validate', async function() {
     }
     if (this.teacherType === '') {
         this.teacherType = null;
+    }
+    if (this.teacherType) {
+        if (this.teacherType === 'Full-time') {
+            this.teacherType = 'Full Time';
+        } else if (this.teacherType === 'Part-time') {
+            this.teacherType = 'Part Time';
+        }
     }
     if (this.boardType === '') {
         this.boardType = null;

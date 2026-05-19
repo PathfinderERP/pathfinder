@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
-import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList } from 'react-icons/fa';
+import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign } from 'react-icons/fa';
 import { toast } from "react-toastify";
 
 const DailyCenterTracking = () => {
@@ -101,23 +101,43 @@ const DailyCenterTracking = () => {
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                     {[
-                        { title: "Total Active Centers", value: centers.length.toString(), icon: <FaBuilding />, color: "text-blue-500", bg: "bg-blue-500/10" },
-                        { title: "Total Daily Calls", value: centers.reduce((acc, curr) => acc + curr.dailyCalls, 0).toString(), icon: <FaUsers />, color: "text-green-500", bg: "bg-green-500/10" },
-                        { title: "Total Admissions", value: centers.reduce((acc, curr) => acc + curr.admissionNormal + curr.admissionBoard, 0).toString(), icon: <FaClipboardList />, color: "text-purple-500", bg: "bg-purple-500/10" },
-                        { title: "Total Collection", value: `₹${centers.reduce((acc, curr) => acc + parseInt((curr.collections || '0').toString().replace(/₹/g, '').replace(/,/g, '') || 0, 10), 0).toLocaleString()}`, icon: <FaChartLine />, color: "text-cyan-500", bg: "bg-cyan-500/10" }
+                        { title: "Daily Walk-Ins", value: centers.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
+                        { title: "Daily Counselling", value: centers.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), icon: <FaComments />, color: "text-green-500", bg: "bg-green-500/10" },
+                        { 
+                            title: "Daily Admission", 
+                            value: centers.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(), 
+                            subtext: `Normal: ${centers.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${centers.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
+                            icon: <FaUserPlus />, 
+                            color: "text-purple-500", 
+                            bg: "bg-purple-500/10" 
+                        },
+                        { title: "Daily Calls", value: centers.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0).toString(), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+                        { 
+                            title: "Total Collection", 
+                            value: `₹${centers.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`, 
+                            subtext: `Admission: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
+                            icon: <FaRupeeSign />, 
+                            color: "text-cyan-500", 
+                            bg: "bg-cyan-500/10" 
+                        }
                     ].map((kpi, index) => (
-                        <div key={index} className={`p-6 rounded transition-all hover:shadow-lg ${
+                        <div key={index} className={`p-5 rounded transition-all hover:shadow-lg ${
                             isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'
                         }`}>
-                            <div className="flex items-center gap-4">
-                                <div className={`p-4 rounded ${kpi.bg} ${kpi.color}`}>
-                                    {React.cloneElement(kpi.icon, { className: "text-2xl" })}
+                            <div className="flex items-start gap-3">
+                                <div className={`p-3 rounded ${kpi.bg} ${kpi.color} shrink-0`}>
+                                    {React.cloneElement(kpi.icon, { className: "text-xl" })}
                                 </div>
-                                <div>
-                                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{kpi.title}</p>
-                                    <h3 className="text-2xl font-bold mt-1">{kpi.value}</h3>
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>{kpi.title}</p>
+                                    <h3 className="text-xl font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{kpi.value}</h3>
+                                    {kpi.subtext && (
+                                        <p className={`text-[10px] mt-1 font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            {kpi.subtext}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

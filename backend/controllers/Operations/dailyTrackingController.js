@@ -42,6 +42,13 @@ export const getDailyTracking = async (req, res) => {
                 ]
             });
 
+            // --- Daily Walk-ins ---
+            const walkInsCount = await LeadManagement.countDocuments({
+                centre: centerId,
+                source: { $regex: /^walk[- ]?in$/i },
+                createdAt: dateFilter
+            });
+
             // Counseling Analysis (Union of direct records and admissions)
             const centerCounsellingNormalLeads = await LeadManagement.find({
                 centre: centerId,
@@ -141,13 +148,24 @@ export const getDailyTracking = async (req, res) => {
                 {
                     $group: {
                         _id: null,
-                        total: { $sum: "$paidAmount" }
+                        total: { $sum: "$paidAmount" },
+                        admission: {
+                            $sum: {
+                                $cond: [{ $eq: ["$installmentNumber", 0] }, "$paidAmount", 0]
+                            }
+                        },
+                        installment: {
+                            $sum: {
+                                $cond: [{ $gt: ["$installmentNumber", 0] }, "$paidAmount", 0]
+                            }
+                        }
                     }
                 }
             ]);
 
-            const collectionsAmount = collections.length > 0 ? collections[0].total : 0;
-            const totalCollections = collectionsAmount;
+            const totalCollections = collections.length > 0 ? collections[0].total : 0;
+            const collectionsAdmission = collections.length > 0 ? collections[0].admission : 0;
+            const collectionsInstallment = collections.length > 0 ? collections[0].installment : 0;
 
             return {
                 id: center._id,
@@ -157,11 +175,15 @@ export const getDailyTracking = async (req, res) => {
                 staffPresent: staffPresentCount,
                 staffTotal: staffTotalCount > 0 ? staffTotalCount : 0,
                 dailyCalls: dailyCallsCount,
+                walkIns: walkInsCount,
                 counselledNormal: counselledNormalCount,
                 counselledBoard: counselledBoardCount,
                 admissionNormal: admissionNormalCount,
                 admissionBoard: admissionBoardCount,
-                collections: `₹${totalCollections.toLocaleString()}`
+                collections: `₹${totalCollections.toLocaleString()}`,
+                collectionsVal: totalCollections,
+                collectionsAdmissionVal: collectionsAdmission,
+                collectionsInstallmentVal: collectionsInstallment
             };
         }));
 
