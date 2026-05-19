@@ -155,8 +155,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "sales",
             subItems: [
                 { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" },
-                { name: "Weekly Weekends Target", path: "/sales/weekly-target", permissionSection: "centreTarget" },
-                { name: "Final Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },
+                //{ name: "Weekly Weekends Target", path: "/sales/weekly-target", permissionSection: "centreTarget" },
+                { name: "Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },
                 { name: "Course Target", path: "/sales/course-target", permissionSection: "centreTarget" },
                 { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
                 { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },

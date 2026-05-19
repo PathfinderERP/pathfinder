@@ -148,65 +148,88 @@ const FinalWeekendTarget = () => {
 
     return (
         <Layout activePage="Sales">
-            <div className={`min-h-screen transition-all duration-500 ${isDarkMode ? "bg-[#0a0c0f]" : "bg-gray-50"} p-4 md:p-8 relative overflow-hidden`}>
+            <div className={`space-y-6 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'} p-4 md:p-8`}>
                 
-                {/* Background Decorative Elements */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 blur-[120px] rounded-full -mr-48 -mt-48 animate-pulse" />
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-500/5 blur-[120px] rounded-full -ml-48 -mb-48" />
-
                 {/* Header */}
-                <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10">
-                    <div className="flex items-center gap-5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
                         <button
-                            onClick={() => navigate(-1)}
-                            className={`p-3 rounded-xl border transition-all ${isDarkMode ? "bg-white/5 border-white/10 text-gray-400 hover:text-white" : "bg-white border-gray-200 text-gray-500 hover:text-gray-900 shadow-sm"}`}
+                            onClick={() => navigate("/sales/centre-target")}
+                            className={`p-2.5 rounded-lg border transition-all ${isDarkMode ? "text-gray-400 border-gray-700 bg-[#1a1f24] hover:text-white" : "text-gray-500 border-gray-300 bg-white hover:text-gray-800 shadow-sm"}`}
                         >
-                            <FaArrowLeft size={16} />
+                            <FaArrowLeft size={14} />
                         </button>
                         <div>
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl shadow-lg shadow-amber-500/20">
-                                    <FaCrown className="text-white text-xl" />
-                                </div>
-                                <h1 className={`text-4xl font-black tracking-tighter uppercase italic ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                                    Final <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Weekends</span> Target
-                                </h1>
-                            </div>
-                            <p className={`text-[10px] font-black uppercase tracking-[0.4em] mt-2 ${isDarkMode ? "text-amber-500/60" : "text-amber-600"}`}>
-                                Precision Performance · Finalized Settlement · Verified Achievement
-                            </p>
+                            <h1 className={`text-3xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Weekends Target</h1>
+                            <p className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'} font-semibold`}>Verified performance and settlement calculations</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className={`flex items-center gap-1 p-1 rounded-2xl border ${isDarkMode ? "bg-black/40 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
-                            <button onClick={toggleTheme} className={`p-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isDarkMode ? "bg-amber-500/20 text-amber-500 shadow-inner" : "bg-gray-100 text-gray-600"}`}>
-                                {isDarkMode ? <><FaSun /> Gold Mode</> : <><FaMoon /> Night</>}
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={toggleTheme}
+                            className={`p-2.5 rounded-lg border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest ${isDarkMode
+                                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black'
+                                : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'
+                                }`}
+                        >
+                            {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
+                        </button>
                         <button 
                             onClick={handleExport}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-amber-600/30 hover:scale-105 active:scale-95"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${isDarkMode
+                                ? 'bg-green-600/90 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/20'
+                                : 'bg-green-600 text-white hover:bg-green-700 shadow-md'
+                                }`}
                         >
                             <FaDownload size={14} /> Export Verified Report
                         </button>
                     </div>
                 </div>
 
+                {/* View Modes Tabs Bar */}
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-md'} p-4 rounded-xl border flex flex-wrap items-center gap-4 mb-6`}>
+                    <h3 className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-semibold flex items-center gap-2`}>
+                        <FaTable className="text-cyan-400" /> View Modes
+                    </h3>
+                    <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg p-1 flex flex-wrap gap-1`}>
+                        {["Monthly", "Quarterly", "Yearly", "Custom", "Weekly", "Weekend"].map(mode => (
+                            <button
+                                key={mode}
+                                onClick={() => {
+                                    if (mode === "Weekly") {
+                                        navigate("/sales/weekly-target");
+                                    } else if (mode === "Weekend") {
+                                        navigate("/sales/final-weekend-target");
+                                    } else {
+                                        navigate("/sales/centre-target", { state: { viewMode: mode } });
+                                    }
+                                }}
+                                className={`px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest transition-all ${mode === "Weekend"
+                                    ? "bg-blue-600 text-white shadow-lg"
+                                    : `${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
+                                    }`}
+                            >
+                                {mode}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Filters */}
-                <div className={`relative z-10 rounded-3xl border p-6 mb-8 backdrop-blur-xl transition-all ${isDarkMode ? "bg-white/[0.03] border-white/10 shadow-2xl" : "bg-white/80 border-gray-200 shadow-xl"}`}>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} p-6 rounded-xl border mb-6`}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="space-y-2">
                             <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                                <FaStar className="text-amber-500" /> Assessment Period
+                                <FaStar className="text-cyan-400" /> Assessment Period
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                                    className={`w-full border-2 text-xs rounded-xl px-4 py-2.5 outline-none font-black transition-all ${isDarkMode ? "bg-black/50 border-white/5 text-white focus:border-amber-500/50" : "bg-gray-50 border-gray-100 text-gray-900 focus:border-amber-500"}`}>
+                                    className={`w-full border-2 text-xs rounded-xl px-4 py-2.5 outline-none font-black transition-all ${isDarkMode ? "bg-black/50 border-white/5 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500"}`}>
                                     {monthNames.map(m => <option key={m} value={m}>{m}</option>)}
                                 </select>
                                 <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
-                                    className={`w-full border-2 text-xs rounded-xl px-4 py-2.5 outline-none font-black transition-all ${isDarkMode ? "bg-black/50 border-white/5 text-white focus:border-amber-500/50" : "bg-gray-50 border-gray-100 text-gray-900 focus:border-amber-500"}`}>
+                                    className={`w-full border-2 text-xs rounded-xl px-4 py-2.5 outline-none font-black transition-all ${isDarkMode ? "bg-black/50 border-white/5 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-100 text-gray-900 focus:border-cyan-500"}`}>
                                     {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
                                 </select>
                             </div>
@@ -228,75 +251,82 @@ const FinalWeekendTarget = () => {
                         <div className="flex items-end">
                             <button 
                                 onClick={fetchData}
-                                className={`w-full flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? "bg-white/10 text-white hover:bg-white/20 border border-white/10" : "bg-gray-900 text-white hover:bg-gray-800 shadow-lg"}`}
+                                className={`w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isDarkMode ? "bg-green-600/90 text-white hover:bg-green-500" : "bg-green-600 text-white hover:bg-green-700 shadow-md"}`}
                             >
                                 <FaSync className={loading ? "animate-spin" : ""} />
-                                Recalculate Final Data
+                                Recalculate
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Dashboard Stats */}
-                <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    {[
-                        { label: "Total Monthly Target", value: data ? `₹${fmt(data.centres.reduce((s,c) => s + c.monthlyTargetWithGST, 0))}` : "₹0", icon: <FaGem />, color: "from-amber-400 to-orange-500", sub: "Sum of all centres" },
-                        { label: "Verified Achievement", value: data ? `₹${fmt(data.centres.reduce((s,c) => s + c.totalAchievedWithGST, 0))}` : "₹0", icon: <FaCheckCircle />, color: "from-emerald-400 to-teal-500", sub: "Actual collections" },
-                        { label: "Premium Weekend Gain", value: data ? `₹${fmt(data.centres.reduce((s,c) => s + c.totalWeekendWithGST, 0))}` : "₹0", icon: <FaCrown />, color: "from-purple-400 to-indigo-500", sub: "Weekend contribution" }
-                    ].map((stat, i) => (
-                        <div key={i} className={`group p-6 rounded-[32px] border transition-all duration-500 hover:-translate-y-2 ${isDarkMode ? "bg-white/[0.03] border-white/10" : "bg-white border-gray-100 shadow-xl"}`}>
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`p-3 rounded-2xl bg-gradient-to-br ${stat.color} shadow-lg shadow-black/10 group-hover:scale-110 transition-transform`}>
-                                    <span className="text-white text-xl">{stat.icon}</span>
-                                </div>
-                                <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${isDarkMode ? "bg-white/5 text-gray-500" : "bg-gray-50 text-gray-400"}`}>
-                                    {stat.sub}
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(() => {
+                        const stats = [
+                            {
+                                label: "Total Monthly Target",
+                                value: data ? data.centres.reduce((s,c) => s + c.monthlyTargetWithGST, 0) : 0,
+                                color: "text-blue-500",
+                                bgColor: isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
+                            },
+                            {
+                                label: "Verified Achievement",
+                                value: data ? data.centres.reduce((s,c) => s + c.totalAchievedWithGST, 0) : 0,
+                                color: "text-emerald-500",
+                                bgColor: isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"
+                            },
+                            {
+                                label: "Premium Weekend Gain",
+                                value: data ? data.centres.reduce((s,c) => s + c.totalWeekendWithGST, 0) : 0,
+                                color: "text-purple-500",
+                                bgColor: isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
+                            }
+                        ];
+
+                        return stats.map((card, i) => (
+                            <div key={i} className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-5 rounded-2xl border transition-all hover:scale-[1.02] duration-300`}>
+                                <div className="flex flex-col gap-1">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        {card.label}
+                                    </span>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`text-2xl font-black ${card.color}`}>
+                                            ₹{Math.round(card.value).toLocaleString()}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <h3 className={`text-3xl font-black tracking-tighter mb-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{stat.value}</h3>
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>{stat.label}</p>
-                        </div>
-                    ))}
+                        ));
+                    })()}
                 </div>
 
                 {/* Main Content Area */}
-                <div className={`relative z-10 rounded-[40px] border overflow-hidden ${isDarkMode ? "bg-white/[0.02] border-white/10 shadow-3xl" : "bg-white border-gray-100 shadow-2xl"}`}>
-                    <div className="p-8 border-b border-white/5 flex items-center justify-between">
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
+                    <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} flex items-center justify-between`}>
                         <div>
-                            <h2 className={`text-xl font-black tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>Verified Centre Performance</h2>
-                            <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>Audit-ready settlement data for the month of {selectedMonth}</p>
+                            <h2 className={`text-xl font-bold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>Verified Centre Performance</h2>
+                            <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Audit-ready settlement data for the month of {selectedMonth}</p>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full bg-emerald-500 animate-pulse`} />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Live Finalization</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Live Finalization</span>
                         </div>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className={`${isDarkMode ? "bg-white/[0.02]" : "bg-gray-50"}`}>
-                                    <th className="px-6 py-6 text-[12px] font-black uppercase tracking-[0.3em] text-gray-500">Window</th>
-                                    
-                                    <th className="px-4 py-6 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 text-right">Phase Target</th>
-                                    <th className="px-4 py-6 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-500 text-right">Phase Achieved</th>
-                                    
-                                    <th className="px-4 py-6 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-600 text-right">Working Target</th>
-                                    <th className="px-4 py-6 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 text-right">Working Achieved</th>
-                                    
-                                    <th className="px-4 py-6 text-[11px] font-black uppercase tracking-[0.2em] text-purple-600 text-right">Weekend Target</th>
-                                    <th className="px-4 py-6 text-[11px] font-black uppercase tracking-[0.2em] text-purple-400 text-right">Weekend Achieved</th>
-                                    
-                                    <th className="px-6 py-6 text-[12px] font-black uppercase tracking-[0.3em] text-gray-500 text-center">Score</th>
+                                <tr className={`${isDarkMode ? "bg-[#131619]" : "bg-gray-50"}`}>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Metric</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">P1 (1-10)</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">P2 (11-20)</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">P3 (21-31)</th>
                                 </tr>
                             </thead>
-                            <tbody className={`divide-y ${isDarkMode ? "divide-white/5" : "divide-gray-100"}`}>
+                            <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-100"}`}>
                                 {loading ? (
-                                    [1, 2, 3, 4, 5].map(i => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td colSpan="8" className="px-8 py-8 h-20 bg-white/5" />
-                                        </tr>
-                                    ))
+                                    [1, 2].map(i => <tr key={i}><td colSpan="4" className="h-20 animate-pulse bg-gray-500/5" /></tr>)
                                 ) : data?.centres.map(c => {
                                     const allDays = c.weeks.flatMap(w => w.days).filter(d => !d.isEmpty && !d.isHidden);
                                     
@@ -310,7 +340,6 @@ const FinalWeekendTarget = () => {
                                         const workingTarget = phaseTarget * 0.40;
                                         const baseWeekendTarget = phaseTarget * 0.60;
 
-                                        // Deficit Calculation
                                         const workingDeficit = Math.max(0, workingTarget - workingAchieved);
                                         const adjustedWeekendTarget = baseWeekendTarget + workingDeficit;
                                         const weekendDeficit = Math.max(0, adjustedWeekendTarget - weekendAchieved);
@@ -320,98 +349,85 @@ const FinalWeekendTarget = () => {
                                             phaseAchieved, workingAchieved, weekendAchieved, 
                                             phaseTarget, workingTarget, baseWeekendTarget, 
                                             adjustedWeekendTarget, workingDeficit, weekendDeficit,
-                                            pct, label: `${start}-${end} Days` 
+                                            pct 
                                         };
                                     };
 
-                                    const phases = [
-                                        getPhaseData(1, 10),
-                                        getPhaseData(11, 20),
-                                        getPhaseData(21, 31)
-                                    ];
+                                    const phases = [getPhaseData(1, 10), getPhaseData(11, 20), getPhaseData(21, 31)];
 
                                     return (
                                         <React.Fragment key={c.centreId}>
-                                            <tr className={`${isDarkMode ? "bg-amber-500/10" : "bg-amber-100/50"} border-t-2 border-amber-500/30`}>
-                                                <td colSpan="8" className="px-8 py-4">
+                                            <tr className={`${isDarkMode ? "bg-blue-500/10" : "bg-blue-50"} border-t-2 border-blue-500/30`}>
+                                                <td colSpan="4" className="px-8 py-4">
                                                     <div className="flex items-center gap-4">
-                                                        <FaCrown className="text-amber-500" size={20} />
-                                                        <span className={`text-lg font-black uppercase tracking-widest ${isDarkMode ? "text-amber-400" : "text-amber-800"}`}>
+                                                        <FaCrown className="text-blue-500" size={20} />
+                                                        <span className={`text-lg font-black uppercase tracking-widest ${isDarkMode ? "text-blue-400" : "text-blue-800"}`}>
                                                             {c.centreName} <span className="opacity-30 mx-3">|</span> Monthly: ₹{fmt(c.monthlyTargetWithGST)}
                                                         </span>
                                                     </div>
                                                 </td>
                                             </tr>
-                                            {phases.map((p, idx) => (
-                                                <tr key={idx} className={`transition-all duration-300 hover:bg-white/[0.06] group`}>
-                                                    <td className="px-6 py-6">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={`w-10 h-10 rounded-xl ${isDarkMode ? "bg-white/5" : "bg-gray-100"} border ${isDarkMode ? "border-white/10" : "border-gray-200"} flex items-center justify-center text-[10px] font-black text-amber-500`}>
-                                                                P{idx + 1}
-                                                            </div>
-                                                            <p className={`text-sm font-black tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>{p.label}</p>
-                                                        </div>
+                                            <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"}`}>
+                                                <td className="px-6 py-4 font-semibold text-sm">Phase Target</td>
+                                                {phases.map((p, idx) => <td key={idx} className="px-6 py-4 text-center text-sm font-bold">₹{fmt(p.phaseTarget)}</td>)}
+                                            </tr>
+                                            <tr className={`${isDarkMode ? "bg-emerald-500/5 hover:bg-emerald-500/10" : "bg-emerald-50/30 hover:bg-emerald-50"}`}>
+                                                <td className="px-6 py-4 font-black text-sm text-emerald-600">Phase Achieved</td>
+                                                {phases.map((p, idx) => <td key={idx} className="px-6 py-4 text-center text-sm font-black text-emerald-600">₹{fmt(p.phaseAchieved)}</td>)}
+                                            </tr>
+                                            <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"}`}>
+                                                <td className="px-6 py-4 font-semibold text-sm text-cyan-600">Working Target (40%)</td>
+                                                {phases.map((p, idx) => <td key={idx} className="px-6 py-4 text-center text-sm font-semibold text-gray-400">₹{fmt(p.workingTarget)}</td>)}
+                                            </tr>
+                                            <tr className={`${isDarkMode ? "bg-cyan-500/5 hover:bg-cyan-500/10" : "bg-cyan-50/30 hover:bg-cyan-50"}`}>
+                                                <td className="px-6 py-4 font-black text-sm text-cyan-600">Working Achieved</td>
+                                                {phases.map((p, idx) => (
+                                                    <td key={idx} className="px-6 py-4 text-center text-sm font-black text-cyan-600">
+                                                        <div>₹{fmt(p.workingAchieved)}</div>
+                                                        {p.workingDeficit > 0 && <div className="text-[10px] text-red-500 mt-1">Shortfall: -₹{fmt(p.workingDeficit)}</div>}
                                                     </td>
-                                                    
-                                                    {/* Phase Section */}
-                                                    <td className="px-4 py-6 text-right">
-                                                        <p className={`text-[13px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>₹{fmt(p.phaseTarget)}</p>
-                                                    </td>
-                                                    <td className="px-4 py-6 text-right bg-emerald-500/5">
-                                                        <p className={`text-[15px] font-black text-emerald-400`}>₹{fmt(p.phaseAchieved)}</p>
-                                                    </td>
-                                                    
-                                                    {/* Working Section */}
-                                                    <td className="px-4 py-6 text-right">
-                                                        <p className={`text-[13px] font-bold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>₹{fmt(p.workingTarget)}</p>
-                                                    </td>
-                                                    <td className="px-4 py-6 text-right bg-cyan-500/5">
-                                                        <p className={`text-[15px] font-black text-cyan-400`}>₹{fmt(p.workingAchieved)}</p>
+                                                ))}
+                                            </tr>
+                                            <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"}`}>
+                                                <td className="px-6 py-4 font-semibold text-sm text-blue-600">Weekend Target (60%)</td>
+                                                {phases.map((p, idx) => (
+                                                    <td key={idx} className="px-6 py-4 text-center text-sm font-semibold text-gray-400">
+                                                        <div>₹{fmt(p.baseWeekendTarget)}</div>
                                                         {p.workingDeficit > 0 && (
-                                                            <div className="flex items-center justify-end gap-1.5 text-red-500 mt-1.5 animate-pulse">
-                                                                <FaChartLine className="rotate-180" size={12} />
-                                                                <span className="text-[12px] font-black">SHORTFALL: -₹{fmt(p.workingDeficit)}</span>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    
-                                                    {/* Weekend Section */}
-                                                    <td className="px-4 py-6 text-right">
-                                                        <p className={`text-[13px] font-bold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>₹{fmt(p.baseWeekendTarget)}</p>
-                                                        {p.workingDeficit > 0 && (
-                                                            <div className="flex flex-col items-end mt-1.5 space-y-1">
-                                                                <span className="text-[11px] font-black text-amber-400 bg-amber-500/20 px-2 py-1 rounded-lg border border-amber-500/30 shadow-md">
-                                                                    + ₹{fmt(p.workingDeficit)} RECOVERY
+                                                            <div className="flex flex-col items-center mt-1 space-y-1">
+                                                                <span className="text-[9px] font-black text-blue-400 bg-blue-500/20 px-1.5 py-0.5 rounded border border-blue-500/30">
+                                                                    + ₹{fmt(p.workingDeficit)} Recovery
                                                                 </span>
-                                                                <p className="text-[13px] font-black text-amber-500">NEW TARGET: ₹{fmt(p.adjustedWeekendTarget)}</p>
+                                                                <p className="text-[11px] font-black text-blue-500">New Target: ₹{fmt(p.adjustedWeekendTarget)}</p>
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-6 text-right bg-purple-500/5">
-                                                        <p className={`text-[15px] font-black text-purple-400`}>₹{fmt(p.weekendAchieved)}</p>
-                                                        {p.weekendDeficit > 0 && (
-                                                            <div className="flex items-center justify-end gap-1.5 text-red-500 mt-1.5">
-                                                                <FaChartLine className="rotate-180" size={12} />
-                                                                <span className="text-[12px] font-black">SHORTFALL: -₹{fmt(p.weekendDeficit)}</span>
-                                                            </div>
-                                                        )}
+                                                ))}
+                                            </tr>
+                                            <tr className={`${isDarkMode ? "bg-blue-500/5 hover:bg-blue-500/10" : "bg-blue-50/30 hover:bg-blue-50"}`}>
+                                                <td className="px-6 py-4 font-black text-sm text-blue-600">Weekend Achieved</td>
+                                                {phases.map((p, idx) => (
+                                                    <td key={idx} className="px-6 py-4 text-center text-sm font-black text-blue-600">
+                                                        <div>₹{fmt(p.weekendAchieved)}</div>
+                                                        {p.weekendDeficit > 0 && <div className="text-[10px] text-red-500 mt-1">Shortfall: -₹{fmt(p.weekendDeficit)}</div>}
                                                     </td>
-
-                                                    <td className="px-6 py-6">
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <span className={`text-base font-black ${p.pct >= 100 ? "text-amber-400" : isDarkMode ? "text-white" : "text-gray-900"}`}>
+                                                ))}
+                                            </tr>
+                                            <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"} border-b border-gray-100`}>
+                                                <td className="px-6 py-4 font-black text-sm">Efficiency Score</td>
+                                                {phases.map((p, idx) => (
+                                                    <td key={idx} className="px-6 py-4">
+                                                        <div className="flex flex-col items-center gap-1.5">
+                                                            <span className={`text-sm font-black ${p.pct >= 100 ? "text-emerald-400" : isDarkMode ? "text-white" : "text-gray-900"}`}>
                                                                 {fmtPct(p.pct)}
                                                             </span>
-                                                            <div className={`w-24 h-2 rounded-full overflow-hidden ${isDarkMode ? "bg-white/10" : "bg-gray-100"}`}>
-                                                                <div 
-                                                                    className={`h-full rounded-full bg-gradient-to-r ${p.pct >= 100 ? "from-amber-400 to-orange-500" : "from-cyan-400 to-blue-500"} transition-all duration-1000`} 
-                                                                    style={{ width: `${Math.min(p.pct, 100)}%` }} 
-                                                                />
+                                                            <div className={`w-24 h-2 rounded-full overflow-hidden ${isDarkMode ? "bg-gray-800" : "bg-gray-100"}`}>
+                                                                <div className={`h-full rounded-full bg-gradient-to-r ${p.pct >= 100 ? "from-emerald-400 to-teal-500" : "from-cyan-400 to-blue-500"}`} style={{ width: `${Math.min(p.pct, 100)}%` }} />
                                                             </div>
                                                         </div>
                                                     </td>
-                                                </tr>
-                                            ))}
+                                                ))}
+                                            </tr>
                                         </React.Fragment>
                                     );
                                 })}

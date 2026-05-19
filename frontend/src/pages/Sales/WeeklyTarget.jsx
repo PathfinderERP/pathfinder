@@ -588,6 +588,35 @@ const WeeklyTarget = () => {
                     </div>
                 </div>
 
+                {/* View Modes Tabs Bar */}
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-md'} p-4 rounded-xl border flex flex-wrap items-center gap-4 mb-6`}>
+                    <h3 className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-semibold flex items-center gap-2`}>
+                        <FaTable className="text-cyan-400" /> View Modes
+                    </h3>
+                    <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg p-1 flex flex-wrap gap-1`}>
+                        {["Monthly", "Quarterly", "Yearly", "Custom", "Weekly", "Weekend"].map(mode => (
+                            <button
+                                key={mode}
+                                onClick={() => {
+                                    if (mode === "Weekly") {
+                                        navigate("/sales/weekly-target");
+                                    } else if (mode === "Weekend") {
+                                        navigate("/sales/final-weekend-target");
+                                    } else {
+                                        navigate("/sales/centre-target", { state: { viewMode: mode } });
+                                    }
+                                }}
+                                className={`px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest transition-all ${mode === "Weekly"
+                                    ? "bg-blue-600 text-white shadow-lg"
+                                    : `${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
+                                    }`}
+                            >
+                                {mode}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Filters & Mini Analysis Section */}
                 <div className={`rounded-2xl border p-4 mb-6 flex flex-col lg:flex-row gap-6 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-xl"
                     }`}>

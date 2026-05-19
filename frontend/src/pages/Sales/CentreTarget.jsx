@@ -8,12 +8,13 @@ import { saveAs } from "file-saver";
 import AddTargetModal from "../../components/Sales/AddTargetModal";
 import { hasPermission } from "../../config/permissions";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const CentreTarget = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
+    const location = useLocation();
     const [targets, setTargets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -29,7 +30,7 @@ const CentreTarget = () => {
 
     const [filterFinancialYear, setFilterFinancialYear] = useState("");
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
-    const [viewMode, setViewMode] = useState("Monthly");
+    const [viewMode, setViewMode] = useState(location.state?.viewMode || "Monthly");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -343,11 +344,19 @@ const CentreTarget = () => {
                         <h3 className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-semibold flex items-center gap-2`}>
                             <FaFilter className="text-cyan-400" /> Filters
                         </h3>
-                        <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg p-1 flex`}>
-                            {["Monthly", "Quarterly", "Yearly", "Custom"].map(mode => (
+                        <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg p-1 flex flex-wrap gap-1`}>
+                            {["Monthly", "Quarterly", "Yearly", "Custom", "Weekly", "Weekend"].map(mode => (
                                 <button
                                     key={mode}
-                                    onClick={() => setViewMode(mode)}
+                                    onClick={() => {
+                                        if (mode === "Weekly") {
+                                            navigate("/sales/weekly-target");
+                                        } else if (mode === "Weekend") {
+                                            navigate("/sales/final-weekend-target");
+                                        } else {
+                                            setViewMode(mode);
+                                        }
+                                    }}
                                     className={`px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest transition-all ${viewMode === mode
                                         ? "bg-blue-600 text-white shadow-lg"
                                         : `${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`
