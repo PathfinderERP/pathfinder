@@ -345,13 +345,11 @@ const CentreTarget = () => {
                             <FaFilter className="text-cyan-400" /> Filters
                         </h3>
                         <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg p-1 flex flex-wrap gap-1`}>
-                            {["Monthly", "Quarterly", "Yearly", "Custom", "Weekly", "Weekend"].map(mode => (
+                            {["Monthly", "Quarterly", "Yearly", "Custom", "Weekend"].map(mode => (
                                 <button
                                     key={mode}
                                     onClick={() => {
-                                        if (mode === "Weekly") {
-                                            navigate("/sales/weekly-target");
-                                        } else if (mode === "Weekend") {
+                                        if (mode === "Weekend") {
                                             navigate("/sales/final-weekend-target");
                                         } else {
                                             setViewMode(mode);

@@ -37,13 +37,14 @@ const OngoingClass = () => {
         centreId: [],
         subjectId: [],
         classMode: [],
+        batchId: [],
         fromDate: "",
         toDate: "",
         startTime: "",
         endTime: "",
     });
     const [showFilters, setShowFilters] = useState(false);
-    const [dropdownData, setDropdownData] = useState({ teachers: [], centres: [], subjects: [] });
+    const [dropdownData, setDropdownData] = useState({ teachers: [], centres: [], subjects: [], batches: [] });
     const [dropdownLoading, setDropdownLoading] = useState(false);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -77,6 +78,7 @@ const OngoingClass = () => {
                     teachers: data.teachers || [],
                     centres: data.centres || [],
                     subjects: data.subjects || [],
+                    batches: data.batches || [],
                 });
             }
         } catch {
@@ -97,6 +99,7 @@ const OngoingClass = () => {
         if (filters.centreId?.length > 0) params.append("centreId", filters.centreId.map(v => v.value).join(","));
         if (filters.subjectId?.length > 0) params.append("subjectId", filters.subjectId.map(v => v.value).join(","));
         if (filters.classMode?.length > 0) params.append("classMode", filters.classMode.map(v => v.value).join(","));
+        if (filters.batchId?.length > 0) params.append("batchId", filters.batchId.map(v => v.value).join(","));
         if (filters.fromDate) params.append("fromDate", filters.fromDate);
         if (filters.toDate) params.append("toDate", filters.toDate);
         if (filters.startTime) params.append("startTime", filters.startTime);
@@ -137,6 +140,7 @@ const OngoingClass = () => {
             centreId: [],
             subjectId: [],
             classMode: [],
+            batchId: [],
             fromDate: "",
             toDate: "",
             startTime: "",
@@ -356,6 +360,18 @@ const OngoingClass = () => {
                                 />
                             </div>
                             <div className="space-y-2">
+                                <label className="text-xs font-black uppercase tracking-widest text-gray-500">Batch</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={(dropdownData.batches || []).map(b => ({ value: b._id, label: b.batchName || b.name }))}
+                                    value={filters.batchId}
+                                    onChange={(val) => handleFilterChange("batchId", val)}
+                                    styles={customSelectStyles}
+                                    placeholder="Filter by batch..."
+                                />
+                            </div>
+                            <div className="space-y-2">
                                 <label className="text-xs font-black uppercase tracking-widest text-gray-500">Mode</label>
                                 <Select
                                     isMulti
@@ -447,6 +463,12 @@ const OngoingClass = () => {
                                 <div className="bg-orange-600/10 text-orange-400 px-3 py-1 rounded-full text-[10px] font-bold border border-orange-600/20 flex items-center gap-2">
                                     Mode: {filters.classMode.map(m => m.label).join(", ")}
                                     <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("classMode", [])} />
+                                </div>
+                            )}
+                            {filters.batchId && filters.batchId.length > 0 && (
+                                <div className="bg-cyan-600/10 text-cyan-400 px-3 py-1 rounded-full text-[10px] font-bold border border-cyan-600/20 flex items-center gap-2">
+                                    Batch: {filters.batchId.map(b => b.label).join(", ")}
+                                    <FaTimes className="cursor-pointer" onClick={() => handleFilterChange("batchId", [])} />
                                 </div>
                             )}
                             {filters.startTime && (

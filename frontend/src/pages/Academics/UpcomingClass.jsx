@@ -32,6 +32,7 @@ const UpcomingClass = () => {
         centreId: [],
         subjectId: [],
         classMode: [],
+        batchId: [],
         fromDate: "",
         toDate: "",
         startTime: "",
@@ -114,6 +115,7 @@ const UpcomingClass = () => {
                     teachers: data.teachers || [],
                     centres: data.centres || [],
                     subjects: data.subjects || [],
+                    batches: data.batches || [],
                 });
             }
         } catch {
@@ -133,6 +135,7 @@ const UpcomingClass = () => {
         if (filters.centreId && filters.centreId.length > 0) params.append("centreId", filters.centreId.map(v => v.value).join(","));
         if (filters.subjectId && filters.subjectId.length > 0) params.append("subjectId", filters.subjectId.map(v => v.value).join(","));
         if (filters.classMode && filters.classMode.length > 0) params.append("classMode", filters.classMode.map(v => v.value).join(","));
+        if (filters.batchId && filters.batchId.length > 0) params.append("batchId", filters.batchId.map(v => v.value).join(","));
         if (filters.fromDate) params.append("fromDate", filters.fromDate);
         if (filters.toDate) params.append("toDate", filters.toDate);
         if (filters.startTime) params.append("startTime", filters.startTime);
@@ -206,6 +209,7 @@ const UpcomingClass = () => {
             centreId: [],
             subjectId: [],
             classMode: [],
+            batchId: [],
             fromDate: "",
             toDate: "",
             startTime: "",
@@ -220,6 +224,7 @@ const UpcomingClass = () => {
         filters.centreId.length > 0 ||
         filters.subjectId.length > 0 ||
         filters.classMode.length > 0 ||
+        filters.batchId.length > 0 ||
         filters.fromDate !== "" ||
         filters.toDate !== "" ||
         filters.startTime !== "" ||
@@ -541,6 +546,21 @@ const UpcomingClass = () => {
                                     className="text-sm"
                                 />
                             </div>
+
+                            {/* Batch */}
+                            <div className="col-span-1 min-w-[180px]">
+                                <label className={labelCls}>Batch</label>
+                                <Select
+                                    isMulti
+                                    isSearchable
+                                    options={(dropdownData.batches || []).map(b => ({ value: b._id, label: b.batchName || b.name }))}
+                                    value={filters.batchId}
+                                    onChange={(val) => handleFilterChange("batchId", val)}
+                                    styles={customSelectStyles}
+                                    placeholder="All Batches"
+                                    className="text-sm"
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -572,6 +592,13 @@ const UpcomingClass = () => {
                                 <FilterChip
                                     label={`Modes: ${filters.classMode.map(v => v.label).join(", ")}`}
                                     onRemove={() => handleFilterChange("classMode", [])}
+                                    isDarkMode={isDarkMode}
+                                />
+                            )}
+                            {filters.batchId.length > 0 && (
+                                <FilterChip
+                                    label={`Batches: ${filters.batchId.map(v => v.label).join(", ")}`}
+                                    onRemove={() => handleFilterChange("batchId", [])}
                                     isDarkMode={isDarkMode}
                                 />
                             )}
