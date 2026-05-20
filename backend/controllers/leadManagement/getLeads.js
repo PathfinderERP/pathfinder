@@ -60,6 +60,13 @@ export const getLeads = async (req, res) => {
         const totalLeads = await LeadManagement.countDocuments(query);
         const contactedCount = await LeadManagement.countDocuments({ ...query, followUps: { $exists: true, $not: { $size: 0 } } });
         const remainingCount = await LeadManagement.countDocuments({ ...query, followUps: { $size: 0 } });
+        const walkInCount = await LeadManagement.countDocuments({
+            ...query,
+            $or: [
+                { isWalkIn: true },
+                { source: { $regex: /^walk[- ]?in$/i } }
+            ]
+        });
 
         const leads = await LeadManagement.find(query)
             .populate('className', 'name')
@@ -84,7 +91,8 @@ export const getLeads = async (req, res) => {
             },
             stats: {
                 contactedCount,
-                remainingCount
+                remainingCount,
+                walkInCount
             }
         });
 

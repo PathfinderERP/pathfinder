@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes } from "react-icons/fa";
+import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -50,7 +50,8 @@ const LeadManagementContent = () => {
 
     const [leadStats, setLeadStats] = useState({
         contactedCount: 0,
-        remainingCount: 0
+        remainingCount: 0,
+        walkInCount: 0
     });
 
     const [activityModal, setActivityModal] = useState({
@@ -394,6 +395,16 @@ const LeadManagementContent = () => {
         setDashboardFilters(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleFollowUpStatusCardClick = (statusValue) => {
+        const isSelected = filters.followUpStatus?.some(item => item.value === statusValue);
+        if (isSelected) {
+            handleFilterChange('followUpStatus', []);
+        } else {
+            const label = statusValue === 'contacted' ? 'Contacted' : statusValue === 'remaining' ? 'Pending' : 'Walk In';
+            handleFilterChange('followUpStatus', [{ value: statusValue, label }]);
+        }
+    };
+
     const resetFilters = () => {
         setFilters({
             leadType: [{ value: "HOT LEAD", label: "HOT LEAD" }],
@@ -554,6 +565,30 @@ const LeadManagementContent = () => {
     const handleCounseling = (lead) => {
         setSelectedLead(lead);
         setShowCounselingChoiceModal(true);
+    };
+
+    const handleTagWalkIn = async (leadId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/${leadId}/walk-in`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message || "Student marked as Walk-In successfully");
+                fetchLeads();
+            } else {
+                toast.error(data.message || "Failed to tag Walk-In");
+            }
+        } catch (error) {
+            console.error("Error tagging walk-in:", error);
+            toast.error("Error marking student as Walk-In");
+        }
     };
 
     const handleNormalCounseling = () => {
@@ -1278,7 +1313,8 @@ const LeadManagementContent = () => {
                             <CustomMultiSelect
                                 options={[
                                     { value: "contacted", label: "Contacted" },
-                                    { value: "remaining", label: "Pending" }
+                                    { value: "remaining", label: "Pending" },
+                                    { value: "walkin", label: "Walk In" }
                                 ]}
                                 value={filters.followUpStatus}
                                 onChange={(selected) => handleFilterChange('followUpStatus', selected)}
@@ -1290,7 +1326,14 @@ const LeadManagementContent = () => {
 
                     {/* Follow Up Stats Summary */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 pt-4 border-t border-gray-800/20">
-                        <div className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100 shadow-sm'}`}>
+                        <div 
+                            onClick={() => handleFollowUpStatusCardClick('contacted')}
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
+                                filters.followUpStatus?.some(item => item.value === 'contacted')
+                                    ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500 ring-1 ring-emerald-500' : 'bg-emerald-100 border-emerald-500 shadow-md')
+                                    : (isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50' : 'bg-emerald-50 border-emerald-100 shadow-sm hover:border-emerald-300')
+                            }`}
+                        >
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Contacted Leads</p>
@@ -1302,7 +1345,14 @@ const LeadManagementContent = () => {
                             </div>
                         </div>
 
-                        <div className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-100 shadow-sm'}`}>
+                        <div 
+                            onClick={() => handleFollowUpStatusCardClick('remaining')}
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
+                                filters.followUpStatus?.some(item => item.value === 'remaining')
+                                    ? (isDarkMode ? 'bg-yellow-500/10 border-yellow-500 ring-1 ring-yellow-500' : 'bg-yellow-100 border-yellow-500 shadow-md')
+                                    : (isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/50' : 'bg-yellow-50 border-yellow-100 shadow-sm hover:border-yellow-300')
+                            }`}
+                        >
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>Pending Leads</p>
@@ -1310,6 +1360,25 @@ const LeadManagementContent = () => {
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.3)]`}>
                                     <FaCalendarAlt size={12} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div 
+                            onClick={() => handleFollowUpStatusCardClick('walkin')}
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
+                                filters.followUpStatus?.some(item => item.value === 'walkin')
+                                    ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 ring-1 ring-cyan-500' : 'bg-cyan-100 border-cyan-500 shadow-md')
+                                    : (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/50' : 'bg-cyan-50 border-cyan-100 shadow-sm hover:border-cyan-300')
+                            }`}
+                        >
+                            <div className="flex justify-between items-start relative z-10">
+                                <div>
+                                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Walk In Leads</p>
+                                    <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.walkInCount || 0}</h3>
+                                </div>
+                                <div className={`p-2 rounded-[2px] bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.3)]`}>
+                                    <FaWalking size={12} />
                                 </div>
                             </div>
                         </div>
@@ -1356,7 +1425,7 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned At</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[260px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
@@ -1412,7 +1481,12 @@ const LeadManagementContent = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                {lead.followUps?.length > 0 ? (
+                                                {lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
+                                                    <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-100 text-cyan-600'}`}>
+                                                        <FaWalking size={10} className="animate-pulse" />
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">Walk In</span>
+                                                    </div>
+                                                ) : lead.followUps?.length > 0 ? (
                                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
                                                         <FaCheckCircle size={10} className="animate-pulse" />
                                                         <span className="text-[9px] font-black uppercase tracking-widest">Contacted</span>
@@ -1482,18 +1556,30 @@ const LeadManagementContent = () => {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
+                                            <td className="px-6 py-4 min-w-[260px]">
+                                                <div className="flex items-center gap-2.5 whitespace-nowrap min-w-max">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleCounseling(lead); }}
-                                                        className="bg-cyan-500 hover:bg-cyan-400 text-black px-4 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-95 transition-all"
+                                                        className="bg-cyan-500 hover:bg-cyan-400 text-black px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-95 transition-all whitespace-nowrap"
                                                     >
                                                         Counselling
                                                     </button>
+                                                    {lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
+                                                        <span className="text-emerald-500 font-black uppercase text-[8px] tracking-widest px-3 py-1.5 border border-emerald-500/30 bg-emerald-500/5 rounded-[2px] whitespace-nowrap">
+                                                            Walkined
+                                                        </span>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleTagWalkIn(lead._id); }}
+                                                            className="bg-blue-500 hover:bg-blue-400 text-white px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all whitespace-nowrap"
+                                                        >
+                                                            Walk In
+                                                        </button>
+                                                    )}
                                                     {(canEdit || (lead.createdBy === user?._id || lead.createdBy === user?.id)) && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
-                                                            className={`transition-colors ${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}
+                                                            className={`transition-colors whitespace-nowrap ${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}
                                                         >
                                                             <FaEdit size={14} />
                                                         </button>
@@ -1501,7 +1587,7 @@ const LeadManagementContent = () => {
                                                     {(canDelete || (lead.createdBy === user?._id || lead.createdBy === user?.id)) && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDelete(lead._id); }}
-                                                            className="text-red-500 hover:text-red-400 transition-colors"
+                                                            className="text-red-500 hover:text-red-400 transition-colors whitespace-nowrap"
                                                         >
                                                             <FaTrash size={14} />
                                                         </button>

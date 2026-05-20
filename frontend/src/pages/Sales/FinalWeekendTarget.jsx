@@ -101,11 +101,11 @@ const FinalWeekendTarget = () => {
             
             const processPhase = (start, end) => {
                 const phaseDays = allDays.filter(d => d.day >= start && d.day <= end);
-                const phaseAchieved = phaseDays.reduce((sum, d) => sum + d.achievedWithGST, 0);
-                const weekendAchieved = phaseDays.filter(d => d.isWeekend).reduce((sum, d) => sum + d.achievedWithGST, 0);
+                const phaseAchieved = phaseDays.reduce((sum, d) => sum + d.achievedExclGST, 0);
+                const weekendAchieved = phaseDays.filter(d => d.isWeekend).reduce((sum, d) => sum + d.achievedExclGST, 0);
                 const workingAchieved = phaseAchieved - weekendAchieved;
                 
-                const phaseTarget = (c.monthlyTargetWithGST / c.daysInMonth) * phaseDays.length;
+                const phaseTarget = (c.monthlyTargetExclGST / c.daysInMonth) * phaseDays.length;
                 const workingTarget = phaseTarget * 0.40;
                 const baseWeekendTarget = phaseTarget * 0.60;
 
@@ -264,19 +264,19 @@ const FinalWeekendTarget = () => {
                         const stats = [
                             {
                                 label: "Total Monthly Target",
-                                value: data ? data.centres.reduce((s,c) => s + c.monthlyTargetWithGST, 0) : 0,
+                                value: data ? data.centres.reduce((s,c) => s + c.monthlyTargetExclGST, 0) : 0,
                                 color: "text-blue-500",
                                 bgColor: isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
                             },
                             {
                                 label: "Verified Achievement",
-                                value: data ? data.centres.reduce((s,c) => s + c.totalAchievedWithGST, 0) : 0,
+                                value: data ? data.centres.reduce((s,c) => s + c.totalAchievedExclGST, 0) : 0,
                                 color: "text-emerald-500",
                                 bgColor: isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"
                             },
                             {
                                 label: "Premium Weekend Gain",
-                                value: data ? data.centres.reduce((s,c) => s + c.totalWeekendWithGST, 0) : 0,
+                                value: data ? data.centres.reduce((s,c) => s + c.weeks.reduce((ws, w) => ws + w.weekendTotalExclGST, 0), 0) : 0,
                                 color: "text-purple-500",
                                 bgColor: isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
                             }
@@ -316,10 +316,10 @@ const FinalWeekendTarget = () => {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className={`${isDarkMode ? "bg-[#131619]" : "bg-gray-50"}`}>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Metric</th>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">P1 (1-10)</th>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">P2 (11-20)</th>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">P3 (21-31)</th>
+                                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Metric</th>
+                                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>P1 (1-10)</th>
+                                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>P2 (11-20)</th>
+                                    <th className={`px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>P3 (21-31)</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-100"}`}>
@@ -330,11 +330,11 @@ const FinalWeekendTarget = () => {
                                     
                                     const getPhaseData = (start, end) => {
                                         const phaseDays = allDays.filter(d => d.day >= start && d.day <= end);
-                                        const phaseAchieved = phaseDays.reduce((sum, d) => sum + d.achievedWithGST, 0);
-                                        const weekendAchieved = phaseDays.filter(d => d.isWeekend).reduce((sum, d) => sum + d.achievedWithGST, 0);
+                                        const phaseAchieved = phaseDays.reduce((sum, d) => sum + d.achievedExclGST, 0);
+                                        const weekendAchieved = phaseDays.filter(d => d.isWeekend).reduce((sum, d) => sum + d.achievedExclGST, 0);
                                         const workingAchieved = phaseAchieved - weekendAchieved;
                                         
-                                        const phaseTarget = (c.monthlyTargetWithGST / c.daysInMonth) * phaseDays.length;
+                                        const phaseTarget = (c.monthlyTargetExclGST / c.daysInMonth) * phaseDays.length;
                                         const workingTarget = phaseTarget * 0.40;
                                         const baseWeekendTarget = phaseTarget * 0.60;
 
@@ -360,59 +360,59 @@ const FinalWeekendTarget = () => {
                                                     <div className="flex items-center gap-4">
                                                         <FaCrown className="text-blue-500" size={20} />
                                                         <span className={`text-lg font-black uppercase tracking-widest ${isDarkMode ? "text-blue-400" : "text-blue-800"}`}>
-                                                            {c.centreName} <span className="opacity-30 mx-3">|</span> Monthly: ₹{fmt(c.monthlyTargetWithGST)}
+                                                            {c.centreName} <span className="opacity-30 mx-3">|</span> Monthly: ₹{fmt(c.monthlyTargetExclGST)}
                                                         </span>
                                                     </div>
                                                 </td>
                                             </tr>
                                             <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"}`}>
-                                                <td className="px-6 py-4 font-semibold text-sm">Phase Target</td>
-                                                {phases.map((p, idx) => <td key={idx} className="px-6 py-4 text-center text-sm font-bold">₹{fmt(p.phaseTarget)}</td>)}
+                                                <td className={`px-6 py-4 font-semibold text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Phase Target</td>
+                                                {phases.map((p, idx) => <td key={idx} className={`px-6 py-4 text-center text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>₹{fmt(p.phaseTarget)}</td>)}
                                             </tr>
                                             <tr className={`${isDarkMode ? "bg-emerald-500/5 hover:bg-emerald-500/10" : "bg-emerald-50/30 hover:bg-emerald-50"}`}>
-                                                <td className="px-6 py-4 font-black text-sm text-emerald-600">Phase Achieved</td>
-                                                {phases.map((p, idx) => <td key={idx} className="px-6 py-4 text-center text-sm font-black text-emerald-600">₹{fmt(p.phaseAchieved)}</td>)}
+                                                <td className={`px-6 py-4 font-black text-sm ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>Phase Achieved</td>
+                                                {phases.map((p, idx) => <td key={idx} className={`px-6 py-4 text-center text-sm font-black ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>₹{fmt(p.phaseAchieved)}</td>)}
                                             </tr>
                                             <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"}`}>
-                                                <td className="px-6 py-4 font-semibold text-sm text-cyan-600">Working Target (40%)</td>
-                                                {phases.map((p, idx) => <td key={idx} className="px-6 py-4 text-center text-sm font-semibold text-gray-400">₹{fmt(p.workingTarget)}</td>)}
+                                                <td className={`px-6 py-4 font-semibold text-sm ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}>Working Target (40%)</td>
+                                                {phases.map((p, idx) => <td key={idx} className={`px-6 py-4 text-center text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-500"}`}>₹{fmt(p.workingTarget)}</td>)}
                                             </tr>
                                             <tr className={`${isDarkMode ? "bg-cyan-500/5 hover:bg-cyan-500/10" : "bg-cyan-50/30 hover:bg-cyan-50"}`}>
-                                                <td className="px-6 py-4 font-black text-sm text-cyan-600">Working Achieved</td>
+                                                <td className={`px-6 py-4 font-black text-sm ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}>Working Achieved</td>
                                                 {phases.map((p, idx) => (
-                                                    <td key={idx} className="px-6 py-4 text-center text-sm font-black text-cyan-600">
+                                                    <td key={idx} className={`px-6 py-4 text-center text-sm font-black ${isDarkMode ? "text-cyan-400" : "text-cyan-600"}`}>
                                                         <div>₹{fmt(p.workingAchieved)}</div>
-                                                        {p.workingDeficit > 0 && <div className="text-[10px] text-red-500 mt-1">Shortfall: -₹{fmt(p.workingDeficit)}</div>}
+                                                        {p.workingDeficit > 0 && <div className={`text-[10px] font-bold mt-1 ${isDarkMode ? "text-red-400" : "text-red-500"}`}>Shortfall: -₹{fmt(p.workingDeficit)}</div>}
                                                     </td>
                                                 ))}
                                             </tr>
                                             <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"}`}>
-                                                <td className="px-6 py-4 font-semibold text-sm text-blue-600">Weekend Target (60%)</td>
+                                                <td className={`px-6 py-4 font-semibold text-sm ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>Weekend Target (60%)</td>
                                                 {phases.map((p, idx) => (
-                                                    <td key={idx} className="px-6 py-4 text-center text-sm font-semibold text-gray-400">
+                                                    <td key={idx} className={`px-6 py-4 text-center text-sm font-semibold ${isDarkMode ? "text-gray-300" : "text-gray-500"}`}>
                                                         <div>₹{fmt(p.baseWeekendTarget)}</div>
                                                         {p.workingDeficit > 0 && (
                                                             <div className="flex flex-col items-center mt-1 space-y-1">
                                                                 <span className="text-[9px] font-black text-blue-400 bg-blue-500/20 px-1.5 py-0.5 rounded border border-blue-500/30">
                                                                     + ₹{fmt(p.workingDeficit)} Recovery
                                                                 </span>
-                                                                <p className="text-[11px] font-black text-blue-500">New Target: ₹{fmt(p.adjustedWeekendTarget)}</p>
+                                                                <p className={`text-[11px] font-black ${isDarkMode ? "text-blue-400" : "text-blue-500"}`}>New Target: ₹{fmt(p.adjustedWeekendTarget)}</p>
                                                             </div>
                                                         )}
                                                     </td>
                                                 ))}
                                             </tr>
                                             <tr className={`${isDarkMode ? "bg-blue-500/5 hover:bg-blue-500/10" : "bg-blue-50/30 hover:bg-blue-50"}`}>
-                                                <td className="px-6 py-4 font-black text-sm text-blue-600">Weekend Achieved</td>
+                                                <td className={`px-6 py-4 font-black text-sm ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>Weekend Achieved</td>
                                                 {phases.map((p, idx) => (
-                                                    <td key={idx} className="px-6 py-4 text-center text-sm font-black text-blue-600">
+                                                    <td key={idx} className={`px-6 py-4 text-center text-sm font-black ${isDarkMode ? "text-blue-400" : "text-blue-600"}`}>
                                                         <div>₹{fmt(p.weekendAchieved)}</div>
-                                                        {p.weekendDeficit > 0 && <div className="text-[10px] text-red-500 mt-1">Shortfall: -₹{fmt(p.weekendDeficit)}</div>}
+                                                        {p.weekendDeficit > 0 && <div className={`text-[10px] font-bold mt-1 ${isDarkMode ? "text-red-400" : "text-red-500"}`}>Shortfall: -₹{fmt(p.weekendDeficit)}</div>}
                                                     </td>
                                                 ))}
                                             </tr>
-                                            <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"} border-b border-gray-100`}>
-                                                <td className="px-6 py-4 font-black text-sm">Efficiency Score</td>
+                                            <tr className={`${isDarkMode ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"} border-b ${isDarkMode ? "border-gray-800" : "border-gray-100"}`}>
+                                                <td className={`px-6 py-4 font-black text-sm ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Efficiency Score</td>
                                                 {phases.map((p, idx) => (
                                                     <td key={idx} className="px-6 py-4">
                                                         <div className="flex flex-col items-center gap-1.5">

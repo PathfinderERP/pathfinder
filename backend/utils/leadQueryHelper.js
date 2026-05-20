@@ -99,6 +99,14 @@ export const buildLeadQuery = async (queryParams, user) => {
         query.followUps = { $exists: true, $not: { $size: 0 } };
     } else if (followUpStatus === 'remaining') {
         query.followUps = { $size: 0 };
+    } else if (followUpStatus === 'walkin') {
+        query.$and = query.$and || [];
+        query.$and.push({
+            $or: [
+                { isWalkIn: true },
+                { source: { $regex: /^walk[- ]?in$/i } }
+            ]
+        });
     }
 
     // Exclude counseled leads

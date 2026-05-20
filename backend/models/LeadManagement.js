@@ -42,6 +42,10 @@ const leadManagementSchema = new mongoose.Schema({
     source: {
         type: String,
     },
+    isWalkIn: {
+        type: Boolean,
+        default: false
+    },
     targetExam: {
         type: String,
     },

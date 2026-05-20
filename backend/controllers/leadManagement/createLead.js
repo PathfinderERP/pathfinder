@@ -28,6 +28,7 @@ export const createLead = async (req, res) => {
             secondPhoneNumber,
             schoolName,
             source,
+            isWalkIn: source && /^walk[- ]?in$/i.test(source) ? true : false,
             targetExam,
             leadType,
             leadResponsibility,
