@@ -55,7 +55,7 @@ const EnrolledStudentsContent = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editAdmission, setEditAdmission] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedAdmission, setSelectedAdmission] = useState(null);
     const [selectedInstallment, setSelectedInstallment] = useState(null);
@@ -1078,6 +1078,10 @@ const EnrolledStudentsContent = () => {
             { label: 'Enrollment ID', key: 'admissionNumber' },
             { label: 'Admission Date', key: 'admissionDate' },
             { label: 'Admission Status', key: 'admissionStatus' },
+            { label: 'Lead By', key: 'leadBy.name' },
+            { label: 'Lead Date', key: 'leadBy.createdAt' },
+            { label: 'Counselled By', key: 'counselledByDetails.name' },
+            { label: 'Counselled Date', key: 'counselledByDetails.createdAt' },
             { label: 'Admitted By', key: 'createdBy' },
 
             // Course & Dept
@@ -1153,6 +1157,14 @@ const EnrolledStudentsContent = () => {
                 admissionNumber: admission.admissionNumber || '',
                 admissionDate: formatDate(admission.admissionDate),
                 admissionStatus: admission.admissionStatus || '',
+                leadBy: {
+                    name: admission.leadBy?.name || '',
+                    createdAt: admission.leadBy?.createdAt ? new Date(admission.leadBy.createdAt).toLocaleString('en-GB') : ''
+                },
+                counselledByDetails: {
+                    name: admission.counselledByDetails?.name || '',
+                    createdAt: admission.counselledByDetails?.createdAt ? new Date(admission.counselledByDetails.createdAt).toLocaleString('en-GB') : ''
+                },
                 createdBy: admission.createdBy?.name || '',
                 course: {
                     courseName: admission.course?.courseName || '',
@@ -1558,6 +1570,7 @@ const EnrolledStudentsContent = () => {
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Courses</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Assets</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Lead By</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Counselled By</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admitted By</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
@@ -1566,11 +1579,11 @@ const EnrolledStudentsContent = () => {
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
                                 [...Array(10)].map((_, i) => (
-                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={12} />
+                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={16} />
                                 ))
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="13" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                                    <td colSpan="16" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
                                         {searchQuery ? "No matches found" : "No records available"}
                                     </td>
                                 </tr>
@@ -1595,6 +1608,23 @@ const EnrolledStudentsContent = () => {
                                         });
                                         const latestAdmission = relevantAdmissions[0] || studentItem.latestAdmission;
                                         const studentImage = student.studentImage || null;
+
+                                        // Lead By Data
+                                        const leadBy = studentItem.student?.leadBy || latestAdmission?.leadBy;
+                                        const leadByName = leadBy?.name || "System";
+                                        const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
+                                        const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+
+                                        // Counselled By Data
+                                        const counselBy = studentItem.student?.counselledByDetails || latestAdmission?.counselledByDetails;
+                                        const counselByName = counselBy?.name || studentItem.student?.counselledBy || "N/A";
+                                        const counselByDate = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleDateString('en-GB') : "";
+                                        const counselByTime = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+
+                                        // Admitted By Data
+                                        const admittedByName = latestAdmission?.createdBy?.name || (latestAdmission?.createdBy ? "Unknown" : "System");
+                                        const admittedDate = latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleDateString('en-GB') : "";
+                                        const admittedTime = latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "");
 
                                         return (
                                             <tr
@@ -1719,28 +1749,56 @@ const EnrolledStudentsContent = () => {
                                                         </span>
                                                     )}
                                                 </td>
+                                                {/* Lead By Column */}
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                                                            {leadByName.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                {leadByName}
+                                                            </span>
+                                                            <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
+                                                                {leadByDate} {leadByTime && `| ${leadByTime}`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                {/* Counselled By Column */}
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
-                                                            {studentItem.student?.counselledBy
-                                                                ? studentItem.student.counselledBy.charAt(0).toUpperCase()
-                                                                : "N"}
+                                                            {counselByName.charAt(0).toUpperCase()}
                                                         </div>
-                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                            {studentItem.student?.counselledBy || "N/A"}
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                {counselByName}
+                                                            </span>
+                                                            {counselByDate && (
+                                                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
+                                                                    {counselByDate} {counselByTime && `| ${counselByTime}`}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </td>
+                                                {/* Admitted By Column */}
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
-                                                            {latestAdmission?.createdBy?.name
-                                                                ? latestAdmission.createdBy.name.charAt(0).toUpperCase()
-                                                                : (latestAdmission?.createdBy ? "U" : "A")}
+                                                            {admittedByName.charAt(0).toUpperCase()}
                                                         </div>
-                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                            {latestAdmission?.createdBy?.name || (latestAdmission?.createdBy ? "Unknown" : "System")}
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                {admittedByName}
+                                                            </span>
+                                                            {admittedDate && (
+                                                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
+                                                                    {admittedDate} {admittedTime && `| ${admittedTime}`}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
@@ -1819,6 +1877,7 @@ const EnrolledStudentsContent = () => {
                     itemsPerPage={itemsPerPage}
                     onPageChange={setCurrentPage}
                     theme={isDarkMode ? 'dark' : 'light'}
+                    onItemsPerPageChange={setItemsPerPage}
                 />
             </div>
 

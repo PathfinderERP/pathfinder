@@ -147,11 +147,121 @@ export const getAdmissions = async (req, res) => {
             return map;
         }, {});
 
+        // Gather student details for bulk lead & counselling lookup
+        const phoneNumbers = [];
+        const emails = [];
+        const studentIds = [];
+        populatedAdmissions.forEach(a => {
+            if (a.student) {
+                studentIds.push(a.student._id);
+                if (a.student.studentsDetails && a.student.studentsDetails[0]) {
+                    const det = a.student.studentsDetails[0];
+                    if (det.mobileNum) phoneNumbers.push(det.mobileNum.toString().trim());
+                    if (det.whatsappNumber) phoneNumbers.push(det.whatsappNumber.toString().trim());
+                    if (det.studentEmail) emails.push(det.studentEmail.toString().trim().toLowerCase());
+                }
+            }
+        });
+
+        // Bulk find leads matching by phone/email
+        let leadMap = {};
+        try {
+            const LeadManagement = (await import("../../models/LeadManagement.js")).default;
+            const leads = await LeadManagement.find({
+                $or: [
+                    { phoneNumber: { $in: phoneNumbers } },
+                    { secondPhoneNumber: { $in: phoneNumbers } },
+                    { email: { $in: emails } }
+                ]
+            }).populate('createdBy', 'name').lean();
+
+            leads.forEach(l => {
+                if (l.phoneNumber) leadMap[l.phoneNumber.toString().trim()] = l;
+                if (l.secondPhoneNumber) leadMap[l.secondPhoneNumber.toString().trim()] = l;
+                if (l.email) leadMap[l.email.toString().trim().toLowerCase()] = l;
+            });
+        } catch (leadErr) {
+            console.error("Error fetching matching leads in getAdmissions:", leadErr);
+        }
+
+        // Bulk find board course counsellings
+        let boardCounsMap = {};
+        try {
+            const BoardCourseCounselling = (await import("../../models/Admission/BoardCourseCounselling.js")).default;
+            const boardCouns = await BoardCourseCounselling.find({
+                studentId: { $in: studentIds }
+            }).populate('counselledBy', 'name').lean();
+
+            boardCouns.forEach(bc => {
+                if (bc.studentId) {
+                    boardCounsMap[bc.studentId.toString()] = bc;
+                }
+            });
+        } catch (counsErr) {
+            console.error("Error fetching board counsellings in getAdmissions:", counsErr);
+        }
+
         const finalAdmissions = populatedAdmissions.map(admission => {
             if (admission.student && admission.student.counselledBy && mongoose.Types.ObjectId.isValid(admission.student.counselledBy)) {
                 const idLower = admission.student.counselledBy.toString().toLowerCase();
                 admission.student.counselledBy = userMap[idLower] || admission.student.counselledBy;
             }
+
+            let leadBy = { name: "System", createdAt: admission.createdAt || new Date() };
+            let counselledByDetails = {
+                name: (admission.student && admission.student.counselledBy) || "N/A",
+                createdAt: (admission.student && admission.student.createdAt) || admission.createdAt || new Date()
+            };
+
+            if (admission.student) {
+                // 1. Find matching lead
+                let matchedLead = null;
+                if (admission.student.studentsDetails && admission.student.studentsDetails[0]) {
+                    const det = admission.student.studentsDetails[0];
+                    if (det.mobileNum && leadMap[det.mobileNum.toString().trim()]) {
+                        matchedLead = leadMap[det.mobileNum.toString().trim()];
+                    } else if (det.whatsappNumber && leadMap[det.whatsappNumber.toString().trim()]) {
+                        matchedLead = leadMap[det.whatsappNumber.toString().trim()];
+                    } else if (det.studentEmail && leadMap[det.studentEmail.toString().trim().toLowerCase()]) {
+                        matchedLead = leadMap[det.studentEmail.toString().trim().toLowerCase()];
+                    }
+                }
+
+                if (matchedLead) {
+                    leadBy = {
+                        name: matchedLead.createdBy?.name || "System",
+                        createdAt: matchedLead.createdAt || matchedLead.updatedAt || admission.student.createdAt
+                    };
+                } else {
+                    leadBy = {
+                        name: admission.student.createdBy || "System",
+                        createdAt: admission.student.createdAt || admission.createdAt
+                    };
+                }
+
+                // 2. Counselled By Details
+                const bcRecord = boardCounsMap[admission.student._id.toString()];
+                if (bcRecord) {
+                    counselledByDetails = {
+                        name: bcRecord.counselledBy?.name || admission.student.counselledBy || "N/A",
+                        createdAt: bcRecord.counselledDate || bcRecord.createdAt || admission.student.createdAt
+                    };
+                } else {
+                    counselledByDetails = {
+                        name: admission.student.counselledBy || "N/A",
+                        createdAt: admission.student.createdAt || admission.createdAt
+                    };
+                }
+
+                // Attach to student
+                admission.student.leadBy = leadBy;
+                admission.student.counselledByDetails = counselledByDetails;
+            }
+
+            // Attach to admission
+            admission.leadBy = leadBy;
+            admission.counselledByDetails = counselledByDetails;
+
             return admission;
         });
 
