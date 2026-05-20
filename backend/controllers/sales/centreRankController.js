@@ -185,7 +185,8 @@ export const getCentreRankings = async (req, res) => {
                     as: "centre"
                 }
             },
-            { $unwind: "$centre" }
+            { $unwind: "$centre" },
+            { $match: { "centre.status": { $ne: "deactive" } } }
         ]);
 
         // 2. comparison logic (Only for Monthly view without startDate/endDate and ONLY single month is being queried directly for comparison)
@@ -211,10 +212,15 @@ export const getCentreRankings = async (req, res) => {
             const prevTargets = await CentreTarget.find({
                 year: prevYear,
                 month: prevMonthName
-            }).populate("centre", "centreName");
+            }).populate({
+                path: "centre",
+                match: { status: { $ne: "deactive" } }
+            });
+
+            const filteredPrevTargets = prevTargets.filter(t => t.centre);
 
             const targetMap = {};
-            prevTargets.forEach(t => {
+            filteredPrevTargets.forEach(t => {
                 const cName = t.centre?.centreName?.trim().toUpperCase();
                 if (cName) targetMap[cName] = (targetMap[cName] || 0) + t.targetAmount;
             });
@@ -258,7 +264,7 @@ export const getCentreRankings = async (req, res) => {
                 if (s._id) prevPaymentMap[s._id.trim().toUpperCase()] = s.totalPaid;
             });
 
-            const prevRankList = prevTargets.map(t => {
+            const prevRankList = filteredPrevTargets.map(t => {
                 const cName = t.centre?.centreName?.trim().toUpperCase();
                 const target = targetMap[cName] || 0;
                 const achieved = prevPaymentMap[cName] || 0;
@@ -284,6 +290,16 @@ export const getCentreRankings = async (req, res) => {
         // Note: For extreme accuracy, this would need to aggregate all historical transactions,
         // which is deferred for performance reasons unless explicitly requested to be recalculated.
         const bestStats = await CentreTarget.aggregate([
+            {
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "centre",
+                    foreignField: "_id",
+                    as: "centreData"
+                }
+            },
+            { $unwind: "$centreData" },
+            { $match: { "centreData.status": { $ne: "deactive" } } },
             {
                 $addFields: {
                     pct: {

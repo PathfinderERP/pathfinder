@@ -136,7 +136,11 @@ export const getTargetAnalysis = async (req, res) => {
         }
 
         const targets = await CentreTarget.find(query)
-            .populate({ path: 'centre', select: 'centreName' });
+            .populate({
+                path: 'centre',
+                select: 'centreName status',
+                match: { status: { $ne: 'deactive' } }
+            });
 
         // Aggregation per Centre
         const aggregated = {};

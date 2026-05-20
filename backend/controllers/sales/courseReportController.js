@@ -41,10 +41,14 @@ export const getCourseReport = async (req, res) => {
             matchStage.academicSession = session;
         }
 
-        // 3. Centre Filter (Resolve IDs to Names)
+        // Resolve Centre IDs for filtering
+        const activeCentres = await Centre.find({ status: { $ne: "deactive" } }).select("centreName");
+        const activeCentreNames = activeCentres.map(c => c.centreName);
+        const activeCentreIds = activeCentres.map(c => c._id.toString());
+
         let allowedCentreNames = [];
         if (req.user.role !== 'superAdmin') {
-            const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
+            const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" } }).select("centreName");
             allowedCentreNames = userCentres.map(c => c.centreName);
         }
 
@@ -53,7 +57,7 @@ export const getCourseReport = async (req, res) => {
             const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
 
             if (validIds.length > 0) {
-                const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
+                const requestedCentres = await Centre.find({ _id: { $in: validIds }, status: { $ne: "deactive" } }).select("centreName");
                 const requestedNames = requestedCentres.map(c => c.centreName);
 
                 if (req.user.role !== 'superAdmin') {
@@ -61,10 +65,16 @@ export const getCourseReport = async (req, res) => {
                     matchStage.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
                 } else if (requestedNames.length > 0) {
                     matchStage.centre = { $in: requestedNames };
+                } else {
+                    matchStage.centre = { $in: ["__NO_MATCH__"] };
                 }
             }
-        } else if (req.user.role !== 'superAdmin') {
-            matchStage.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
+        } else {
+            if (req.user.role !== 'superAdmin') {
+                matchStage.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
+            } else {
+                matchStage.centre = { $in: activeCentreNames.length > 0 ? activeCentreNames : ["__NO_MATCH__"] };
+            }
         }
 
         // 4. Course Filter (New: Implement with ObjectId casting)
@@ -222,17 +232,22 @@ export const getCourseReport = async (req, res) => {
         });
 
         // Process Centre Data
-        const allCentres = await Centre.find({}, 'centreName _id');
+        const allCentres = await Centre.find({ status: { $ne: "deactive" } }, 'centreName _id');
         const centreMap = {};
+        const activeCentresSet = new Set();
         allCentres.forEach(c => {
             centreMap[c._id.toString()] = c.centreName;
+            activeCentresSet.add(c._id.toString());
+            activeCentresSet.add(c.centreName);
         });
 
-        const centreDataStats = centreStats.map(item => ({
-            name: centreMap[item._id] || item._id,
-            enrollment: item.count,
-            revenue: item.revenue
-        })).sort((a, b) => b.revenue - a.revenue);
+        const centreDataStats = centreStats
+            .filter(item => activeCentresSet.has(item._id?.toString()))
+            .map(item => ({
+                name: centreMap[item._id] || item._id,
+                enrollment: item.count,
+                revenue: item.revenue
+            })).sort((a, b) => b.revenue - a.revenue);
 
         // Process Trend Data
         const reportType = req.query.reportType || 'monthly';
@@ -252,13 +267,15 @@ export const getCourseReport = async (req, res) => {
             }));
         }
 
-        const detailedReportData = detailedStats.map(item => ({
-            courseName: item.courseName,
-            centreName: centreMap[item.centre] || item.centre,
-            count: item.count,
-            percent: totalEnrollments > 0 ? ((item.count / totalEnrollments) * 100).toFixed(2) : 0,
-            revenue: item.revenue
-        }));
+        const detailedReportData = detailedStats
+            .filter(item => activeCentresSet.has(item.centre?.toString()))
+            .map(item => ({
+                courseName: item.courseName,
+                centreName: centreMap[item.centre] || item.centre,
+                count: item.count,
+                percent: totalEnrollments > 0 ? ((item.count / totalEnrollments) * 100).toFixed(2) : 0,
+                revenue: item.revenue
+            }));
 
         res.status(200).json({
             data: courseData,

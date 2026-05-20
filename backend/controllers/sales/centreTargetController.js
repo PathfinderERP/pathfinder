@@ -285,7 +285,7 @@ export const getQuarterlyFullReport = async (req, res) => {
         const { financialYear } = req.query;
         if (!financialYear) return res.status(400).json({ message: "Financial Year is required" });
 
-        const centres = await Centre.find({}).sort({ centreName: 1 });
+        const centres = await Centre.find({ status: "active" }).sort({ centreName: 1 });
         
         const quarters = [
             { id: "q1", name: "Q1", months: ["April", "May", "June"], match: "April,May,June" },
@@ -300,6 +300,7 @@ export const getQuarterlyFullReport = async (req, res) => {
             const row = {
                 centreName: c.centreName,
                 centreId: c._id,
+                status: c.status,
                 q1: { target: 0, achieved: 0 },
                 q2: { target: 0, achieved: 0 },
                 q3: { target: 0, achieved: 0 },

@@ -76,6 +76,7 @@ const CentreRank = () => {
             if (centreRes.ok) {
                 const resData = await centreRes.json();
                 let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+                centerList = centerList.filter(c => c.status !== "deactive");
                 const storedUser = localStorage.getItem("user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);

@@ -451,6 +451,7 @@ export const getWeeklyTarget = async (req, res) => {
                 return {
                     centreId: c._id,
                     centreName: c.centreName,
+                    status: c.status,
                     monthlyTargetExclGST,
                     monthlyTargetWithGST,
                     daysInMonth,

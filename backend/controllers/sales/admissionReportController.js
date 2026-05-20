@@ -44,10 +44,14 @@ export const getAdmissionReport = async (req, res) => {
         leadQuery.createdAt = { $gte: start, $lte: end };
 
         // Resolve Centre IDs for filtering
+        let activeCentres = await Centre.find({ status: { $ne: "deactive" } }).select("centreName");
+        let activeCentreIds = activeCentres.map(c => c._id.toString());
+        let activeCentreNames = activeCentres.map(c => c.centreName);
+
         let allowedCentreIds = [];
         let allowedCentreNames = [];
         if (req.user.role !== 'superAdmin') {
-            const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
+            const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" } }).select("centreName");
             allowedCentreIds = userCentres.map(c => c._id.toString());
             allowedCentreNames = userCentres.map(c => c.centreName);
         }
@@ -66,15 +70,21 @@ export const getAdmissionReport = async (req, res) => {
                 const finalNames = finalCentres.map(c => c.centreName);
                 admissionQuery.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
             } else if (validIds.length > 0) {
-                const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+                const finalIds = validIds.filter(id => activeCentreIds.includes(id));
+                const objectIds = finalIds.map(id => new mongoose.Types.ObjectId(id));
                 leadQuery.centre = { $in: objectIds };
                 const centres = await Centre.find({ _id: { $in: objectIds } }).select("centreName");
                 const centreNames = centres.map(c => c.centreName);
                 admissionQuery.centre = { $in: centreNames.length > 0 ? centreNames : ["__NO_MATCH__"] };
             }
-        } else if (req.user.role !== 'superAdmin') {
-            leadQuery.centre = { $in: allowedCentreIds.map(id => new mongoose.Types.ObjectId(id)) };
-            admissionQuery.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
+        } else {
+            if (req.user.role !== 'superAdmin') {
+                leadQuery.centre = { $in: allowedCentreIds.map(id => new mongoose.Types.ObjectId(id)) };
+                admissionQuery.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
+            } else {
+                leadQuery.centre = { $in: activeCentreIds.map(id => new mongoose.Types.ObjectId(id)) };
+                admissionQuery.centre = { $in: activeCentreNames.length > 0 ? activeCentreNames : ["__NO_MATCH__"] };
+            }
         }
 
         // Course Filter

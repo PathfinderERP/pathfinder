@@ -58,6 +58,11 @@ const DailyCenterTracking = () => {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent flex items-center gap-3">
                             <FaBuilding className="text-cyan-500" />
                             Daily Center Tracking
+                            {centers.length > 0 && (
+                                <span className={`text-xs px-2.5 py-1 rounded border font-semibold ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-cyan-50 text-cyan-700 border-cyan-100'}`}>
+                                    {centers.filter(c => c.status === "Active" || c.status === "active").length} Active
+                                </span>
+                            )}
                         </h1>
                         <p className={`mt-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                             Monitor daily operations, attendance, admissions, and collections across all centers.
@@ -147,7 +152,14 @@ const DailyCenterTracking = () => {
                 {/* Main Content Area */}
                 <div className={`rounded overflow-hidden border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                     <div className={`p-5 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                        <h2 className="text-lg font-bold">Center Operations Overview</h2>
+                        <h2 className="text-lg font-bold flex items-center gap-2">
+                            Center Operations Overview
+                            {centers.length > 0 && (
+                                <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${isDarkMode ? 'bg-cyan-950 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
+                                    {filteredCenters.filter(c => c.status === "Active" || c.status === "active").length} Active
+                                </span>
+                            )}
+                        </h2>
                         
                         {/* View Mode Toggle */}
                         <div className={`flex rounded p-1 border ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-100 border-gray-200'}`}>

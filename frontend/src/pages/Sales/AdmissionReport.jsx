@@ -162,6 +162,7 @@ const AdmissionReport = () => {
             if (centreRes.ok) {
                 const resData = await centreRes.json();
                 let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+                centerList = centerList.filter(c => c.status !== "deactive");
 
                 // Filter by allocated centers
                 const storedUser = localStorage.getItem("user");

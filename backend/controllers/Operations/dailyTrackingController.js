@@ -26,8 +26,8 @@ export const getDailyTracking = async (req, res) => {
 
         const dateFilter = { $gte: today, $lt: tomorrow };
 
-        // 1. Fetch all centers
-        const centers = await CentreSchema.find({}).lean();
+        // 1. Fetch all active centers
+        const centers = await CentreSchema.find({ status: { $ne: "deactive" } }).lean();
 
         // Prepare tracking data
         const trackingData = await Promise.all(centers.map(async (center) => {

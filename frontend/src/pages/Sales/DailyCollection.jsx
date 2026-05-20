@@ -99,7 +99,8 @@ const DailyCollection = () => {
 
             if (cRes.ok) {
                 const centreData = await cRes.json();
-                const centreList = Array.isArray(centreData) ? centreData : centreData.centres || [];
+                let centreList = Array.isArray(centreData) ? centreData : centreData.centres || [];
+                centreList = centreList.filter(c => c.status !== "deactive");
                 const storedUser = localStorage.getItem("user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);

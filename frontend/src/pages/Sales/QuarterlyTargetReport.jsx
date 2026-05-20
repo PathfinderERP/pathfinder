@@ -192,7 +192,7 @@ const QuarterlyTargetReport = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : data.map((item, idx) => {
+                                ) : data.filter(item => item.status === "active").map((item, idx) => {
                                     const getPct = (ach, tar) => tar > 0 ? (ach / tar) * 100 : 0;
                                     const getColorClass = (pct) => {
                                         if (pct >= 50) return 'text-green-500';
@@ -202,7 +202,14 @@ const QuarterlyTargetReport = () => {
 
                                     return (
                                         <tr key={idx} className={`hover:bg-blue-600/5 transition-colors group ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            <td className="p-4 text-xs font-black uppercase sticky left-0 z-10 bg-inherit group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xl">{item.centreName}</td>
+                                            <td className="p-4 text-xs font-black uppercase sticky left-0 z-10 bg-inherit group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xl">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{item.centreName}</span>
+                                                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
+                                                        Active
+                                                    </span>
+                                                </div>
+                                            </td>
                                             
                                             {/* Q1 */}
                                             <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q1.targetWithGST || item.q1.target * 1.18).toLocaleString()}</td>

@@ -58,6 +58,7 @@ const TargetAchievementReport = () => {
             if (centreRes.ok) {
                 const resData = await centreRes.json();
                 let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+                centerList = centerList.filter(c => c.status !== "deactive");
 
                 // Filter by allocated centers if not superAdmin
                 const storedUser = localStorage.getItem("user");

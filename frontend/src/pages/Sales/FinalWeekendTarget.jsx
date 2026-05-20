@@ -61,6 +61,7 @@ const FinalWeekendTarget = () => {
                         const allowed = user.centres.map(id => (typeof id === "object" ? id._id : id));
                         list = list.filter(c => allowed.includes(c._id));
                     }
+                    list = list.filter(c => c.status === "active");
                     setCentres(list.sort((a, b) => a.centreName.localeCompare(b.centreName)));
                 }
             } catch (e) { console.error(e); }
@@ -93,10 +94,11 @@ const FinalWeekendTarget = () => {
     useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleExport = () => {
-        if (!data?.centres?.length) { toast.warn("No data to export"); return; }
+        const activeCentres = data?.centres?.filter(c => c.status === "active") || [];
+        if (!activeCentres.length) { toast.warn("No data to export"); return; }
         
         const rows = [];
-        data.centres.forEach(c => {
+        activeCentres.forEach(c => {
             const allDays = c.weeks.flatMap(w => w.days).filter(d => !d.isEmpty && !d.isHidden);
             
             const processPhase = (start, end) => {
@@ -261,22 +263,23 @@ const FinalWeekendTarget = () => {
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {(() => {
+                        const activeCentres = data ? data.centres.filter(c => c.status === "active") : [];
                         const stats = [
                             {
                                 label: "Total Monthly Target",
-                                value: data ? data.centres.reduce((s,c) => s + c.monthlyTargetExclGST, 0) : 0,
+                                value: activeCentres.reduce((s,c) => s + c.monthlyTargetExclGST, 0),
                                 color: "text-blue-500",
                                 bgColor: isDarkMode ? "bg-blue-500/10" : "bg-blue-50"
                             },
                             {
                                 label: "Verified Achievement",
-                                value: data ? data.centres.reduce((s,c) => s + c.totalAchievedExclGST, 0) : 0,
+                                value: activeCentres.reduce((s,c) => s + c.totalAchievedExclGST, 0),
                                 color: "text-emerald-500",
                                 bgColor: isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"
                             },
                             {
                                 label: "Premium Weekend Gain",
-                                value: data ? data.centres.reduce((s,c) => s + c.weeks.reduce((ws, w) => ws + w.weekendTotalExclGST, 0), 0) : 0,
+                                value: activeCentres.reduce((s,c) => s + c.weeks.reduce((ws, w) => ws + w.weekendTotalExclGST, 0), 0),
                                 color: "text-purple-500",
                                 bgColor: isDarkMode ? "bg-purple-500/10" : "bg-purple-50"
                             }
@@ -325,7 +328,7 @@ const FinalWeekendTarget = () => {
                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-100"}`}>
                                 {loading ? (
                                     [1, 2].map(i => <tr key={i}><td colSpan="4" className="h-20 animate-pulse bg-gray-500/5" /></tr>)
-                                ) : data?.centres.map(c => {
+                                ) : data?.centres.filter(c => c.status === "active").map(c => {
                                     const allDays = c.weeks.flatMap(w => w.days).filter(d => !d.isEmpty && !d.isHidden);
                                     
                                     const getPhaseData = (start, end) => {
