@@ -65,6 +65,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
         { name: "Red Flag Desk", icon: <FaExclamationCircle />, path: "/red-flag-desk" },
+        { name: "Daily Tracking Log", icon: <FaHistory />, path: "/daily-tracking-log" },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
@@ -340,7 +341,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community") return true;
+        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Daily Tracking Log") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override

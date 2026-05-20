@@ -48,7 +48,12 @@ export const tagWalkIn = async (req, res) => {
 
         const updatedLead = await LeadManagement.findByIdAndUpdate(
             id,
-            { isWalkIn: true, source: "Walk In" },
+            { 
+                isWalkIn: true, 
+                source: "Walk In",
+                walkInDate: new Date(),
+                walkInBy: req.user.id || req.user._id
+            },
             { new: true }
         ).populate(['className', 'centre', 'course', 'board']);
 

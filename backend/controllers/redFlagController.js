@@ -76,6 +76,7 @@ export const getRedFlags = async (req, res) => {
             const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager', 'marketing'].includes(role);
             const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
             const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
+            const hasWalkIns = ['telecaller', 'counsellor'].includes(role);
 
             if (hasCalls) {
                 // Call Volume Check
@@ -91,13 +92,17 @@ export const getRedFlags = async (req, res) => {
                 ]);
                 
                 const callMetricValue = callStats.length > 0 ? callStats[0].totalCalls : 0;
-                const callTargetValue = 50 * daysDiff;
+                const callTargetValue = (role === 'counsellor' ? 30 : 50) * daysDiff;
 
                 await evaluateAndPush(
                     'calls',
                     callTargetValue,
                     callMetricValue,
                     (m) => {
+                        if (role === 'counsellor') {
+                            if (m < 30 * daysDiff) return "Critical";
+                            return "Low";
+                        }
                         if (m < 30 * daysDiff) return "Critical";
                         if (m < 35 * daysDiff) return "High";
                         if (m < 45 * daysDiff) return "Medium";
@@ -157,6 +162,30 @@ export const getRedFlags = async (req, res) => {
                         return "Low";
                     },
                     (m, t) => `${t - m} admissions short for this period. Total: ${m}/${t}`
+                );
+            }
+
+            if (hasWalkIns) {
+                // Walk-in Volume Check
+                const walkInCount = await LeadManagement.countDocuments({
+                    walkInBy: user._id,
+                    isWalkIn: true,
+                    walkInDate: { $gte: start, $lte: end }
+                });
+
+                const walkInTargetValue = 5 * daysDiff;
+
+                await evaluateAndPush(
+                    'walkin',
+                    walkInTargetValue,
+                    walkInCount,
+                    (m) => {
+                        if (m < 1 * daysDiff) return "Critical";
+                        if (m < 3 * daysDiff) return "High";
+                        if (m < 5 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} walk-ins short for this period. Total: ${m}/${t}`
                 );
             }
 

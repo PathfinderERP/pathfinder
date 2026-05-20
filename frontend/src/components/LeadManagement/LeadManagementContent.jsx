@@ -45,7 +45,8 @@ const LeadManagementContent = () => {
         coldLeads: 0,
         totalScheduled: 0,
         recentActivity: [],
-        scheduledList: []
+        scheduledList: [],
+        walkInsCountToday: 0
     });
 
     const [leadStats, setLeadStats] = useState({
@@ -582,6 +583,7 @@ const LeadManagementContent = () => {
             if (response.ok) {
                 toast.success(data.message || "Student marked as Walk-In successfully");
                 fetchLeads();
+                fetchFollowUpStats(); // refresh walk-in progress bar immediately
             } else {
                 toast.error(data.message || "Failed to tag Walk-In");
             }
@@ -1060,76 +1062,78 @@ const LeadManagementContent = () => {
                     </div>
                 </div>
 
-                {/* Daily Goal Progress Bar for Telecallers */}
-                {user?.role === 'telecaller' && (
-                    <div className={`mb-8 border rounded-[2px] p-6 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-[2px] ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-green-500/10 text-green-500' :
-                                    (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' :
-                                        'bg-red-500/10 text-red-500'
-                                    }`}>
-                                    <FaChartLine size={14} />
+                {/* Daily Goal Progress Bars – Telecaller & Counsellor */}
+                {['telecaller', 'counsellor'].includes(user?.role?.toLowerCase()) && (
+                    <div className={`mb-8 grid gap-6 ${user?.role?.toLowerCase() === 'telecaller' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+
+                        {/* Daily Call Progress – telecaller only */}
+                        {user?.role?.toLowerCase() === 'telecaller' && (
+                            <div className={`border rounded-[2px] p-5 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <div className="flex items-center justify-between gap-4 mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-[2px] ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-green-500/10 text-green-500' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
+                                            <FaChartLine size={13} />
+                                        </div>
+                                        <div>
+                                            <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Calls</h3>
+                                            <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Goal: 50 calls / day</p>
+                                        </div>
+                                    </div>
+                                    <span className={`text-[9px] font-black px-2.5 py-1 rounded-[2px] border ${followUpStats.totalFollowUps >= 50 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+                                        {followUpStats.totalFollowUps || 0} / 50
+                                    </span>
                                 </div>
-                                <div>
-                                    <h3 className={`text-[12px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Call Progress</h3>
-                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Start from 0 every day • Goal: 50 Calls</p>
+                                <div className="relative h-3.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+                                    <div
+                                        className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-gradient-to-r from-green-600 to-green-400' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' : 'bg-gradient-to-r from-red-600 to-red-400'}`}
+                                        style={{ width: `${Math.min((followUpStats.totalFollowUps / 50) * 100, 100)}%` }}
+                                    />
+                                </div>
+                                <div className="flex justify-between mt-1.5 px-0.5">
+                                    <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">
+                                        {Math.min(Math.round((followUpStats.totalFollowUps / 50) * 100), 100)}% complete
+                                    </span>
+                                    {followUpStats.totalFollowUps >= 50 ? (
+                                        <span className="flex items-center gap-1 text-green-500 text-[8px] font-black uppercase tracking-widest animate-bounce"><FaCheckCircle size={9} /> Goal Met!</span>
+                                    ) : followUpStats.totalFollowUps < 15 ? (
+                                        <span className="flex items-center gap-1 text-red-500 text-[8px] font-black uppercase tracking-widest animate-pulse"><FaExclamationTriangle size={9} /> Low Activity</span>
+                                    ) : null}
                                 </div>
                             </div>
+                        )}
 
-                            {/* Red Flags Display */}
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1">
-                                    {[...Array(5)].map((_, i) => (
-                                        <FaStar
-                                            key={i}
-                                            size={14}
-                                            className={`${i < (followUpStats.userMetaData?.redFlags || 0) ? 'text-red-500 animate-pulse' : 'text-gray-700'}`}
-                                        />
-                                    ))}
+                        {/* Daily Walk-Ins Progress – telecaller & counsellor */}
+                        <div className={`border rounded-[2px] p-5 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <div className="flex items-center justify-between gap-4 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-[2px] ${(followUpStats.walkInsCountToday || 0) >= 5 ? 'bg-green-500/10 text-green-500' : (followUpStats.walkInsCountToday || 0) >= 3 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-blue-500/10 text-blue-400'}`}>
+                                        <FaWalking size={13} />
+                                    </div>
+                                    <div>
+                                        <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Walk-Ins</h3>
+                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Goal: 5 walk-ins / day</p>
+                                    </div>
                                 </div>
-                                <div className={`px-3 py-1 rounded-[2px] border text-[9px] font-black uppercase tracking-widest ${(followUpStats.userMetaData?.redFlags || 0) > 0 ? 'bg-red-500/10 text-red-500 border-red-500/30' : 'bg-green-500/10 text-green-500 border-green-500/30'
-                                    }`}>
-                                    {(followUpStats.userMetaData?.redFlags || 0)} / 5 Flags
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="relative h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
-                            <div
-                                className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out flex items-center justify-end pr-2 overflow-visible ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-gradient-to-r from-green-600 to-green-400' :
-                                    (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
-                                        'bg-gradient-to-r from-red-600 to-red-400'
-                                    }`}
-                                style={{ width: `${Math.min((followUpStats.totalFollowUps / 50) * 100, 100)}%` }}
-                            >
-                                <span className="text-[8px] font-black text-white whitespace-nowrap drop-shadow-md">
-                                    {Math.min(Math.round((followUpStats.totalFollowUps / 50) * 100), 100)}%
+                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-[2px] border ${(followUpStats.walkInsCountToday || 0) >= 5 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'}`}>
+                                    {followUpStats.walkInsCountToday || 0} / 5
                                 </span>
                             </div>
+                            <div className="relative h-3.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+                                <div
+                                    className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out ${(followUpStats.walkInsCountToday || 0) >= 5 ? 'bg-gradient-to-r from-green-600 to-green-400' : (followUpStats.walkInsCountToday || 0) >= 3 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
+                                    style={{ width: `${Math.min(((followUpStats.walkInsCountToday || 0) / 5) * 100, 100)}%` }}
+                                />
+                            </div>
+                            <div className="flex justify-between mt-1.5 px-0.5">
+                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">
+                                    {Math.min(Math.round(((followUpStats.walkInsCountToday || 0) / 5) * 100), 100)}% complete
+                                </span>
+                                {(followUpStats.walkInsCountToday || 0) >= 5 && (
+                                    <span className="flex items-center gap-1 text-green-500 text-[8px] font-black uppercase tracking-widest animate-bounce"><FaCheckCircle size={9} /> Goal Met!</span>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="flex justify-between items-center mt-2 px-1">
-                            <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Completed: <span className="text-cyan-500">{followUpStats.totalFollowUps}</span> / 50
-                                </span>
-                                {followUpStats.totalFollowUps >= 50 && (
-                                    <div className="flex items-center gap-1 text-green-500 animate-bounce">
-                                        <FaCheckCircle size={10} />
-                                        <span className="text-[8px] font-black uppercase tracking-widest">Goal Met!</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-1.5 overflow-hidden">
-                                {followUpStats.totalFollowUps < 15 && (
-                                    <div className="flex items-center gap-1 text-red-500 animate-pulse">
-                                        <FaExclamationTriangle size={10} />
-                                        <span className="text-[8px] font-black uppercase tracking-widest">Low Activity</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
                     </div>
                 )}
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
     FaExclamationCircle, FaExclamationTriangle, FaRedo, FaCheckCircle, 
-    FaFilter, FaInfoCircle, FaPaperPlane, FaCheck, FaBuilding, FaUser 
+    FaFilter, FaInfoCircle, FaPaperPlane, FaCheck, FaBuilding, FaUser, FaWalking
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
@@ -27,7 +27,7 @@ const RedFlagDesk = () => {
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [activeStatFilter, setActiveStatFilter] = useState('Open Flags');
 
-    const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Class Coordinator', 'Teacher', 'HR'];
+    const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Teacher', 'HR'];
 
     useEffect(() => {
         fetchData();
@@ -415,6 +415,38 @@ const RedFlagDesk = () => {
                                                 </div>
                                             ))}
                                         </div>
+
+                                        {/* Walk-In Progress Bar – always shown for telecaller & counsellor */}
+                                        {['telecaller', 'counsellor'].includes(flagGroup.role?.toLowerCase()) && (() => {
+                                            const walkInIssue = flagGroup.issuesList.find(i => i.type === 'walkin');
+                                            const walkInCount = walkInIssue?.metricValue ?? 0;
+                                            const walkInTarget = walkInIssue?.targetValue ?? 5;
+                                            const pct = Math.min(Math.round((walkInCount / (walkInTarget || 1)) * 100), 100);
+                                            const isGoalMet = walkInCount >= walkInTarget;
+                                            return (
+                                                <div className="mt-4 mb-4">
+                                                    <div className="flex justify-between items-end mb-1.5">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <FaWalking className="text-blue-500" size={12} />
+                                                            <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-wider">Walk-Ins Progress</p>
+                                                        </div>
+                                                        <p className={`text-xs font-black ${isGoalMet ? 'text-green-500' : 'text-gray-400'}`}>
+                                                            {walkInCount} / {walkInTarget}
+                                                        </p>
+                                                    </div>
+                                                    <div className="relative h-3 bg-gray-100 dark:bg-[#131619] rounded-full overflow-hidden p-0.5 border border-gray-200 dark:border-gray-800">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-1000 ${
+                                                                isGoalMet ? 'bg-gradient-to-r from-green-600 to-green-400' :
+                                                                pct >= 60 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
+                                                                'bg-gradient-to-r from-blue-600 to-blue-400'
+                                                            }`}
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                         
                                         <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-gray-800">
                                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{flagGroup.isVirtual ? (isToday ? 'Live Metric' : 'Period Performance') : 'Persistent Flag'}</p>
@@ -483,6 +515,32 @@ const RedFlagDesk = () => {
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            {/* Walk-In Progress Bar in Action Panel – always shown for telecaller & counsellor */}
+                                            {['telecaller', 'counsellor'].includes(selectedFlag.role?.toLowerCase()) && (() => {
+                                                const walkInIssue = selectedFlag.issuesList.find(i => i.type === 'walkin');
+                                                const walkInCount = walkInIssue?.metricValue ?? 0;
+                                                const walkInTarget = walkInIssue?.targetValue ?? 5;
+                                                const pct = Math.min(Math.round((walkInCount / (walkInTarget || 1)) * 100), 100);
+                                                const isGoalMet = walkInCount >= walkInTarget;
+                                                return (
+                                                    <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                                        <div className="flex justify-between items-end mb-1.5">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <FaWalking className="text-blue-500" size={12} />
+                                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Walk-Ins Progress</span>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-gray-900 dark:text-white">{pct}% ({walkInCount}/{walkInTarget})</span>
+                                                        </div>
+                                                        <div className="h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={`h-full rounded-full ${isGoalMet ? 'bg-green-500' : 'bg-blue-500'}`}
+                                                                style={{ width: `${pct}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 </div>

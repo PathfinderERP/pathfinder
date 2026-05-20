@@ -206,6 +206,19 @@ export const getFollowUpStats = async (req, res) => {
             .sort((a, b) => new Date(a.time) - new Date(b.time))
             .slice(0, 500);
 
+        // Count walk-ins tagged by the logged-in user today
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+        const userId = req.user?.id || req.user?._id;
+
+        const walkInsCountToday = await LeadManagement.countDocuments({
+            walkInBy: userId,
+            isWalkIn: true,
+            walkInDate: { $gte: todayStart, $lte: todayEnd }
+        });
+
         res.status(200).json({
             totalFollowUps: aS.totalFollowUps || 0,
             hotLeads: aS.hotLeads || 0,
@@ -214,7 +227,8 @@ export const getFollowUpStats = async (req, res) => {
             recentActivity,
             totalScheduled: sS.totalScheduled || 0,
             scheduledList,
-            leadPopulation: lP
+            leadPopulation: lP,
+            walkInsCountToday
         });
     } catch (err) {
         console.error("Dashboard follow-up stats error:", err);

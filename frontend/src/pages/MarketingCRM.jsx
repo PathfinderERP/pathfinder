@@ -180,12 +180,12 @@ const MarketingCRM = () => {
     };
     const [selectedStaff, setSelectedStaff] = useState(marketingPerformance[0] || null);
     const [activeTab, setActiveTab] = useState("Command Centre");
-    const [tomorrowActivities, setTomorrowActivities] = useState([
+    const [todayActivities, setTodayActivities] = useState([
         { type: "School Visit", place: "", time: "", expectedLeads: "" }
     ]);
 
     const handleAddActivity = () => {
-        setTomorrowActivities([...tomorrowActivities, { type: "School Visit", place: "", time: "", expectedLeads: "" }]);
+        setTodayActivities([...todayActivities, { type: "School Visit", place: "", time: "", expectedLeads: "" }]);
     };
 
     useEffect(() => {
@@ -216,7 +216,7 @@ const MarketingCRM = () => {
                                     A waterproof ERP tab where ZMs, CIs and marketing executives must pre-plan tomorrow's market work, execute field activities, upload geo-tagged proof, submit lead data, get approval, and face automatic red flags if target, quality or proof is weak.
                                 </p>
                                 <div className="flex flex-wrap gap-4 pt-4">
-                                    {["Day-before duty lock", "40 leads minimum", "Geo-tag proof", "CI/ZM approval"].map((text, idx) => (
+                                    {["Today duty lock", "40 leads minimum", "Geo-tag proof", "CI/ZM approval"].map((text, idx) => (
                                         <div key={idx} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[11px] font-bold text-gray-300 flex items-center gap-2">
                                             <div className="w-1 h-1 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
                                             {text}
@@ -274,7 +274,7 @@ const MarketingCRM = () => {
                         {/* NAVIGATION */}
                         <div className="flex flex-wrap items-center gap-2">
                             {[
-                                "Command Centre", "Tomorrow Planner", "Day-End Submission", "Activity Audit"
+                                "Command Centre", "Today Planner", "Activity Audit"
                             ].map((tab, idx) => (
                                 <button
                                     key={idx}
@@ -418,16 +418,16 @@ const MarketingCRM = () => {
                         </div>
                         )}
 
-                        {/* TOMORROW PLANNER VIEW */}
-                        {activeTab === "Tomorrow Planner" && (
+                        {/* TODAY PLANNER VIEW */}
+                        {activeTab === "Today Planner" && (
                             <div className="space-y-6 animate-fadeIn">
                                 <div>
-                                    <h2 className="text-3xl font-black tracking-tighter">Tomorrow Planner</h2>
-                                    <p className="text-gray-500 text-[11px] font-bold mt-1">Staff must submit tomorrow's exact duty plan the day before. The ERP should lock vague or weak plans.</p>
+                                    <h2 className="text-3xl font-black tracking-tighter">Today Planner</h2>
+                                    <p className="text-gray-500 text-[11px] font-bold mt-1">Staff must submit today's exact duty plan. The ERP should lock vague or weak plans.</p>
                                 </div>
                                 
                                 <div className={`p-8 rounded-[24px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                    <h3 className="text-xl font-black tracking-tight mb-6">Create Tomorrow's Field Plan</h3>
+                                    <h3 className="text-xl font-black tracking-tight mb-6">Create Today's Field Plan</h3>
                                     
                                     {/* Form Grid */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -451,15 +451,15 @@ const MarketingCRM = () => {
                                         </div>
 
                                         <div className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-[#f4f6f8] border-gray-100'}`}>
-                                            {tomorrowActivities.map((activity, idx) => (
+                                            {todayActivities.map((activity, idx) => (
                                                 <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fadeIn">
                                                     <select 
                                                         className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                         value={activity.type}
                                                         onChange={(e) => {
-                                                            const newActs = [...tomorrowActivities];
+                                                            const newActs = [...todayActivities];
                                                             newActs[idx].type = e.target.value;
-                                                            setTomorrowActivities(newActs);
+                                                            setTodayActivities(newActs);
                                                         }}
                                                     >
                                                         <option>School Visit</option>
@@ -473,9 +473,9 @@ const MarketingCRM = () => {
                                                         placeholder="Place / Institution"
                                                         value={activity.place}
                                                         onChange={(e) => {
-                                                            const newActs = [...tomorrowActivities];
+                                                            const newActs = [...todayActivities];
                                                             newActs[idx].place = e.target.value;
-                                                            setTomorrowActivities(newActs);
+                                                            setTodayActivities(newActs);
                                                         }}
                                                         className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                     />
@@ -484,9 +484,9 @@ const MarketingCRM = () => {
                                                         placeholder="Time"
                                                         value={activity.time}
                                                         onChange={(e) => {
-                                                            const newActs = [...tomorrowActivities];
+                                                            const newActs = [...todayActivities];
                                                             newActs[idx].time = e.target.value;
-                                                            setTomorrowActivities(newActs);
+                                                            setTodayActivities(newActs);
                                                         }}
                                                         className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                     />
@@ -495,9 +495,9 @@ const MarketingCRM = () => {
                                                         placeholder="Expected leads"
                                                         value={activity.expectedLeads}
                                                         onChange={(e) => {
-                                                            const newActs = [...tomorrowActivities];
+                                                            const newActs = [...todayActivities];
                                                             newActs[idx].expectedLeads = e.target.value;
-                                                            setTomorrowActivities(newActs);
+                                                            setTodayActivities(newActs);
                                                         }}
                                                         className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                     />
@@ -509,65 +509,6 @@ const MarketingCRM = () => {
                                     <button className="w-full py-4 rounded-xl bg-[#05080c] text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 transition-all active:scale-[0.99]">
                                         Submit for CI/ZM Approval
                                     </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* DAY-END SUBMISSION VIEW */}
-                        {activeTab === "Day-End Submission" && (
-                            <div className="space-y-6 animate-fadeIn">
-                                <div>
-                                    <h2 className="text-3xl font-black tracking-tighter">Day-End Submission</h2>
-                                    <p className="text-gray-500 text-[11px] font-bold mt-1">Actual work must be submitted with numbers, proof, lead sheet and remarks. Once submitted, it is locked for audit.</p>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    {/* Column 1 */}
-                                    <div className={`p-6 rounded-[24px] border space-y-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <h3 className="text-lg font-black tracking-tight mb-2">Activity Completion</h3>
-                                        {['Activities completed', 'Activities missed', 'Reason for missed duties', 'Total leads collected', 'Hot leads', 'Warm leads', 'Cold leads'].map((label, idx) => (
-                                            <input 
-                                                key={idx} 
-                                                type="text" 
-                                                placeholder={label}
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
-                                            />
-                                        ))}
-                                    </div>
-                                    
-                                    {/* Column 2 */}
-                                    <div className={`p-6 rounded-[24px] border space-y-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <h3 className="text-lg font-black tracking-tight mb-2">Source-wise Update</h3>
-                                        {['School visit leads', 'Tuition visit leads', 'Shikkha Bondhu leads', 'Referral leads', 'Market activity leads', 'Walk-in generated', 'Admissions influenced'].map((label, idx) => (
-                                            <input 
-                                                key={idx} 
-                                                type="text" 
-                                                placeholder={label}
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
-                                            />
-                                        ))}
-                                    </div>
-
-                                    {/* Column 3 */}
-                                    <div className={`p-6 rounded-[24px] border space-y-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <h3 className="text-lg font-black tracking-tight mb-2">Proof Upload</h3>
-                                        {['Upload geo-tag photos', 'Upload lead sheet', 'Upload contact card/photo', 'Add voice note/report', 'CI remark', 'ZM remark', 'Exception reason if below 40'].map((label, idx) => (
-                                            <input 
-                                                key={idx} 
-                                                type="text" 
-                                                placeholder={label}
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                                    <button className={`py-4 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-white hover:bg-gray-800' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>Save Draft</button>
-                                    <button className="py-4 rounded-xl bg-[#05080c] text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 transition-all active:scale-[0.99]">Submit & Lock</button>
-                                    <button className={`py-4 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-white hover:bg-gray-800' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>Send to CI</button>
-                                    <button className={`py-4 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-white hover:bg-gray-800' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>Escalate Exception</button>
                                 </div>
                             </div>
                         )}

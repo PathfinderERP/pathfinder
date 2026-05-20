@@ -46,6 +46,13 @@ const leadManagementSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    walkInDate: {
+        type: Date
+    },
+    walkInBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
     targetExam: {
         type: String,
     },
