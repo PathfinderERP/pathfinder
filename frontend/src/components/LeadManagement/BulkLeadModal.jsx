@@ -181,10 +181,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     }
 
                     let classId = null;
-                    if (row.Class) {
-                        const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
-                        if (cls) classId = cls._id;
-                    }
+if (row.Class) {
+    const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
+    if (cls) classId = cls._id;
+    else { errors.push(`Row ${rowNum}: Class '${row.Class}' invalid. Expected numeric class like 5,6,7,8,9,10,11,12.`); continue; }
+}
 
                     let centreId = null;
                     if (row.Centre) {
@@ -316,10 +317,16 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     }
 
                     let classId = null;
-                    if (row.Class) {
-                        const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
-                        if (cls) classId = cls._id;
-                    }
+if (row.Class) {
+    const classStr = row.Class.toString().trim();
+    if (!/^\d+$/.test(classStr)) {
+        errors.push(`Row ${rowNum}: Invalid Class '${row.Class}'. Expected numeric class like 5,6,7,8,9,10,11,12.`);
+        continue;
+    }
+    const cls = classes.find(c => c.name.toLowerCase() === classStr.toLowerCase());
+    if (cls) classId = cls._id;
+    else { errors.push(`Row ${rowNum}: Class '${row.Class}' not recognized.`); continue; }
+}
 
                     let centreId = null;
                     if (row.Centre) {

@@ -1348,7 +1348,7 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Mobile No</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Second Mobile No</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Centers</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Ops Info</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Course Name</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Class</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Board</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>School</th>
@@ -1441,7 +1441,7 @@ const LeadManagementContent = () => {
                                                 <div className={`text-[10px] font-black uppercase group-hover:text-cyan-500 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.centre?.centreName || "N/A"}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-[9px] font-bold text-cyan-500 mt-0.5 truncate max-w-[120px]">{lead.course?.courseName || "General Query"}</div>
+                                                <div className="text-[9px] font-bold text-cyan-500 mt-0.5 truncate max-w-[120px]">{lead.course?.courseName || "Not provided"}</div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.className?.name || "N/A"}</div>
