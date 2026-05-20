@@ -98,9 +98,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             Course: "JEE Main",
             Source: "Facebook",
             LeadType: "WARM LEAD",
-            LeadResponse: "Telecaller Name",
-            Feedback: "",
-            Remarks: ""
+            LeadResponse: "Telecaller Name"
         }];
         const ws = XLSX.utils.json_to_sheet(templateData);
         const wb = XLSX.utils.book_new();
@@ -158,6 +156,20 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                 if (jsonData.length === 0) { setErrorMsg("The file is empty"); setValidating(false); return; }
 
+                // ── Extra-column guard ─────────────────────────────────────
+                const ALLOWED_FRESH_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse"];
+                const uploadedColumns = Object.keys(jsonData[0] || {});
+                const extraColumns = uploadedColumns.filter(col => !ALLOWED_FRESH_COLUMNS.includes(col));
+                if (extraColumns.length > 0) {
+                    setErrorMsg(
+                        `Extra columns detected: [${extraColumns.join(", ")}]\n\nPlease remove these extra columns. Only the following columns are allowed:\n${ALLOWED_FRESH_COLUMNS.join(", ")}`
+                    );
+                    setValidating(false);
+                    toast.error("Extra columns found – upload blocked ,you can only upload the column which are in the template");
+                    return;
+                }
+                // ──────────────────────────────────────────────────────────
+
                 const validLeads = [];
                 const errors = [];
 
@@ -181,11 +193,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     }
 
                     let classId = null;
-if (row.Class) {
-    const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
-    if (cls) classId = cls._id;
-    else { errors.push(`Row ${rowNum}: Class '${row.Class}' invalid. Expected numeric class like 5,6,7,8,9,10,11,12.`); continue; }
-}
+                    if (row.Class) {
+                        const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
+                        if (cls) classId = cls._id;
+                        else { errors.push(`Row ${rowNum}: Class '${row.Class}' invalid. Expected numeric class like 5,6,7,8,9,10,11,12.`); continue; }
+                    }
 
                     let centreId = null;
                     if (row.Centre) {
@@ -290,6 +302,20 @@ if (row.Class) {
 
                 if (jsonData.length === 0) { setErrorMsg("The file is empty"); setValidating(false); return; }
 
+                // ── Extra-column guard ─────────────────────────────────────
+                const ALLOWED_CONTACTED_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Feedback", "Remarks"];
+                const uploadedContactedColumns = Object.keys(jsonData[0] || {});
+                const extraContactedColumns = uploadedContactedColumns.filter(col => !ALLOWED_CONTACTED_COLUMNS.includes(col));
+                if (extraContactedColumns.length > 0) {
+                    setErrorMsg(
+                        `Extra columns detected: [${extraContactedColumns.join(", ")}]\n\nPlease remove these extra columns. Only the following columns are allowed:\n${ALLOWED_CONTACTED_COLUMNS.join(", ")}`
+                    );
+                    setValidating(false);
+                    toast.error("Extra columns found – upload blocked ,you can only upload the column which are in the template.");
+                    return;
+                }
+                // ──────────────────────────────────────────────────────────
+
                 const validRows = [];
                 const errors = [];
 
@@ -317,16 +343,16 @@ if (row.Class) {
                     }
 
                     let classId = null;
-if (row.Class) {
-    const classStr = row.Class.toString().trim();
-    if (!/^\d+$/.test(classStr)) {
-        errors.push(`Row ${rowNum}: Invalid Class '${row.Class}'. Expected numeric class like 5,6,7,8,9,10,11,12.`);
-        continue;
-    }
-    const cls = classes.find(c => c.name.toLowerCase() === classStr.toLowerCase());
-    if (cls) classId = cls._id;
-    else { errors.push(`Row ${rowNum}: Class '${row.Class}' not recognized.`); continue; }
-}
+                    if (row.Class) {
+                        const classStr = row.Class.toString().trim();
+                        if (!/^\d+$/.test(classStr)) {
+                            errors.push(`Row ${rowNum}: Invalid Class '${row.Class}'. Expected numeric class like 5,6,7,8,9,10,11,12.`);
+                            continue;
+                        }
+                        const cls = classes.find(c => c.name.toLowerCase() === classStr.toLowerCase());
+                        if (cls) classId = cls._id;
+                        else { errors.push(`Row ${rowNum}: Class '${row.Class}' not recognized.`); continue; }
+                    }
 
                     let centreId = null;
                     if (row.Centre) {
