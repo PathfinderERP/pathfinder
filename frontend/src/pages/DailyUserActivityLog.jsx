@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
 import {
     FaUserTie, FaArrowLeft, FaPhoneAlt, FaUsers, FaUserGraduate,
-    FaMoneyBillWave, FaCalendarAlt, FaIdCard, FaReceipt,
+    FaMoneyBillWave, FaCalendarAlt, FaIdCard, FaReceipt, FaCloudUploadAlt,
     FaFire, FaSnowflake, FaThermometerHalf, FaCheckCircle, FaSearch
 } from 'react-icons/fa';
 import { toast } from "react-toastify";
@@ -100,8 +100,12 @@ const DailyUserActivityLog = () => {
         const matchLead = leadTypeFilter === 'ALL' || cfg.label === leadTypeFilter;
         
         let matchSection = true;
-        if (selectedSection === 'CALLS') {
-            matchSection = true;
+        if (selectedSection === 'FRESH') {
+            matchSection = call.callType === 'FRESH';
+        } else if (selectedSection === 'CONTACTED_UPLOADS') {
+            matchSection = call.callType === 'CONTACTED_UPLOAD';
+        } else if (selectedSection === 'CALLS') {
+            matchSection = call.callType === 'FOLLOW-UP';
         } else if (selectedSection === 'COUNSELLED') {
             matchSection = call.counselledTick === true;
         } else if (selectedSection === 'ADMISSIONS') {
@@ -333,10 +337,12 @@ const DailyUserActivityLog = () => {
                                 </div>
                             </div>
 
-                            {/* Lower row: Four KPI cards side-by-side */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {/* Lower row: Six KPI cards side-by-side */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                                 {[
-                                    { label: 'Total Calls', value: totalCalls, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
+                                    { label: 'Fresh Leads', value: data.leads.fresh, color: 'text-blue-400', bg: 'bg-blue-500/10', icon: <FaIdCard />, section: 'FRESH', activeBorder: 'border-blue-500 shadow-lg shadow-blue-900/20 bg-blue-950/10' },
+                                    { label: 'Contacted Uploads', value: data.leads.uploadedAsContacted, color: 'text-indigo-400', bg: 'bg-indigo-500/10', icon: <FaCloudUploadAlt />, section: 'CONTACTED_UPLOADS', activeBorder: 'border-indigo-500 shadow-lg shadow-indigo-900/20 bg-indigo-950/10' },
+                                    { label: 'Contacted Leads', value: data.leads.contacted, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
                                     { label: 'Counselled', value: data.counselled.total, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: <FaUsers />, section: 'COUNSELLED', activeBorder: 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' },
                                     { label: 'Admissions', value: data.admissions.total, color: 'text-green-400', bg: 'bg-green-500/10', icon: <FaUserGraduate />, section: 'ADMISSIONS', activeBorder: 'border-green-500 shadow-lg shadow-green-900/20 bg-green-950/10' },
                                     { label: 'Collection', value: `₹${collectionTotal.toLocaleString('en-IN')}`, color: 'text-amber-400', bg: 'bg-amber-500/10', icon: <FaMoneyBillWave />, section: 'COLLECTION', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },

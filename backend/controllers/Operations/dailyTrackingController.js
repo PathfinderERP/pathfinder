@@ -36,10 +36,7 @@ export const getDailyTracking = async (req, res) => {
             // --- Daily Calls & Counselled ---
             const dailyCallsCount = await LeadManagement.countDocuments({
                 centre: centerId,
-                $or: [
-                    { createdAt: dateFilter },
-                    { "followUps.date": dateFilter }
-                ]
+                "followUps.date": dateFilter
             });
 
             // --- Daily Walk-ins ---
@@ -284,10 +281,7 @@ export const getDailyCenterDetails = async (req, res) => {
 
             // 3.3 Daily Calls
             const dailyCalls = await LeadManagement.countDocuments({
-                $or: [
-                    { createdBy: userId, createdAt: dateFilter },
-                    { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
-                ]
+                followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
             });
 
             // Collections (Payments recorded by this user today)
@@ -325,16 +319,19 @@ export const getDailyCenterDetails = async (req, res) => {
                 dEnd.setHours(23,59,59,999);
 
                 const cCount = await LeadManagement.countDocuments({
-                    $or: [
-                        { createdBy: userId, createdAt: { $gte: dStart, $lte: dEnd } },
-                        { followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: dStart, $lte: dEnd } } } }
-                    ]
+                    followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: dStart, $lte: dEnd } } }
                 });
                 
+                let targetCalls = 50;
+                if (user.role) {
+                    const role = user.role.toLowerCase();
+                    if (role === 'counsellor') targetCalls = 30;
+                    else if (role === 'marketing') targetCalls = 40;
+                }
                 callHistory.push({
                     date: dStart.toISOString(),
                     calls: cCount,
-                    target: 50
+                    target: targetCalls
                 });
             }
 
@@ -409,13 +406,26 @@ export const getDailyUserActivity = async (req, res) => {
         }
 
         // 2. Lead Follow-up Analysis
+        // Fresh leads = uploaded today with NO followUps (no feedback/remarks = from fresh section)
         const freshLeadsCount = await LeadManagement.countDocuments({
             createdBy: userId,
-            createdAt: dateFilter
+            createdAt: dateFilter,
+            $or: [
+                { followUps: { $exists: false } },
+                { followUps: { $size: 0 } }
+            ]
         });
 
+        // Contacted leads = old leads (created before today) where user added a follow-up today
         const contactedLeadsCount = await LeadManagement.countDocuments({
             createdAt: { $lt: startDate },
+            followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
+        });
+
+        // Uploaded as contacted = fresh leads created today that also have a follow-up added today
+        const uploadedAsContactedCount = await LeadManagement.countDocuments({
+            createdBy: userId,
+            createdAt: dateFilter,
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
         });
 
@@ -499,9 +509,14 @@ export const getDailyUserActivity = async (req, res) => {
         });
 
         // 6. HOT / WARM / COLD Lead Breakdown + Detailed Call List
+        // Fresh = created today with NO followUps (pure fresh section uploads, no feedback/remarks)
         const freshLeadsDetailed = await LeadManagement.find({
             createdBy: userId,
-            createdAt: dateFilter
+            createdAt: dateFilter,
+            $or: [
+                { followUps: { $exists: false } },
+                { followUps: { $size: 0 } }
+            ]
         }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
 
         const contactedLeadsDetailed = await LeadManagement.find({
@@ -509,10 +524,17 @@ export const getDailyUserActivity = async (req, res) => {
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
         }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
 
+        // Leads uploaded today WITH followUps (from the contacted/bulk upload section)
+        const uploadedAsContactedDetailed = await LeadManagement.find({
+            createdBy: userId,
+            createdAt: dateFilter,
+            followUps: { $exists: true, $not: { $size: 0 } }
+        }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
+
         let hotCount = 0, warmCount = 0, coldCount = 0;
         const callDetails = [];
 
-        // Process fresh leads
+        // Process fresh leads (no followUps)
         freshLeadsDetailed.forEach(lead => {
             const type = (lead.leadType || '').toUpperCase();
             if (type.includes('HOT')) hotCount++;
@@ -526,15 +548,42 @@ export const getDailyUserActivity = async (req, res) => {
                 callType: 'FRESH',
                 leadType: lead.leadType || 'UNTAGGED',
                 isCounseled: lead.isCounseled,
-                feedback: lead.followUps?.[0]?.feedback || '-',
-                remarks: lead.followUps?.[0]?.remarks || '',
-                nextFollowUpDate: lead.followUps?.[0]?.nextFollowUpDate || null,
+                feedback: '-',
+                remarks: '',
+                nextFollowUpDate: null,
                 date: lead.createdAt,
                 updatedAt: lead.updatedAt
             });
         });
 
-        // Process follow-up calls
+        // Process uploaded-as-contacted leads (created today WITH followUps)
+        uploadedAsContactedDetailed.forEach(lead => {
+            const todayFollowUps = (lead.followUps || []).filter(fu => {
+                const fuDate = new Date(fu.date);
+                return fuDate >= startDate && fuDate <= endDate;
+            });
+            const fu = todayFollowUps[0] || lead.followUps?.[0] || {};
+            const status = (fu.status || lead.leadType || '').toUpperCase();
+            if (status.includes('HOT')) hotCount++;
+            else if (status.includes('WARM')) warmCount++;
+            else if (status.includes('COLD')) coldCount++;
+
+            callDetails.push({
+                leadId: lead._id,
+                studentName: lead.name,
+                phoneNumber: lead.phoneNumber || '-',
+                callType: 'CONTACTED_UPLOAD',
+                leadType: fu.status || lead.leadType || 'UNTAGGED',
+                isCounseled: lead.isCounseled,
+                feedback: fu.feedback || '-',
+                remarks: fu.remarks || '',
+                nextFollowUpDate: fu.nextFollowUpDate || null,
+                date: lead.createdAt,
+                updatedAt: lead.updatedAt
+            });
+        });
+
+        // Process follow-up calls (old leads with follow-up today)
         contactedLeadsDetailed.forEach(lead => {
             const todayFollowUps = (lead.followUps || []).filter(fu => {
                 const fuDate = new Date(fu.date);
@@ -766,7 +815,8 @@ export const getDailyUserActivity = async (req, res) => {
             leads: {
                 fresh: freshLeadsCount,
                 contacted: contactedLeadsCount,
-                totalFollowUps: freshLeadsCount + contactedLeadsCount,
+                uploadedAsContacted: uploadedAsContactedCount,
+                totalFollowUps: contactedLeadsCount,
                 hot: hotCount,
                 warm: warmCount,
                 cold: coldCount
