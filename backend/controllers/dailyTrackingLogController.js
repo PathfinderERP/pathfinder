@@ -1,5 +1,33 @@
 import DailyTrackingLog from "../models/DailyTrackingLog.js";
 
+// Helper to get midnight in India Standard Time as a standardized UTC Date object
+const getMidnightIST = (dateInput) => {
+    let date;
+    if (!dateInput) {
+        date = new Date();
+    } else if (typeof dateInput === "string") {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+            return new Date(`${dateInput}T00:00:00.000Z`);
+        }
+        date = new Date(dateInput);
+    } else {
+        date = new Date(dateInput);
+    }
+
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year').value;
+    const month = parts.find(p => p.type === 'month').value;
+    const day = parts.find(p => p.type === 'day').value;
+    
+    return new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+};
+
 const mapRoleToDepartment = (role) => {
     if (!role) return "Operations";
     
@@ -25,19 +53,23 @@ export const addOrUpdateActivity = async (req, res) => {
             return res.status(400).json({ message: "Time and Work Details are required." });
         }
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const todayUTC = getMidnightIST();
+        const startRange = new Date(todayUTC.getTime() - 12 * 60 * 60 * 1000);
+        const endRange = new Date(todayUTC.getTime() + 12 * 60 * 60 * 1000);
 
         const department = mapRoleToDepartment(req.user.role);
 
-        // Find or create daily log document
-        let log = await DailyTrackingLog.findOne({ user: req.user._id, date: today });
+        // Find or create daily log document using range query to handle both UTC and local timezone formats
+        let log = await DailyTrackingLog.findOne({ 
+            user: req.user._id, 
+            date: { $gte: startRange, $lt: endRange } 
+        });
         if (!log) {
             log = new DailyTrackingLog({
                 user: req.user._id,
                 userName: req.user.name,
                 department,
-                date: today,
+                date: todayUTC,
                 activities: []
             });
         }
@@ -63,10 +95,14 @@ export const addOrUpdateActivity = async (req, res) => {
 export const getMyLog = async (req, res) => {
     try {
         const { date } = req.query;
-        const targetDate = date ? new Date(date) : new Date();
-        targetDate.setHours(0, 0, 0, 0);
+        const targetDate = getMidnightIST(date);
+        const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+        const endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
 
-        const log = await DailyTrackingLog.findOne({ user: req.user._id, date: targetDate });
+        const log = await DailyTrackingLog.findOne({ 
+            user: req.user._id, 
+            date: { $gte: startRange, $lt: endRange } 
+        });
         res.status(200).json({ log: log || { activities: [] } });
     } catch (error) {
         console.error("Error fetching my tracking log:", error);
@@ -78,10 +114,11 @@ export const getMyLog = async (req, res) => {
 export const getDepartmentLogs = async (req, res) => {
     try {
         const { date, department, employeeName } = req.query;
-        const targetDate = date ? new Date(date) : new Date();
-        targetDate.setHours(0, 0, 0, 0);
+        const targetDate = getMidnightIST(date);
+        const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+        const endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
 
-        const query = { date: targetDate };
+        const query = { date: { $gte: startRange, $lt: endRange } };
 
         if (department && department !== "All") {
             query.department = department;

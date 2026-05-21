@@ -81,6 +81,7 @@ const MarketingCRM = () => {
     useEffect(() => {
         fetchCentres();
         fetchAllPerformance(timePeriod, filters);
+        fetchAuditRecords();
         // eslint-disable-next-line
     }, []);
 
@@ -251,7 +252,86 @@ const MarketingCRM = () => {
         fetchEmployeeProfile();
     }, []);
 
-    const handleSubmitFieldPlan = (e) => {
+    const fetchAuditRecords = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.records) {
+                    setAuditRecords(data.records);
+                    const fetchedApprovals = {};
+                    data.records.forEach(r => {
+                        fetchedApprovals[r.id] = {
+                            status: r.status || "Pending",
+                            remarks: r.remarks || ""
+                        };
+                    });
+                    setApprovalState(fetchedApprovals);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching audit records:", error);
+        }
+    };
+
+    const handleUpdateApprovalStatus = async (recordId, newStatus) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner/${recordId}/approval`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (response.ok) {
+                setApprovalState(prev => ({
+                    ...prev,
+                    [recordId]: { ...prev[recordId], status: newStatus }
+                }));
+                if (newStatus === "Approved") {
+                    toast.success("Activity approved!");
+                } else {
+                    toast.error("Activity rejected.");
+                }
+            } else {
+                toast.error("Failed to update status in database.");
+            }
+        } catch (error) {
+            console.error("Error updating approval status:", error);
+            toast.error("Network error while updating status.");
+        }
+    };
+
+    const handleSaveRemarks = async (recordId, remarksValue) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner/${recordId}/approval`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ remarks: remarksValue })
+            });
+
+            if (response.ok) {
+                toast.success("Remarks saved.");
+            } else {
+                toast.error("Failed to save remarks to database.");
+            }
+        } catch (error) {
+            console.error("Error saving remarks:", error);
+            toast.error("Network error while saving remarks.");
+        }
+    };
+
+    const handleSubmitFieldPlan = async (e) => {
         e.preventDefault();
         
         if (!planDate) {
@@ -278,30 +358,69 @@ const MarketingCRM = () => {
         const submittedAt = now.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
         const submittedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-        // Build audit records from submitted activities
-        const newRecords = todayActivities.map((act, idx) => ({
-            id: `${Date.now()}-${idx}`,
+        const activitiesPayload = todayActivities.map((act) => ({
             type: act.type,
-            institution: act.place || "—",
-            owner: currentUser.name || currentUser.username || "Unknown",
-            plan: act.time ? (() => { const [h, m] = act.time.split(':'); const d = new Date(); d.setHours(+h, +m); return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); })() : "—",
-            actual: act.actualTime || submittedTime,
-            leads: act.expectedLeads || "0",
+            place: act.place || "",
+            time: act.time || "",
+            actualTime: act.actualTime || submittedTime,
+            expectedLeads: act.expectedLeads || "0",
+            geoTagged: act.geoTagged,
+            latitude: act.latitude,
+            longitude: act.longitude,
+            locationName: act.locationName,
+            photos: act.photos || (act.photo ? [act.photo] : []),
             photo: act.photos?.[0] || act.photo || null,
-            photos: act.photos || [],
-            submittedAt,
-            approval: "Pending",
-            remarks: ""
+            submittedAt
         }));
 
-        setAuditRecords(prev => [...prev, ...newRecords]);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    date: planDate,
+                    expectedLeadTarget: Number(expectedLeadTarget),
+                    expectedHotLeads: Number(expectedHotLeads),
+                    activities: activitiesPayload
+                })
+            });
 
-        // Initialize approval state for new records
-        const newApprovals = {};
-        newRecords.forEach(r => { newApprovals[r.id] = { status: "Pending", remarks: "" }; });
-        setApprovalState(prev => ({ ...prev, ...newApprovals }));
+            if (response.ok) {
+                const data = await response.json();
+                if (data.records) {
+                    setAuditRecords(prev => [...data.records, ...prev]);
 
-        toast.success(`Today's Field Plan saved! ${newRecords.length} activit${newRecords.length === 1 ? 'y' : 'ies'} added to Audit.`);
+                    const newApprovals = {};
+                    data.records.forEach(r => {
+                        newApprovals[r.id] = { status: r.status || "Pending", remarks: r.remarks || "" };
+                    });
+                    setApprovalState(prev => ({ ...prev, ...newApprovals }));
+
+                    toast.success(`Today's Field Plan saved! ${data.records.length} activit${data.records.length === 1 ? 'y' : 'ies'} saved to database and added to Audit.`);
+                }
+            } else {
+                const text = await response.text();
+                let errData;
+                try {
+                    errData = JSON.parse(text);
+                } catch (jsonErr) {
+                    console.error("Non-JSON error response from server:", text);
+                    toast.error(`Server error: ${response.status} - Non-JSON response`);
+                    return;
+                }
+                console.error("Detailed server error:", errData);
+                toast.error(errData.message || errData.error || "Failed to save field plan to database.");
+                return;
+            }
+        } catch (error) {
+            console.error("Error submitting field plan:", error);
+            toast.error("Failed to connect to database. Plan was not saved.");
+            return;
+        }
 
         // Switch to Activity Audit tab
         setActiveTab("Activity Audit");
@@ -1527,6 +1646,7 @@ const MarketingCRM = () => {
                                                                             ...prev,
                                                                             [row.id]: { ...prev[row.id], remarks: e.target.value }
                                                                         }))}
+                                                                        onBlur={(e) => handleSaveRemarks(row.id, e.target.value)}
                                                                         className={`w-full px-3 py-2 rounded-lg border text-[10px] outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-black placeholder-gray-400'}`}
                                                                     />
                                                                 </td>
@@ -1534,10 +1654,7 @@ const MarketingCRM = () => {
                                                                 <td className="px-5 py-4 min-w-[180px]">
                                                                     <div className="flex gap-2">
                                                                         <button
-                                                                            onClick={() => {
-                                                                                setApprovalState(prev => ({ ...prev, [row.id]: { ...prev[row.id], status: "Approved" } }));
-                                                                                toast.success(`Activity by ${row.owner} approved!`);
-                                                                            }}
+                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
                                                                             className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${
                                                                                 approval.status === "Approved"
                                                                                     ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
@@ -1547,10 +1664,7 @@ const MarketingCRM = () => {
                                                                             ✓ Approve
                                                                         </button>
                                                                         <button
-                                                                            onClick={() => {
-                                                                                setApprovalState(prev => ({ ...prev, [row.id]: { ...prev[row.id], status: "Rejected" } }));
-                                                                                toast.error(`Activity by ${row.owner} rejected.`);
-                                                                            }}
+                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
                                                                             className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${
                                                                                 approval.status === "Rejected"
                                                                                     ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
