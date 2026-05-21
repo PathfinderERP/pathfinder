@@ -221,6 +221,9 @@ const UserManagementContent = () => {
         centerIncharge: filteredUsers.filter(u => u.role === "centerIncharge").length,
         zonalManager: filteredUsers.filter(u => u.role === "zonalManager").length,
         zonalHead: filteredUsers.filter(u => u.role === "zonalHead").length,
+        accounts: filteredUsers.filter(u => u.role === "accounts").length,
+        coordinator: filteredUsers.filter(u => u.role === "coordinator").length,
+        digital: filteredUsers.filter(u => u.role === "digital").length,
         deptHod: filteredUsers.filter(u => u.isDeptHod).length
     };
 
@@ -236,7 +239,10 @@ const UserManagementContent = () => {
                 { name: 'Marketing', value: stats.marketing, color: '#ec4899' },
                 { name: 'CenterIncharge', value: stats.centerIncharge, color: '#06b6d4' },
                 { name: 'ZonalManager', value: stats.zonalManager, color: '#6366f1' },
-                { name: 'ZonalHead', value: stats.zonalHead, color: '#4f46e5' }
+                { name: 'ZonalHead', value: stats.zonalHead, color: '#4f46e5' },
+                { name: 'Accounts', value: stats.accounts, color: '#10b981' },
+                { name: 'Coordinator', value: stats.coordinator, color: '#14b8a6' },
+                { name: 'Digital', value: stats.digital, color: '#8b5cf6' }
             ].filter(d => d.value > 0);
         }
         if (label === "Teacher") {
@@ -245,7 +251,7 @@ const UserManagementContent = () => {
                 { name: 'Part Time', value: filteredUsers.filter(u => u.role === 'teacher' && u.teacherType === 'Part Time').length, color: '#10b981' }
             ].filter(d => d.value > 0);
         }
-        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "ZonalHead") {
+        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "ZonalHead" || label === "Accounts" || label === "Coordinator" || label === "Digital") {
             const roleKey = label.toLowerCase();
             // Just show a simple distribution of something else, e.g., location or just a solid color proportion
             return [
@@ -267,6 +273,9 @@ const UserManagementContent = () => {
             centerIncharge: "bg-cyan-500/20 text-cyan-400 border-cyan-500/50",
             zonalManager: "bg-indigo-500/20 text-indigo-400 border-indigo-500/50",
             zonalHead: "bg-blue-600/20 text-blue-300 border-blue-600/50",
+            accounts: "bg-emerald-500/20 text-emerald-400 border-emerald-500/50",
+            coordinator: "bg-teal-500/20 text-teal-400 border-teal-500/50",
+            digital: "bg-violet-500/20 text-violet-400 border-violet-500/50",
         };
         return colors[role] || "bg-gray-500/20 text-gray-400 border-gray-500/50";
     };
@@ -276,6 +285,9 @@ const UserManagementContent = () => {
         if (role === "centerIncharge") return "Center Incharge";
         if (role === "zonalManager") return "Zonal Manager";
         if (role === "zonalHead") return "Zonal Head";
+        if (role === "accounts") return "Accounts";
+        if (role === "coordinator") return "Coordinator";
+        if (role === "digital") return "Digital";
         return role.charAt(0).toUpperCase() + role.slice(1);
     };
 
@@ -449,7 +461,7 @@ const UserManagementContent = () => {
             </div>
 
             {/* Analytics Summary Row */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
                 {[
                     { label: "Total Users", count: stats.total, color: "from-cyan-500/20 to-blue-500/20", border: "border-cyan-500/30" },
                     { label: "SuperAdmin", count: stats.superAdmin, color: "from-red-500/20 to-orange-500/20", border: "border-red-500/30" },
@@ -460,7 +472,10 @@ const UserManagementContent = () => {
                     { label: "Marketing", count: stats.marketing, color: "from-pink-500/20 to-rose-500/20", border: "border-pink-500/30" },
                     { label: "CenterIncharge", count: stats.centerIncharge, color: "from-cyan-500/20 to-blue-500/20", border: "border-cyan-500/30" },
                     { label: "ZonalManager", count: stats.zonalManager, color: "from-indigo-500/20 to-blue-500/20", border: "border-indigo-500/30" },
-                    { label: "ZonalHead", count: stats.zonalHead, color: "from-blue-600/20 to-indigo-600/20", border: "border-blue-600/30" }
+                    { label: "ZonalHead", count: stats.zonalHead, color: "from-blue-600/20 to-indigo-600/20", border: "border-blue-600/30" },
+                    { label: "Accounts", count: stats.accounts, color: "from-emerald-500/20 to-teal-500/20", border: "border-emerald-500/30" },
+                    { label: "Coordinator", count: stats.coordinator, color: "from-teal-500/20 to-cyan-500/20", border: "border-teal-500/30" },
+                    { label: "Digital", count: stats.digital, color: "from-violet-500/20 to-purple-500/20", border: "border-violet-500/30" }
                 ].map((item, idx) => (
                     <div key={idx} className={`bg-gradient-to-br ${item.count > 0 ? item.color : isDarkMode ? 'from-gray-800/20 to-gray-900/20' : 'from-gray-100 to-gray-200'} ${item.count > 0 ? item.border : isDarkMode ? 'border-gray-800' : 'border-gray-200'} border p-4 rounded-xl backdrop-blur-sm relative overflow-hidden flex items-center justify-between`}>
                         <div className="z-10">
@@ -532,7 +547,10 @@ const UserManagementContent = () => {
                                         { value: 'marketing', label: 'Marketing' },
                                         { value: 'centerIncharge', label: 'Center Incharge' },
                                         { value: 'zonalManager', label: 'Zonal Manager' },
-                                        { value: 'zonalHead', label: 'Zonal Head' }
+                                        { value: 'zonalHead', label: 'Zonal Head' },
+                                        { value: 'accounts', label: 'Accounts' },
+                                        { value: 'coordinator', label: 'Coordinator' },
+                                        { value: 'digital', label: 'Digital' }
                                     ]}
                                     value={filterRole}
                                     onChange={setFilterRole}

@@ -67,8 +67,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const canDeactivateUsers = isSuperAdmin || (hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit') && (hasModuleAccess(currentUser.granularPermissions, 'employeeCenter') || hasModuleAccess(currentUser.granularPermissions, 'hrManpower')));
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "hr", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "hr"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "hr", "accounts", "coordinator", "digital", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "zonalHead", "hr", "accounts", "coordinator", "digital"];
 
     useEffect(() => {
         fetchCentres();
