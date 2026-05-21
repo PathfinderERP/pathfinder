@@ -6,7 +6,7 @@ import { getSignedFileUrl } from "../../../utils/r2Upload.js";
 export const getAllAdminsBySuperAdmin = async (req, res) => {
   try {
     const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "zonalhead"];
+    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "hod"];
     const isPrivileged = privilegedRoles.includes(userRoleStr);
 
     let query = { role: "admin" };
@@ -45,7 +45,7 @@ export const getAllTeachersBySuperAdmin = async (req, res) => {
     const requestingUser = req.user;
     const userRole = (requestingUser.role || "").toLowerCase().replace(/\s+/g, "");
 
-    const privilegedRoles = ["superadmin", "centerincharge", "zonalmanager", "zonalhead"];
+    const privilegedRoles = ["superadmin", "centerincharge", "zonalmanager", "hod"];
     const isUnderPrivileged = !privilegedRoles.includes(userRole);
 
     let query = { role: "teacher" };

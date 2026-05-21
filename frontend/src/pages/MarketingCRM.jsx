@@ -455,6 +455,7 @@ const MarketingCRM = () => {
 
     // Activity Audit records (populated on plan submit)
     const [auditRecords, setAuditRecords] = useState([]);
+    const [previewImage, setPreviewImage] = useState(null);
     // approval state keyed by record index: { status: 'Pending'|'Approved'|'Rejected', remarks: '' }
     const [approvalState, setApprovalState] = useState({});
 
@@ -1609,7 +1610,7 @@ const MarketingCRM = () => {
                                                                                 <div
                                                                                     key={pIdx}
                                                                                     className="group relative w-11 h-11 rounded-lg overflow-hidden border-2 border-green-400/40 cursor-pointer flex-shrink-0"
-                                                                                    onClick={() => window.open(ph, '_blank')}
+                                                                                    onClick={() => setPreviewImage(ph)}
                                                                                     title={`Photo ${pIdx + 1}`}
                                                                                 >
                                                                                     <img src={ph} alt={`Proof ${pIdx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
@@ -1688,6 +1689,29 @@ const MarketingCRM = () => {
                         })()}
                     </div>
                 </div>
+
+                {/* Full-Screen Image Preview Modal */}
+                {previewImage && (
+                    <div 
+                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm transition-opacity duration-300"
+                        onClick={() => setPreviewImage(null)}
+                    >
+                        <div className="relative max-w-[90%] max-h-[90%] flex flex-col items-center">
+                            <button 
+                                className="absolute -top-12 right-0 text-white hover:text-cyan-400 text-3xl font-black focus:outline-none transition-colors"
+                                onClick={() => setPreviewImage(null)}
+                            >
+                                &times;
+                            </button>
+                            <img 
+                                src={previewImage} 
+                                alt="Proof Preview" 
+                                className="max-w-full max-h-[80vh] rounded-lg border border-cyan-500/20 object-contain shadow-[0_0_50px_rgba(6,182,212,0.2)]"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 <style>{`
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');

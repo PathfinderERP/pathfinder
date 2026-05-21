@@ -67,7 +67,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
             if (userRes.ok && userData.users) {
                 const leadUsers = (userData.users || []).filter(u =>
-                    ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'admin', 'RM', 'centerIncharge', 'zonalManager', 'zonalHead'].includes(u.role)
+                    ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'admin', 'RM', 'centerIncharge', 'zonalManager', 'HOD'].includes(u.role)
                 );
                 setTelecallers(leadUsers);
             }

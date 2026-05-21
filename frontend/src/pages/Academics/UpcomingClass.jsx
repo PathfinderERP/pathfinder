@@ -47,9 +47,9 @@ const UpcomingClass = () => {
     const isAcademicAdmin =
         isAdmin ||
         isCoordinator ||
-        ["centerIncharge", "zonalManager", "zonalHead", "counsellor"].includes(user.role);
+        ["centerIncharge", "zonalManager", "HOD", "counsellor"].includes(user.role);
 
-    const isHod = user.role === "hod";
+    const isHod = user.role === "hod" || user.role === "HOD";
 
     const API_URL = import.meta.env.VITE_API_URL;
 

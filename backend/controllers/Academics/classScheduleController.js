@@ -1638,7 +1638,7 @@ export const startClass = async (req, res) => {
         }
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1676,7 +1676,7 @@ export const endClass = async (req, res) => {
         }
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1736,7 +1736,7 @@ export const updateClassSchedule = async (req, res) => {
         }
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1829,7 +1829,7 @@ export const deleteClassSchedule = async (req, res) => {
         const { id } = req.params;
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1880,7 +1880,7 @@ export const markTeacherAttendance = async (req, res) => {
         }
 
         // Only allow teachers or admins/coordinators/etc
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor', 'teacher'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor', 'teacher'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1910,7 +1910,7 @@ export const startStudy = async (req, res) => {
         }
 
         // Only allow teachers or admins/coordinators/etc
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'zonalHead', 'counsellor', 'teacher'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor', 'teacher'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }

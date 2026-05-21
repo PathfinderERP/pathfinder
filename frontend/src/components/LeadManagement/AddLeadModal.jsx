@@ -109,7 +109,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(r);
+                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'hod'].includes(r);
                 });
                 setTelecallers(leadUsers);
 
@@ -390,7 +390,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
+                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
                                 <CustomSearchSelect
                                     options={telecallers.map(t => ({ value: t.name, label: t.name }))}
                                     value={formData.leadResponsibility}

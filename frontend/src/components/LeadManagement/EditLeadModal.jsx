@@ -105,7 +105,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ["telecaller", "centralizedtelecaller", "counsellor", "marketing", "admin", "rm", "centerincharge", "zonalmanager", "zonalhead"].includes(r);
+                    return ["telecaller", "centralizedtelecaller", "counsellor", "marketing", "admin", "rm", "centerincharge", "zonalmanager", "hod"].includes(r);
                 });
 
                 setTelecallers(leadUsers);
@@ -359,10 +359,10 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                 value={formData.leadResponsibility}
                                 onChange={handleChange}
                                 className={selectClasses}
-                                disabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))}
+                                disabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))}
                             >
                                 <option value="">Select Agent</option>
-                                {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))
+                                {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))
                                     ? telecallers.map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
                                     : telecallers.filter(t => t.name === currentUser?.name).map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
                                 }

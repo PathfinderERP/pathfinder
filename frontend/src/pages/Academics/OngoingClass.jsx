@@ -50,9 +50,9 @@ const OngoingClass = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isAdmin = user.role === "admin" || user.role === "superAdmin";
     const isCoordinator = user.role === "Class_Coordinator";
-    const isAcademicAdmin = isAdmin || isCoordinator || ["centerIncharge", "zonalManager", "zonalHead", "counsellor"].includes(user.role);
+    const isAcademicAdmin = isAdmin || isCoordinator || ["centerIncharge", "zonalManager", "HOD", "counsellor"].includes(user.role);
     const isTeacher = user.role === "teacher";
-    const isHod = user.role === "hod";
+    const isHod = user.role === "hod" || user.role === "HOD";
 
     const API_URL = import.meta.env.VITE_API_URL;
 

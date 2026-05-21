@@ -546,7 +546,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                 return roles.map(r => {
                                     if (r === 'centerIncharge') return 'Center Incharge';
                                     if (r === 'zonalManager') return 'Zonal Manager';
-                                    if (r === 'zonalHead') return 'Zonal Head';
+                                    if (r === 'HOD') return 'HOD';
                                     if (r === 'superAdmin') return 'SuperAdmin';
                                     if (r === 'hr') return 'HR';
                                     return (typeof r === 'string' && r.length > 0) ? r.charAt(0).toUpperCase() + r.slice(1) : r;
