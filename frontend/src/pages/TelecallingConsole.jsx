@@ -755,7 +755,7 @@ const TelecallingConsole = () => {
             const data = await response.json();
             if (response.ok) {
                 let telecallersList = (data.users || []).filter(u =>
-                    ["telecaller", "counsellor", "marketing"].includes(u.role)
+                    ["telecaller", "counsellor", "marketing"].includes(u.role) && u.isActive !== false
                 );
 
                 if (!isSuperAdmin && userCentres.length > 0) {

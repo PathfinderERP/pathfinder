@@ -15,7 +15,7 @@ import { getDiscountReport } from "../../controllers/sales/discountReportControl
 import { getTransactionReport } from "../../controllers/sales/transactionReportController.js";
 import { getDailyCollectionReport } from "../../controllers/sales/dailyCollectionController.js";
 import { getBoardReport } from "../../controllers/sales/boardReportController.js";
-import { getWeeklyTarget } from "../../controllers/sales/weeklyTargetController.js";
+import { getWeeklyTarget, getFinalWeekendTarget } from "../../controllers/sales/weeklyTargetController.js";
 import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
 
 const router = express.Router();
@@ -35,6 +35,7 @@ router.put("/centre-target/:id", requireAuth, updateCentreTarget);
 router.delete("/centre-target/:id", requireAuth, deleteCentreTarget);
 router.get("/quarterly-target-report", requireAuth, getQuarterlyFullReport);
 router.get("/weekly-target", requireAuth, getWeeklyTarget);
+router.get("/final-weekend-target", requireAuth, getFinalWeekendTarget);
 
 // Course Target Routes
 router.post("/course-target", requireAuth, saveCourseTarget);
