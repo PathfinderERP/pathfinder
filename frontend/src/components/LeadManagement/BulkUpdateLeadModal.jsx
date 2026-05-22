@@ -116,9 +116,15 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ["telecaller", "centralizedtelecaller", "counsellor", "marketing", "admin", "rm", "centerincharge", "zonalmanager", "zonalhead"].includes(r);
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
                 });
-                setTelecallers(leadUsers);
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
+                );
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setTelecallers(uniqueUsers);
             }
 
             const examTagResponse = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, {

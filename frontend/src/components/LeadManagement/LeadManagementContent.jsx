@@ -336,15 +336,21 @@ const LeadManagementContent = () => {
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'hod'].includes(r);
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
                 });
-                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered Users:", leadUsers.length);
-                setTelecallers(leadUsers);
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
+                );
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered & Deduplicated Users:", uniqueUsers.length);
+                setTelecallers(uniqueUsers);
 
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
                 // Managerial roles shouldn't be auto-filtered to themselves
                 const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
-                const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
+                const currentLeadUser = uniqueUsers.find(t => t.name === currentUser.name);
                 if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
                         ...prev,

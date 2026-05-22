@@ -79,7 +79,7 @@ export const getRedFlags = async (req, res) => {
             const hasWalkIns = ['telecaller', 'counsellor'].includes(role);
 
             if (hasCalls) {
-                // Call Volume Check
+                // Call Volume Check - only counting unique contacted leads (connected calls)
                 const callStats = await LeadManagement.aggregate([
                     { $unwind: "$followUps" },
                     { 
@@ -88,6 +88,7 @@ export const getRedFlags = async (req, res) => {
                             "followUps.date": { $gte: start, $lte: end }
                         } 
                     },
+                    { $group: { _id: "$_id" } },
                     { $count: "totalCalls" }
                 ]);
                 
