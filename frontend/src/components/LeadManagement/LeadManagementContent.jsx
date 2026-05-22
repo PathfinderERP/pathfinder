@@ -17,6 +17,7 @@ import { useTheme } from "../../context/ThemeContext";
 import LeadTrendChart from "./LeadTrendChart"; // Added Import
 import CentreCallBarChart from "./CentreCallBarChart";
 import FollowUpActivityModal from "./FollowUpActivityModal";
+import BulkUpdateLeadModal from "./BulkUpdateLeadModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -32,6 +33,7 @@ const LeadManagementContent = () => {
     const [showFollowUpModal, setShowFollowUpModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [showFollowUpListModal, setShowFollowUpListModal] = useState(false);
+    const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -744,6 +746,14 @@ const LeadManagementContent = () => {
                                 className="px-6 py-3 bg-cyan-500 text-black hover:bg-cyan-400 rounded-[2px] shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                             >
                                 <FaPlus /> Add Lead
+                            </button>
+                        )}
+                        {selectedLeads.length > 0 && (
+                            <button
+                                onClick={() => setShowBulkUpdateModal(true)}
+                                className="px-6 py-3 bg-teal-500 text-black hover:bg-teal-400 rounded-[2px] shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                            >
+                                <FaEdit /> Update Multiple Data ({selectedLeads.filter(id => leads.some(l => l._id === id)).length})
                             </button>
                         )}
                         {canDelete && selectedLeads.length > 0 && (
@@ -1605,6 +1615,7 @@ const LeadManagementContent = () => {
             {showAddModal && <AddLeadModal isDarkMode={isDarkMode} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchLeads(); }} />}
             {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
             {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
+            {showBulkUpdateModal && <BulkUpdateLeadModal selectedLeadIds={selectedLeads} isDarkMode={isDarkMode} onClose={() => setShowBulkUpdateModal(false)} onSuccess={() => { setShowBulkUpdateModal(false); fetchLeads(); }} />}
             {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead) => { setShowDetailModal(false); setSelectedLead(lead); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
             {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); fetchLeads(); fetchFollowUpStats(); }} />}
             {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}
