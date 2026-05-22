@@ -209,7 +209,7 @@ export const getRedFlags = async (req, res) => {
             
 
             
-            if (role === 'Class_Coordinator') {
+            if (role === 'Class_Coordinator' || role === 'coordinator') {
                 const ongoing = await ClassSchedule.countDocuments({ 
                     coordinatorId: user._id, 
                     status: 'Ongoing',

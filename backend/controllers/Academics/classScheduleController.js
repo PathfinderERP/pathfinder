@@ -1372,8 +1372,8 @@ export const getClassSchedules = async (req, res) => {
         const userId = req.user._id;
         const userRole = req.user.role;
 
-        if (userRole === 'superAdmin' || userRole === 'admin') {
-            // Admins can filter by specific teacher/coordinator if provided
+        if (userRole === 'superAdmin' || userRole === 'admin' || userRole === 'Class_Coordinator' || userRole === 'coordinator') {
+            // Admins and Coordinators can filter by specific teacher/coordinator if provided
             if (teacherId) {
                 const teacherIds = teacherId.split(',').filter(id => id.trim());
                 if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
@@ -1385,9 +1385,6 @@ export const getClassSchedules = async (req, res) => {
         } else if (userRole === 'teacher') {
             // Teachers ONLY see their own classes
             query.teacherId = userId;
-        } else if (userRole === 'Class_Coordinator') {
-            // Coordinators ONLY see their own classes
-            query.coordinatorId = userId;
         } else {
             // Other roles: respect filters if provided, but scope limited by centres below
             if (teacherId) {
@@ -1638,7 +1635,7 @@ export const startClass = async (req, res) => {
         }
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1676,7 +1673,7 @@ export const endClass = async (req, res) => {
         }
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1736,7 +1733,7 @@ export const updateClassSchedule = async (req, res) => {
         }
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1829,7 +1826,7 @@ export const deleteClassSchedule = async (req, res) => {
         const { id } = req.params;
 
         // Permission Check
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1880,7 +1877,7 @@ export const markTeacherAttendance = async (req, res) => {
         }
 
         // Only allow teachers or admins/coordinators/etc
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor', 'teacher'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor', 'teacher'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1910,7 +1907,7 @@ export const startStudy = async (req, res) => {
         }
 
         // Only allow teachers or admins/coordinators/etc
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor', 'teacher'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'hod', 'counsellor', 'teacher'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -1942,7 +1939,7 @@ export const getClassDropdownData = async (req, res) => {
             }).populate('centres', 'centreName');
 
             coordinators = await User.find({
-                role: "Class_Coordinator",
+                role: { $in: ["Class_Coordinator", "coordinator"] },
                 centres: { $in: userCentres }
             }).populate('centres', 'centreName');
 
@@ -1956,7 +1953,7 @@ export const getClassDropdownData = async (req, res) => {
             }
         } else {
             teachers = await User.find({ role: "teacher" }).populate('centres', 'centreName');
-            coordinators = await User.find({ role: "Class_Coordinator" }).populate('centres', 'centreName');
+            coordinators = await User.find({ role: { $in: ["Class_Coordinator", "coordinator"] } }).populate('centres', 'centreName');
             centres = await Centre.find();
             batches = await Batch.find();
         }
@@ -2108,7 +2105,7 @@ export const importClassesExcel = async (req, res) => {
             let acadClassId = undefined;
             if (row['Coordinator']) {
                 const coordRegex = new RegExp(`^${String(row['Coordinator']).trim()}$`, "i");
-                const coordinator = await User.findOne({ name: coordRegex, role: 'Class_Coordinator' });
+                const coordinator = await User.findOne({ name: coordRegex, role: { $in: ['Class_Coordinator', 'coordinator'] } });
                 if (!coordinator) {
                     errors.push(`Row ${rowNumber}: Coordinator exactly matching '${row['Coordinator']}' not found`);
                     continue;
@@ -2188,7 +2185,7 @@ export const exportClassSchedulesExcel = async (req, res) => {
         const userId = req.user._id;
         const userRole = req.user.role;
 
-        if (userRole === 'superAdmin' || userRole === 'admin') {
+        if (userRole === 'superAdmin' || userRole === 'admin' || userRole === 'Class_Coordinator' || userRole === 'coordinator') {
             if (teacherId) {
                 const teacherIds = teacherId.split(',').filter(id => id.trim());
                 if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
@@ -2199,8 +2196,6 @@ export const exportClassSchedulesExcel = async (req, res) => {
             }
         } else if (userRole === 'teacher') {
             query.teacherId = userId;
-        } else if (userRole === 'Class_Coordinator') {
-            query.coordinatorId = userId;
         }
 
         if (req.user && req.user.role !== 'superAdmin') {

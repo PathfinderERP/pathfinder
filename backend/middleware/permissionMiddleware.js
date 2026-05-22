@@ -186,8 +186,16 @@ export const requireGranularPermission = (module, section, action) => {
             // Granular Permission Check
             let hasAccess = false;
 
+            // Auto-allow Class_Coordinator / coordinator role for academics classes and class management sections
+            const normalizedRole = user.role?.toLowerCase() || "";
+            if (module === 'academics' && 
+                (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator') && 
+                ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
+                hasAccess = true;
+            }
+
             // Master permission check for Academics Class Management
-            if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
+            if (!hasAccess && module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
                 const masterAction = action === "view" ? "create" : action; // If viewing, check if they have any master access
                 if (user.granularPermissions?.[module]?.['classManagement']?.[action] === true || 
                     user.granularPermissions?.[module]?.['classes']?.[action] === true ||
