@@ -842,6 +842,22 @@ const MarketingCRM = () => {
                                     {tab}
                                 </button>
                             ))}
+
+                            {/* ── Upload Leads CTA ── */}
+                            <button
+                                onClick={() => navigate("/marketing-crm/upload-leads")}
+                                className="ml-auto flex items-center gap-2 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest
+                                    bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30
+                                    hover:from-emerald-500 hover:to-teal-500 hover:-translate-y-0.5 active:scale-95 transition-all duration-200
+                                    border border-emerald-500/30"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                Upload Leads
+                            </button>
                         </div>
 
                         {/* MAIN CONTENT SPLIT */}
