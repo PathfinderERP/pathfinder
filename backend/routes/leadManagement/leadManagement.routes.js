@@ -9,6 +9,7 @@ import { bulkDeleteLeadsByFilter } from "../../controllers/leadManagement/bulkDe
 import { addFollowUp } from "../../controllers/leadManagement/addFollowUp.js";
 import { bulkContactedLeads } from "../../controllers/leadManagement/bulkContactedLeads.js";
 import { bulkUpdateLeads } from "../../controllers/leadManagement/bulkUpdateLeads.js";
+import { bulkUploadLeads } from "../../controllers/leadManagement/bulkUploadLeads.js";
 import uploadRecording from "../../controllers/leadManagement/uploadRecording.js";
 import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadDashboard.js";
 import { getFollowUpStats } from "../../controllers/leadManagement/getFollowUpStats.js";
@@ -44,6 +45,7 @@ router.get("/planner", requireAuth, getPlanners);
 router.post("/planner", requireAuth, createPlanner);
 router.put("/planner/:id/approval", requireAuth, updatePlannerApproval);
 
+router.post("/bulk-upload", requireAuth, bulkUploadLeads);
 router.post("/bulk-delete", requireAuth, bulkDeleteLeads);
 router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);
 router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
