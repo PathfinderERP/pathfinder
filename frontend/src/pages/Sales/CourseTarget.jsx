@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { useNavigate } from "react-router-dom";
-// import AddCourseTargetModal from "../../components/Sales/AddCourseTargetModal";
+import AddCourseTargetModal from "../../components/Sales/AddCourseTargetModal";
 import { hasPermission } from "../../config/permissions";
 
 const CourseTarget = () => {
@@ -19,6 +19,27 @@ const CourseTarget = () => {
     const [departments, setDepartments] = useState([]);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [detailData, setDetailData] = useState(null);
+    const [showTargetModal, setShowTargetModal] = useState(false);
+    const [targetModalData, setTargetModalData] = useState(null);
+
+    const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
+        setTargetModalData({
+            centreId: centre.centreId,
+            departmentId: deptId,
+            targetCount: currentTarget || "",
+            targetType: viewMode,
+            year: selectedYear,
+            month: selectedMonth,
+            quarter: selectedQuarter,
+            week: selectedWeek
+        });
+        setShowTargetModal(true);
+    };
+
+    const handleTargetSuccess = () => {
+        setShowTargetModal(false);
+        fetchData();
+    };
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
@@ -311,6 +332,18 @@ const CourseTarget = () => {
                         >
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync
                         </button>
+
+                        {canCreate && viewMode === "YEARLY" && (
+                            <button
+                                onClick={() => {
+                                    setTargetModalData(null);
+                                    setShowTargetModal(true);
+                                }}
+                                className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-blue-600/20"
+                            >
+                                <FaPlus /> Set Target
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -365,7 +398,7 @@ const CourseTarget = () => {
                                                 </td>
 
                                                 {departments.map(deptName => {
-                                                    const { achieved, examTagAchieved } = getDeptStats(centre, deptName);
+                                                    const { target, achieved, examTagAchieved, id: deptId } = getDeptStats(centre, deptName);
                                                     return (
                                                         <td
                                                             key={deptName}
@@ -385,7 +418,29 @@ const CourseTarget = () => {
                                                             <div className="flex flex-col items-center gap-1">
                                                                 <span className={`text-xl font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
                                                                     {achieved}
+                                                                    {viewMode === "YEARLY" && (
+                                                                        <>
+                                                                            <span className="text-gray-500 font-normal mx-1">/</span>
+                                                                            <span className={target > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
+                                                                                {target > 0 ? target : "-"}
+                                                                            </span>
+                                                                        </>
+                                                                    )}
                                                                 </span>
+
+                                                                {/* Edit/Add Target Icon on cell hover */}
+                                                                {canCreate && viewMode === "YEARLY" && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenTargetModal(centre, deptName, deptId, target);
+                                                                        }}
+                                                                        className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-cyan-500/20 text-cyan-400"
+                                                                        title={target > 0 ? "Update Target" : "Add Target"}
+                                                                    >
+                                                                        <FaEdit size={12} />
+                                                                    </button>
+                                                                )}
 
                                                                 {/* Exam Tag Breakdown - Shown always if data exists */}
                                                                 {examTagAchieved && examTagAchieved.length > 0 && (
@@ -461,6 +516,16 @@ const CourseTarget = () => {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {showTargetModal && (
+                    <AddCourseTargetModal
+                        onClose={() => setShowTargetModal(false)}
+                        onSuccess={handleTargetSuccess}
+                        centres={centres}
+                        isDarkMode={isDarkMode}
+                        initialData={targetModalData}
+                    />
                 )}
             </div>
         </Layout>
