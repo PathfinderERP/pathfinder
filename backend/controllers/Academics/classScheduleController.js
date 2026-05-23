@@ -1282,6 +1282,7 @@ export const createClassSchedule = async (req, res) => {
             batchId,
             batchIds,
             coordinatorId,
+            coordinatorIds,
             acadClassId,
             acadSubjectId,
             chapterId,
@@ -1301,6 +1302,8 @@ export const createClassSchedule = async (req, res) => {
 
         // Final centreIds list
         const finalCentreIds = centreIds || (centreId ? [centreId] : []);
+        const finalCoordinatorIds = coordinatorIds || (coordinatorId ? [coordinatorId] : []);
+        const firstCoordinatorId = finalCoordinatorIds.length > 0 ? finalCoordinatorIds[0] : undefined;
 
         // Center authorization check
         if (req.user.role !== 'superAdmin') {
@@ -1330,7 +1333,8 @@ export const createClassSchedule = async (req, res) => {
             examId,
             centreIds: finalCentreIds,
             batchIds: batchIds || (batchId ? [batchId] : []),
-            coordinatorId: coordinatorId || undefined,
+            coordinatorId: firstCoordinatorId || undefined,
+            coordinatorIds: finalCoordinatorIds,
             acadClassId: acadClassId || undefined,
             acadSubjectId: acadSubjectId || undefined,
             chapterId: chapterId || undefined,
@@ -1380,7 +1384,15 @@ export const getClassSchedules = async (req, res) => {
             }
             if (coordinatorId) {
                 const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
-                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+                if (coordinatorIds.length > 0) {
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { coordinatorId: { $in: coordinatorIds } },
+                            { coordinatorIds: { $in: coordinatorIds } }
+                        ]
+                    });
+                }
             }
         } else if (userRole === 'teacher') {
             // Teachers ONLY see their own classes
@@ -1393,7 +1405,15 @@ export const getClassSchedules = async (req, res) => {
             }
             if (coordinatorId) {
                 const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
-                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+                if (coordinatorIds.length > 0) {
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { coordinatorId: { $in: coordinatorIds } },
+                            { coordinatorIds: { $in: coordinatorIds } }
+                        ]
+                    });
+                }
             }
         }
 
@@ -1525,6 +1545,7 @@ export const getClassSchedules = async (req, res) => {
             .populate("centreIds", "centreName centerName name latitude longitude")
             .populate("centreId", "centreName centerName name latitude longitude")
             .populate("coordinatorId", "name")
+            .populate("coordinatorIds", "name")
             .populate("batchIds", "batchName name")
             .populate("acadClassId", "className")
             .populate({
@@ -1597,6 +1618,10 @@ export const getClassSchedules = async (req, res) => {
                 ? cls.batchIds.map(b => typeof b === 'string' ? b : (b.batchName || b.name)).filter(b => b).join(", ")
                 : (typeof cls.batchId === 'string' ? cls.batchId : (cls.batchId?.batchName || cls.batchId?.name || ""));
 
+            const coordDisplay = Array.isArray(cls.coordinatorIds) && cls.coordinatorIds.length > 0
+                ? cls.coordinatorIds.map(c => typeof c === 'string' ? c : (c?.name || "")).filter(name => name).join(", ")
+                : (cls.coordinatorId?.name || cls.coordinatorId || "");
+
             return {
                 ...cls,
                 status,
@@ -1606,7 +1631,8 @@ export const getClassSchedules = async (req, res) => {
                 topicName: topicDisplay || "N/A",
                 className: classDisplay || "N/A",
                 centreNames: names.length > 0 ? names.join(", ") : "N/A",
-                batchNames: batchDisplay || "N/A"
+                batchNames: batchDisplay || "N/A",
+                coordinatorName: coordDisplay || "N/A"
             };
         });
 
@@ -1708,6 +1734,7 @@ export const updateClassSchedule = async (req, res) => {
             centreIds,
             batchIds,
             coordinatorId,
+            coordinatorIds,
             acadClassId,
             acadSubjectId,
             chapterId,
@@ -1726,6 +1753,8 @@ export const updateClassSchedule = async (req, res) => {
         }
 
         const finalCentreIds = centreIds || (centreId ? [centreId] : []);
+        const finalCoordinatorIds = coordinatorIds || (coordinatorId ? [coordinatorId] : []);
+        const firstCoordinatorId = finalCoordinatorIds.length > 0 ? finalCoordinatorIds[0] : undefined;
 
         const currentClass = await ClassSchedule.findById(id);
         if (!currentClass) {
@@ -1766,7 +1795,8 @@ export const updateClassSchedule = async (req, res) => {
                 examId,
                 centreIds: finalCentreIds,
                 batchIds,
-                coordinatorId: coordinatorId || undefined,
+                coordinatorId: firstCoordinatorId || undefined,
+                coordinatorIds: finalCoordinatorIds,
                 acadClassId: acadClassId || undefined,
                 acadSubjectId: acadSubjectId || undefined,
                 chapterId: chapterId || undefined,
@@ -1798,11 +1828,13 @@ export const updateClassSchedule = async (req, res) => {
                     examId,
                     centreIds: finalCentreIds,
                     batchIds,
-                    coordinatorId: coordinatorId || undefined,
+                    coordinatorId: firstCoordinatorId || undefined,
+                    coordinatorIds: finalCoordinatorIds,
                     acadClassId: acadClassId || undefined,
                     acadSubjectId: acadSubjectId || undefined,
                     chapterId: chapterId || undefined,
-                    topicIds,
+                    chapterIds: chapterIds || [],
+                    topicIds: topicIds || [],
                     message,
                     classHours
                 },
@@ -2136,6 +2168,7 @@ export const importClassesExcel = async (req, res) => {
                 centreIds: [centre._id],
                 batchIds: batchIds,
                 coordinatorId: coordinatorId,
+                coordinatorIds: coordinatorId ? [coordinatorId] : [],
                 acadClassId: acadClassId,
                 acadSubjectId: subject._id, // Direct reference to Master Subject as requested
                 chapterName: row['Chapter Name'] ? String(row['Chapter Name']).trim() : "",
@@ -2192,7 +2225,15 @@ export const exportClassSchedulesExcel = async (req, res) => {
             }
             if (coordinatorId) {
                 const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
-                if (coordinatorIds.length > 0) query.coordinatorId = { $in: coordinatorIds };
+                if (coordinatorIds.length > 0) {
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { coordinatorId: { $in: coordinatorIds } },
+                            { coordinatorIds: { $in: coordinatorIds } }
+                        ]
+                    });
+                }
             }
         } else if (userRole === 'teacher') {
             query.teacherId = userId;

@@ -20,7 +20,12 @@ const ComparisonAnalysis = () => {
     const [centres, setCentres] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
-    const [selectedMonths, setSelectedMonths] = useState([...monthNames]);
+    
+    // Default to the current month name (dynamically shifts month-to-month)
+    const currentMonthName = new Date().toLocaleString('en-US', { month: 'long' });
+    const matchedMonth = monthNames.find(m => m.toLowerCase() === currentMonthName.toLowerCase()) || "April";
+    const [selectedMonths, setSelectedMonths] = useState([matchedMonth]);
+    
     const [comparisonData, setComparisonData] = useState([]);
     const [loading, setLoading] = useState(true);
 

@@ -20,27 +20,155 @@ export const getRedFlags = async (req, res) => {
         const { start, end } = getRange(startDate, endDate);
         const daysDiff = Math.max(1, Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
 
-        if (!role || role === 'All Roles') {
-            return res.status(200).json([]);
+        // 1. Fetch all active users for matching role(s)
+        const userQuery = { isActive: true };
+        if (role && role !== 'All Roles') {
+            userQuery.role = role;
+        } else {
+            userQuery.role = { 
+                $in: ['telecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'teacher', 'Class_Coordinator', 'coordinator', 'hr'] 
+            };
         }
-
-        // 1. Fetch all active users for this role
-        const userQuery = { role, isActive: true };
         if (centreId && centreId !== 'All Centers') userQuery.centres = { $in: [centreId] };
         
         const users = await User.find(userQuery).populate('centres', 'centreName').lean();
 
         // 2. Fetch existing persistent flags for this range to merge status
-        const persistentFlags = await RedFlag.find({
-            role,
-            createdAt: { $gte: start, $lte: end }
-        }).lean();
+        const pfQuery = { createdAt: { $gte: start, $lte: end } };
+        if (role && role !== 'All Roles') pfQuery.role = role;
+        if (centreId && centreId !== 'All Centers') pfQuery.centre = centreId;
+
+        const persistentFlags = await RedFlag.find(pfQuery)
+            .populate('centre', 'centreName')
+            .lean();
+
+        // 3. Optimized Bulk Aggregations to avoid N+1 queries
+        const userNames = users.map(u => u.name).filter(Boolean);
+        const userIds = users.map(u => u._id);
+
+        // A. Call Stats
+        const callStats = await LeadManagement.aggregate([
+            { $unwind: "$followUps" },
+            { 
+                $match: { 
+                    "followUps.updatedBy": { $in: userNames },
+                    "followUps.date": { $gte: start, $lte: end }
+                } 
+            },
+            { $group: { _id: { leadId: "$_id", updatedBy: "$followUps.updatedBy" } } },
+            { $group: { _id: "$_id.updatedBy", totalCalls: { $sum: 1 } } }
+        ]);
+        const callMap = new Map(callStats.map(item => [item._id, item.totalCalls]));
+
+        // B. Counselling Stats
+        const counselledStats = await LeadManagement.aggregate([
+            { $unwind: "$followUps" },
+            {
+                $match: {
+                    "followUps.updatedBy": { $in: userNames },
+                    "followUps.date": { $gte: start, $lte: end },
+                    isCounseled: true
+                }
+            },
+            { $group: { _id: { leadId: "$_id", updatedBy: "$followUps.updatedBy" } } },
+            { $group: { _id: "$_id.updatedBy", total: { $sum: 1 } } }
+        ]);
+        const counselMap = new Map(counselledStats.map(item => [item._id, item.total]));
+
+        // C. Admissions
+        const [admNormalStats, admBoardStats] = await Promise.all([
+            Admission.aggregate([
+                { $match: { createdBy: { $in: userIds }, createdAt: { $gte: start, $lte: end } } },
+                { $group: { _id: "$createdBy", count: { $sum: 1 } } }
+            ]),
+            BoardCourseAdmission.aggregate([
+                { $match: { createdBy: { $in: userIds }, createdAt: { $gte: start, $lte: end } } },
+                { $group: { _id: "$createdBy", count: { $sum: 1 } } }
+            ])
+        ]);
+        const admNormalMap = new Map(admNormalStats.map(item => [item._id.toString(), item.count]));
+        const admBoardMap = new Map(admBoardStats.map(item => [item._id.toString(), item.count]));
+
+        // D. Walk-ins
+        const walkInStats = await LeadManagement.aggregate([
+            {
+                $match: {
+                    walkInBy: { $in: userIds },
+                    isWalkIn: true,
+                    walkInDate: { $gte: start, $lte: end }
+                }
+            },
+            { $group: { _id: "$walkInBy", count: { $sum: 1 } } }
+        ]);
+        const walkInMap = new Map(walkInStats.map(item => [item._id.toString(), item.count]));
+
+        // E. Teacher Attendance
+        const teacherStats = await ClassSchedule.aggregate([
+            {
+                $match: {
+                    teacherId: { $in: userIds },
+                    status: 'Completed',
+                    date: { $gte: start, $lte: end }
+                }
+            },
+            {
+                $group: {
+                    _id: "$teacherId",
+                    total: { $sum: 1 },
+                    saved: {
+                        $sum: {
+                            $cond: [
+                                { $and: [ { $eq: ["$isStudentAttendanceSaved", true] }, { $eq: ["$teacherAttendance", true] } ] },
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+        const teacherMap = new Map(teacherStats.map(item => [item._id.toString(), { total: item.total, saved: item.saved }]));
+
+        // F. Class Coordinator (Ongoing classes)
+        const coordinatorStats = await ClassSchedule.aggregate([
+            {
+                $project: {
+                    allCoordinatorIds: {
+                        $cond: {
+                            if: { $isArray: "$coordinatorIds" },
+                            then: { $setUnion: ["$coordinatorIds", { $cond: [ { $ifNull: ["$coordinatorId", null] }, ["$coordinatorId"], [] ] }] },
+                            else: { $cond: [ { $ifNull: ["$coordinatorId", null] }, ["$coordinatorId"], [] ] }
+                        }
+                    },
+                    status: 1,
+                    date: 1
+                }
+            },
+            {
+                $match: {
+                    allCoordinatorIds: { $in: userIds },
+                    status: 'Ongoing',
+                    date: { $lte: end }
+                }
+            },
+            { $unwind: "$allCoordinatorIds" },
+            {
+                $match: {
+                    allCoordinatorIds: { $in: userIds }
+                }
+            },
+            { $group: { _id: "$allCoordinatorIds", count: { $sum: 1 } } }
+        ]);
+        const coordinatorMap = new Map(coordinatorStats.map(item => [item._id.toString(), item.count]));
 
         const performanceData = [];
 
-        // 3. Scan ERP data for each user based on role
+        // 4. Scan ERP data for each user based on their specific role
         for (const user of users) {
-            const evaluateAndPush = async (metricType, targetValue, metricValue, severityLogic, issueLogic) => {
+            const userRole = user.role;
+            if (!userRole) continue;
+
+            const evaluateAndPush = (metricType, targetValue, metricValue, severityLogic, issueLogic) => {
                 let currentSeverity = "Low";
                 let issue = "Operating normally";
 
@@ -60,7 +188,7 @@ export const getRedFlags = async (req, res) => {
                         profileImage: user.profileImage
                     },
                     role: user.role,
-                    centre: user.centres?.[0] || { centreName: "N/A" },
+                    centre: dbFlag?.centre || user.centres?.[0] || { centreName: "N/A" },
                     type: metricType,
                     severity: dbFlag?.severity || currentSeverity,
                     issue: dbFlag?.issue || issue,
@@ -73,34 +201,21 @@ export const getRedFlags = async (req, res) => {
                 });
             };
 
-            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager', 'marketing'].includes(role);
-            const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
-            const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager'].includes(role);
-            const hasWalkIns = ['telecaller', 'counsellor'].includes(role);
+            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager', 'marketing'].includes(userRole);
+            const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager'].includes(userRole);
+            const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager'].includes(userRole);
+            const hasWalkIns = ['telecaller', 'counsellor'].includes(userRole);
 
             if (hasCalls) {
-                // Call Volume Check - only counting unique contacted leads (connected calls)
-                const callStats = await LeadManagement.aggregate([
-                    { $unwind: "$followUps" },
-                    { 
-                        $match: { 
-                            "followUps.updatedBy": user.name,
-                            "followUps.date": { $gte: start, $lte: end }
-                        } 
-                    },
-                    { $group: { _id: "$_id" } },
-                    { $count: "totalCalls" }
-                ]);
-                
-                const callMetricValue = callStats.length > 0 ? callStats[0].totalCalls : 0;
-                const callTargetValue = (role === 'counsellor' ? 30 : 50) * daysDiff;
+                const callMetricValue = callMap.get(user.name) || 0;
+                const callTargetValue = (userRole === 'counsellor' ? 30 : 50) * daysDiff;
 
-                await evaluateAndPush(
+                evaluateAndPush(
                     'calls',
                     callTargetValue,
                     callMetricValue,
                     (m) => {
-                        if (role === 'counsellor') {
+                        if (userRole === 'counsellor') {
                             if (m < 30 * daysDiff) return "Critical";
                             return "Low";
                         }
@@ -114,24 +229,10 @@ export const getRedFlags = async (req, res) => {
             }
 
             if (hasCounsellings) {
-                // Counselling Volume Check
-                const counselled = await LeadManagement.aggregate([
-                    { $unwind: "$followUps" },
-                    {
-                        $match: {
-                            "followUps.updatedBy": user.name,
-                            "followUps.date": { $gte: start, $lte: end },
-                            isCounseled: true
-                        }
-                    },
-                    { $group: { _id: "$_id" } }, // Unique leads counselled
-                    { $count: "total" }
-                ]);
-                
-                const counselMetricValue = counselled.length > 0 ? counselled[0].total : 0;
+                const counselMetricValue = counselMap.get(user.name) || 0;
                 const counselTargetValue = 5 * daysDiff;
 
-                await evaluateAndPush(
+                evaluateAndPush(
                     'counselling',
                     counselTargetValue,
                     counselMetricValue,
@@ -146,13 +247,10 @@ export const getRedFlags = async (req, res) => {
             }
 
             if (hasAdmissions) {
-                // Admission Volume Check
-                const admNormal = await Admission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
-                const admBoard = await BoardCourseAdmission.countDocuments({ createdBy: user._id, createdAt: { $gte: start, $lte: end } });
-                const admissionMetric = admNormal + admBoard;
+                const admissionMetric = (admNormalMap.get(user._id.toString()) || 0) + (admBoardMap.get(user._id.toString()) || 0);
                 const admissionTarget = 10 * daysDiff;
-                
-                await evaluateAndPush(
+
+                evaluateAndPush(
                     'admission',
                     admissionTarget,
                     admissionMetric,
@@ -167,16 +265,10 @@ export const getRedFlags = async (req, res) => {
             }
 
             if (hasWalkIns) {
-                // Walk-in Volume Check
-                const walkInCount = await LeadManagement.countDocuments({
-                    walkInBy: user._id,
-                    isWalkIn: true,
-                    walkInDate: { $gte: start, $lte: end }
-                });
-
+                const walkInCount = walkInMap.get(user._id.toString()) || 0;
                 const walkInTargetValue = 5 * daysDiff;
 
-                await evaluateAndPush(
+                evaluateAndPush(
                     'walkin',
                     walkInTargetValue,
                     walkInCount,
@@ -190,16 +282,12 @@ export const getRedFlags = async (req, res) => {
                 );
             }
 
-            if (role === 'teacher') {
-                const classes = await ClassSchedule.find({ 
-                    teacherId: user._id, 
-                    status: 'Completed',
-                    date: { $gte: start, $lte: end }
-                });
-                const teacherTarget = classes.length;
-                const teacherMetric = classes.filter(c => c.isStudentAttendanceSaved && c.teacherAttendance).length;
-                
-                await evaluateAndPush(
+            if (userRole === 'teacher') {
+                const tData = teacherMap.get(user._id.toString()) || { total: 0, saved: 0 };
+                const teacherTarget = tData.total;
+                const teacherMetric = tData.saved;
+
+                evaluateAndPush(
                     'attendance',
                     teacherTarget,
                     teacherMetric,
@@ -207,17 +295,11 @@ export const getRedFlags = async (req, res) => {
                     (m, t) => `Missing attendance for ${t - m} classes in this period.`
                 );
             }
-            
 
-            
-            if (role === 'Class_Coordinator' || role === 'coordinator') {
-                const ongoing = await ClassSchedule.countDocuments({ 
-                    coordinatorId: user._id, 
-                    status: 'Ongoing',
-                    date: { $lte: end }
-                });
-                
-                await evaluateAndPush(
+            if (userRole === 'Class_Coordinator' || userRole === 'coordinator') {
+                const ongoing = coordinatorMap.get(user._id.toString()) || 0;
+
+                evaluateAndPush(
                     'class_end',
                     1,
                     ongoing > 0 ? 0 : 1,

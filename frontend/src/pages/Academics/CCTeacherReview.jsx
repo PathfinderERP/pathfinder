@@ -402,7 +402,7 @@ const CCTeacherReview = () => {
                                                     </div>
                                                     <div className="flex items-center gap-2 text-[10px]">
                                                         <FaUserTie className="text-purple-400/70" />
-                                                        <span className="text-gray-500">CC: {cls.coordinatorId?.name || "N/A"}</span>
+                                                        <span className="text-gray-500">CC: {cls.coordinatorName || cls.coordinatorId?.name || "N/A"}</span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -503,7 +503,7 @@ const CCTeacherReview = () => {
                                     </div>
                                     <div className="space-y-1 text-right">
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>CC Evaluator</p>
-                                        <p className={`text-lg font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedFeedback.coordinatorId?.name || "N/A"}</p>
+                                        <p className={`text-lg font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedFeedback.coordinatorName || selectedFeedback.coordinatorId?.name || "N/A"}</p>
                                         <p className="text-[10px] text-purple-600 font-bold uppercase">{formatDate(selectedFeedback.date)}</p>
                                     </div>
                                 </div>
