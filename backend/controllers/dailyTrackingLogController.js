@@ -1,4 +1,5 @@
 import DailyTrackingLog from "../models/DailyTrackingLog.js";
+import User from "../models/User.js";
 
 // Helper to get midnight in India Standard Time as a standardized UTC Date object
 const getMidnightIST = (dateInput) => {
@@ -113,29 +114,92 @@ export const getMyLog = async (req, res) => {
 // Get department/board logs (grouped or filtered)
 export const getDepartmentLogs = async (req, res) => {
     try {
-        const { date, department, employeeName } = req.query;
+        const { date, role, employeeName } = req.query;
         const targetDate = getMidnightIST(date);
         const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
         const endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
 
-        const query = { date: { $gte: startRange, $lt: endRange } };
+        const userQuery = { isActive: true };
+        
+        const roleDBMapping = {
+            admin: ["admin"],
+            superadmin: ["superAdmin"],
+            coordinator: ["coordinator", "Class_Coordinator"],
+            accounts: ["accounts"],
+            hr: ["hr"],
+            digital: ["digital"],
+            marketing: ["marketing"],
+            telecaller: ["telecaller", "centralizedTelecaller"],
+            counsellor: ["counsellor"],
+            teacher: ["teacher"]
+        };
 
-        if (department && department !== "All") {
-            query.department = department;
+        if (role && role !== "All") {
+            const dbRoles = roleDBMapping[role.toLowerCase()];
+            if (dbRoles) {
+                userQuery.role = { $in: dbRoles };
+            } else {
+                userQuery.role = role;
+            }
+        } else {
+            // If "All", limit to users with any of the supported roles
+            const allSupportedRoles = Object.values(roleDBMapping).flat();
+            userQuery.role = { $in: allSupportedRoles };
         }
 
         if (employeeName) {
-            query.userName = { $regex: employeeName, $options: "i" };
+            userQuery.name = { $regex: employeeName, $options: "i" };
         }
 
-        const logs = await DailyTrackingLog.find(query)
-            .populate("user", "name role designation profileImage")
-            .sort({ userName: 1 });
+        const users = await User.find(userQuery).select("name role designation profileImage");
 
-        res.status(200).json({ logs });
+        // Find existing logs for the day
+        const logQuery = { 
+            date: { $gte: startRange, $lt: endRange },
+            user: { $in: users.map(u => u._id) }
+        };
+
+        const logs = await DailyTrackingLog.find(logQuery)
+            .populate("user", "name role designation profileImage");
+
+        // Map logs by user ID string
+        const logMap = new Map();
+        for (const log of logs) {
+            if (log.user) {
+                logMap.set(log.user._id.toString(), log);
+            }
+        }
+
+        // Merge users with their logs (or create empty logs)
+        const combinedLogs = users.map(user => {
+            const existingLog = logMap.get(user._id.toString());
+            if (existingLog) {
+                return existingLog;
+            }
+            return {
+                _id: `temp_${user._id}`,
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    role: user.role,
+                    designation: user.designation,
+                    profileImage: user.profileImage
+                },
+                userName: user.name,
+                department: user.role,
+                date: targetDate,
+                activities: [],
+                noEntry: true
+            };
+        });
+
+        // Sort combined list by userName
+        combinedLogs.sort((a, b) => a.userName.localeCompare(b.userName));
+
+        res.status(200).json({ logs: combinedLogs });
     } catch (error) {
-        console.error("Error fetching department logs:", error);
-        res.status(500).json({ message: "Failed to fetch department board logs.", error: error.message });
+        console.error("Error fetching board logs:", error);
+        res.status(500).json({ message: "Failed to fetch board logs.", error: error.message });
     }
 };
 

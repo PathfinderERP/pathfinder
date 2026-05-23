@@ -265,7 +265,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                     </div>
                                     <div>
                                         <label className={labelClass}>COORDINATION EMAIL</label>
-                                        <div className={infoValueClass}>{student.studentEmail || "N/A"}</div>
+                                        <div className={`${infoValueClass} normal-case`}>{student.studentEmail || "N/A"}</div>
                                     </div>
                                     <div>
                                         <label className={labelClass}>PRIMARY CONTACT</label>
@@ -310,7 +310,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                     </div>
                                     <div>
                                         <label className={labelClass}>SECURE EMAIL</label>
-                                        <div className={infoValueClass}>{guardian.guardianEmail || "N/A"}</div>
+                                        <div className={`${infoValueClass} normal-case`}>{guardian.guardianEmail || "N/A"}</div>
                                     </div>
                                     <div>
                                         <label className={labelClass}>VOCATIONAL TAG</label>

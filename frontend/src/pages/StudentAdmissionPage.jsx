@@ -54,7 +54,7 @@ const StudentAdmissionPage = () => {
         studentImage: "",
         remarks: "",
         feeWaiver: 0,
-        paymentMethod: "CASH",
+        paymentMethod: "",
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
@@ -467,6 +467,12 @@ const StudentAdmissionPage = () => {
             return;
         }
 
+        if (!formData.paymentMethod) {
+            toast.error("Please select a payment method.");
+            setLoading(false);
+            return;
+        }
+
         // New validation: require Transaction ID for UPI/CARD/BANK_TRANSFER if down payment > 0
         if (['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod) && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
             toast.error(`Transaction ID / Ref is mandatory for ${formData.paymentMethod} payments.`);
@@ -617,8 +623,9 @@ const StudentAdmissionPage = () => {
                             </div>
 
                             <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class *</label>
                                 <select
+                                    required
                                     name="classId"
                                     value={formData.classId}
                                     onChange={handleInputChange}
@@ -955,6 +962,7 @@ const StudentAdmissionPage = () => {
                                     className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                     required
                                 >
+                                    <option value="">Select Payment Method</option>
                                     <option value="CASH">CASH</option>
                                     <option value="UPI">UPI</option>
                                     <option value="CARD">CARD</option>

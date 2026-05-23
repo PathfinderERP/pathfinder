@@ -274,3 +274,33 @@ export const deleteChapter = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
+
+// Bulk Update Chapters
+export const bulkUpdateChapters = async (req, res) => {
+    try {
+        const { ids, updateFields } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No IDs provided" });
+        }
+        if (!updateFields || typeof updateFields !== 'object') {
+            return res.status(400).json({ message: "No update fields provided" });
+        }
+
+        const { subjectId } = updateFields;
+        if (!subjectId) {
+            return res.status(400).json({ message: "Subject is required to update chapters" });
+        }
+
+        const result = await AcademicsChapter.updateMany(
+            { _id: { $in: ids } },
+            { $set: { subjectId } }
+        );
+
+        res.status(200).json({
+            message: `${result.modifiedCount} chapters updated successfully`,
+            modifiedCount: result.modifiedCount
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};

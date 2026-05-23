@@ -402,8 +402,9 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className={labelClass}>ACADEMIC PROGRAMME</label>
+                                <label className={labelClass}>ACADEMIC PROGRAMME <span className="text-red-500">*</span></label>
                                 <select
+                                    required
                                     name="programme"
                                     value={formData.programme}
                                     onChange={handleChange}
@@ -433,7 +434,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     name="studentEmail"
                                     value={formData.studentEmail}
                                     onChange={handleChange}
-                                    className={inputClass}
+                                    className={`${inputClass} normal-case`}
                                 />
                             </div>
                             <div>
@@ -735,7 +736,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     name="guardianEmail"
                                     value={formData.guardianEmail}
                                     onChange={handleChange}
-                                    className={inputClass}
+                                    className={`${inputClass} normal-case`}
                                 />
                             </div>
                             <div>

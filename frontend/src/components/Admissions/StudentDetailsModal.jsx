@@ -96,7 +96,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                                 <div className="col-span-2">
                                     <p className={labelClass}><FaEnvelope className="text-cyan-500/50" /> DIGITAL MAILBOX</p>
-                                    <p className={`${valueClass} break-all lowercase font-mono italic text-cyan-500`}>{details.studentEmail || "NO EMAIL ASSIGNED"}</p>
+                                    <p className={`${valueClass} break-all normal-case font-mono italic text-cyan-500`}>{details.studentEmail || "NO EMAIL ASSIGNED"}</p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>TELECOM LINE</p>
@@ -212,7 +212,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                 </div>
                                 <div>
                                     <p className={labelClass}>GUARDIAN EMAIL</p>
-                                    <p className={`${valueClass} lowercase font-mono italic text-[11px]`}>{guardian.guardianEmail || "NO EMAIL"}</p>
+                                    <p className={`${valueClass} normal-case font-mono italic text-[11px]`}>{guardian.guardianEmail || "NO EMAIL"}</p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>PROFESSIONAL VECTOR</p>

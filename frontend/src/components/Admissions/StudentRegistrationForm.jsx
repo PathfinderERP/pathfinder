@@ -813,8 +813,8 @@ const StudentRegistrationForm = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label className={labelClass}>ACADEMIC PROGRAMME</label>
-                                                <select name="programme" value={formData.programme} onChange={handleChange} className={inputClass}>
+                                                <label className={labelClass}>ACADEMIC PROGRAMME <span className="text-red-500">*</span></label>
+                                                <select name="programme" required value={formData.programme} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT PROGRAMME</option>
                                                     <option value="CRP">CRP</option>
                                                     <option value="NCRP">NCRP</option>
