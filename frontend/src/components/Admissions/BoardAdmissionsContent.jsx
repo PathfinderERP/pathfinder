@@ -1424,11 +1424,11 @@ const BoardAdmissionsContent = () => {
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Email Address <span className="text-red-500">*</span></label>
                                         <input
                                             type="email"
-                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${emailCheck.taken
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold normal-case ${emailCheck.taken
                                                 ? 'border-red-500 bg-red-500/5 text-red-400'
                                                 : isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'
                                                 }`}
-                                            placeholder="E.G. MAIL@DOMAIN.COM"
+                                            placeholder="E.G. mail@domain.com"
                                             value={counsellingForm.studentEmail}
                                             onChange={(e) => setCounsellingForm({ ...counsellingForm, studentEmail: e.target.value })}
                                         />
@@ -1473,6 +1473,7 @@ const BoardAdmissionsContent = () => {
                                     <div>
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Programme <span className="text-red-500">*</span></label>
                                         <select
+                                            required
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             value={counsellingForm.programme}
                                             onChange={(e) => setCounsellingForm({ ...counsellingForm, programme: e.target.value })}
@@ -1545,7 +1546,7 @@ const BoardAdmissionsContent = () => {
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Guardian Email</label>
                                         <input
                                             type="email"
-                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold normal-case ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             placeholder="EMAIL"
                                             value={counsellingForm.guardianEmail}
                                             onChange={(e) => setCounsellingForm({ ...counsellingForm, guardianEmail: e.target.value })}

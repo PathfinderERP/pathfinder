@@ -109,16 +109,22 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(r);
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
                 });
-                setTelecallers(leadUsers);
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
+                );
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setTelecallers(uniqueUsers);
 
                 // Auto-select the current user as default
-                const currentLeadUser = leadUsers.find(u => u.name && user.name && u.name.toLowerCase() === user.name.toLowerCase());
+                const currentLeadUser = uniqueUsers.find(u => u.name && user.name && u.name.toLowerCase() === user.name.toLowerCase());
                 if (currentLeadUser) {
                     setFormData(prev => ({ ...prev, leadResponsibility: currentLeadUser.name }));
-                } else if (leadUsers.length === 1) {
-                    setFormData(prev => ({ ...prev, leadResponsibility: leadUsers[0].name }));
+                } else if (uniqueUsers.length === 1) {
+                    setFormData(prev => ({ ...prev, leadResponsibility: uniqueUsers[0].name }));
                 } else if (user.name) {
                     // Fallback to current user name directly
                     setFormData(prev => ({ ...prev, leadResponsibility: user.name }));
@@ -390,7 +396,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
+                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
                                 <CustomSearchSelect
                                     options={telecallers.map(t => ({ value: t.name, label: t.name }))}
                                     value={formData.leadResponsibility}

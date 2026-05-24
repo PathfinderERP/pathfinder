@@ -80,7 +80,7 @@ export const getFollowUpStats = async (req, res) => {
         }
 
         const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
+        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod'];
         const isPrivileged = privilegedRoles.includes(curUserRoleStr);
 
         if (curUserRoleStr !== 'superadmin' && curUserRoleStr !== 'super admin') {

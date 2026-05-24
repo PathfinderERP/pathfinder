@@ -9,6 +9,7 @@ import StudentRegistration from "./pages/StudentRegistration";
 import Finance from "./pages/Finance";
 import Sales from "./pages/Sales";
 import CentreTarget from "./pages/Sales/CentreTarget";
+import ComparisonAnalysis from "./pages/Sales/ComparisonAnalysis";
 import CentreRank from "./pages/Sales/CentreRank";
 import TargetAchievementReport from "./pages/Sales/TargetAchievementReport";
 import AdmissionReport from "./pages/Sales/AdmissionReport";
@@ -63,6 +64,7 @@ import ZoneManagement from "./pages/ZoneManagement";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
 import MasterDataBoardCourseSubject from "./pages/MasterDataBoardCourseSubject.jsx";
 import MarketingCRM from "./pages/MarketingCRM";
+import UploadLeads from "./pages/LeadManagement/UploadLeads";
 // import SystemLogs from "./pages/Admin/SystemLogs";
 
 // ... [existing imports]
@@ -188,6 +190,7 @@ function App() {
         <Route path="/red-flag-desk" element={<ProtectedRoute><RedFlagDesk /></ProtectedRoute>} />
         <Route path="/daily-tracking-log" element={<ProtectedRoute><DailyTrackingLog /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
+        <Route path="/marketing-crm/upload-leads" element={<ProtectedRoute><UploadLeads /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
         <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />
         <Route path="/board-course-admission/:studentId" element={<ProtectedRoute><BoardCourseAdmissionPage /></ProtectedRoute>} />
@@ -220,6 +223,7 @@ function App() {
         <Route path="/finance/part-time-teachers" element={<ProtectedRoute><PartTimeTeachers /></ProtectedRoute>} />
         <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
         <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
+        <Route path="/sales/comparison-analysis" element={<ProtectedRoute><ComparisonAnalysis /></ProtectedRoute>} />
         <Route path="/sales/centre-rank" element={<ProtectedRoute><CentreRank /></ProtectedRoute>} />
         <Route path="/sales/target-achievement-report" element={<ProtectedRoute><TargetAchievementReport /></ProtectedRoute>} />
         <Route path="/sales/admission-report" element={<ProtectedRoute><AdmissionReport /></ProtectedRoute>} />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FaTimes, FaUserEdit, FaSync, FaSave, FaFilter, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
+import CustomSearchSelect from "../common/CustomSearchSelect";
 
 const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
     const [formData, setFormData] = useState({
@@ -105,10 +106,15 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ["telecaller", "centralizedtelecaller", "counsellor", "marketing", "admin", "rm", "centerincharge", "zonalmanager", "zonalhead"].includes(r);
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
                 });
-
-                setTelecallers(leadUsers);
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
+                );
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setTelecallers(uniqueUsers);
             }
 
             const examTagResponse = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, {
@@ -353,20 +359,23 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            <select
-                                name="leadResponsibility"
-                                required
-                                value={formData.leadResponsibility}
-                                onChange={handleChange}
-                                className={selectClasses}
-                                disabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))}
-                            >
-                                <option value="">Select Agent</option>
-                                {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, ''))
-                                    ? telecallers.map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
-                                    : telecallers.filter(t => t.name === currentUser?.name).map(t => <option key={t._id} value={t.name}>{t.name.toUpperCase()}</option>)
-                                }
-                            </select>
+                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
+                                <CustomSearchSelect
+                                    options={telecallers.map(t => ({ value: t.name, label: t.name }))}
+                                    value={formData.leadResponsibility}
+                                    onChange={(val) => setFormData({ ...formData, leadResponsibility: val })}
+                                    placeholder="Select Agent"
+                                    isDarkMode={isDarkMode}
+                                />
+                            ) : (
+                                <div className={`w-full px-4 py-2.5 rounded-[4px] border text-[11px] font-black uppercase tracking-widest flex items-center justify-between ${isDarkMode ? 'bg-[#131619] border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
+                                    <span>{formData.leadResponsibility || currentUser?.name || 'You'}</span>
+                                    <span className={`text-[8px] px-2 py-0.5 rounded-full font-black tracking-widest ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border border-cyan-100'}`}>
+                                        Auto-assigned
+                                    </span>
+                                    <input type="hidden" name="leadResponsibility" value={formData.leadResponsibility || currentUser?.name || ''} />
+                                </div>
+                            )}
                         </div>
                     </div>
 

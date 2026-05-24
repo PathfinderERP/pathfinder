@@ -62,7 +62,7 @@ const EnrolledStudentsContent = () => {
     const [processingPayment, setProcessingPayment] = useState(false);
     const [paymentData, setPaymentData] = useState({
         paidAmount: 0,
-        paymentMethod: "CASH",
+        paymentMethod: "",
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
@@ -895,7 +895,7 @@ const EnrolledStudentsContent = () => {
         setSelectedInstallment(installment);
         setPaymentData({
             paidAmount: installment.amount,
-            paymentMethod: "CASH",
+            paymentMethod: "",
             transactionId: "",
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
@@ -909,6 +909,11 @@ const EnrolledStudentsContent = () => {
 
     const handlePaymentSubmit = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
+
+        if (!paymentData.paymentMethod) {
+            toast.error("Please select a payment method.");
+            return;
+        }
 
         // Validation: Prevent paying more than total remaining balance
         const remainingBalance = (selectedAdmission.totalFees || 0) - (selectedAdmission.totalPaidAmount || 0);
@@ -1708,7 +1713,7 @@ const EnrolledStudentsContent = () => {
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wide">{student.studentEmail || ""}</p>
+                                                            <p className="text-gray-500 text-[10px] font-bold normal-case tracking-wide">{student.studentEmail || ""}</p>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -1896,7 +1901,7 @@ const EnrolledStudentsContent = () => {
                                 </h3>
                                 <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-widest mt-2 text-gray-500">
                                     <span className="flex items-center gap-1.5"><FaPhoneAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
-                                    <span className="flex items-center gap-1.5"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
+                                    <span className="flex items-center gap-1.5 normal-case"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
                                     <span className="flex items-center gap-1.5"><FaMapMarkerAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
                                     {studentAdmissions[0]?.department?.departmentName && (
                                         <span className="flex items-center gap-1.5"><FaHistory size={10} className="text-orange-500" /> {studentAdmissions[0].department.departmentName}</span>
@@ -2144,7 +2149,7 @@ const EnrolledStudentsContent = () => {
                                                         </div>
                                                         <div className="lg:col-span-2">
                                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">E-Mail Address</p>
-                                                            <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{guardian.guardianEmail || "N/A"}</p>
+                                                            <p className={`font-black normal-case tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{guardian.guardianEmail || "N/A"}</p>
                                                         </div>
                                                         <div className="lg:col-span-2">
                                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Academic Credentials</p>
@@ -2927,6 +2932,7 @@ const EnrolledStudentsContent = () => {
                                         required
                                         className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                     >
+                                        <option value="" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>SELECT PAYMENT METHOD</option>
                                         <option value="CASH" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>HARD CURRENCY (CASH)</option>
                                         <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>Online Payment (UPI)</option>
                                         <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CREDIT/DEBIT CARD</option>

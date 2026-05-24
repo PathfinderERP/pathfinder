@@ -298,7 +298,7 @@ export const getEmployees = async (req, res) => {
 
         // Data Isolation: Restrict visibility based on role
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "admin", "centerincharge", "zonalmanager", "zonalhead", "hr", "class_coordinator", "rm", "hod"];
+        const privilegedRoles = ["superadmin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         if (userRoleStr !== 'superadmin' && userRoleStr !== 'hr') {
@@ -644,7 +644,7 @@ export const addSalaryStructure = async (req, res) => {
 export const getEmployeesForDropdown = async (req, res) => {
     try {
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "admin", "centerincharge", "zonalmanager", "zonalhead", "hr", "class_coordinator", "rm", "hod"];
+        const privilegedRoles = ["superadmin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         const query = { status: "Active" };

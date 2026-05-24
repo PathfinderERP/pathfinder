@@ -122,6 +122,23 @@ export const getCourseTargetAnalysis = async (req, res) => {
         const examTagMap = {};
         allExamTags.forEach(t => examTagMap[t._id.toString()] = t.tagName || t.name);
 
+        // Fetch Course Targets
+        const targetFilter = {
+            centre: { $in: centreIds },
+            year: parsedYear,
+            targetType
+        };
+        if (targetType === 'MONTHLY') targetFilter.month = month;
+        if (targetType === 'QUARTERLY') targetFilter.quarter = quarter;
+        if (targetType === 'WEEKLY') targetFilter.week = parseInt(week, 10);
+
+        const courseTargets = await CourseTarget.find(targetFilter).lean();
+        const targetMap = {};
+        courseTargets.forEach(t => {
+            const key = `${t.centre.toString()}_${t.department.toString()}`;
+            targetMap[key] = t.targetCount;
+        });
+
         console.log(`Analyzing ${centreIds.length} centres from ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
         for (const centreId of centreIds) {
@@ -217,9 +234,12 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const finalDeptStats = masterDepartments.map(dept => {
                 const dId = dept._id.toString();
+                const targetKey = `${centreId}_${dId}`;
+                const target = targetMap[targetKey] || 0;
                 return {
                     name: dept.departmentName,
                     id: dept._id,
+                    target: target,
                     achieved: deptAdmissionMap[dId] || 0,
                     examTagAchieved: deptExamTagBreakdown[dId] || [],
                     courses: []

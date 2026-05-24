@@ -128,6 +128,11 @@ const classScheduleSchema = new mongoose.Schema({
         ref: "User",
         required: false
     },
+    coordinatorIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: false
+    }],
     coordinatorAttendance: { type: Boolean, default: false },
     coordinatorAttendanceLatitude: { type: Number },
     coordinatorAttendanceLongitude: { type: Number },

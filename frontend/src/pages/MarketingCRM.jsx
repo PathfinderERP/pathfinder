@@ -81,6 +81,7 @@ const MarketingCRM = () => {
     useEffect(() => {
         fetchCentres();
         fetchAllPerformance(timePeriod, filters);
+        fetchAuditRecords();
         // eslint-disable-next-line
     }, []);
 
@@ -251,7 +252,86 @@ const MarketingCRM = () => {
         fetchEmployeeProfile();
     }, []);
 
-    const handleSubmitFieldPlan = (e) => {
+    const fetchAuditRecords = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.records) {
+                    setAuditRecords(data.records);
+                    const fetchedApprovals = {};
+                    data.records.forEach(r => {
+                        fetchedApprovals[r.id] = {
+                            status: r.status || "Pending",
+                            remarks: r.remarks || ""
+                        };
+                    });
+                    setApprovalState(fetchedApprovals);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching audit records:", error);
+        }
+    };
+
+    const handleUpdateApprovalStatus = async (recordId, newStatus) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner/${recordId}/approval`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (response.ok) {
+                setApprovalState(prev => ({
+                    ...prev,
+                    [recordId]: { ...prev[recordId], status: newStatus }
+                }));
+                if (newStatus === "Approved") {
+                    toast.success("Activity approved!");
+                } else {
+                    toast.error("Activity rejected.");
+                }
+            } else {
+                toast.error("Failed to update status in database.");
+            }
+        } catch (error) {
+            console.error("Error updating approval status:", error);
+            toast.error("Network error while updating status.");
+        }
+    };
+
+    const handleSaveRemarks = async (recordId, remarksValue) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner/${recordId}/approval`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ remarks: remarksValue })
+            });
+
+            if (response.ok) {
+                toast.success("Remarks saved.");
+            } else {
+                toast.error("Failed to save remarks to database.");
+            }
+        } catch (error) {
+            console.error("Error saving remarks:", error);
+            toast.error("Network error while saving remarks.");
+        }
+    };
+
+    const handleSubmitFieldPlan = async (e) => {
         e.preventDefault();
         
         if (!planDate) {
@@ -278,30 +358,69 @@ const MarketingCRM = () => {
         const submittedAt = now.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
         const submittedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-        // Build audit records from submitted activities
-        const newRecords = todayActivities.map((act, idx) => ({
-            id: `${Date.now()}-${idx}`,
+        const activitiesPayload = todayActivities.map((act) => ({
             type: act.type,
-            institution: act.place || "—",
-            owner: currentUser.name || currentUser.username || "Unknown",
-            plan: act.time ? (() => { const [h, m] = act.time.split(':'); const d = new Date(); d.setHours(+h, +m); return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); })() : "—",
-            actual: act.actualTime || submittedTime,
-            leads: act.expectedLeads || "0",
+            place: act.place || "",
+            time: act.time || "",
+            actualTime: act.actualTime || submittedTime,
+            expectedLeads: act.expectedLeads || "0",
+            geoTagged: act.geoTagged,
+            latitude: act.latitude,
+            longitude: act.longitude,
+            locationName: act.locationName,
+            photos: act.photos || (act.photo ? [act.photo] : []),
             photo: act.photos?.[0] || act.photo || null,
-            photos: act.photos || [],
-            submittedAt,
-            approval: "Pending",
-            remarks: ""
+            submittedAt
         }));
 
-        setAuditRecords(prev => [...prev, ...newRecords]);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    date: planDate,
+                    expectedLeadTarget: Number(expectedLeadTarget),
+                    expectedHotLeads: Number(expectedHotLeads),
+                    activities: activitiesPayload
+                })
+            });
 
-        // Initialize approval state for new records
-        const newApprovals = {};
-        newRecords.forEach(r => { newApprovals[r.id] = { status: "Pending", remarks: "" }; });
-        setApprovalState(prev => ({ ...prev, ...newApprovals }));
+            if (response.ok) {
+                const data = await response.json();
+                if (data.records) {
+                    setAuditRecords(prev => [...data.records, ...prev]);
 
-        toast.success(`Today's Field Plan saved! ${newRecords.length} activit${newRecords.length === 1 ? 'y' : 'ies'} added to Audit.`);
+                    const newApprovals = {};
+                    data.records.forEach(r => {
+                        newApprovals[r.id] = { status: r.status || "Pending", remarks: r.remarks || "" };
+                    });
+                    setApprovalState(prev => ({ ...prev, ...newApprovals }));
+
+                    toast.success(`Today's Field Plan saved! ${data.records.length} activit${data.records.length === 1 ? 'y' : 'ies'} saved to database and added to Audit.`);
+                }
+            } else {
+                const text = await response.text();
+                let errData;
+                try {
+                    errData = JSON.parse(text);
+                } catch (jsonErr) {
+                    console.error("Non-JSON error response from server:", text);
+                    toast.error(`Server error: ${response.status} - Non-JSON response`);
+                    return;
+                }
+                console.error("Detailed server error:", errData);
+                toast.error(errData.message || errData.error || "Failed to save field plan to database.");
+                return;
+            }
+        } catch (error) {
+            console.error("Error submitting field plan:", error);
+            toast.error("Failed to connect to database. Plan was not saved.");
+            return;
+        }
 
         // Switch to Activity Audit tab
         setActiveTab("Activity Audit");
@@ -336,6 +455,7 @@ const MarketingCRM = () => {
 
     // Activity Audit records (populated on plan submit)
     const [auditRecords, setAuditRecords] = useState([]);
+    const [previewImage, setPreviewImage] = useState(null);
     // approval state keyed by record index: { status: 'Pending'|'Approved'|'Rejected', remarks: '' }
     const [approvalState, setApprovalState] = useState({});
 
@@ -722,6 +842,22 @@ const MarketingCRM = () => {
                                     {tab}
                                 </button>
                             ))}
+
+                            {/* ── Upload Leads CTA ── */}
+                            <button
+                                onClick={() => navigate("/marketing-crm/upload-leads")}
+                                className="ml-auto flex items-center gap-2 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest
+                                    bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30
+                                    hover:from-emerald-500 hover:to-teal-500 hover:-translate-y-0.5 active:scale-95 transition-all duration-200
+                                    border border-emerald-500/30"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                Upload Leads
+                            </button>
                         </div>
 
                         {/* MAIN CONTENT SPLIT */}
@@ -730,7 +866,7 @@ const MarketingCRM = () => {
                             {/* STAFF BOARD (Left) */}
                             <div className="lg:col-span-4 space-y-6">
                                 <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                    <h2 className="text-xl font-black tracking-tight mb-1">Staff Board</h2>
+                                    <h2 className={`text-xl font-black tracking-tight mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Staff Board</h2>
                                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Filter by role and status</p>
                                     
                                     <div className="grid grid-cols-2 gap-4 mb-8">
@@ -754,10 +890,14 @@ const MarketingCRM = () => {
                                             >
                                                 <div className="flex justify-between items-start mb-3">
                                                     <div>
-                                                        <h4 className="font-black text-sm">{staff.name}</h4>
+                                                        <h4 className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{staff.name}</h4>
                                                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">ZM • Zone Control</p>
                                                     </div>
-                                                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 text-[8px] font-black uppercase tracking-widest border border-emerald-200">Verified</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                                                        isDarkMode 
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                                            : 'bg-emerald-100 text-emerald-600 border-emerald-200'
+                                                    }`}>Verified</span>
                                                 </div>
                                                 <div className="grid grid-cols-4 gap-2">
                                                     {[
@@ -766,9 +906,9 @@ const MarketingCRM = () => {
                                                         { label: "Proof", value: "31" },
                                                         { label: "Score", value: "97%" }
                                                     ].map((m, i) => (
-                                                        <div key={i} className="text-center p-2 rounded-xl bg-gray-50/50">
-                                                            <p className="text-[10px] font-black">{m.value}</p>
-                                                            <p className="text-[7px] font-bold text-gray-400 uppercase">{m.label}</p>
+                                                        <div key={i} className={`text-center p-2 rounded-xl transition-all ${isDarkMode ? 'bg-white/5' : 'bg-gray-50/50'}`}>
+                                                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{m.value}</p>
+                                                            <p className={`text-[7px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase`}>{m.label}</p>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -784,7 +924,7 @@ const MarketingCRM = () => {
                                     <div className={`p-8 rounded-3xl border min-h-full ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                         <div className="flex justify-between items-start mb-8">
                                             <div>
-                                                <h1 className="text-4xl font-black tracking-tighter">{selectedStaff.name}</h1>
+                                                <h1 className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStaff.name}</h1>
                                                 <p className="text-gray-500 text-sm font-bold mt-1 uppercase tracking-widest">ZM • South Kolkata Zone • Zone Control</p>
                                             </div>
                                             <span className="px-4 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">Risk: Low</span>
@@ -808,7 +948,7 @@ const MarketingCRM = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                             {/* Source Split */}
                                             <div className="space-y-6">
-                                                <h4 className="text-sm font-black uppercase tracking-widest">Source Split</h4>
+                                                <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Source Split</h4>
                                                 <div className="space-y-5">
                                                     {[
                                                         { label: "School Visits", value: 100 },
@@ -821,8 +961,8 @@ const MarketingCRM = () => {
                                                                 <span>{s.label}</span>
                                                                 <span>{s.value}%</span>
                                                             </div>
-                                                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                                <div className="h-full bg-black rounded-full" style={{ width: `${s.value}%` }} />
+                                                            <div className={`h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                                                <div className={`h-full rounded-full ${isDarkMode ? 'bg-white' : 'bg-black'}`} style={{ width: `${s.value}%` }} />
                                                             </div>
                                                         </div>
                                                     ))}
@@ -831,15 +971,15 @@ const MarketingCRM = () => {
 
                                             {/* Manager Decision */}
                                             <div className="space-y-6">
-                                                <h4 className="text-sm font-black uppercase tracking-widest">Manager Decision</h4>
+                                                <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <button className="px-4 py-3 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Approve Work</button>
                                                     <button className="px-4 py-3 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Ask Clarification</button>
                                                     <button className="px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Raise Red Flag</button>
-                                                    <button className="px-4 py-3 rounded-xl bg-black text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Assign Follow-up</button>
+                                                    <button className={`px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-black'}`}>Assign Follow-up</button>
                                                 </div>
                                                 <div className="pt-4 border-t border-dashed">
-                                                    <p className="text-[10px] text-gray-400 font-medium">Last submitted at <span className="text-black font-black">8:46 PM</span>. Final count is locked only after proof and approval.</p>
+                                                    <p className="text-[10px] text-gray-400 font-medium">Last submitted at <span className={`font-black ${isDarkMode ? 'text-white' : 'text-black'}`}>8:46 PM</span>. Final count is locked only after proof and approval.</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -1490,7 +1630,7 @@ const MarketingCRM = () => {
                                                                                 <div
                                                                                     key={pIdx}
                                                                                     className="group relative w-11 h-11 rounded-lg overflow-hidden border-2 border-green-400/40 cursor-pointer flex-shrink-0"
-                                                                                    onClick={() => window.open(ph, '_blank')}
+                                                                                    onClick={() => setPreviewImage(ph)}
                                                                                     title={`Photo ${pIdx + 1}`}
                                                                                 >
                                                                                     <img src={ph} alt={`Proof ${pIdx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
@@ -1527,6 +1667,7 @@ const MarketingCRM = () => {
                                                                             ...prev,
                                                                             [row.id]: { ...prev[row.id], remarks: e.target.value }
                                                                         }))}
+                                                                        onBlur={(e) => handleSaveRemarks(row.id, e.target.value)}
                                                                         className={`w-full px-3 py-2 rounded-lg border text-[10px] outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-black placeholder-gray-400'}`}
                                                                     />
                                                                 </td>
@@ -1534,10 +1675,7 @@ const MarketingCRM = () => {
                                                                 <td className="px-5 py-4 min-w-[180px]">
                                                                     <div className="flex gap-2">
                                                                         <button
-                                                                            onClick={() => {
-                                                                                setApprovalState(prev => ({ ...prev, [row.id]: { ...prev[row.id], status: "Approved" } }));
-                                                                                toast.success(`Activity by ${row.owner} approved!`);
-                                                                            }}
+                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
                                                                             className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${
                                                                                 approval.status === "Approved"
                                                                                     ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
@@ -1547,10 +1685,7 @@ const MarketingCRM = () => {
                                                                             ✓ Approve
                                                                         </button>
                                                                         <button
-                                                                            onClick={() => {
-                                                                                setApprovalState(prev => ({ ...prev, [row.id]: { ...prev[row.id], status: "Rejected" } }));
-                                                                                toast.error(`Activity by ${row.owner} rejected.`);
-                                                                            }}
+                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
                                                                             className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${
                                                                                 approval.status === "Rejected"
                                                                                     ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
@@ -1574,6 +1709,29 @@ const MarketingCRM = () => {
                         })()}
                     </div>
                 </div>
+
+                {/* Full-Screen Image Preview Modal */}
+                {previewImage && (
+                    <div 
+                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm transition-opacity duration-300"
+                        onClick={() => setPreviewImage(null)}
+                    >
+                        <div className="relative max-w-[90%] max-h-[90%] flex flex-col items-center">
+                            <button 
+                                className="absolute -top-12 right-0 text-white hover:text-cyan-400 text-3xl font-black focus:outline-none transition-colors"
+                                onClick={() => setPreviewImage(null)}
+                            >
+                                &times;
+                            </button>
+                            <img 
+                                src={previewImage} 
+                                alt="Proof Preview" 
+                                className="max-w-full max-h-[80vh] rounded-lg border border-cyan-500/20 object-contain shadow-[0_0_50px_rgba(6,182,212,0.2)]"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 <style>{`
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');

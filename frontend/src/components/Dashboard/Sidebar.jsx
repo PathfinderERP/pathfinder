@@ -156,6 +156,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "sales",
             subItems: [
                 { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" },
+                { name: "Comparison Analysis", path: "/sales/comparison-analysis", permissionSection: "centreTarget" },
                 //{ name: "Weekly Weekends Target", path: "/sales/weekly-target", permissionSection: "centreTarget" },
                 { name: "Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },
                 { name: "Course Target", path: "/sales/course-target", permissionSection: "centreTarget" },
@@ -546,7 +547,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                 return roles.map(r => {
                                     if (r === 'centerIncharge') return 'Center Incharge';
                                     if (r === 'zonalManager') return 'Zonal Manager';
-                                    if (r === 'zonalHead') return 'Zonal Head';
+                                    if (r === 'HOD') return 'HOD';
                                     if (r === 'superAdmin') return 'SuperAdmin';
                                     if (r === 'hr') return 'HR';
                                     return (typeof r === 'string' && r.length > 0) ? r.charAt(0).toUpperCase() + r.slice(1) : r;

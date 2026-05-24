@@ -43,14 +43,14 @@ const UpcomingClass = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const ALL_ROLES_FOR_CLASS = [
-        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 
-        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 
-        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts', 
+        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
+        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
+        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
         'coordinator', 'digital'
     ];
     const isAcademicAdmin = ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
 
-    const isHod = user.role === "hod";
+    const isHod = user.role === "hod" || user.role === "HOD";
 
     const API_URL = import.meta.env.VITE_API_URL;
 

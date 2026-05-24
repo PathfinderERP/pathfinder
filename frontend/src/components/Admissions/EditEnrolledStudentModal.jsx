@@ -346,7 +346,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         name="studentEmail"
                                         value={formData.studentEmail}
                                         onChange={(e) => setFormData({ ...formData, studentEmail: e.target.value })}
-                                        className={inputClass}
+                                        className={`${inputClass} normal-case`}
                                     />
                                 </div>
                                 <div>
@@ -509,7 +509,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         type="email"
                                         value={formData.guardianEmail}
                                         onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
-                                        className={inputClass}
+                                        className={`${inputClass} normal-case`}
                                     />
                                 </div>
                                 <div>
@@ -600,8 +600,9 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                     </select>
                                 </div>
                                 <div>
-                                    <label className={labelClass}>PROGRAMME</label>
+                                    <label className={labelClass}>PROGRAMME <span className="text-red-500">*</span></label>
                                     <select
+                                        required
                                         name="programme"
                                         value={formData.programme}
                                         onChange={handleChange}

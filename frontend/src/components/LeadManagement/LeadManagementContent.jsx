@@ -17,6 +17,7 @@ import { useTheme } from "../../context/ThemeContext";
 import LeadTrendChart from "./LeadTrendChart"; // Added Import
 import CentreCallBarChart from "./CentreCallBarChart";
 import FollowUpActivityModal from "./FollowUpActivityModal";
+import BulkUpdateLeadModal from "./BulkUpdateLeadModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -32,6 +33,7 @@ const LeadManagementContent = () => {
     const [showFollowUpModal, setShowFollowUpModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [showFollowUpListModal, setShowFollowUpListModal] = useState(false);
+    const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -334,15 +336,21 @@ const LeadManagementContent = () => {
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(r);
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
                 });
-                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered Users:", leadUsers.length);
-                setTelecallers(leadUsers);
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
+                );
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered & Deduplicated Users:", uniqueUsers.length);
+                setTelecallers(uniqueUsers);
 
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
                 // Managerial roles shouldn't be auto-filtered to themselves
-                const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
-                const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
+                const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
+                const currentLeadUser = uniqueUsers.find(t => t.name === currentUser.name);
                 if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
                         ...prev,
@@ -783,6 +791,14 @@ const LeadManagementContent = () => {
                                 <FaPlus /> Add Lead
                             </button>
                         )}
+                        {selectedLeads.length > 0 && (
+                            <button
+                                onClick={() => setShowBulkUpdateModal(true)}
+                                className="px-6 py-3 bg-teal-500 text-black hover:bg-teal-400 rounded-[2px] shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                            >
+                                <FaEdit /> Update Multiple Data ({selectedLeads.filter(id => leads.some(l => l._id === id)).length})
+                            </button>
+                        )}
                         {canDelete && selectedLeads.length > 0 && (
                             <button
                                 onClick={handleMultipleDelete}
@@ -1062,75 +1078,41 @@ const LeadManagementContent = () => {
                     </div>
                 </div>
 
-                {/* Daily Goal Progress Bars – Telecaller & Counsellor */}
-                {['telecaller', 'counsellor'].includes(user?.role?.toLowerCase()) && (
-                    <div className={`mb-8 grid gap-6 ${user?.role?.toLowerCase() === 'telecaller' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* Daily Goal Progress Bars – Telecaller only */}
+                {user?.role?.toLowerCase() === 'telecaller' && (
+                    <div className="mb-8 grid grid-cols-1 gap-6">
 
                         {/* Daily Call Progress – telecaller only */}
-                        {user?.role?.toLowerCase() === 'telecaller' && (
-                            <div className={`border rounded-[2px] p-5 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                                <div className="flex items-center justify-between gap-4 mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-[2px] ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-green-500/10 text-green-500' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
-                                            <FaChartLine size={13} />
-                                        </div>
-                                        <div>
-                                            <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Calls</h3>
-                                            <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Goal: 50 calls / day</p>
-                                        </div>
-                                    </div>
-                                    <span className={`text-[9px] font-black px-2.5 py-1 rounded-[2px] border ${followUpStats.totalFollowUps >= 50 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
-                                        {followUpStats.totalFollowUps || 0} / 50
-                                    </span>
-                                </div>
-                                <div className="relative h-3.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
-                                    <div
-                                        className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-gradient-to-r from-green-600 to-green-400' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' : 'bg-gradient-to-r from-red-600 to-red-400'}`}
-                                        style={{ width: `${Math.min((followUpStats.totalFollowUps / 50) * 100, 100)}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between mt-1.5 px-0.5">
-                                    <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">
-                                        {Math.min(Math.round((followUpStats.totalFollowUps / 50) * 100), 100)}% complete
-                                    </span>
-                                    {followUpStats.totalFollowUps >= 50 ? (
-                                        <span className="flex items-center gap-1 text-green-500 text-[8px] font-black uppercase tracking-widest animate-bounce"><FaCheckCircle size={9} /> Goal Met!</span>
-                                    ) : followUpStats.totalFollowUps < 15 ? (
-                                        <span className="flex items-center gap-1 text-red-500 text-[8px] font-black uppercase tracking-widest animate-pulse"><FaExclamationTriangle size={9} /> Low Activity</span>
-                                    ) : null}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Daily Walk-Ins Progress – telecaller & counsellor */}
                         <div className={`border rounded-[2px] p-5 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <div className="flex items-center justify-between gap-4 mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-[2px] ${(followUpStats.walkInsCountToday || 0) >= 5 ? 'bg-green-500/10 text-green-500' : (followUpStats.walkInsCountToday || 0) >= 3 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-blue-500/10 text-blue-400'}`}>
-                                        <FaWalking size={13} />
+                                    <div className={`p-2 rounded-[2px] ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-green-500/10 text-green-500' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
+                                        <FaChartLine size={13} />
                                     </div>
                                     <div>
-                                        <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Walk-Ins</h3>
-                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Goal: 5 walk-ins / day</p>
+                                        <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Calls</h3>
+                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Goal: 50 calls / day</p>
                                     </div>
                                 </div>
-                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-[2px] border ${(followUpStats.walkInsCountToday || 0) >= 5 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30'}`}>
-                                    {followUpStats.walkInsCountToday || 0} / 5
+                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-[2px] border ${followUpStats.totalFollowUps >= 50 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+                                    {followUpStats.totalFollowUps || 0} / 50
                                 </span>
                             </div>
                             <div className="relative h-3.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
                                 <div
-                                    className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out ${(followUpStats.walkInsCountToday || 0) >= 5 ? 'bg-gradient-to-r from-green-600 to-green-400' : (followUpStats.walkInsCountToday || 0) >= 3 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
-                                    style={{ width: `${Math.min(((followUpStats.walkInsCountToday || 0) / 5) * 100, 100)}%` }}
+                                    className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-gradient-to-r from-green-600 to-green-400' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' : 'bg-gradient-to-r from-red-600 to-red-400'}`}
+                                    style={{ width: `${Math.min((followUpStats.totalFollowUps / 50) * 100, 100)}%` }}
                                 />
                             </div>
                             <div className="flex justify-between mt-1.5 px-0.5">
                                 <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">
-                                    {Math.min(Math.round(((followUpStats.walkInsCountToday || 0) / 5) * 100), 100)}% complete
+                                    {Math.min(Math.round((followUpStats.totalFollowUps / 50) * 100), 100)}% complete
                                 </span>
-                                {(followUpStats.walkInsCountToday || 0) >= 5 && (
+                                {followUpStats.totalFollowUps >= 50 ? (
                                     <span className="flex items-center gap-1 text-green-500 text-[8px] font-black uppercase tracking-widest animate-bounce"><FaCheckCircle size={9} /> Goal Met!</span>
-                                )}
+                                ) : followUpStats.totalFollowUps < 15 ? (
+                                    <span className="flex items-center gap-1 text-red-500 text-[8px] font-black uppercase tracking-widest animate-pulse"><FaExclamationTriangle size={9} /> Low Activity</span>
+                                ) : null}
                             </div>
                         </div>
 
@@ -1259,14 +1241,14 @@ const LeadManagementContent = () => {
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Telecaller</label>
                             <CustomMultiSelect
                                 options={
-                                    ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
+                                    ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
                                         ? telecallers.map(t => ({ value: t.name, label: t.name }))
                                         : telecallers.filter(t => t.name === user?.name).map(t => ({ value: t.name, label: t.name }))
                                 }
                                 value={filters.leadResponsibility}
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
                                 placeholder="Select Telecaller"
-                                isDisabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))}
+                                isDisabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
@@ -1702,6 +1684,7 @@ const LeadManagementContent = () => {
             {showAddModal && <AddLeadModal isDarkMode={isDarkMode} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchLeads(); }} />}
             {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
             {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
+            {showBulkUpdateModal && <BulkUpdateLeadModal selectedLeadIds={selectedLeads} isDarkMode={isDarkMode} onClose={() => setShowBulkUpdateModal(false)} onSuccess={() => { setShowBulkUpdateModal(false); fetchLeads(); }} />}
             {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead) => { setShowDetailModal(false); setSelectedLead(lead); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
             {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); fetchLeads(); fetchFollowUpStats(); }} />}
             {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}

@@ -220,7 +220,7 @@ export const getDailyCenterDetails = async (req, res) => {
         if (!center) return res.status(404).json({ message: "Center not found" });
 
         // 2. Fetch only ACTIVE users with operational roles assigned to this center
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'zonalHead', 'admin'];
+        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'admin'];
         const users = await User.find({
             centres: centerId,
             isActive: true,
@@ -864,7 +864,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
         const center = await CentreSchema.findById(centerId).lean();
         if (!center) return res.status(404).json({ message: "Center not found" });
 
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'zonalHead', 'admin', 'superAdmin'];
+        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'admin', 'superAdmin'];
         const users = await User.find({ 
             centres: centerId, 
             isActive: true,

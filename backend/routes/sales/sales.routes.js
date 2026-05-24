@@ -17,8 +17,12 @@ import { getDailyCollectionReport } from "../../controllers/sales/dailyCollectio
 import { getBoardReport } from "../../controllers/sales/boardReportController.js";
 import { getWeeklyTarget, getFinalWeekendTarget } from "../../controllers/sales/weeklyTargetController.js";
 import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
+import { getComparisonAnalysis, saveComparisonManualData } from "../../controllers/sales/comparisonAnalysisController.js";
 
 const router = express.Router();
+
+router.get("/comparison-analysis", requireAuth, getComparisonAnalysis);
+router.post("/comparison-analysis/save", requireAuth, saveComparisonManualData);
 
 router.get("/centre-rank", requireAuth, getCentreRankings);
 router.get("/target-analysis", requireAuth, getTargetAnalysis);
