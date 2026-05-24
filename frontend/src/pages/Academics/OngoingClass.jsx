@@ -48,9 +48,13 @@ const OngoingClass = () => {
     const [dropdownLoading, setDropdownLoading] = useState(false);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isAdmin = user.role === "admin" || user.role === "superAdmin";
-    const isCoordinator = user.role === "Class_Coordinator";
-    const isAcademicAdmin = isAdmin || isCoordinator || ["centerIncharge", "zonalManager", "zonalHead", "counsellor"].includes(user.role);
+    const ALL_ROLES_FOR_CLASS = [
+        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 
+        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 
+        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts', 
+        'coordinator', 'digital'
+    ];
+    const isAcademicAdmin = ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
     const isTeacher = user.role === "teacher";
     const isHod = user.role === "hod";
 

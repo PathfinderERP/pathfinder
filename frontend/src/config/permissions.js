@@ -526,12 +526,24 @@ export const PERMISSION_MODULES = {
     }
 };
 
-// Helper function to check if user has permission
-// Accepts either (granularPermissions, module, section, operation) or (user, module, section, operation)
 export const hasPermission = (granularPermissionsOrUser, module, section, operation) => {
     // Check if first argument is a user object with role
     if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
         return true; // SuperAdmin has all permissions
+    }
+
+    const ALL_ROLES_FOR_CLASS = [
+        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 
+        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 
+        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts', 
+        'coordinator', 'digital'
+    ];
+
+    if (granularPermissionsOrUser && granularPermissionsOrUser.role && module === 'academics' && 
+        ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
+        if (ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === granularPermissionsOrUser.role.toLowerCase())) {
+            return true;
+        }
     }
 
     // Otherwise treat it as granularPermissions object
