@@ -632,7 +632,12 @@ const EmployeesAttendance = () => {
             'Status': d.status === "Week Off" ? "DAY OFF" : d.status,
             'Check In': (d.checkIn && d.checkIn !== '-') ? format(new Date(d.checkIn), 'HH:mm') : '--:--',
             'Check Out': (d.checkOut && d.checkOut !== '-') ? format(new Date(d.checkOut), 'HH:mm') : '--:--',
-            'Hours Worked': d.hours.toFixed(2)
+            'Hours Worked': d.hours.toFixed(2),
+            'Is Regularized': d.regularization ? 'Yes' : 'No',
+            'Regularization Status': d.regularization ? d.regularization.status : 'N/A',
+            'Regularized By': d.regularization && d.regularization.status === 'Approved' ? (d.regularization.reviewedBy?.name || 'Manager') : 'N/A',
+            'Regularization Type': d.regularization ? d.regularization.type : 'N/A',
+            'Regularization Reason': d.regularization ? d.regularization.reason : 'N/A'
         }));
 
         // 3. Employee Info Metadata (to be prepended or handled via separate sheet)
@@ -715,6 +720,11 @@ const EmployeesAttendance = () => {
             'Check Out': att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--',
             'Duration': att.workingHours ? `${att.workingHours.toFixed(2)}h` : '--:--',
             'Status': att.status === "Week Off" ? "DAY OFF" : (att.status || 'N/A'),
+            'Is Regularized': att.regularization ? 'Yes' : 'No',
+            'Regularization Status': att.regularization ? att.regularization.status : 'N/A',
+            'Regularized By': att.regularization && att.regularization.status === 'Approved' ? (att.regularization.reviewedBy?.name || 'Manager') : 'N/A',
+            'Regularization Type': att.regularization ? att.regularization.type : 'N/A',
+            'Regularization Reason': att.regularization ? att.regularization.reason : 'N/A',
             'Remarks': att.remarks || ''
         }));
 

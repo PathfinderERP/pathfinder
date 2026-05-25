@@ -555,12 +555,27 @@ export const getAllAttendance = async (req, res) => {
             });
         }
 
-        // Sign profile images
+        const employeeIds = attendances.map(att => att.employeeId?._id).filter(Boolean);
+        const regularizations = await Regularization.find({
+            employeeId: { $in: employeeIds },
+            date: query.date || {}
+        }).populate("reviewedBy", "name");
+
+        // Sign profile images and attach regularization details
         const signedAttendances = await Promise.all(attendances.map(async (att) => {
+            const attObj = att.toObject ? att.toObject() : att;
             if (att.employeeId && att.employeeId.profileImage) {
-                att.employeeId.profileImage = await getSignedFileUrl(att.employeeId.profileImage);
+                attObj.employeeId.profileImage = await getSignedFileUrl(att.employeeId.profileImage);
             }
-            return att;
+            const attDateStr = format(new Date(att.date), "yyyy-MM-dd");
+            const reg = regularizations.find(r => 
+                r.employeeId.toString() === att.employeeId?._id?.toString() && 
+                format(new Date(r.date), "yyyy-MM-dd") === attDateStr
+            );
+            if (reg) {
+                attObj.regularization = reg;
+            }
+            return attObj;
         }));
 
         res.status(200).json(signedAttendances);
@@ -630,6 +645,16 @@ export const getAttendanceAnalysis = async (req, res) => {
             new Date(a.date) >= periodStart && new Date(a.date) <= periodEnd
         );
 
+        // Fetch user's employee profile and regularization requests for the period
+        const employee = await Employee.findOne({ user: targetUserId });
+        let regularizations = [];
+        if (employee) {
+            regularizations = await Regularization.find({
+                employeeId: employee._id,
+                date: { $gte: periodStart, $lte: periodEnd }
+            }).populate("reviewedBy", "name");
+        }
+
         // 3. Calculate Detailed Period Stats
         let totalHours = 0;
         let minHours = Infinity;
@@ -651,6 +676,7 @@ export const getAttendanceAnalysis = async (req, res) => {
 
             const att = filteredAttendances.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
             const isPastDay = startOfDay(day) < todayStart;
+            const reg = regularizations.find(r => format(new Date(r.date), 'yyyy-MM-dd') === dayStr);
 
             if (att) {
                 let wh = att.workingHours || 0;
@@ -702,7 +728,8 @@ export const getAttendanceAnalysis = async (req, res) => {
                     hours: wh,
                     status: status,
                     checkIn: att.checkIn?.time || '-',
-                    checkOut: (att.checkOut?.time && status !== 'Absent') ? att.checkOut.time : '-'
+                    checkOut: (att.checkOut?.time && status !== 'Absent') ? att.checkOut.time : '-',
+                    regularization: reg
                 };
             } else {
                 const isWeekendDay = day.getDay() === 0; // Sunday
@@ -714,7 +741,8 @@ export const getAttendanceAnalysis = async (req, res) => {
                     hours: 0,
                     status: 'Absent',
                     checkIn: '-',
-                    checkOut: '-'
+                    checkOut: '-',
+                    regularization: reg
                 };
             }
         }).filter(Boolean);
