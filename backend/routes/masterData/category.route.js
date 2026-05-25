@@ -4,7 +4,8 @@ import {
     getAllCategories,
     getSingleCategoryById,
     deleteCategory,
-    updateCategory
+    updateCategory,
+    importCategories
 } from "../../controllers/masterData/category.js";
 
 const router = express.Router();
@@ -12,6 +13,8 @@ const router = express.Router();
 router.post("/",createCategory);
 
 router.get("/",getAllCategories);
+
+router.post("/import", importCategories);
 
 router.get("/:id",getSingleCategoryById);
 

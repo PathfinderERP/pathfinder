@@ -14,8 +14,9 @@ const createExpense = async (req, res) => {
         } = req.body;
 
         if (!name || !category || !approvedBy || !approvedDate || !createdBy) {
-            res.status(404).json({
-                message: "All fields are required"
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required",
             });
         }
 
@@ -44,15 +45,15 @@ const getAllExpence = async (req, res) => {
             .populate("approvedBy");
 
         if (expences.length === 0) {
-            return res.status({
+            return res.status(404).json({
                 success: false,
-                message: "Expences not found",
+                message: "Expenses not found",
             });
         }
 
-        res.status(201).json({
+        res.status(200).json({
             success: true,
-            message: `Found ${expences.length} expences`,
+            message: `Found ${expences.length} expenses`,
             expences,
         });
     } catch (error) {

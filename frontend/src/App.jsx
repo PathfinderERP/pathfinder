@@ -48,6 +48,7 @@ import MasterDataSource from "./pages/MasterDataSource";
 import MasterDataSession from "./pages/MasterDataSession";
 import MasterDataScript from "./pages/MasterDataScript";
 import MasterDataExpenseCategory from "./pages/MasterDataExpenseCategory";
+import FinanceExpenseCategory from "./pages/FinanceExpenseCategory";
 import MasterDataExpenseSubCategory from "./pages/MasterDataExpenseSubCategory";
 import MasterDataExpenditureType from "./pages/MasterDataExpenditureType";
 import PettyCashCentre from "./pages/PettyCash/PettyCashCentre";
@@ -156,6 +157,8 @@ import BudgetDetails from "./pages/Finance/BudgetDetails";
 import PartTimeTeachers from "./pages/Finance/PartTimeTeachers";
 import PayEmployee from "./pages/Finance/PayEmployee";
 import PayEmployeeDetails from "./pages/Finance/PayEmployeeDetails";
+import CreateExpense from "./pages/expense/CreateExpense";
+import GetAllExpense from "./pages/expense/GetAllExpense";
 import CEOControlTower from "./pages/CEOControlTower";
 import Store from "./pages/Operations/Store";
 import MarketingOperations from "./pages/Operations/Marketing";
@@ -221,6 +224,9 @@ function App() {
         <Route path="/finance/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
         <Route path="/finance/budget/:centreId" element={<ProtectedRoute><BudgetDetails /></ProtectedRoute>} />
         <Route path="/finance/part-time-teachers" element={<ProtectedRoute><PartTimeTeachers /></ProtectedRoute>} />
+        <Route path="/finance/expenses" element={<ProtectedRoute><GetAllExpense /></ProtectedRoute>} />
+        <Route path="/finance/expense/create" element={<ProtectedRoute><CreateExpense /></ProtectedRoute>} />
+        <Route path="/expense/create" element={<ProtectedRoute><CreateExpense /></ProtectedRoute>} />
         <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
         <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
         <Route path="/sales/comparison-analysis" element={<ProtectedRoute><ComparisonAnalysis /></ProtectedRoute>} />
@@ -318,6 +324,7 @@ function App() {
         <Route path="/master-data/session" element={<ProtectedRoute><MasterDataSession /></ProtectedRoute>} />
         <Route path="/master-data/script" element={<ProtectedRoute><MasterDataScript /></ProtectedRoute>} />
         <Route path="/master-data/expense-category" element={<ProtectedRoute><MasterDataExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute><FinanceExpenseCategory /></ProtectedRoute>} />
         <Route path="/master-data/expense-subcategory" element={<ProtectedRoute><MasterDataExpenseSubCategory /></ProtectedRoute>} />
         <Route path="/master-data/expenditure-type" element={<ProtectedRoute><MasterDataExpenditureType /></ProtectedRoute>} />
         <Route path="/master-data/account" element={<ProtectedRoute><MasterDataAccount /></ProtectedRoute>} />

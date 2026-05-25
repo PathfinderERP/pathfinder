@@ -206,9 +206,17 @@ export const PERMISSION_MODULES = {
                 label: "Budget Analysis",
                 operations: ["create", "edit", "delete"]
             },
+            expense: {
+                label: "Expense Management",
+                operations: ["create", "edit", "delete"]
+            },
             transactionReport: {
                 label: "Transaction List",
                 operations: ["view", "create", "edit", "delete"]
+            },
+            financeExpenseCategory: {
+                label: "Finance Expense Category",
+                operations: ["create", "edit", "delete"]
             }
         }
     },

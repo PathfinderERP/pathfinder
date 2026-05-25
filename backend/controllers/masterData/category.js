@@ -162,10 +162,50 @@ const updateCategory = async (req,res) => {
     }
 }
 
+const importCategories = async (req, res) => {
+    try {
+        const categoriesData = req.body;
+        
+        if (!Array.isArray(categoriesData) || categoriesData.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide an array of categories to import"
+            });
+        }
+
+        const formattedCategories = categoriesData.map(cat => ({
+            name: cat.name || cat['Category Name'],
+            description: cat.description || cat['Description'] || ''
+        })).filter(cat => cat.name);
+
+        if (formattedCategories.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No valid categories found to import"
+            });
+        }
+
+        const importedCategories = await Category.insertMany(formattedCategories, { ordered: false });
+
+        res.status(201).json({
+            success: true,
+            message: `${importedCategories.length} categories imported successfully`,
+            categories: importedCategories
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error importing categories, possibly due to duplicates",
+            error: error.message
+        });
+    }
+}
+
 export {
     createCategory,
     getAllCategories,
     getSingleCategoryById,
     deleteCategory,
-    updateCategory
+    updateCategory,
+    importCategories
 } ;
