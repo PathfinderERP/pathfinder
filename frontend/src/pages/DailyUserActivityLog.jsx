@@ -76,7 +76,7 @@ const DailyUserActivityLog = () => {
     const divider = isDark ? 'divide-gray-800' : 'divide-gray-100';
 
     if (loading) return (
-        <Layout activePage="Daily Center Tracking">
+        <Layout activePage="Tracking & Flagging">
             <div className="flex items-center justify-center h-screen">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500" />
             </div>
@@ -84,7 +84,7 @@ const DailyUserActivityLog = () => {
     );
 
     if (!data) return (
-        <Layout activePage="Daily Center Tracking">
+        <Layout activePage="Tracking & Flagging">
             <div className="p-6 text-center text-gray-500">Activity log not found.</div>
         </Layout>
     );
@@ -133,7 +133,7 @@ const DailyUserActivityLog = () => {
     ];
 
     return (
-        <Layout activePage="Daily Center Tracking">
+        <Layout activePage="Tracking & Flagging">
             <div className={`p-4 md:p-6 min-h-screen ${isDark ? 'bg-[#0f1214] text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
 
                 {/* Header */}

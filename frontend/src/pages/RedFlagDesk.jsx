@@ -1,13 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
     FaExclamationCircle, FaExclamationTriangle, FaRedo, FaCheckCircle, 
     FaFilter, FaInfoCircle, FaPaperPlane, FaCheck, FaBuilding, FaUser, FaWalking,
-    FaArrowLeft, FaTimesCircle, FaSearch, FaFileExcel, FaList, FaThLarge
+    FaArrowLeft, FaTimesCircle, FaSearch, FaFileExcel, FaList, FaThLarge, FaCalendarAlt
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { downloadExcel } from '../utils/exportUtils';
+
+const getDatesInRange = (startStr, endStr) => {
+    if (!startStr || !endStr) return [];
+    const dates = [];
+    let current = new Date(startStr);
+    const end = new Date(endStr);
+    // Limit to safe iterations (e.g. max 90 days) to prevent infinite loops
+    let limit = 0;
+    while (current <= end && limit < 100) {
+        dates.push(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+        limit++;
+    }
+    return dates.reverse(); // Newest first
+};
 
 const roleMap = {
     'Telecaller': 'telecaller',
@@ -17,6 +32,14 @@ const roleMap = {
     'Zonal Manager': 'zonalManager',
     'Coordinator': 'coordinator',
     'Teacher': 'teacher'
+};
+
+const matchRole = (flagRole, selectedTabRoleName) => {
+    const backendRole = roleMap[selectedTabRoleName];
+    if (backendRole === 'coordinator') {
+        return flagRole === 'coordinator' || flagRole === 'Class_Coordinator';
+    }
+    return flagRole === backendRole;
 };
 
 const RedFlagDesk = () => {
@@ -44,10 +67,9 @@ const RedFlagDesk = () => {
     // Handle role tab switching select first user
     useEffect(() => {
         if (selectedCentreId) {
-            const backendRole = roleMap[activeRoleTab];
             const centerRoleFlags = flags.filter(f => 
                 (f.centre?._id === selectedCentreId || f.centre === selectedCentreId) && 
-                f.role === backendRole
+                matchRole(f.role, activeRoleTab)
             );
             
             if (centerRoleFlags.length > 0) {
@@ -190,36 +212,41 @@ const RedFlagDesk = () => {
             (f.centre?._id === centerId || f.centre === centerId)
         );
         
-        const getUniqueUsersCountForRole = (role) => {
-            const roleFlags = centerFlags.filter(f => f.role === role);
+        const getUniqueUsersCountForRole = (roleTabName) => {
+            const roleFlags = centerFlags.filter(f => matchRole(f.role, roleTabName));
             const uniqueUsers = new Set(roleFlags.map(f => f.user?._id || f.user));
             return uniqueUsers.size;
         };
 
-        const telecaller = getUniqueUsersCountForRole('telecaller');
-        const counsellor = getUniqueUsersCountForRole('counsellor');
-        const marketing = getUniqueUsersCountForRole('marketing');
-        const centerIncharge = getUniqueUsersCountForRole('centerIncharge');
-        const total = telecaller + counsellor + marketing + centerIncharge;
+        const telecaller = getUniqueUsersCountForRole('Telecaller');
+        const counsellor = getUniqueUsersCountForRole('Counsellor');
+        const marketing = getUniqueUsersCountForRole('Marketing');
+        const centerIncharge = getUniqueUsersCountForRole('Center Incharge');
+        const zonalManager = getUniqueUsersCountForRole('Zonal Manager');
+        const coordinator = getUniqueUsersCountForRole('Coordinator');
+        const teacher = getUniqueUsersCountForRole('Teacher');
+        const total = telecaller + counsellor + marketing + centerIncharge + zonalManager + coordinator + teacher;
 
         return {
             total,
             telecaller,
             counsellor,
             marketing,
-            centerIncharge
+            centerIncharge,
+            zonalManager,
+            coordinator,
+            teacher
         };
     };
 
     // Calculate active flag count for each role within the selected center (unique users count)
     const getRoleFlagCount = (roleName) => {
         if (!selectedCentreId) return 0;
-        const backendRole = roleMap[roleName];
         const activeFlags = flags.filter(f => 
             !f.isResolved && 
             f.severity !== 'Low' && 
             (f.centre?._id === selectedCentreId || f.centre === selectedCentreId) &&
-            f.role === backendRole
+            matchRole(f.role, roleName)
         );
         const uniqueUsers = new Set(activeFlags.map(f => f.user?._id || f.user));
         return uniqueUsers.size;
@@ -256,9 +283,8 @@ const RedFlagDesk = () => {
 
         if (selectedCentreId) {
             filtered = filtered.filter(f => f.centre?._id === selectedCentreId || f.centre === selectedCentreId);
-            const backendRole = roleMap[activeRoleTab];
-            if (backendRole) {
-                filtered = filtered.filter(f => f.role === backendRole);
+            if (activeRoleTab) {
+                filtered = filtered.filter(f => matchRole(f.role, activeRoleTab));
             }
         }
 
@@ -300,8 +326,7 @@ const RedFlagDesk = () => {
     };
     const displayStats = getDisplayStats();
 
-    const activeBackendRole = roleMap[activeRoleTab];
-    const roleFlags = centerFlags.filter(f => f.role === activeBackendRole);
+    const roleFlags = centerFlags.filter(f => matchRole(f.role, activeRoleTab));
 
     const groupedFlags = Object.values(roleFlags.reduce((acc, flag) => {
         if (!acc[flag.user._id]) {
@@ -348,8 +373,34 @@ const RedFlagDesk = () => {
         return true;
     });
 
+    const centerCoordinators = useMemo(() => {
+        if (!selectedCentreId) return [];
+        const uniqueCoordinatorsMap = new Map();
+        flags.forEach(f => {
+            if ((f.centre?._id === selectedCentreId || f.centre === selectedCentreId) && 
+                (f.role === 'coordinator' || f.role === 'Class_Coordinator')) {
+                const userId = f.user?._id?.toString() || f.user?.toString();
+                if (userId && !uniqueCoordinatorsMap.has(userId)) {
+                    // Compute their active flags
+                    const userFlags = flags.filter(flag => 
+                        (flag.user?._id?.toString() === userId || flag.user?.toString() === userId) && 
+                        !flag.isResolved && 
+                        flag.severity !== 'Low'
+                    );
+                    uniqueCoordinatorsMap.set(userId, {
+                        user: f.user,
+                        role: f.role,
+                        activeFlagsCount: userFlags.length,
+                        activeFlags: userFlags
+                    });
+                }
+            }
+        });
+        return Array.from(uniqueCoordinatorsMap.values());
+    }, [flags, selectedCentreId]);
+
     return (
-        <Layout activePage="Red Flag Desk">
+        <Layout activePage="Tracking & Flagging">
             <div className="min-h-screen bg-gray-50 dark:bg-[#0f1113] p-4 md:p-6 text-gray-800 dark:text-gray-200">
                 
                 {/* Header Section */}
@@ -527,29 +578,48 @@ const RedFlagDesk = () => {
                                                 </div>
 
                                                 {/* Red Flag Metric Counters */}
-                                                <div className="grid grid-cols-2 gap-4 py-4 my-2 bg-gray-50 dark:bg-[#181c20] rounded-2xl px-4 border border-gray-100 dark:border-gray-800">
+                                                <div className="grid grid-cols-3 gap-3 py-4 my-2 bg-gray-50 dark:bg-[#181c20] rounded-2xl px-4 border border-gray-100 dark:border-gray-800 text-center">
                                                     <div>
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Telecaller</p>
-                                                        <span className={`text-xl font-black ${cStats.telecaller > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight truncate">Telecaller</p>
+                                                        <span className={`text-lg font-black ${cStats.telecaller > 0 ? 'text-red-500' : 'text-gray-400'}`}>
                                                             {cStats.telecaller}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Counsellor</p>
-                                                        <span className={`text-xl font-black ${cStats.counsellor > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight truncate">Counsellor</p>
+                                                        <span className={`text-lg font-black ${cStats.counsellor > 0 ? 'text-red-500' : 'text-gray-400'}`}>
                                                             {cStats.counsellor}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Marketing</p>
-                                                        <span className={`text-xl font-black ${cStats.marketing > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight truncate">Marketing</p>
+                                                        <span className={`text-lg font-black ${cStats.marketing > 0 ? 'text-red-500' : 'text-gray-400'}`}>
                                                             {cStats.marketing}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Center Incharge</p>
-                                                        <span className={`text-xl font-black ${cStats.centerIncharge > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight truncate">Incharge</p>
+                                                        <span className={`text-lg font-black ${cStats.centerIncharge > 0 ? 'text-red-500' : 'text-gray-400'}`}>
                                                             {cStats.centerIncharge}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight truncate">Zonal Mgr</p>
+                                                        <span className={`text-lg font-black ${cStats.zonalManager > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                            {cStats.zonalManager}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight truncate">Coordinator</p>
+                                                        <span className={`text-lg font-black ${cStats.coordinator > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                            {cStats.coordinator}
+                                                        </span>
+                                                    </div>
+                                                    <div className="col-span-3 border-t border-gray-200 dark:border-gray-700/50 my-1"></div>
+                                                    <div className="col-span-3 flex justify-between px-2">
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Teacher Alert</p>
+                                                        <span className={`text-xs font-black ${cStats.teacher > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                            {cStats.teacher}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -575,10 +645,13 @@ const RedFlagDesk = () => {
                                     <thead>
                                         <tr className="bg-gray-100 dark:bg-[#131619] text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-800">
                                             <th className="p-4">Center Name</th>
-                                            <th className="p-4 text-center">Telecaller Alert</th>
-                                            <th className="p-4 text-center">Counsellor Alert</th>
-                                            <th className="p-4 text-center">Marketing Alert</th>
-                                            <th className="p-4 text-center">Center Incharge Alert</th>
+                                            <th className="p-4 text-center">Telecaller</th>
+                                            <th className="p-4 text-center">Counsellor</th>
+                                            <th className="p-4 text-center">Marketing</th>
+                                            <th className="p-4 text-center">Incharge</th>
+                                            <th className="p-4 text-center">Zonal Mgr</th>
+                                            <th className="p-4 text-center">Coordinator</th>
+                                            <th className="p-4 text-center">Teacher</th>
                                             <th className="p-4 text-center">Total Red Flags</th>
                                             <th className="p-4 text-center">Action</th>
                                         </tr>
@@ -596,6 +669,9 @@ const RedFlagDesk = () => {
                                                     <td className={`p-4 text-center font-bold ${cStats.counsellor > 0 ? 'text-red-500' : 'text-gray-400'}`}>{cStats.counsellor}</td>
                                                     <td className={`p-4 text-center font-bold ${cStats.marketing > 0 ? 'text-red-500' : 'text-gray-400'}`}>{cStats.marketing}</td>
                                                     <td className={`p-4 text-center font-bold ${cStats.centerIncharge > 0 ? 'text-red-500' : 'text-gray-400'}`}>{cStats.centerIncharge}</td>
+                                                    <td className={`p-4 text-center font-bold ${cStats.zonalManager > 0 ? 'text-red-500' : 'text-gray-400'}`}>{cStats.zonalManager}</td>
+                                                    <td className={`p-4 text-center font-bold ${cStats.coordinator > 0 ? 'text-red-500' : 'text-gray-400'}`}>{cStats.coordinator}</td>
+                                                    <td className={`p-4 text-center font-bold ${cStats.teacher > 0 ? 'text-red-500' : 'text-gray-400'}`}>{cStats.teacher}</td>
                                                     <td className="p-4 text-center">
                                                         <span className={`px-3 py-1 rounded-full text-xs font-black ${cStats.total > 0 ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
                                                             {cStats.total} Alert{cStats.total !== 1 ? 's' : ''}
@@ -708,6 +784,105 @@ const RedFlagDesk = () => {
                                     <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mb-4"></div>
                                         <p className="text-sm font-bold animate-pulse">Scanning live performance data...</p>
+                                    </div>
+                                ) : activeRoleTab === 'Coordinator' ? (
+                                    // Dedicated Coordinator Directory View showing all coordinators for the center
+                                    <div className="space-y-4 pr-2 max-h-[700px] overflow-y-auto custom-scrollbar">
+                                        {/* Directory Header Summary */}
+                                        <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-3xl p-6 border border-cyan-500/20 mb-2">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <h4 className="text-sm font-black text-cyan-400 uppercase tracking-widest">Coordinator Directory</h4>
+                                                    <p className="text-xs text-gray-400 mt-1 font-bold">All coordinators mapped to this center.</p>
+                                                </div>
+                                                <span className="bg-cyan-500 text-white font-black text-sm px-3.5 py-1.5 rounded-2xl">
+                                                    {centerCoordinators.length} Total
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {centerCoordinators.length === 0 ? (
+                                            <div className="bg-white dark:bg-[#1a1f24] rounded-3xl p-20 text-center border border-gray-200 dark:border-gray-800 shadow-sm">
+                                                <p className="text-gray-500 font-bold">No coordinators found mapped to this center.</p>
+                                            </div>
+                                        ) : (
+                                            centerCoordinators
+                                                .filter(coord => {
+                                                    const nameMatches = coord.user?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+                                                    const idMatches = coord.user?.employeeId?.toLowerCase().includes(searchQuery.toLowerCase());
+                                                    return !searchQuery || nameMatches || idMatches;
+                                                })
+                                                .map(coord => {
+                                                    const hasFlags = coord.activeFlagsCount > 0;
+                                                    const flagGroup = groupedFlags.find(g => g.user?._id === coord.user?._id);
+                                                    
+                                                    const targetGroup = flagGroup || {
+                                                        _id: `clean_${coord.user?._id}`,
+                                                        user: coord.user,
+                                                        role: coord.role,
+                                                        centre: centers.find(c => c._id === selectedCentreId) || { centreName: "N/A" },
+                                                        severity: 'Low',
+                                                        issue: 'Operating normally',
+                                                        metricValue: 1,
+                                                        targetValue: 1,
+                                                        isResolved: true,
+                                                        isVirtual: true,
+                                                        issuesList: [{
+                                                            issue: 'Class Commencement & End Compliance',
+                                                            severity: 'Low',
+                                                            metricValue: 1,
+                                                            targetValue: 1,
+                                                            isResolved: true
+                                                        }]
+                                                    };
+
+                                                    return (
+                                                        <div 
+                                                            key={coord.user?._id}
+                                                            onClick={() => setSelectedFlag(targetGroup)}
+                                                            className={`group relative bg-white dark:bg-[#1a1f24] rounded-3xl p-6 border-2 transition-all cursor-pointer hover:shadow-xl ${
+                                                                selectedFlag?.user?._id === coord.user?._id 
+                                                                ? 'border-gray-900 dark:border-white shadow-lg translate-x-2' 
+                                                                : hasFlags
+                                                                    ? 'border-transparent dark:border-gray-800 hover:border-red-500/30'
+                                                                    : 'border-transparent dark:border-gray-800 hover:border-green-500/30'
+                                                            }`}
+                                                        >
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-[#131619] border border-gray-200 dark:border-gray-800 flex items-center justify-center text-gray-400">
+                                                                        {coord.user?.profileImage ? (
+                                                                            <img src={coord.user.profileImage} alt="" className="w-full h-full object-cover rounded-2xl" />
+                                                                        ) : (
+                                                                            <FaUser />
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="font-black text-lg text-gray-900 dark:text-white group-hover:text-cyan-500 transition-colors">
+                                                                            {coord.user?.name}
+                                                                        </h4>
+                                                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">
+                                                                            {coord.role === 'Class_Coordinator' ? 'Class Coordinator' : 'Coordinator'}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex flex-col items-end gap-2">
+                                                                    {hasFlags ? (
+                                                                        <span className="bg-red-500/15 text-red-500 px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                                                                            <FaExclamationTriangle /> {coord.activeFlagsCount} Alert{coord.activeFlagsCount > 1 ? 's' : ''}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="bg-green-500/15 text-green-500 px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                                                            <FaCheckCircle /> Clean
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="text-[10px] text-gray-400 font-mono tracking-tighter">#{coord.user?.employeeId}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                        )}
                                     </div>
                                 ) : displayFlags.length === 0 ? (
                                     <div className="bg-white dark:bg-[#1a1f24] rounded-3xl p-20 text-center border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -859,6 +1034,68 @@ const RedFlagDesk = () => {
                                                         ))}
                                                     </div>
                                                 </div>
+
+                                                {/* Date-wise Class Compliance Breakdown */}
+                                                {(selectedFlag.role === 'coordinator' || selectedFlag.role === 'Class_Coordinator') && (
+                                                    <div className="bg-gray-50 dark:bg-gray-800/20 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+                                                        <h4 className="text-xs font-black mb-4 uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-2">
+                                                            <FaCalendarAlt className="text-cyan-500" /> Date-Wise Class Compliance
+                                                        </h4>
+                                                        <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                                                            {getDatesInRange(startDate, endDate).map(dateStr => {
+                                                                const stats = selectedFlag.classBreakdown?.[dateStr] || { total: 0, started: 0, ended: 0, ongoing: 0 };
+                                                                const formattedDate = new Date(dateStr).toLocaleDateString('en-US', {
+                                                                    weekday: 'short',
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    year: 'numeric'
+                                                                });
+
+                                                                return (
+                                                                    <div key={dateStr} className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-xl p-3.5 transition-all">
+                                                                        <div className="flex justify-between items-center mb-3">
+                                                                            <span className="text-xs font-black text-gray-800 dark:text-white">{formattedDate}</span>
+                                                                            {stats.total > 0 ? (
+                                                                                stats.ongoing > 0 ? (
+                                                                                    <span className="bg-orange-500/10 text-orange-500 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                                                                                        <FaExclamationTriangle className="animate-pulse" /> {stats.ongoing} Pending Closure
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="bg-green-500/10 text-green-500 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                                                                                        <FaCheckCircle /> All Closed
+                                                                                    </span>
+                                                                                )
+                                                                            ) : (
+                                                                                <span className="bg-gray-100 dark:bg-gray-800/40 text-gray-400 text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-md">
+                                                                                    No Classes
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {stats.total > 0 ? (
+                                                                            <div className="grid grid-cols-3 gap-2 text-center">
+                                                                                <div className="bg-gray-50 dark:bg-[#1a1f24] border border-gray-100 dark:border-gray-850 p-2 rounded-xl">
+                                                                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Scheduled</p>
+                                                                                    <p className="text-xs font-black text-gray-900 dark:text-white mt-0.5">{stats.total}</p>
+                                                                                </div>
+                                                                                <div className="bg-gray-50 dark:bg-[#1a1f24] border border-gray-100 dark:border-gray-850 p-2 rounded-xl">
+                                                                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Started</p>
+                                                                                    <p className="text-xs font-black text-cyan-500 mt-0.5">{stats.started}</p>
+                                                                                </div>
+                                                                                <div className="bg-gray-50 dark:bg-[#1a1f24] border border-gray-100 dark:border-gray-850 p-2 rounded-xl">
+                                                                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Ended</p>
+                                                                                    <p className="text-xs font-black text-green-500 mt-0.5">{stats.ended}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-[10px] text-gray-400 italic">No class was there on that centre.</p>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}

@@ -161,6 +161,99 @@ export const getRedFlags = async (req, res) => {
         ]);
         const coordinatorMap = new Map(coordinatorStats.map(item => [item._id.toString(), item.count]));
 
+        // G. Class Commencement Stats (For Marketing, Center Incharge, Coordinator)
+        const periodClasses = await ClassSchedule.find({
+            date: { $gte: start, $lte: end }
+        }).select('_id date startTime status centreIds centreId coordinatorId coordinatorIds').lean();
+
+        const now = new Date();
+        const centerClassStats = new Map();
+        const centerDateStats = new Map(); // Map<centreId, Map<dateStr, { total: 0, started: 0, ended: 0, ongoing: 0 }>>
+        const coordinatorDateStats = new Map(); // Map<coordinatorId, Map<dateStr, { total: 0, started: 0, ended: 0, ongoing: 0 }>>
+        
+        periodClasses.forEach(cls => {
+            if (!cls.startTime) return;
+            const [hours, minutes] = cls.startTime.split(':').map(Number);
+            const schedTime = new Date(cls.date);
+            schedTime.setHours(hours, minutes, 0, 0);
+            if (schedTime >= now) return; // Ignore future classes
+
+            const cIds = [];
+            if (Array.isArray(cls.centreIds)) {
+                cls.centreIds.forEach(id => {
+                    if (id) cIds.push(id.toString());
+                });
+            }
+            if (cls.centreId) {
+                cIds.push(cls.centreId.toString());
+            }
+            const uniqueCIds = [...new Set(cIds)];
+
+            // Filter class by selected center only if centreId is specified
+            if (centreId && centreId !== 'All Centers') {
+                const hasMatchingCenter = uniqueCIds.includes(centreId.toString());
+                if (!hasMatchingCenter) return; // Skip class if not for selected center
+            }
+
+            const isCompleted = cls.status === 'Completed';
+            const isOngoing = cls.status === 'Ongoing';
+            const isStarted = isCompleted || isOngoing;
+            const dateStr = cls.date.toISOString().split('T')[0];
+
+            uniqueCIds.forEach(cId => {
+                // 1. Overall stats
+                if (!centerClassStats.has(cId)) {
+                    centerClassStats.set(cId, { total: 0, completed: 0 });
+                }
+                const stats = centerClassStats.get(cId);
+                stats.total++;
+                if (isCompleted) {
+                    stats.completed++;
+                }
+
+                // 2. Date-wise stats (For center wide metrics)
+                if (!centerDateStats.has(cId)) {
+                    centerDateStats.set(cId, new Map());
+                }
+                const dateMap = centerDateStats.get(cId);
+                if (!dateMap.has(dateStr)) {
+                    dateMap.set(dateStr, { total: 0, started: 0, ended: 0, ongoing: 0 });
+                }
+                const dStats = dateMap.get(dateStr);
+                dStats.total++;
+                if (isStarted) dStats.started++;
+                if (isCompleted) dStats.ended++;
+                if (isOngoing) dStats.ongoing++;
+            });
+
+            // 3. Coordinator-specific stats mapping
+            const coordIds = [];
+            if (cls.coordinatorId) {
+                coordIds.push(cls.coordinatorId.toString());
+            }
+            if (Array.isArray(cls.coordinatorIds)) {
+                cls.coordinatorIds.forEach(id => {
+                    if (id) coordIds.push(id.toString());
+                });
+            }
+            const uniqueCoordIds = [...new Set(coordIds)];
+
+            uniqueCoordIds.forEach(coId => {
+                if (!coordinatorDateStats.has(coId)) {
+                    coordinatorDateStats.set(coId, new Map());
+                }
+                const dateMap = coordinatorDateStats.get(coId);
+                if (!dateMap.has(dateStr)) {
+                    dateMap.set(dateStr, { total: 0, started: 0, ended: 0, ongoing: 0 });
+                }
+                const dStats = dateMap.get(dateStr);
+                dStats.total++;
+                if (isStarted) dStats.started++;
+                if (isCompleted) dStats.ended++;
+                if (isOngoing) dStats.ongoing++;
+            });
+        });
+
         const performanceData = [];
 
         // 4. Scan ERP data for each user based on their specific role
@@ -168,7 +261,7 @@ export const getRedFlags = async (req, res) => {
             const userRole = user.role;
             if (!userRole) continue;
 
-            const evaluateAndPush = (metricType, targetValue, metricValue, severityLogic, issueLogic) => {
+            const evaluateAndPush = (metricType, targetValue, metricValue, severityLogic, issueLogic, extraFields = {}) => {
                 let currentSeverity = "Low";
                 let issue = "Operating normally";
 
@@ -197,7 +290,8 @@ export const getRedFlags = async (req, res) => {
                     isResolved: dbFlag?.isResolved || (currentSeverity === "Low"),
                     isVirtual: !dbFlag,
                     createdAt: dbFlag?.createdAt || new Date(),
-                    repeatCount: dbFlag?.repeatCount || 0
+                    repeatCount: dbFlag?.repeatCount || 0,
+                    ...extraFields
                 });
             };
 
@@ -298,14 +392,78 @@ export const getRedFlags = async (req, res) => {
 
             if (userRole === 'Class_Coordinator' || userRole === 'coordinator') {
                 const ongoing = coordinatorMap.get(user._id.toString()) || 0;
+                
+                // Get date-wise stats for this coordinator
+                const classBreakdown = {};
+                const dateMap = coordinatorDateStats.get(user._id.toString());
+                if (dateMap) {
+                    for (const [dateStr, stats] of dateMap.entries()) {
+                        classBreakdown[dateStr] = { ...stats };
+                    }
+                }
 
                 evaluateAndPush(
                     'class_end',
                     1,
                     ongoing > 0 ? 0 : 1,
                     () => "Critical",
-                    (m, t) => `${ongoing} classes pending closure in ERP.`
+                    (m, t) => `${ongoing} classes pending closure in ERP.`,
+                    { classBreakdown }
                 );
+            }
+
+            if (['marketing', 'centerIncharge', 'Class_Coordinator', 'coordinator'].includes(userRole)) {
+                const userCentreIds = (user.centres || []).map(c => (c._id || c).toString());
+                let totalClasses = 0;
+                let completedClasses = 0;
+                const classBreakdown = {};
+
+                if (userRole === 'Class_Coordinator' || userRole === 'coordinator') {
+                    const dateMap = coordinatorDateStats.get(user._id.toString());
+                    if (dateMap) {
+                        for (const [dateStr, stats] of dateMap.entries()) {
+                            classBreakdown[dateStr] = { ...stats };
+                            totalClasses += stats.total;
+                            completedClasses += stats.ended;
+                        }
+                    }
+                } else {
+                    userCentreIds.forEach(cId => {
+                        const stats = centerClassStats.get(cId) || { total: 0, completed: 0 };
+                        totalClasses += stats.total;
+                        completedClasses += stats.completed;
+
+                        // Compute date-wise stats
+                        const dateMap = centerDateStats.get(cId);
+                        if (dateMap) {
+                            for (const [dateStr, stats] of dateMap.entries()) {
+                                if (!classBreakdown[dateStr]) {
+                                    classBreakdown[dateStr] = { total: 0, started: 0, ended: 0, ongoing: 0 };
+                                }
+                                classBreakdown[dateStr].total += stats.total;
+                                classBreakdown[dateStr].started += stats.started;
+                                classBreakdown[dateStr].ended += stats.ended;
+                                classBreakdown[dateStr].ongoing += stats.ongoing;
+                            }
+                        }
+                    });
+                }
+
+                if (totalClasses > 0) {
+                    evaluateAndPush(
+                        'class_commencement',
+                        totalClasses,
+                        completedClasses,
+                        (m, t) => {
+                            const diff = t - m;
+                            if (diff >= 3) return "Critical";
+                            if (diff >= 2) return "High";
+                            return "Medium";
+                        },
+                        (m, t) => `Failed to start/end ${t - m} scheduled classes timely. Total: ${m}/${t}`,
+                        { classBreakdown }
+                    );
+                }
             }
         }
 
