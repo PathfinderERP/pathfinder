@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaPlus, FaSearch } from "react-icons/fa";
@@ -53,6 +53,7 @@ const GetAllExpense = () => {
         return (
             expense.name?.toLowerCase().includes(lowerSearch) ||
             expense.category?.name?.toLowerCase().includes(lowerSearch) ||
+            expense.months?.toLowerCase().includes(lowerSearch) ||
             expense.approvedBy?.name?.toLowerCase().includes(lowerSearch) ||
             expense.createdBy?.name?.toLowerCase().includes(lowerSearch)
         );
@@ -102,6 +103,8 @@ const GetAllExpense = () => {
                             <tr>
                                 <th className="px-4 py-4 text-sm font-semibold">Name</th>
                                 <th className="px-4 py-4 text-sm font-semibold">Category</th>
+                                <th className="px-4 py-4 text-sm font-semibold">Month</th>
+                                <th className="px-4 py-4 text-sm font-semibold">Expense Date</th>
                                 <th className="px-4 py-4 text-sm font-semibold">Approved By</th>
                                 <th className="px-4 py-4 text-sm font-semibold">Approved Date</th>
                                 <th className="px-4 py-4 text-sm font-semibold">Created By</th>
@@ -111,13 +114,13 @@ const GetAllExpense = () => {
                         <tbody className={`${isDarkMode ? "bg-slate-800 text-slate-200" : "bg-white text-slate-700"}`}>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="6" className="px-4 py-8 text-center text-slate-500">
+                                    <td colSpan="8" className="px-4 py-8 text-center text-slate-500">
                                         Loading expenses...
                                     </td>
                                 </tr>
                             ) : filteredExpenses.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-4 py-8 text-center text-slate-500">
+                                    <td colSpan="8" className="px-4 py-8 text-center text-slate-500">
                                         No expenses found.
                                     </td>
                                 </tr>
@@ -126,6 +129,8 @@ const GetAllExpense = () => {
                                     <tr key={expense._id} className="border-t border-slate-200">
                                         <td className="px-4 py-4 text-sm font-medium">{expense.name || "-"}</td>
                                         <td className="px-4 py-4 text-sm">{expense.category?.name || "-"}</td>
+                                        <td className="px-4 py-4 text-sm">{expense.months || "-"}</td>
+                                        <td className="px-4 py-4 text-sm">{formatDate(expense.expenseDate)}</td>
                                         <td className="px-4 py-4 text-sm">{expense.approvedBy?.name || expense.approvedBy?.email || "-"}</td>
                                         <td className="px-4 py-4 text-sm">{formatDate(expense.approvedDate)}</td>
                                         <td className="px-4 py-4 text-sm">{expense.createdBy?.name || expense.createdBy?.email || "-"}</td>

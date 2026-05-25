@@ -8,8 +8,10 @@ const createExpense = async (req, res) => {
         const {
             name,
             category,
+            months,
             approvedBy,
             approvedDate,
+            expenseDate,
             createdBy
         } = req.body;
 
@@ -20,7 +22,15 @@ const createExpense = async (req, res) => {
             });
         }
 
-        const data = { name, category, approvedBy, approvedDate, createdBy };
+        const data = {
+            name,
+            category,
+            months,
+            approvedBy,
+            approvedDate,
+            expenseDate,
+            createdBy
+        };
 
         const expense = await Expense.create(data);
 
@@ -28,7 +38,6 @@ const createExpense = async (req, res) => {
             message: "Expence created successfully",
             expense,
         });
-
 
     } catch (error) {
         res.status(500).json({
@@ -101,6 +110,7 @@ const updateExpence = async (req,res) => {
             category,
             months,
             approvedBy,
+            approvedDate,
             expenseDate,
             createdBy
         } = req.body;
@@ -121,6 +131,7 @@ const updateExpence = async (req,res) => {
                 category,
                 months,
                 approvedBy,
+                approvedDate,
                 expenseDate,
                 createdBy
             },{
