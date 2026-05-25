@@ -3,6 +3,7 @@ import Employee from "../../models/HR/Employee.js";
 import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Holiday from "../../models/Attendance/Holiday.js";
+import Regularization from "../../models/Attendance/Regularization.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear, isToday, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 
@@ -351,6 +352,11 @@ export const getMyAttendance = async (req, res) => {
             return res.status(404).json({ message: "Employee profile not found" });
         }
 
+        const regularizations = await Regularization.find({
+            employeeId: employee._id,
+            date: { $gte: start, $lte: end }
+        }).populate("reviewedBy", "name");
+
         // Calculate early checkouts this week for warning
         const today = new Date();
         const startOfMarkWeek = startOfWeek(today, { weekStartsOn: 1 });
@@ -412,6 +418,7 @@ export const getMyAttendance = async (req, res) => {
                 ...employee.toObject() // Include full details if needed
             },
             attendances,
+            regularizations,
             holidays,
             workingDays: normalizedWorkingDays,
             workingHours: employee.workingHours,
