@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
 import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign } from 'react-icons/fa';
 import { toast } from "react-toastify";
+import DailyTrackingDetailsModal from '../components/Dashboard/DailyTrackingDetailsModal';
 
 const DailyCenterTracking = () => {
     const { theme } = useTheme();
@@ -15,6 +16,41 @@ const DailyCenterTracking = () => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [viewMode, setViewMode] = useState("card"); // "card" or "table"
     const navigate = useNavigate();
+
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [detailsData, setDetailsData] = useState([]);
+    const [loadingDetails, setLoadingDetails] = useState(false);
+    const [modalTitle, setModalTitle] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState("");
+
+    const handleCardClick = async (category, title) => {
+        setSelectedCategory(category);
+        setModalTitle(title);
+        setShowDetailsModal(true);
+        setLoadingDetails(true);
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const response = await fetch(`${apiUrl}/operations/daily-tracking/details?date=${selectedDate}&category=${category}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setDetailsData(data);
+            } else {
+                toast.error(data.message || "Failed to fetch details");
+                setShowDetailsModal(false);
+            }
+        } catch (error) {
+            console.error("Error fetching details:", error);
+            toast.error("Error fetching details");
+            setShowDetailsModal(false);
+        } finally {
+            setLoadingDetails(false);
+        }
+    };
 
     useEffect(() => {
         const fetchCenters = async () => {
@@ -49,7 +85,7 @@ const DailyCenterTracking = () => {
     );
 
     return (
-        <Layout activePage="Daily Center Tracking">
+        <Layout activePage="Tracking & Flagging">
             <div className={`p-4 md:p-6 min-h-screen ${isDarkMode ? 'bg-[#0f1214] text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
                 
                 {/* Header Section */}
@@ -108,19 +144,21 @@ const DailyCenterTracking = () => {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                     {[
-                        { title: "Daily Walk-Ins", value: centers.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
-                        { title: "Daily Counselling", value: centers.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), icon: <FaComments />, color: "text-green-500", bg: "bg-green-500/10" },
+                        { title: "Daily Walk-Ins", category: "walkins", value: centers.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
+                        { title: "Daily Counselling", category: "counselling", value: centers.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), icon: <FaComments />, color: "text-green-500", bg: "bg-green-500/10" },
                         { 
                             title: "Daily Admission", 
+                            category: "admission",
                             value: centers.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(), 
                             subtext: `Normal: ${centers.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${centers.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
                             icon: <FaUserPlus />, 
                             color: "text-purple-500", 
                             bg: "bg-purple-500/10" 
                         },
-                        { title: "Daily Calls", value: centers.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0).toString(), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+                        { title: "Daily Calls", category: "calls", value: centers.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0).toString(), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
                         { 
                             title: "Total Collection", 
+                            category: "collection",
                             value: `₹${centers.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`, 
                             subtext: `Admission: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
                             icon: <FaRupeeSign />, 
@@ -128,7 +166,10 @@ const DailyCenterTracking = () => {
                             bg: "bg-cyan-500/10" 
                         }
                     ].map((kpi, index) => (
-                        <div key={index} className={`p-5 rounded transition-all hover:shadow-lg ${
+                        <div 
+                            key={index} 
+                            onClick={() => handleCardClick(kpi.category, kpi.title)}
+                            className={`p-5 rounded transition-all hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none hover:border-cyan-500/40 ${
                             isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'
                         }`}>
                             <div className="flex items-start gap-3">
@@ -304,6 +345,15 @@ const DailyCenterTracking = () => {
                     )}
                 </div>
             </div>
+            
+            <DailyTrackingDetailsModal
+                isOpen={showDetailsModal}
+                onClose={() => setShowDetailsModal(false)}
+                title={modalTitle}
+                data={detailsData}
+                loading={loadingDetails}
+                isDarkMode={isDarkMode}
+            />
         </Layout>
     );
 };

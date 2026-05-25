@@ -344,12 +344,16 @@ export const updateBoardSubjects = async (req, res) => {
         const { id } = req.params;
         const { selectedSubjectIds, effectiveFromMonth } = req.body;
 
-        const admission = await BoardCourseAdmission.findById(id);
+        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (admission.studentId && admission.studentId.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        }
 
         // Auto-fix for old records missing name/mobile (avoids validation error on save)
         if (!admission.studentName || !admission.mobileNum) {
-            const student = await Students.findById(admission.studentId);
+            const student = admission.studentId || await Students.findById(admission.studentId);
             if (student && student.studentsDetails?.[0]) {
                 admission.studentName = admission.studentName || student.studentsDetails[0].studentName;
                 admission.mobileNum = admission.mobileNum || student.studentsDetails[0].mobileNum;
@@ -485,6 +489,10 @@ export const collectBoardExamFee = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
+        if (admission.studentId && admission.studentId.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        }
+
         if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
             return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
         }
@@ -587,6 +595,10 @@ export const collectBoardInstallment = async (req, res) => {
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (admission.studentId && admission.studentId.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        }
 
         if (paymentMethod && ["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
             return res.status(400).json({ message: `Transaction ID/Reference is mandatory for ${paymentMethod} payments` });
@@ -786,6 +798,10 @@ export const collectBoardAdditionalFee = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
+        if (admission.studentId && admission.studentId.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        }
+
         if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
             return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
         }
@@ -886,6 +902,10 @@ export const collectNcrpFees = async (req, res) => {
 
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (admission.studentId && admission.studentId.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        }
 
         if (!admission.studentName || !admission.mobileNum) {
             const student = admission.studentId;

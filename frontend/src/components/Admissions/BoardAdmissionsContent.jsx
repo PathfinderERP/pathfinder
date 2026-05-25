@@ -49,6 +49,7 @@ const BoardAdmissionsContent = () => {
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'create');
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'edit');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'delete');
+    const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
 
     const [activeTab, setActiveTab] = useState(initialTab); // "Counselling" | "Enrolled"
     const [boardAdmissions, setBoardAdmissions] = useState([]);
@@ -254,6 +255,36 @@ const BoardAdmissionsContent = () => {
         }
     }, [boards, counsellingForm.board, counsellingForm.boardId]);
 
+    const handleToggleStatus = async (studentId, currentStatus) => {
+        const newStatus = currentStatus === 'Active' ? 'Deactivated' : 'Active';
+        if (!window.confirm(`Are you sure you want to ${newStatus === 'Active' ? 'reactivate' : 'deactivate'} this student?`)) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/student/${studentId}/status`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ status: newStatus }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                fetchBoardAdmissions();
+            } else {
+                toast.error(data.message || "Failed to update status");
+            }
+        } catch (error) {
+            toast.error("Error updating status");
+            console.error("Error:", error);
+        }
+    };
+
     const filteredBoardAdmissions = React.useMemo(() => {
         return boardAdmissions.filter(admission => {
             // Search Query
@@ -291,9 +322,12 @@ const BoardAdmissionsContent = () => {
             const matchesStartDate = !startDate || admissionDate >= new Date(startDate);
             const matchesEndDate = !endDate || admissionDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999));
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate;
+            const isDeactivated = admission.studentId?.status === 'Deactivated';
+            const matchesStatus = activeTab === "Deactivated" ? isDeactivated : !isDeactivated;
+
+            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesStatus;
         });
-    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate]);
+    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, activeTab]);
 
     const handleExportEnrolled = () => {
         const exportData = filteredBoardAdmissions.map(adm => ({
@@ -397,7 +431,7 @@ const BoardAdmissionsContent = () => {
     };
 
     useEffect(() => {
-        if (activeTab === "Enrolled") {
+        if (activeTab === "Enrolled" || activeTab === "Deactivated") {
             fetchBoardAdmissions();
         } else if (activeTab === "Counselling") {
             fetchCounselledStudents();
@@ -427,7 +461,7 @@ const BoardAdmissionsContent = () => {
             const studentCentre = s.studentsDetails?.[0]?.centre;
             return allowedCentres.includes(studentCentre);
         })
-        : activeTab === "Enrolled"
+        : (activeTab === "Enrolled" || activeTab === "Deactivated")
             ? boardAdmissions.filter(ba => {
                 if (isSuperAdmin) return true;
                 if (allowedCentres.length === 0) return false;
@@ -529,7 +563,7 @@ const BoardAdmissionsContent = () => {
 
             return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesClass && matchesDate;
         })
-        : activeTab === "Enrolled"
+        : (activeTab === "Enrolled" || activeTab === "Deactivated")
             ? visibleStudents.filter(ba => {
                 const details = ba.studentId?.studentsDetails?.[0] || {};
                 const studentName = ba.studentName || details.studentName || "";
@@ -853,7 +887,7 @@ const BoardAdmissionsContent = () => {
 
     // Statistics Calculations
     const statsMetrics = React.useMemo(() => {
-        const activeData = activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents;
+        const activeData = (activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents;
         const today = new Date().toDateString();
         // Today's total WITHIN the filtered set
         const todayTotalFiltered = activeData.filter(item => (new Date(item.admissionDate || item.createdAt || new Date())).toDateString() === today).length;
@@ -944,16 +978,16 @@ const BoardAdmissionsContent = () => {
             </div>
 
             <div className="flex gap-1 mb-8 p-1 bg-black/20 rounded-lg w-fit">
-                {["Counselling", "Enrolled"].map((tab) => (
+                {["Counselling", "Enrolled", "Deactivated"].map((tab) => (
                     <button
                         key={tab}
                         onClick={() => handleTabChange(tab)}
                         className={`px-6 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab
-                            ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                            ? (tab === "Deactivated" ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20")
                             : "text-gray-500 hover:text-white"
                             }`}
                     >
-                        {tab === "Counselling" ? "COUNSELLED" : "ENROLLED BOARD"}
+                        {tab === "Counselling" ? "COUNSELLED" : tab === "Enrolled" ? "ENROLLED BOARD" : "DEACTIVATED"}
                     </button>
                 ))}
             </div>
@@ -965,7 +999,7 @@ const BoardAdmissionsContent = () => {
                     <div className="absolute -right-4 -top-4 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all duration-700"></div>
                     <div className="flex justify-between items-start relative z-10">
                         <div>
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total {activeTab === "Enrolled" ? "Admissions" : "Counselled"} (Filtered)</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total {activeTab === "Enrolled" || activeTab === "Deactivated" ? "Admissions" : "Counselled"} (Filtered)</p>
                             <h4 className={`text-4xl font-black italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{statsMetrics.grandTotal}</h4>
                         </div>
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
@@ -1021,13 +1055,13 @@ const BoardAdmissionsContent = () => {
                             <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                             <input
                                 type="text"
-                                placeholder={activeTab === "Potential" ? "SEARCH BOARD STUDENTS..." : "SEARCH ENROLLED BOARD..."}
+                                placeholder={activeTab === "Potential" ? "SEARCH BOARD STUDENTS..." : activeTab === "Deactivated" ? "SEARCH DEACTIVATED BOARD..." : "SEARCH ENROLLED BOARD..."}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className={`w-full pl-12 pr-4 py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
                         </div>
-                        {activeTab === "Enrolled" && (
+                        {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
                             <button
                                 onClick={handleExportEnrolled}
                                 className={`flex items-center gap-2 px-6 py-3 rounded-[4px] border text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-black' : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white'}`}
@@ -1041,7 +1075,7 @@ const BoardAdmissionsContent = () => {
                         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-800/10 dark:border-gray-800">
                             <MultiSelectFilter
                                 label="Boards"
-                                options={activeTab === "Enrolled"
+                                options={(activeTab === "Enrolled" || activeTab === "Deactivated")
                                     ? [...new Set(boardAdmissions.map(a => a.boardId?.boardCourse).filter(Boolean))]
                                     : [...new Set(counselledStudents.map(cs => cs.boardId?.boardCourse).filter(Boolean))]
                                 }
@@ -1049,7 +1083,7 @@ const BoardAdmissionsContent = () => {
                                 onChange={setFilterBoard}
                                 theme={theme}
                             />
-                            {activeTab === "Enrolled" && (
+                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
                                 <MultiSelectFilter
                                     label="Subjects"
                                     options={[...new Set(boardAdmissions.flatMap(a => a.selectedSubjects?.map(s => s.subjectId?.subName || s.name)).filter(Boolean))]}
@@ -1067,7 +1101,7 @@ const BoardAdmissionsContent = () => {
                             />
                             <MultiSelectFilter
                                 label="Classes"
-                                options={activeTab === "Enrolled"
+                                options={(activeTab === "Enrolled" || activeTab === "Deactivated")
                                     ? [...new Set(boardAdmissions.map(a => a.lastClass).filter(Boolean))]
                                     : [...new Set(counselledStudents.map(cs => cs.lastClass).filter(Boolean))]
                                 }
@@ -1077,7 +1111,7 @@ const BoardAdmissionsContent = () => {
                             />
                             <MultiSelectFilter
                                 label="Programmes"
-                                options={activeTab === "Enrolled"
+                                options={(activeTab === "Enrolled" || activeTab === "Deactivated")
                                     ? [...new Set(boardAdmissions.map(a => a.programme).filter(Boolean))]
                                     : [...new Set(counselledStudents.map(cs => cs.programme).filter(Boolean))]
                                 }
@@ -1130,10 +1164,10 @@ const BoardAdmissionsContent = () => {
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
                 <div className="p-6 border-b flex justify-between items-center border-gray-200 dark:border-gray-800">
                     <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {activeTab === "Potential" ? "Board Records" : activeTab === "Counselling" ? "Counselled Students" : "Enrolled Board Students"}
+                        {activeTab === "Potential" ? "Board Records" : activeTab === "Counselling" ? "Counselled Students" : activeTab === "Deactivated" ? "Deactivated Board Students" : "Enrolled Board Students"}
                     </h3>
                     <span className="text-[10px] font-black px-3 py-1 rounded-[4px] bg-cyan-500/10 text-cyan-500">
-                        {activeTab === "Enrolled" ? filteredBoardAdmissions.length : filteredStudents.length} {activeTab === "Potential" ? "Candidates" : activeTab === "Counselling" ? "Counselled" : "Admissions"}
+                        {(activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions.length : filteredStudents.length} {activeTab === "Potential" ? "Candidates" : activeTab === "Counselling" ? "Counselled" : activeTab === "Deactivated" ? "Deactivated" : "Admissions"}
                     </span>
                 </div>
                 <div className="overflow-x-auto custom-scrollbar">
@@ -1154,8 +1188,8 @@ const BoardAdmissionsContent = () => {
                                 <th className="p-4">Centre</th>
                                 <th className="p-4">Mobile</th>
                                 {activeTab === "Counselling" && <th className="p-4">Counselled By</th>}
-                                {activeTab === "Enrolled" && <th className="p-4">Fees Status</th>}
-                                {activeTab === "Enrolled" && <th className="p-4">Admitted By</th>}
+                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Fees Status</th>}
+                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Admitted By</th>}
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -1164,10 +1198,10 @@ const BoardAdmissionsContent = () => {
                                 activeTab === "Counselling" ? counsellingLoading :
                                     enrolledLoading) ? (
                                 <tr><td colSpan="11" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
-                            ) : (activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents).length === 0 ? (
-                                <tr><td colSpan="11" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : "Enrolled Students"} Found</td></tr>
+                            ) : ((activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents).length === 0 ? (
+                                <tr><td colSpan="11" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
                             ) : (
-                                (activeTab === "Enrolled" ? filteredBoardAdmissions : filteredStudents).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, index) => {
+                                ((activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, index) => {
                                     const student = activeTab === "Potential" ? item : item.studentId;
                                     const details = student?.studentsDetails?.[0] || {};
                                     const exam = student?.examSchema?.[0] || {};
@@ -1183,8 +1217,25 @@ const BoardAdmissionsContent = () => {
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                    <span className={`text-[11px] font-black uppercase flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         {item.studentName || details.studentName || "N/A"}
+                                                         {student?.status === 'Deactivated' && (
+                                                             <div className="flex flex-col gap-0.5 ml-2 normal-case font-normal">
+                                                                 <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter w-fit">
+                                                                     Deactivated
+                                                                 </span>
+                                                                 {student.deactivatedBy && (
+                                                                     <span className="text-[7px] font-black text-red-500/80 uppercase tracking-tighter leading-none mt-0.5">
+                                                                         BY: {student.deactivatedBy}
+                                                                     </span>
+                                                                 )}
+                                                                 {student.deactivationDate && (
+                                                                     <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-tighter leading-none mt-0.5">
+                                                                         ON: {new Date(student.deactivationDate).toLocaleDateString('en-GB')}
+                                                                     </span>
+                                                                 )}
+                                                             </div>
+                                                         )}
                                                     </span>
                                                     <div className="flex flex-col gap-0.5 mt-0.5">
                                                         <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {(student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
@@ -1230,7 +1281,7 @@ const BoardAdmissionsContent = () => {
                                                 </td>
                                             )}
 
-                                            {activeTab === "Enrolled" && (
+                                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
                                                 <td className="p-4">
                                                     <div className="flex flex-col gap-1">
                                                         <span className="text-[9px] font-black uppercase text-gray-500">Paid: ₹{item.totalPaidAmount}</span>
@@ -1239,7 +1290,7 @@ const BoardAdmissionsContent = () => {
                                                 </td>
                                             )}
 
-                                            {activeTab === "Enrolled" && (
+                                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
@@ -1320,6 +1371,19 @@ const BoardAdmissionsContent = () => {
                                                                 <FaSync size={10} />
                                                                 <span>Manage</span>
                                                             </button>
+                                                             {canDeactivate && (
+                                                                 <button
+                                                                     onClick={() => handleToggleStatus(item.studentId?._id, item.studentId?.status || 'Active')}
+                                                                     className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${
+                                                                         item.studentId?.status === 'Deactivated'
+                                                                             ? (isDarkMode ? "bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500 hover:text-black" : "bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white shadow-sm")
+                                                                             : (isDarkMode ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-black" : "bg-red-50 border-red-200 text-red-600 hover:bg-red-600 hover:text-white shadow-sm")
+                                                                     }`}
+                                                                     title={item.studentId?.status === 'Deactivated' ? "Reactivate Student" : "Deactivate Student"}
+                                                                 >
+                                                                     {item.studentId?.status === 'Deactivated' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
+                                                                 </button>
+                                                             )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -1334,7 +1398,7 @@ const BoardAdmissionsContent = () => {
                 <div className="p-6 border-t border-gray-200 dark:border-gray-800">
                     <Pagination
                         currentPage={currentPage}
-                        totalItems={activeTab === "Enrolled" ? filteredBoardAdmissions.length : filteredStudents.length}
+                        totalItems={(activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions.length : filteredStudents.length}
                         itemsPerPage={itemsPerPage}
                         onPageChange={setCurrentPage}
                         theme={isDarkMode ? 'dark' : 'light'}

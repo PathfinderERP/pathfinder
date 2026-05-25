@@ -231,7 +231,7 @@ const HolidayCalendar = () => {
                                     </div>
 
                                     {holiday && (
-                                        <div className={`mt-2 p-3 rounded-2xl text-[10px] font-bold shadow-xl border animate-fade-in group/item relative overflow-hidden ${holiday.type === 'Public' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                                        <div className={`mt-2 p-3 rounded-2xl text-[10px] font-bold shadow-xl border animate-fade-in group relative overflow-hidden ${holiday.type === 'Public' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
                                             holiday.type === 'Office' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
                                                 'bg-purple-500/10 border-purple-500/20 text-purple-500'
                                             }`}>
@@ -241,7 +241,7 @@ const HolidayCalendar = () => {
                                             </div>
 
                                             {/* Action Hover */}
-                                            <div className="absolute inset-0 bg-gray-900/90 flex items-center justify-center gap-3 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                            <div className="absolute inset-0 bg-gray-900/90 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity z-20">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleEditClick(holiday); }}
                                                     className="p-2 bg-blue-500 text-white rounded-lg hover:scale-110 transition-transform"

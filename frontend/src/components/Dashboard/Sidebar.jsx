@@ -6,7 +6,8 @@ import {
     FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaUsers,
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
     FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus,
-    FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle
+    FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle,
+    FaFlag
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -64,7 +65,14 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
-        { name: "Red Flag Desk", icon: <FaExclamationCircle />, path: "/red-flag-desk" },
+        {
+            name: "Tracking & Flagging",
+            icon: <FaFlag />,
+            subItems: [
+                { name: "Daily Center Tracking", path: "/daily-center-tracking", permissionModule: "dailyCenterTracking" },
+                { name: "Red Flag Desk", path: "/red-flag-desk" }
+            ]
+        },
         { name: "Daily Tracking Log", icon: <FaHistory />, path: "/daily-tracking-log" },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
@@ -282,7 +290,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Follow-up Feedback", path: "/master-data/follow-up-feedback", permissionSection: "followUpFeedback" },
             ],
         },
-        { name: "Daily Center Tracking", icon: <FaBuilding />, path: "/daily-center-tracking", permissionModule: "dailyCenterTracking" },
         {
             name: "Course Management",
             icon: <FaBook />,
@@ -342,7 +349,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Daily Tracking Log") return true;
+        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Daily Tracking Log" || item.name === "Tracking & Flagging") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
@@ -381,25 +388,33 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     }).map(item => {
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
-                if (sub.permissionSection) {
-                    if (sub.permissionAction) {
-                        return hasPermission(user, item.permissionModule, sub.permissionSection, sub.permissionAction);
+                const permModule = sub.permissionModule || item.permissionModule;
+                if (permModule) {
+                    if (sub.permissionSection) {
+                        if (sub.permissionAction) {
+                            return hasPermission(user, permModule, sub.permissionSection, sub.permissionAction);
+                        }
+                        const section = granularPermissions[permModule]?.[sub.permissionSection];
+                        return !!section;
                     }
-                    const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
-                    return !!section;
+                    return hasModuleAccess(user, permModule);
                 }
-                return true;
+                return userPermissions.includes(sub.name);
             }).map(sub => {
                 if (sub.subItems && !isSuperAdmin) {
                     const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
-                        if (nestedSub.permissionSection) {
-                            if (nestedSub.permissionAction) {
-                                return hasPermission(user, item.permissionModule, nestedSub.permissionSection, nestedSub.permissionAction);
+                        const nestedPermModule = nestedSub.permissionModule || sub.permissionModule || item.permissionModule;
+                        if (nestedPermModule) {
+                            if (nestedSub.permissionSection) {
+                                if (nestedSub.permissionAction) {
+                                    return hasPermission(user, nestedPermModule, nestedSub.permissionSection, nestedSub.permissionAction);
+                                }
+                                const section = granularPermissions[nestedPermModule]?.[nestedSub.permissionSection];
+                                return !!section;
                             }
-                            const section = granularPermissions[item.permissionModule]?.[nestedSub.permissionSection];
-                            return !!section;
+                            return hasModuleAccess(user, nestedPermModule);
                         }
-                        return true;
+                        return userPermissions.includes(nestedSub.name);
                     });
                     if (filteredNestedSubItems.length > 0) {
                         return { ...sub, subItems: filteredNestedSubItems };
