@@ -66,10 +66,17 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             setFeedbackOptions(Array.isArray(feedbackData) ? feedbackData.map(f => f.name) : []);
 
             if (userRes.ok && userData.users) {
-                const leadUsers = (userData.users || []).filter(u =>
-                    ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'admin', 'RM', 'centerIncharge', 'zonalManager', 'HOD'].includes(u.role)
+                const leadUsers = (userData.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
+                });
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
                 );
-                setTelecallers(leadUsers);
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setTelecallers(uniqueUsers);
             }
         } catch (error) {
             console.error("Error fetching validation data:", error);

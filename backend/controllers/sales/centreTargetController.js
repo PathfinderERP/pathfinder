@@ -11,7 +11,7 @@ const monthNames = [
 // Create Target
 export const createCentreTarget = async (req, res) => {
     try {
-        const { centre, financialYear, year, month, targetAmount } = req.body;
+        const { centre, financialYear, year, month, targetAmount, achievedAmount } = req.body;
 
         // centre could be a single ID or an array of IDs. Deduplicate them.
         let centreIds = Array.isArray(centre) ? centre : [centre];
@@ -39,6 +39,9 @@ export const createCentreTarget = async (req, res) => {
                 year,
                 month,
                 targetAmount: individualTargetAmount,
+                achievedAmount: Number(achievedAmount) || 0,
+                achievedAmountWithGST: Number(achievedAmount) || 0,
+                achievedAmountExclGST: (Number(achievedAmount) || 0) / 1.18,
                 createdBy: req.user._id,
                 groupId
             });
@@ -141,6 +144,9 @@ export const getCentreTargets = async (req, res) => {
         // Calculate achieved amounts
         const processedTargets = await Promise.all(targets.map(async (t) => {
             if (t.centre && t.centre.centreName) {
+                if (t.financialYear === "2025-2026") {
+                    return t.toObject();
+                }
                 let totalWithGST, totalExclGST;
                 
                 if (t.month === "YEARLY") {
@@ -236,10 +242,15 @@ export const getCentreTargets = async (req, res) => {
 export const updateCentreTarget = async (req, res) => {
     try {
         const { id } = req.params;
-        const updateData = req.body;
+        const updateData = { ...req.body };
 
         const target = await CentreTarget.findById(id);
         if (!target) return res.status(404).json({ message: "Target not found" });
+
+        if (updateData.achievedAmount !== undefined) {
+            updateData.achievedAmountWithGST = Number(updateData.achievedAmount) || 0;
+            updateData.achievedAmountExclGST = (Number(updateData.achievedAmount) || 0) / 1.18;
+        }
 
         if (target.groupId) {
             // If updating targetAmount, divide it by group size

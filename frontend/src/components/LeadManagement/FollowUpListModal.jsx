@@ -35,7 +35,17 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
             const userRes = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, { headers: { Authorization: `Bearer ${token}` } });
             if (userRes.ok) {
                 const data = await userRes.json();
-                setTelecallers((data.users || []).filter(u => u.role === 'telecaller'));
+                const leadUsers = (data.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
+                });
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
+                );
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setTelecallers(uniqueUsers);
             }
         } catch (err) {
             console.error(err);

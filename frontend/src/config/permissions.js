@@ -206,9 +206,17 @@ export const PERMISSION_MODULES = {
                 label: "Budget Analysis",
                 operations: ["create", "edit", "delete"]
             },
+            expense: {
+                label: "Expense Management",
+                operations: ["create", "edit", "delete"]
+            },
             transactionReport: {
                 label: "Transaction List",
                 operations: ["view", "create", "edit", "delete"]
+            },
+            financeExpenseCategory: {
+                label: "Finance Expense Category",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
@@ -526,20 +534,32 @@ export const PERMISSION_MODULES = {
     }
 };
 
+const getUserRole = (userOrPermissions) => {
+    if (userOrPermissions?.role) return userOrPermissions.role;
+    try {
+        const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+        return localUser?.role;
+    } catch (e) {
+        return null;
+    }
+};
+
+// Helper function to check if user has permission
+// Accepts either (granularPermissions, module, section, operation) or (user, module, section, operation)
 export const hasPermission = (granularPermissionsOrUser, module, section, operation) => {
-    // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
+    const role = getUserRole(granularPermissionsOrUser);
+    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
         return true; // SuperAdmin has all permissions
     }
 
     const ALL_ROLES_FOR_CLASS = [
-        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 
-        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 
-        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts', 
+        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
+        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
+        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
         'coordinator', 'digital'
     ];
 
-    if (granularPermissionsOrUser && granularPermissionsOrUser.role && module === 'academics' && 
+    if (granularPermissionsOrUser && granularPermissionsOrUser.role && module === 'academics' &&
         ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
         if (ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === granularPermissionsOrUser.role.toLowerCase())) {
             return true;
@@ -554,7 +574,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     // Master permission check for Academics Class Management
     // If user has 'classManagement' or 'classes' permission, they get access to sub-sections
     if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass', 'subjects', 'chapters', 'topics'].includes(section)) {
-        if (granularPermissions[module]?.['classManagement']?.[operation] === true || 
+        if (granularPermissions[module]?.['classManagement']?.[operation] === true ||
             granularPermissions[module]?.['classes']?.[operation] === true) {
             return true;
         }
@@ -567,9 +587,14 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
 // Helper function to check if user has any permission in a module
 export const hasModuleAccess = (granularPermissionsOrUser, module) => {
-    // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
+    const role = getUserRole(granularPermissionsOrUser);
+    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
         return true; // SuperAdmin has access to all modules
+    }
+
+    const normalizedRole = role ? role.toLowerCase() : "";
+    if (module === 'academics' && (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
+        return true;
     }
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
@@ -580,15 +605,15 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
 
 // Helper function to get all accessible modules
 export const getAccessibleModules = (granularPermissionsOrUser) => {
-    // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
+    const role = getUserRole(granularPermissionsOrUser);
+    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
         return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
     }
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
     if (!granularPermissions) return [];
     return Object.keys(granularPermissions).filter(module =>
-        hasModuleAccess(granularPermissions, module)
+        hasModuleAccess(granularPermissionsOrUser, module)
     );
 };
 

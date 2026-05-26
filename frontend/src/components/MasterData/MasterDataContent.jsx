@@ -54,6 +54,13 @@ const MasterDataContent = () => {
             icon: <FaSitemap className="text-3xl text-indigo-400" />,
             path: "/master-data/expense-subcategory",
             color: "border-indigo-500"
+        },
+        {
+            title: "Finance Expense Category",
+            description: "Manage finance-specific expense categories",
+            icon: <FaMoneyBillWave className="text-3xl text-teal-400" />,
+            path: "/master-data/finance-expense-category",
+            color: "border-teal-500"
         }
     ];
 

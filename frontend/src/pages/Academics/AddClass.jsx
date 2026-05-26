@@ -35,6 +35,7 @@ const AddClass = () => {
         centreIds: [],
         batchIds: [],
         coordinatorId: "",
+        coordinatorIds: [],
         // New Academic Fields
         acadClassId: "",
         acadSubjectId: "",
@@ -488,22 +489,32 @@ const AddClass = () => {
                             }}
                         />
 
-                        <SearchableSelect
-                            label="Class Coordinator (Optional)"
-                            name="coordinatorId"
-                            value={formData.coordinatorId}
-                            options={dropdownData.coordinators}
-                            displayPath="name"
-                            onChange={handleChange}
-                            placeholder={formData.centreIds.length > 0 ? 'Select a coordinator (Filtered by Centres)' : 'Select a coordinator'}
-                            isDarkMode={isDarkMode}
-                            filterFunc={(c) => {
-                                if (formData.centreIds.length > 0) {
-                                    return c.centres?.some(ctrl => formData.centreIds.includes((ctrl._id || ctrl).toString()));
-                                }
-                                return true;
-                            }}
-                        />
+                        <div className="md:col-span-1">
+                            <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Class Coordinator (Optional)
+                            </label>
+                            <Select
+                                isMulti
+                                options={(dropdownData.coordinators || []).filter(c => {
+                                    if (formData.centreIds?.length > 0) {
+                                        return c.centres?.some(ctrl => formData.centreIds.includes((ctrl._id || ctrl).toString()));
+                                    }
+                                    return true;
+                                }).map(c => ({ value: c._id, label: c.name }))}
+                                value={(dropdownData.coordinators || []).filter(c => formData.coordinatorIds?.includes(c._id)).map(c => ({ value: c._id, label: c.name }))}
+                                onChange={(selected) => {
+                                    const values = selected ? selected.map(opt => opt.value) : [];
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        coordinatorIds: values,
+                                        coordinatorId: values.length > 0 ? values[0] : ""
+                                    }));
+                                }}
+                                placeholder={formData.centreIds?.length > 0 ? 'Select coordinators (Filtered)' : 'Select coordinators'}
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
+                        </div>
 
                         <SearchableSelect
                             label="Session"

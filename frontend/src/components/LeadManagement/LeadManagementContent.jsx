@@ -336,15 +336,21 @@ const LeadManagementContent = () => {
             if (userResponse.ok) {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    return ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'admin', 'rm', 'centerincharge', 'zonalmanager', 'hod'].includes(r);
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
                 });
-                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered Users:", leadUsers.length);
-                setTelecallers(leadUsers);
+                const uniqueUsers = leadUsers.filter((u, index, self) =>
+                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
+                );
+                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered & Deduplicated Users:", uniqueUsers.length);
+                setTelecallers(uniqueUsers);
 
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
                 // Managerial roles shouldn't be auto-filtered to themselves
                 const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
-                const currentLeadUser = leadUsers.find(t => t.name === currentUser.name);
+                const currentLeadUser = uniqueUsers.find(t => t.name === currentUser.name);
                 if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
                         ...prev,
@@ -1232,7 +1238,7 @@ const LeadManagementContent = () => {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Telecaller</label>
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Agent</label>
                             <CustomMultiSelect
                                 options={
                                     ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
@@ -1241,7 +1247,7 @@ const LeadManagementContent = () => {
                                 }
                                 value={filters.leadResponsibility}
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
-                                placeholder="Select Telecaller"
+                                placeholder="Select Agent"
                                 isDisabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
@@ -1306,13 +1312,12 @@ const LeadManagementContent = () => {
 
                     {/* Follow Up Stats Summary */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 pt-4 border-t border-gray-800/20">
-                        <div 
+                        <div
                             onClick={() => handleFollowUpStatusCardClick('contacted')}
-                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
-                                filters.followUpStatus?.some(item => item.value === 'contacted')
-                                    ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500 ring-1 ring-emerald-500' : 'bg-emerald-100 border-emerald-500 shadow-md')
-                                    : (isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50' : 'bg-emerald-50 border-emerald-100 shadow-sm hover:border-emerald-300')
-                            }`}
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${filters.followUpStatus?.some(item => item.value === 'contacted')
+                                ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500 ring-1 ring-emerald-500' : 'bg-emerald-100 border-emerald-500 shadow-md')
+                                : (isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50' : 'bg-emerald-50 border-emerald-100 shadow-sm hover:border-emerald-300')
+                                }`}
                         >
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
@@ -1325,13 +1330,12 @@ const LeadManagementContent = () => {
                             </div>
                         </div>
 
-                        <div 
+                        <div
                             onClick={() => handleFollowUpStatusCardClick('remaining')}
-                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
-                                filters.followUpStatus?.some(item => item.value === 'remaining')
-                                    ? (isDarkMode ? 'bg-yellow-500/10 border-yellow-500 ring-1 ring-yellow-500' : 'bg-yellow-100 border-yellow-500 shadow-md')
-                                    : (isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/50' : 'bg-yellow-50 border-yellow-100 shadow-sm hover:border-yellow-300')
-                            }`}
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${filters.followUpStatus?.some(item => item.value === 'remaining')
+                                ? (isDarkMode ? 'bg-yellow-500/10 border-yellow-500 ring-1 ring-yellow-500' : 'bg-yellow-100 border-yellow-500 shadow-md')
+                                : (isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/50' : 'bg-yellow-50 border-yellow-100 shadow-sm hover:border-yellow-300')
+                                }`}
                         >
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
@@ -1344,13 +1348,12 @@ const LeadManagementContent = () => {
                             </div>
                         </div>
 
-                        <div 
+                        <div
                             onClick={() => handleFollowUpStatusCardClick('walkin')}
-                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${
-                                filters.followUpStatus?.some(item => item.value === 'walkin')
-                                    ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 ring-1 ring-cyan-500' : 'bg-cyan-100 border-cyan-500 shadow-md')
-                                    : (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/50' : 'bg-cyan-50 border-cyan-100 shadow-sm hover:border-cyan-300')
-                            }`}
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${filters.followUpStatus?.some(item => item.value === 'walkin')
+                                ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 ring-1 ring-cyan-500' : 'bg-cyan-100 border-cyan-500 shadow-md')
+                                : (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/50' : 'bg-cyan-50 border-cyan-100 shadow-sm hover:border-cyan-300')
+                                }`}
                         >
                             <div className="flex justify-between items-start relative z-10">
                                 <div>

@@ -61,6 +61,7 @@ import centerTaggingRoutes from "./routes/Finance/centerTaggingRoutes.js";
 import budgetRoutes from "./routes/Finance/budgetRoutes.js";
 import partTimeTeacherRoutes from "./routes/Finance/partTimeTeacher.routes.js";
 import payrollRoutes from "./routes/Finance/payroll.routes.js";
+import expenseRoutes from "./routes/Finance/expence.route.js";
 import zoneRoutes from "./routes/masterData/zone.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import ceoRoutes from "./routes/ceoControlTower.js";
@@ -68,6 +69,7 @@ import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
 //updated
+import categoryRoutes from "./routes/masterData/category.route.js";
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
@@ -77,6 +79,7 @@ import dailyTrackingLogRoutes from "./routes/dailyTrackingLog.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import razorpaySMSRoutes from "./routes/payment/razorpaySMS.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+// import expenseRoutes from "./routes/Finance/expence.route.js";
 // import systemLogRoutes from "./routes/systemLog.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
@@ -176,7 +179,7 @@ app.use("/api/finance/center-tagging", centerTaggingRoutes);
 app.use("/api/finance/budget", budgetRoutes);
 app.use("/api/finance/part-time-teachers", partTimeTeacherRoutes);
 app.use("/api/finance/payroll", payrollRoutes);
-
+app.use("/api/finance/expense", expenseRoutes);
 
 // Master Data Routes
 app.use("/api/designation", designationRoutes);
@@ -198,6 +201,7 @@ app.use("/api/daily-tracking-logs", dailyTrackingLogRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/category",categoryRoutes);
 // app.use("/api/system-logs", systemLogRoutes);
 
 

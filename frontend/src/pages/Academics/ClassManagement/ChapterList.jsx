@@ -22,6 +22,8 @@ const ChapterList = () => {
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ chapterName: "", subjectId: "", classId: "" });
     const [editId, setEditId] = useState(null);
+    const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+    const [bulkFormData, setBulkFormData] = useState({ classId: "", subjectId: "" });
 
     // Pagination & Selection State
     const [page, setPage] = useState(1);
@@ -278,6 +280,37 @@ const ChapterList = () => {
         }
     };
 
+    const handleBulkUpdateSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/chapter/bulk-update`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ids: selectedIds,
+                    updateFields: { subjectId: bulkFormData.subjectId }
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Chapters updated successfully");
+                setShowBulkEditModal(false);
+                setSelectedIds([]);
+                fetchChapters();
+            } else {
+                toast.error(data.message || "Bulk update failed");
+            }
+        } catch (error) {
+            console.error("Bulk Update Submit Error:", error);
+            toast.error("Server error");
+        }
+    };
+
     const openAddModal = () => {
         setFormData({ chapterName: "", subjectId: "", classId: "" });
         setEditId(null);
@@ -381,12 +414,23 @@ const ChapterList = () => {
 
                     <div className="flex gap-2">
                         {selectedIds.length > 0 && (
-                            <button
-                                onClick={handleBulkDelete}
-                                className="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-red-600/20"
-                            >
-                                <FaTrash /> Delete ({selectedIds.length})
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setBulkFormData({ classId: "", subjectId: "" });
+                                        setShowBulkEditModal(true);
+                                    }}
+                                    className="bg-yellow-600 hover:bg-yellow-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-yellow-600/20"
+                                >
+                                    <FaEdit /> Bulk Edit ({selectedIds.length})
+                                </button>
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-red-600/20"
+                                >
+                                    <FaTrash /> Delete ({selectedIds.length})
+                                </button>
+                            </>
                         )}
                         <ExcelImportExport
                             columns={chapterColumns}
@@ -566,6 +610,67 @@ const ChapterList = () => {
                                         className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold rounded-lg transition shadow-lg shadow-cyan-600/20"
                                     >
                                         {editId ? "Update" : "Add"}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Bulk Edit Modal */}
+                {showBulkEditModal && (
+                    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 backdrop-blur-sm p-4">
+                        <div className={`w-full max-w-md rounded-xl border shadow-2xl animate-fade-in transition-colors ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                                <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    Bulk Edit Selected Chapters ({selectedIds.length})
+                                </h2>
+                                <button onClick={() => setShowBulkEditModal(false)} className={`text-2xl transition-colors ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>&times;</button>
+                            </div>
+                            <form onSubmit={handleBulkUpdateSubmit} className="p-6 space-y-4">
+                                <div>
+                                    <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class</label>
+                                    <select
+                                        required
+                                        className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                        value={bulkFormData.classId}
+                                        onChange={(e) => setBulkFormData({ ...bulkFormData, classId: e.target.value, subjectId: "" })}
+                                    >
+                                        <option value="">Select Class</option>
+                                        {classes.map(cls => (
+                                            <option key={cls._id} value={cls._id}>{cls.name || cls.className}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={`block text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject</label>
+                                    <select
+                                        required
+                                        className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                        value={bulkFormData.subjectId}
+                                        onChange={(e) => setBulkFormData({ ...bulkFormData, subjectId: e.target.value })}
+                                        disabled={!bulkFormData.classId}
+                                    >
+                                        <option value="">Select Subject</option>
+                                        {subjects.filter(sub => (sub.classId?._id === bulkFormData.classId || sub.classId === bulkFormData.classId)).map(sub => (
+                                            <option key={sub._id} value={sub._id}>{sub.subjectName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex justify-end gap-3 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowBulkEditModal(false)}
+                                        className={`px-4 py-2 rounded-lg transition font-bold ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold rounded-lg transition shadow-lg shadow-cyan-600/20"
+                                    >
+                                        Update Chapters
                                     </button>
                                 </div>
                             </form>

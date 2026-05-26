@@ -21,6 +21,7 @@ import { getAllTelecallerAnalytics } from "../../controllers/leadManagement/getA
 import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentreAnalysis.js";
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval } from "../../controllers/leadManagement/marketingPlannerController.js";
+import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -45,6 +46,7 @@ router.get("/planner", requireAuth, getPlanners);
 router.post("/planner", requireAuth, createPlanner);
 router.put("/planner/:id/approval", requireAuth, updatePlannerApproval);
 
+router.get("/my-uploads", requireAuth, getMyUploads);
 router.post("/bulk-upload", requireAuth, bulkUploadLeads);
 router.post("/bulk-delete", requireAuth, bulkDeleteLeads);
 router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);

@@ -839,7 +839,7 @@
 //                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
 //                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
 //                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
-//                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
+//                                             <td className="p-4">{cls.coordinatorName || cls.coordinatorId?.name || "-"}</td>
 //                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
 //                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
 //                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
@@ -2005,6 +2005,10 @@ const Classes = () => {
             (cls.batchId?._id ? [cls.batchId._id.toString()] :
                 (cls.batchId ? [cls.batchId.toString()] : [])));
 
+        const coordinatorIds = (cls.coordinatorIds?.map(c => (c._id || c).toString()) || 
+                                (cls.coordinatorId?._id ? [cls.coordinatorId._id.toString()] : 
+                                (cls.coordinatorId ? [cls.coordinatorId.toString()] : [])));
+
         setEditingClassData({
             ...cls,
             acadClassId,
@@ -2017,6 +2021,7 @@ const Classes = () => {
             subjectId: (cls.subjectId?._id || cls.subjectId || "").toString(),
             teacherId: (cls.teacherId?._id || cls.teacherId || "").toString(),
             coordinatorId: (cls.coordinatorId?._id || cls.coordinatorId || "").toString(),
+            coordinatorIds,
             examId: (cls.examId?._id || cls.examId || "").toString(),
             date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : ""
         });
@@ -2381,7 +2386,7 @@ const Classes = () => {
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
-                                            <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
+                                            <td className="p-4">{cls.coordinatorName || cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
@@ -2636,18 +2641,30 @@ const Classes = () => {
                                     />
 
                                     {/* Coordinator */}
-                                    <SearchableSelect
-                                        label="Coordinator"
-                                        name="coordinatorId"
-                                        value={editingClassData.coordinatorId}
-                                        options={dropdownData.coordinators || []}
-                                        displayPath="name"
-                                        valuePath="_id"
-                                        onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
-                                        placeholder="Select Coordinator"
-                                        isDarkMode={isDarkMode}
-                                        fullWidth={false}
-                                    />
+                                    <div className="flex flex-col gap-2">
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Coordinator(s) (Optional)</label>
+                                        <Select
+                                            isMulti
+                                            options={(dropdownData.coordinators || []).filter(c => {
+                                                if (editingClassData.centreIds?.length > 0) {
+                                                    return c.centres?.some(ctrl => editingClassData.centreIds.includes((ctrl._id || ctrl).toString()));
+                                                }
+                                                return true;
+                                            }).map(c => ({ value: c._id.toString(), label: c.name }))}
+                                            value={(dropdownData.coordinators || []).filter(c => editingClassData.coordinatorIds?.includes(c._id.toString())).map(c => ({ value: c._id.toString(), label: c.name }))}
+                                            onChange={(selected) => {
+                                                const values = selected ? selected.map(opt => opt.value) : [];
+                                                setEditingClassData({
+                                                    ...editingClassData,
+                                                    coordinatorIds: values,
+                                                    coordinatorId: values.length > 0 ? values[0] : ""
+                                                });
+                                            }}
+                                            placeholder="Select Coordinators"
+                                            styles={customSelectStyles}
+                                            className="text-sm"
+                                        />
+                                    </div>
 
 
                                     {/* Session & Academic Class */}
