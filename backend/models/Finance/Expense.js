@@ -11,12 +11,12 @@ const expenseSchema = new mongoose.Schema(
         },
         name: {
             type: String,
-            required: function() { return this.expenseType === 'General'; },
+            required: function () { return this.expenseType === 'General'; },
         },
         category: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Category",
-            required: function() { return this.expenseType === 'General'; },
+            required: function () { return this.expenseType === 'General'; },
         },
         months: {
             type: String,
@@ -28,11 +28,11 @@ const expenseSchema = new mongoose.Schema(
         approvedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: function() { return this.expenseType === 'General'; },
+            required: function () { return this.expenseType === 'General'; },
         },
         approvedDate: {
             type: Date,
-            required: function() { return this.expenseType === 'General'; },
+            required: function () { return this.expenseType === 'General'; },
         },
         expenseDate: {
             type: Date,
@@ -43,7 +43,7 @@ const expenseSchema = new mongoose.Schema(
             ref: "User",
             required: true
         },
-        // HR Salary Specific Fields
+        // HR Salary Specific Fields ff
         employeeId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
