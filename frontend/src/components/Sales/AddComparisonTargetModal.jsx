@@ -35,8 +35,8 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
         if (target) {
             setFormData({
                 centre: target.centre?._id || target.centre,
-                financialYear: target.financialYear,
-                year: target.year,
+                financialYear: target.financialYear || target.financialYear2526 || "2025-2026",
+                year: target.year !== undefined ? target.year : (target.year2526 !== undefined ? target.year2526 : 2025),
                 month: target.month,
                 targetAmount: target.target2526 || target.targetAmount || 0,
                 achievedAmount: target.achieved2526 !== undefined ? target.achieved2526 : (target.achievedAmount || 0)
@@ -58,7 +58,7 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
 
     // Auto-update calendar year when month or financial year changes
     useEffect(() => {
-        if (!target && formData.financialYear) {
+        if (formData.financialYear) {
             const parts = formData.financialYear.split('-');
             if (parts.length === 2) {
                 const startYear = parseInt(parts[0], 10);
@@ -71,7 +71,7 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
                 }));
             }
         }
-    }, [formData.month, formData.financialYear, target]);
+    }, [formData.month, formData.financialYear]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

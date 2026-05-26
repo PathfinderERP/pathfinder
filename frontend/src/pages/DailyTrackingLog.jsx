@@ -428,37 +428,6 @@ const DailyTrackingLog = () => {
                                 Add Work Entry
                             </h3>
                             <form onSubmit={handleAddActivity} className="space-y-4">
-                                <div>
-                                    <label className={`block text-xs font-semibold mb-2 uppercase tracking-wider ${
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                    }`}>
-                                        Time Frame
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <span className="text-[10px] text-gray-500 block mb-1">Start Time</span>
-                                            <input
-                                                type="time"
-                                                value={startTime}
-                                                onChange={(e) => setStartTime(e.target.value)}
-                                                className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                                                    isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
-                                                }`}
-                                            />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] text-gray-500 block mb-1">End Time</span>
-                                            <input
-                                                type="time"
-                                                value={endTime}
-                                                onChange={(e) => setEndTime(e.target.value)}
-                                                className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                                                    isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
-                                                }`}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
 
                                 <div>
                                     <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${

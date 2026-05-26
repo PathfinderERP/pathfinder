@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
 import { FaFilter, FaSync, FaDownload, FaSun, FaMoon, FaChartLine, FaPlus, FaEdit } from "react-icons/fa";
 import { toast } from "react-toastify";
@@ -28,6 +28,9 @@ const ComparisonAnalysis = () => {
     
     const [comparisonData, setComparisonData] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Track request versions to avoid async race conditions
+    const requestVersionRef = useRef(0);
 
     // Modal state
     const [showAddModal, setShowAddModal] = useState(false);
@@ -79,6 +82,7 @@ const ComparisonAnalysis = () => {
     };
 
     const fetchComparisonData = async () => {
+        const currentVersion = ++requestVersionRef.current;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -95,16 +99,26 @@ const ComparisonAnalysis = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const resData = await response.json();
+            
+            if (currentVersion !== requestVersionRef.current) {
+                return; // Discard stale response
+            }
+
             if (response.ok) {
                 setComparisonData(resData.data || []);
             } else {
                 toast.error(resData.message || "Failed to load comparison data");
             }
         } catch (error) {
+            if (currentVersion !== requestVersionRef.current) {
+                return;
+            }
             console.error("Error fetching comparison data:", error);
             toast.error("Failed to load comparison data");
         } finally {
-            setLoading(false);
+            if (currentVersion === requestVersionRef.current) {
+                setLoading(false);
+            }
         }
     };
 

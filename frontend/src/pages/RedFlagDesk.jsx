@@ -8,6 +8,8 @@ import {
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { downloadExcel } from '../utils/exportUtils';
+import RedFlagDetailsModal from '../components/Dashboard/RedFlagDetailsModal';
+import { useTheme } from '../context/ThemeContext';
 
 const getDatesInRange = (startStr, endStr) => {
     if (!startStr || !endStr) return [];
@@ -43,6 +45,8 @@ const matchRole = (flagRole, selectedTabRoleName) => {
 };
 
 const RedFlagDesk = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [flags, setFlags] = useState([]);
     const [selectedFlag, setSelectedFlag] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -56,8 +60,52 @@ const RedFlagDesk = () => {
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [activeStatFilter, setActiveStatFilter] = useState('Open Flags');
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [modalTitle, setModalTitle] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState("");
 
     const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Coordinator', 'Teacher'];
+
+    const getModalFlags = (category) => {
+        let filtered = flags;
+        
+        // Filter flags to only include those belonging to active centers (status !== 'deactive')
+        const activeCenterIds = new Set(
+            centers
+                .filter(c => c.status !== 'deactive')
+                .map(c => (c._id || c).toString())
+        );
+        
+        filtered = filtered.filter(f => {
+            const cId = f.centre?._id || f.centre;
+            return cId && activeCenterIds.has(cId.toString());
+        });
+
+        if (selectedCentreId) {
+            filtered = filtered.filter(f => f.centre?._id === selectedCentreId || f.centre === selectedCentreId);
+            if (activeRoleTab) {
+                filtered = filtered.filter(f => matchRole(f.role, activeRoleTab));
+            }
+        }
+
+        // Now filter by category
+        if (category === 'Open Flags') {
+            return filtered;
+        }
+        if (category === 'Critical') {
+            return filtered.filter(f => !f.isResolved && f.severity === 'Critical');
+        }
+        if (category === 'High Risk') {
+            return filtered.filter(f => !f.isResolved && f.severity === 'High');
+        }
+        if (category === 'Medium Risk') {
+            return filtered.filter(f => !f.isResolved && f.severity === 'Medium');
+        }
+        if (category === 'Low Risk') {
+            return filtered.filter(f => f.isResolved || f.severity === 'Low');
+        }
+        return filtered;
+    };
 
     useEffect(() => {
         fetchData();
@@ -288,35 +336,24 @@ const RedFlagDesk = () => {
             }
         }
 
-        // Group by user to compute user-level stats
-        const userFlagsMap = {};
-        filtered.forEach(f => {
-            const userId = f.user?._id || f.user;
-            if (!userId) return;
-            if (!userFlagsMap[userId]) {
-                userFlagsMap[userId] = [];
-            }
-            userFlagsMap[userId].push(f);
-        });
-
         let critical = 0;
         let high = 0;
         let medium = 0;
         let low = 0;
 
-        Object.values(userFlagsMap).forEach(userFlags => {
-            const hasCritical = userFlags.some(f => !f.isResolved && f.severity === 'Critical');
-            const hasHigh = userFlags.some(f => !f.isResolved && f.severity === 'High');
-            const hasMedium = userFlags.some(f => !f.isResolved && f.severity === 'Medium');
-
-            if (hasCritical) {
-                critical++;
-            } else if (hasHigh) {
-                high++;
-            } else if (hasMedium) {
-                medium++;
-            } else {
+        filtered.forEach(f => {
+            if (f.isResolved) {
                 low++;
+            } else {
+                if (f.severity === 'Critical') {
+                    critical++;
+                } else if (f.severity === 'High') {
+                    high++;
+                } else if (f.severity === 'Medium') {
+                    medium++;
+                } else {
+                    low++;
+                }
             }
         });
 
@@ -356,7 +393,7 @@ const RedFlagDesk = () => {
 
         // Filter by Severity Stat Row Cards
         if (activeStatFilter === 'Open Flags') {
-            return group.issuesList.some(i => !i.isResolved && i.severity !== 'Low');
+            return true;
         }
         if (activeStatFilter === 'Critical') {
             return group.issuesList.some(i => !i.isResolved && i.severity === 'Critical');
@@ -467,7 +504,12 @@ const RedFlagDesk = () => {
                     ].map((stat, i) => (
                         <div 
                             key={i} 
-                            onClick={() => setActiveStatFilter(stat.key)}
+                            onClick={() => {
+                                setActiveStatFilter(stat.key);
+                                setSelectedCategory(stat.key);
+                                setModalTitle(`${stat.label} Details`);
+                                setShowDetailsModal(true);
+                            }}
                             className={`bg-white dark:bg-[#1a1f24] rounded-2xl p-5 border shadow-sm transition-all cursor-pointer hover:shadow-md hover:-translate-y-1 ${
                                 activeStatFilter === stat.key 
                                     ? `border-cyan-500 shadow-cyan-500/20 shadow-lg ring-1 ring-cyan-500` 
@@ -1105,6 +1147,15 @@ const RedFlagDesk = () => {
                     </div>
                 )}
             </div>
+
+            <RedFlagDetailsModal
+                isOpen={showDetailsModal}
+                onClose={() => setShowDetailsModal(false)}
+                title={modalTitle}
+                data={getModalFlags(selectedCategory)}
+                isDarkMode={isDarkMode}
+                onResolve={handleResolve}
+            />
         </Layout>
     );
 };

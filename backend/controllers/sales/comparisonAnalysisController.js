@@ -116,13 +116,17 @@ export const getComparisonAnalysis = async (req, res) => {
                     achievedWithGST2526: rec2526 ? (rec2526.achievedAmountWithGST || rec2526.achievedAmount) : 0,
                     achievedExclGST2526: rec2526 ? (rec2526.achievedAmountExclGST || (rec2526.achievedAmount / 1.18)) : 0,
                     targetId2526: rec2526 ? rec2526._id : null,
+                    financialYear2526: rec2526 ? rec2526.financialYear : "2025-2026",
+                    year2526: rec2526 ? rec2526.year : getYearForMonth("2025-2026", month),
 
                     // 2026-2027 Target and Achievement
                     target2627: rec2627 ? rec2627.targetAmount : 0,
                     achieved2627: achieved2627Result.totalWithGST,
                     achievedWithGST2627: achieved2627Result.totalWithGST,
                     achievedExclGST2627: achieved2627Result.totalExclGST,
-                    targetId2627: rec2627 ? rec2627._id : null
+                    targetId2627: rec2627 ? rec2627._id : null,
+                    financialYear2627: rec2627 ? rec2627.financialYear : "2026-2027",
+                    year2627: rec2627 ? rec2627.year : year2627
                 });
             }
         }
