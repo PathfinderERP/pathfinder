@@ -13,11 +13,11 @@ const fmt = (n) =>
     n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "N/A";
 
 const ROLE_COLORS = {
-    teacher:  { bg: "#e0f2fe", text: "#0369a1", dark_bg: "#0c4a6e20", dark_text: "#38bdf8" },
-    hod:      { bg: "#fef9c3", text: "#92400e", dark_bg: "#78350f20", dark_text: "#fbbf24" },
+    teacher: { bg: "#e0f2fe", text: "#0369a1", dark_bg: "#0c4a6e20", dark_text: "#38bdf8" },
+    hod: { bg: "#fef9c3", text: "#92400e", dark_bg: "#78350f20", dark_text: "#fbbf24" },
     accounts: { bg: "#f0fdf4", text: "#166534", dark_bg: "#14532d20", dark_text: "#4ade80" },
-    admin:    { bg: "#faf5ff", text: "#6b21a8", dark_bg: "#3b0764 20", dark_text: "#c084fc" },
-    default:  { bg: "#f1f5f9", text: "#475569", dark_bg: "#1e293b40", dark_text: "#94a3b8" },
+    admin: { bg: "#faf5ff", text: "#6b21a8", dark_bg: "#3b0764 20", dark_text: "#c084fc" },
+    default: { bg: "#f1f5f9", text: "#475569", dark_bg: "#1e293b40", dark_text: "#94a3b8" },
 };
 
 const roleBadge = (role, isDarkMode) => {
@@ -42,21 +42,21 @@ const SalaryExpenseHub = () => {
     const isDark = theme === "dark";
     const API = import.meta.env.VITE_API_URL;
 
-        /* steps: 1 = Centers  |  2 = Employees  |  3 = Approval */
+    /* steps: 1 = Centers  |  2 = Employees  |  3 = Approval */
     const [step, setStep] = useState(1);
 
     /* data */
-    const [centers,   setCenters]   = useState([]);
+    const [centers, setCenters] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [deptOptions, setDeptOptions] = useState([]);
     const [salaryHistory, setSalaryHistory] = useState([]);
 
     /* selected */
-    const [selectedCenter,   setSelectedCenter]   = useState(null);
+    const [selectedCenter, setSelectedCenter] = useState(null);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
 
     /* filters (step 2) */
-    const [search,     setSearch]     = useState("");
+    const [search, setSearch] = useState("");
     const [centerSearch, setCenterSearch] = useState("");
     const [deptFilter, setDeptFilter] = useState("all");
     const [expandedDept, setExpandedDept] = useState(null);   // for grouped accordion
@@ -72,7 +72,7 @@ const SalaryExpenseHub = () => {
     const fetchCenters = async () => {
         setLoading(true);
         try {
-            const res  = await fetch(`${API}/hr/salary/centers`, {
+            const res = await fetch(`${API}/hr/salary/centers`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             });
             const data = await res.json();
@@ -86,7 +86,7 @@ const SalaryExpenseHub = () => {
     const fetchEmployees = async (center) => {
         setLoading(true);
         try {
-            const res  = await fetch(`${API}/hr/salary/all-employees/${center._id}`, {
+            const res = await fetch(`${API}/hr/salary/all-employees/${center._id}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             });
             const data = await res.json();
@@ -107,7 +107,7 @@ const SalaryExpenseHub = () => {
     const fetchHistory = async (emp) => {
         setLoading(true);
         try {
-            const res  = await fetch(`${API}/hr/salary/history/${emp._id}`, {
+            const res = await fetch(`${API}/hr/salary/history/${emp._id}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             });
             const data = await res.json();
@@ -128,18 +128,18 @@ const SalaryExpenseHub = () => {
             return;
         }
         try {
-            const res  = await fetch(`${API}/hr/salary/approve`, {
+            const res = await fetch(`${API}/hr/salary/approve`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${localStorage.getItem("token")}`
                 },
                 body: JSON.stringify({
-                    employeeId:   selectedEmployee._id,
-                    centerId:     selectedCenter._id,
-                    salaryMonth:  approvalData.salaryMonth,
+                    employeeId: selectedEmployee._id,
+                    centerId: selectedCenter._id,
+                    salaryMonth: approvalData.salaryMonth,
                     salaryPeriod: approvalData.salaryPeriod,
-                    amount:       approvalData.amount
+                    amount: approvalData.amount
                 })
             });
             const data = await res.json();
@@ -157,7 +157,7 @@ const SalaryExpenseHub = () => {
         else if (step === 2) { setStep(1); setEmployees([]); setSelectedCenter(null); }
     };
 
-    /* ── filtered + grouped employees ── */
+    /* ── filtered + grouped employees ── wefwef*/
     const filtered = useMemo(() => {
         return employees.filter(e => {
             const matchDept = deptFilter === "all" || e.departmentName === deptFilter;
@@ -183,11 +183,11 @@ const SalaryExpenseHub = () => {
     }, [filtered]);
 
     /* ── theme colours ── */
-    const card   = isDark ? "#1e293b" : "#ffffff";
-    const bg     = isDark ? "#0f172a" : "#f8fafc";
+    const card = isDark ? "#1e293b" : "#ffffff";
+    const bg = isDark ? "#0f172a" : "#f8fafc";
     const border = isDark ? "#334155" : "#e2e8f0";
-    const text   = isDark ? "#e2e8f0" : "#0f172a";
-    const sub    = isDark ? "#94a3b8" : "#64748b";
+    const text = isDark ? "#e2e8f0" : "#0f172a";
+    const sub = isDark ? "#94a3b8" : "#64748b";
     const accent = "#6366f1";
     const accent2 = "#818cf8";
     const inputBg = isDark ? "#0f172a" : "#f1f5f9";
@@ -229,9 +229,11 @@ const SalaryExpenseHub = () => {
                 {/* ── Loading ── */}
                 {loading && (
                     <div style={{ textAlign: "center", padding: 60 }}>
-                        <div style={{ width: 44, height: 44, border: `4px solid ${border}`,
+                        <div style={{
+                            width: 44, height: 44, border: `4px solid ${border}`,
                             borderTopColor: accent, borderRadius: "50%", animation: "spin 0.8s linear infinite",
-                            margin: "0 auto 14px" }} />
+                            margin: "0 auto 14px"
+                        }} />
                         <p style={{ color: sub, margin: 0 }}>Loading…</p>
                         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
                     </div>
@@ -317,8 +319,10 @@ const SalaryExpenseHub = () => {
                                 />
                                 {search && (
                                     <FaTimes onClick={() => setSearch("")} size={12}
-                                        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-                                            color: sub, cursor: "pointer" }} />
+                                        style={{
+                                            position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                                            color: sub, cursor: "pointer"
+                                        }} />
                                 )}
                             </div>
 
@@ -342,9 +346,11 @@ const SalaryExpenseHub = () => {
                             </div>
 
                             {/* Count badge */}
-                            <div style={{ marginLeft: "auto", background: `${accent}18`, color: accent2,
+                            <div style={{
+                                marginLeft: "auto", background: `${accent}18`, color: accent2,
                                 padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
-                                whiteSpace: "nowrap" }}>
+                                whiteSpace: "nowrap"
+                            }}>
                                 {filtered.length} employee{filtered.length !== 1 ? "s" : ""}
                             </div>
                         </div>
