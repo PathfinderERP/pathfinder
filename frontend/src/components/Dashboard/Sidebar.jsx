@@ -254,6 +254,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Upload File", path: "/hr/documents/upload", icon: <FaFileUpload />, permissionSection: "upload" },
                 { name: "All Feedback", path: "/hr/feedback", icon: <FaCommentDots />, permissionSection: "feedback" },
                 { name: "Reimbursement List", path: "/hr/reimbursement", icon: <FaMoneyCheckAlt />, permissionSection: "reimbursement" },
+                { name: "Salary Expense", path: "/hr/salary-expense", icon: <FaMoneyBillWave />, permissionSection: "reimbursement" },
                 { name: "Resign Request", path: "/hr/resign-request", icon: <FaUserMinus />, permissionSection: "resign" },
                 { name: "Birthday Lists", path: "/hr/birthday", icon: <FaBirthdayCake />, permissionSection: "birthday" },
             ]

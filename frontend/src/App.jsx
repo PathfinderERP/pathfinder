@@ -105,6 +105,7 @@ import TeacherRoutineSchedule from "./pages/Academics/TeacherRoutineSchedule";
 // HR Pages
 import EmployeeList from "./pages/HR/EmployeeList";
 import AddEmployee from "./pages/HR/AddEmployee";
+import SalaryExpenseHub from "./pages/HR/SalaryExpense/SalaryExpenseHub";
 import ViewEmployee from "./pages/HR/ViewEmployee";
 import EmployeeLetters from "./pages/HR/EmployeeLetters";
 import OfferLetter from "./pages/HR/Letters/OfferLetter";
@@ -243,6 +244,7 @@ function App() {
         <Route path="/sales/final-weekend-target" element={<ProtectedRoute><FinalWeekendTarget /></ProtectedRoute>} />
         <Route path="/sales/course-target" element={<ProtectedRoute><CourseTarget /></ProtectedRoute>} />
         <Route path="/hr" element={<ProtectedRoute><HR /></ProtectedRoute>} />
+        <Route path="/hr/salary-expense" element={<ProtectedRoute><SalaryExpenseHub /></ProtectedRoute>} />
         <Route path="/hr/employee/list" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
         <Route path="/hr/employee/add" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
         <Route path="/hr/employee/edit/:id" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />

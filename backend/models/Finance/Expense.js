@@ -4,49 +4,88 @@ import User from "../User.js";
 
 const expenseSchema = new mongoose.Schema(
     {
+        expenseType: {
+            type: String,
+            enum: ['General', 'Salary'],
+            default: 'General'
+        },
         name: {
             type: String,
-            required: true,
+            required: function() { return this.expenseType === 'General'; },
         },
         category: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Category",
-            required: true,
+            required: function() { return this.expenseType === 'General'; },
         },
         months: {
             type: String,
             enum: [
-                "January",
-                "February",
-                "March",
-                "April",
-                "May",
-                "June",
-                "July",
-                "August",
-                "September",
-                "October",
-                "November",
-                "December",
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December",
             ],
         },
         approvedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: true,
+            required: function() { return this.expenseType === 'General'; },
         },
         approvedDate: {
             type: Date,
-            required: true,
+            required: function() { return this.expenseType === 'General'; },
         },
         expenseDate: {
             type: Date,
-            default: Date.now(),
+            default: Date.now,
         },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true
+        },
+        // HR Salary Specific Fields
+        employeeId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
+        centreId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "CentreSchema"
+        },
+        departmentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Department"
+        },
+        salaryPeriod: {
+            type: String // e.g., "Week 1, May 2026"
+        },
+        amount: {
+            type: Number
+        },
+        hrApprovedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
+        hrApprovedDate: {
+            type: Date
+        },
+        financeStatus: {
+            type: String,
+            enum: ['Pending', 'Approved', 'Rejected'],
+            default: 'Pending'
+        },
+        financeApprovedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
+        financeApprovedDate: {
+            type: Date
+        },
+        givenBy: {
+            type: String
+        },
+        reason: {
+            type: String
         }
     }, { timestamps: true }
 );

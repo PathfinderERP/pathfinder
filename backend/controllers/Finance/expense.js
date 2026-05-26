@@ -51,7 +51,11 @@ const getAllExpence = async (req, res) => {
         const expences = await Expense.find()
             .populate("category")
             .populate("createdBy")
-            .populate("approvedBy");
+            .populate("approvedBy")
+            .populate("employeeId")
+            .populate("hrApprovedBy")
+            .populate("financeApprovedBy")
+            .populate("departmentId");
 
         if (expences.length === 0) {
             return res.status(404).json({
@@ -112,7 +116,13 @@ const updateExpence = async (req,res) => {
             approvedBy,
             approvedDate,
             expenseDate,
-            createdBy
+            createdBy,
+            financeStatus,
+            financeApprovedBy,
+            financeApprovedDate,
+            givenBy,
+            reason,
+            amount
         } = req.body;
 
         const data = await Expense.findById(id);
@@ -133,7 +143,13 @@ const updateExpence = async (req,res) => {
                 approvedBy,
                 approvedDate,
                 expenseDate,
-                createdBy
+                createdBy,
+                financeStatus,
+                financeApprovedBy,
+                financeApprovedDate,
+                givenBy,
+                reason,
+                amount
             },{
         new: true,
         runValidators: true
