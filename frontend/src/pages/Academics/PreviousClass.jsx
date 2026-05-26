@@ -46,8 +46,13 @@ const PreviousClass = () => {
     const [dropdownLoading, setDropdownLoading] = useState(false);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isAdmin = user.role === "admin" || user.role === "superAdmin";
-    const isCoordinator = user.role === "Class_Coordinator";
+    const ALL_ROLES_FOR_CLASS = [
+        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 
+        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 
+        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts', 
+        'coordinator', 'digital'
+    ];
+    const isAcademicAdmin = ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
     const isTeacher = user.role === "teacher";
     const isHod = user.role === "hod";
 
@@ -575,7 +580,7 @@ const PreviousClass = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="flex flex-col gap-2 scale-90">
-                                                    {(isAdmin || isCoordinator || isTeacher || isHod) ? (
+                                                     {(isAcademicAdmin || isTeacher || isHod) ? (
                                                         <button
                                                             onClick={() => {
                                                                 setSelectedClassId(cls._id);
@@ -625,7 +630,7 @@ const PreviousClass = () => {
                                                 )}
                                             </td>
                                             <td className="p-4 text-center">
-                                                {(isAdmin || isCoordinator || canEdit) && !isTeacher ? (
+                                                {(isAcademicAdmin || canEdit) && !isTeacher ? (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedClassForFeedback(cls);
