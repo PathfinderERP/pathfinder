@@ -135,22 +135,26 @@ export const generateBill = async (req, res) => {
         // even if the Admission record's status hasn't synced (Self-healing).
         // Since we are transitioning 1-indexed to 0-indexed for Board, we check both for the first month.
         let paymentLookupNum = installmentNum;
+        if (isBoardType && installmentNum > 0 && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
+            paymentLookupNum = installmentNum - 1;
+        }
+
         let existingPaymentRecord = await Payment.findOne({
             admission: admissionId,
             installmentNumber: paymentLookupNum,
             status: { $nin: ["REJECTED", "CANCELLED"] }
         }).sort({ createdAt: -1 });
 
-        if (!existingPaymentRecord && isBoardType && (installmentNum === 0 || installmentNum === 1)) {
-            // Try the alternate index for the first month
+        if (!existingPaymentRecord && isBoardType && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
+            const alternateNum = paymentLookupNum === installmentNum - 1 ? installmentNum : installmentNum - 1;
             existingPaymentRecord = await Payment.findOne({
                 admission: admissionId,
-                installmentNumber: (installmentNum === 0 ? 1 : 0),
+                installmentNumber: alternateNum,
                 status: { $nin: ["REJECTED", "CANCELLED"] }
             }).sort({ createdAt: -1 });
             
             if (existingPaymentRecord) {
-                paymentLookupNum = existingPaymentRecord.installmentNumber; // Update to the found record's index
+                paymentLookupNum = alternateNum;
             }
         }
 
@@ -221,12 +225,14 @@ export const generateBill = async (req, res) => {
 
             payment = new Payment({
                 admission: admissionId,
-                installmentNumber: installmentNum,
+                installmentNumber: paymentLookupNum,
                 amount: isBoardAdmission ? (installment.payableAmount || installment.standardAmount) : installment.amount,
                 paidAmount: totalAmount,
                 dueDate: installment.dueDate,
-                paidDate: installment.paidDate || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date()),
-                receivedDate: installment.receivedDate || installment.paidDate || new Date(),
+                paidDate: isBoardAdmission ? new Date() : (installment.paidDate || new Date()),
+                receivedDate: isBoardAdmission 
+                    ? (installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date())
+                    : (installment.receivedDate || installment.paidDate || new Date()),
                 status: installment.status || "PAID",
                 paymentMethod: installment.paymentMethod || 
                     (isBoardAdmission && installment.paymentTransactions?.length > 0 
@@ -424,6 +430,8 @@ export const getBillsByAdmission = async (req, res) => {
         const bills = payments.map(payment => ({
             billId: payment.billId,
             billDate: payment.paidDate,
+            paidDate: payment.paidDate,
+            receivedDate: payment.receivedDate,
             installmentNumber: payment.installmentNumber,
             courseFee: payment.courseFee,
             cgst: payment.cgst,
