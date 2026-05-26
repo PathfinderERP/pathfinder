@@ -395,7 +395,7 @@ export const updatePost = async (req, res) => {
 
 export const deleteComment = async (req, res) => {
     try {
-        const { postId, commentId } = req.params;
+        const { id: postId, commentId } = req.params;
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ message: "Post not found" });
 
@@ -421,7 +421,7 @@ export const deleteComment = async (req, res) => {
 
 export const updateComment = async (req, res) => {
     try {
-        const { postId, commentId } = req.params;
+        const { id: postId, commentId } = req.params;
         const { text } = req.body;
         
         if (!text) return res.status(400).json({ message: "Comment text is required" });
