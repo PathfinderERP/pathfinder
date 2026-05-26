@@ -7,7 +7,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../../context/ThemeContext";
-//ytifsdger
+
 /* ─── helpers ─────────────────────────────────────────────── */
 const fmt = (n) =>
     n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "N/A";
@@ -157,7 +157,7 @@ const SalaryExpenseHub = () => {
         else if (step === 2) { setStep(1); setEmployees([]); setSelectedCenter(null); }
     };
 
-    /* ── filtered + grouped employees ── */
+    /* ── filtered + grouped employees ── wefwef*/
     const filtered = useMemo(() => {
         return employees.filter(e => {
             const matchDept = deptFilter === "all" || e.departmentName === deptFilter;
