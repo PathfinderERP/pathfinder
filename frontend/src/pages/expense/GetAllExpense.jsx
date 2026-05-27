@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaPlus, FaSearch, FaCheck } from "react-icons/fa";
@@ -200,7 +200,7 @@ const GetAllExpense = () => {
                                             {expense.expenseType === 'Salary' ? (
                                                 <div className="flex flex-col">
                                                     <span className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
-                                                        {expense.employeeId?.name || "â€”"}
+                                                        {expense.employeeId?.name || "—"}
                                                     </span>
                                                     {expense.departmentId?.departmentName && (
                                                         <span className={`text-xs font-medium mt-0.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
@@ -209,7 +209,7 @@ const GetAllExpense = () => {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <span>{expense.name || "â€”"}</span>
+                                                <span>{expense.name || "—"}</span>
                                             )}
                                         </td>
 
@@ -227,16 +227,16 @@ const GetAllExpense = () => {
                                                             {expense.salaryPeriod}
                                                         </span>
                                                     )}
-                                                    {!expense.months && !expense.salaryPeriod && "â€”"}
+                                                    {!expense.months && !expense.salaryPeriod && "—"}
                                                 </div>
                                             ) : (
-                                                expense.category?.name || "â€”"
+                                                expense.category?.name || "—"
                                             )}
                                         </td>
 
                                         {/* Amount */}
                                         <td className={`px-4 py-4 text-sm font-bold ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
-                                            {expense.amount ? `â‚¹${expense.amount}` : "â€”"}
+                                            {expense.amount ? `₹${expense.amount}` : "—"}
                                         </td>
 
                                         {/* Status */}
@@ -263,7 +263,7 @@ const GetAllExpense = () => {
                                                     <div>
                                                         <span className="font-semibold text-xs text-purple-500">HR Init: </span>
                                                         <span className={isDarkMode ? "text-slate-300" : "text-slate-700"}>
-                                                            {expense.hrApprovedBy?.name || "â€”"}
+                                                            {expense.hrApprovedBy?.name || "—"}
                                                         </span>
                                                     </div>
                                                     {expense.financeStatus === 'Approved' && (
@@ -271,7 +271,7 @@ const GetAllExpense = () => {
                                                             <div>
                                                                 <span className="font-semibold text-xs text-green-500">Fin Appr: </span>
                                                                 <span className={isDarkMode ? "text-slate-300" : "text-slate-700"}>
-                                                                    {expense.financeApprovedBy?.name || "â€”"}
+                                                                    {expense.financeApprovedBy?.name || "—"}
                                                                 </span>
                                                             </div>
                                                             {expense.givenBy && (
@@ -292,7 +292,7 @@ const GetAllExpense = () => {
                                                 </div>
                                             ) : (
                                                 <span className={isDarkMode ? "text-slate-300" : "text-slate-700"}>
-                                                    {expense.approvedBy?.name || expense.approvedBy?.email || "â€”"}
+                                                    {expense.approvedBy?.name || expense.approvedBy?.email || "—"}
                                                 </span>
                                             )}
                                         </td>
@@ -345,15 +345,15 @@ const GetAllExpense = () => {
                             </div>
                             <div className="mb-4">
                                 <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Salary Month</label>
-                                <div className="font-semibold">{selectedExpense?.months || "â€”"}</div>
+                                <div className="font-semibold">{selectedExpense?.months || "—"}</div>
                             </div>
                             <div className="mb-4">
                                 <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Payout Week</label>
-                                <div className="font-semibold">{selectedExpense?.salaryPeriod || "â€”"}</div>
+                                <div className="font-semibold">{selectedExpense?.salaryPeriod || "—"}</div>
                             </div>
                             <div className="mb-4">
                                 <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Amount</label>
-                                <div className="font-bold text-lg text-green-500">â‚¹{selectedExpense?.amount}</div>
+                                <div className="font-bold text-lg text-green-500">₹{selectedExpense?.amount}</div>
                             </div>
 
                             <div className="mb-4">

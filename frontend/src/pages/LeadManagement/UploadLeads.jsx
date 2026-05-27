@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
@@ -12,7 +12,7 @@ import {
     FaPhone, FaTag, FaCalendarAlt
 } from "react-icons/fa";
 
-/* â”€â”€â”€ Column map: Excel header â†’ DB field â”€â”€â”€ */
+/* ─── Column map: Excel header → DB field ─── */
 const COL_MAP = {
     "Name":               "name",
     "PhoneNumber":         "phoneNumber",
@@ -67,7 +67,7 @@ const LEAD_TYPE_COLORS = {
     "COLD LEAD": { bg: "bg-blue-500/10",   border: "border-blue-500/30",   text: "text-blue-400"   },
 };
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ========================================================== */
 const UploadLeads = () => {
     const { theme } = useTheme();
     const isDark = theme === "dark";
@@ -80,7 +80,7 @@ const UploadLeads = () => {
     const [dragOver, setDragOver] = useState(false);
     const fileInputRef = useRef(null);
 
-    /* â”€â”€ My Uploads history â”€â”€ */
+    /* ── My Uploads history ── */
     const [myLeads, setMyLeads] = useState([]);
     const [myLeadsTotal, setMyLeadsTotal] = useState(0);
     const [myLeadsPage, setMyLeadsPage] = useState(1);
@@ -90,7 +90,7 @@ const UploadLeads = () => {
 
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
-    /* â”€â”€ Fetch uploaded leads â”€â”€ */
+    /* ── Fetch uploaded leads ── */
     const fetchMyUploads = useCallback(async (page = 1) => {
         setMyLeadsLoading(true);
         try {
@@ -115,7 +115,7 @@ const UploadLeads = () => {
 
     useEffect(() => { fetchMyUploads(1); }, [fetchMyUploads]);
 
-    /* â”€â”€ Parse file â”€â”€ */
+    /* ── Parse file ── */
     const processFile = useCallback((file) => {
         if (!file) return;
         const allowed = [
@@ -154,7 +154,7 @@ const UploadLeads = () => {
     const handleFileChange = (e) => processFile(e.target.files[0]);
     const handleDrop = (e) => { e.preventDefault(); setDragOver(false); processFile(e.dataTransfer.files[0]); };
 
-    /* â”€â”€ Upload to backend â”€â”€ */
+    /* ── Upload to backend ── */
     const handleUpload = async () => {
         if (!parsedRows.length) return;
         setStep("uploading");
@@ -195,7 +195,7 @@ const UploadLeads = () => {
     };
     const removeRow = (idx) => setParsedRows(prev => prev.filter((_, i) => i !== idx));
 
-    /* â”€â”€â”€ Theme shortcuts â”€â”€â”€ */
+    /* ─── Theme shortcuts ─── */
     const card = `rounded-2xl border ${isDark ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`;
     const txt  = isDark ? "text-white"    : "text-gray-900";
     const sub  = isDark ? "text-gray-400" : "text-gray-500";
@@ -203,16 +203,16 @@ const UploadLeads = () => {
                   ${isDark ? "bg-[#131619] border-gray-700 text-gray-200 focus:border-emerald-500/60"
                            : "bg-gray-50 border-gray-200 text-gray-800 focus:border-emerald-500"}`;
 
-    const formatDate = (d) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "â€”";
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• RENDER â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    /* ================= RENDER ================= */
     return (
         <Layout activePage="Marketing & CRM">
             <ToastContainer theme={isDark ? "dark" : "light"} position="top-right" />
 
             <div className={`min-h-screen p-6 space-y-6 ${isDark ? "bg-[#0f1215]" : "bg-gray-50"}`}>
 
-                {/* â”€â”€ Header â”€â”€ */}
+                {/* ── Header ── */}
                 <div className={`${card} p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
                     <div className="flex items-center gap-4 relative z-10">
@@ -230,7 +230,7 @@ const UploadLeads = () => {
                         <div>
                             <h1 className={`text-2xl font-black uppercase tracking-tighter italic ${txt}`}>Upload Leads</h1>
                             <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-0.5 ${sub}`}>
-                                Bulk import from Excel / CSV Â· Marketing & CRM
+                                Bulk import from Excel / CSV · Marketing & CRM
                             </p>
                         </div>
                     </div>
@@ -243,24 +243,24 @@ const UploadLeads = () => {
                             <p className={`text-sm font-black uppercase tracking-tight ${txt}`}>
                                 {currentUser.name || currentUser.email || "You (logged-in user)"}
                             </p>
-                            <p className={`text-[9px] font-bold ${sub}`}>Auto-assigned Â· cannot be changed</p>
+                            <p className={`text-[9px] font-bold ${sub}`}>Auto-assigned · cannot be changed</p>
                         </div>
                     </div>
                 </div>
 
-                {/* â”€â”€ Info strip â”€â”€ */}
+                {/* ── Info strip ── */}
                 <div className={`flex items-start gap-3 p-4 rounded-xl border ${isDark ? "bg-blue-500/10 border-blue-500/20" : "bg-blue-50 border-blue-200"}`}>
                     <FaInfoCircle className="text-blue-400 mt-0.5 shrink-0" size={14} />
                     <p className={`text-xs font-semibold leading-relaxed ${isDark ? "text-blue-300" : "text-blue-700"}`}>
                         Uploaded leads will appear in <b>Lead Management</b> with your name as the responsible person.
                         Required column: <b>Name</b>. Optional: Email, Phone, School Name, Source, Target Exam, Lead Type (HOT LEAD / WARM LEAD / COLD LEAD).
                         <button onClick={downloadSampleExcel} className="ml-2 underline font-black hover:text-blue-500 transition-colors">
-                            Download sample template â†’
+                            Download sample template →
                         </button>
                     </p>
                 </div>
 
-                {/* â•â•â• STEP: IDLE â€” drop zone â•â•â• */}
+                {/* ═══ STEP: IDLE — drop zone ═══ */}
                 {step === "idle" && (
                     <div
                         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -281,7 +281,7 @@ const UploadLeads = () => {
                         </div>
                         <div className="text-center space-y-2">
                             <h2 className={`text-xl font-black uppercase tracking-tighter ${txt}`}>Drop your Excel / CSV file here</h2>
-                            <p className={`text-xs font-semibold ${sub}`}>or click to browse Â· .xlsx Â· .xls Â· .csv</p>
+                            <p className={`text-xs font-semibold ${sub}`}>or click to browse · .xlsx · .csv</p>
                         </div>
                         <div className="flex flex-wrap justify-center gap-3">
                             <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border
@@ -345,7 +345,7 @@ const UploadLeads = () => {
                                         <tr className={`border-b ${isDark ? "border-gray-800" : "border-gray-100"}`}>
                                             {["#", "Name *", "PhoneNumber", "SecondPhone", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Actions"].map(h => (
                                                 <th key={h} className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 whitespace-nowrap">
-                                                    {h === "LeadResponse" ? <span className="text-emerald-500">{h} ðŸ”’</span> : h}
+                                                    {h === "LeadResponse" ? <span className="text-emerald-500">{h} 🔒</span> : h}
                                                 </th>
                                             ))}
                                         </tr>
@@ -355,23 +355,23 @@ const UploadLeads = () => {
                                             <tr key={idx} className={`hover:bg-emerald-500/[0.03] transition-colors ${!row.name ? "bg-red-500/5" : ""}`}>
                                                 <td className={`px-3 py-2 text-[10px] font-black ${sub}`}>{idx + 1}</td>
                                                 <td className="px-2 py-2 min-w-[130px]"><input className={inp} value={row.name || ""} onChange={e => updateRow(idx, "name", e.target.value)} placeholder="Required *" /></td>
-                                                <td className="px-2 py-2 min-w-[120px]"><input className={inp} value={row.phoneNumber || ""} onChange={e => updateRow(idx, "phoneNumber", e.target.value)} placeholder="â€”" /></td>
-                                                <td className="px-2 py-2 min-w-[120px]"><input className={inp} value={row.secondPhoneNumber || ""} onChange={e => updateRow(idx, "secondPhoneNumber", e.target.value)} placeholder="â€”" /></td>
-                                                <td className="px-2 py-2 min-w-[90px]"><input className={inp} value={row.className || ""} onChange={e => updateRow(idx, "className", e.target.value)} placeholder="â€”" /></td>
-                                                <td className="px-2 py-2 min-w-[90px]"><input className={inp} value={row.board || ""} onChange={e => updateRow(idx, "board", e.target.value)} placeholder="â€”" /></td>
-                                                <td className="px-2 py-2 min-w-[110px]"><input className={inp} value={row.centre || ""} onChange={e => updateRow(idx, "centre", e.target.value)} placeholder="â€”" /></td>
-                                                <td className="px-2 py-2 min-w-[100px]"><input className={inp} value={row.course || ""} onChange={e => updateRow(idx, "course", e.target.value)} placeholder="â€”" /></td>
-                                                <td className="px-2 py-2 min-w-[110px]"><input className={inp} value={row.source || ""} onChange={e => updateRow(idx, "source", e.target.value)} placeholder="â€”" /></td>
+                                                <td className="px-2 py-2 min-w-[120px]"><input className={inp} value={row.phoneNumber || ""} onChange={e => updateRow(idx, "phoneNumber", e.target.value)} placeholder="—" /></td>
+                                                <td className="px-2 py-2 min-w-[120px]"><input className={inp} value={row.secondPhoneNumber || ""} onChange={e => updateRow(idx, "secondPhoneNumber", e.target.value)} placeholder="—" /></td>
+                                                <td className="px-2 py-2 min-w-[90px]"><input className={inp} value={row.className || ""} onChange={e => updateRow(idx, "className", e.target.value)} placeholder="—" /></td>
+                                                <td className="px-2 py-2 min-w-[90px]"><input className={inp} value={row.board || ""} onChange={e => updateRow(idx, "board", e.target.value)} placeholder="—" /></td>
+                                                <td className="px-2 py-2 min-w-[110px]"><input className={inp} value={row.centre || ""} onChange={e => updateRow(idx, "centre", e.target.value)} placeholder="—" /></td>
+                                                <td className="px-2 py-2 min-w-[100px]"><input className={inp} value={row.course || ""} onChange={e => updateRow(idx, "course", e.target.value)} placeholder="—" /></td>
+                                                <td className="px-2 py-2 min-w-[110px]"><input className={inp} value={row.source || ""} onChange={e => updateRow(idx, "source", e.target.value)} placeholder="—" /></td>
                                                 <td className="px-2 py-2 min-w-[120px]">
                                                     <select className={inp} value={row.leadType || ""} onChange={e => updateRow(idx, "leadType", e.target.value)}>
-                                                        <option value="">â€”</option>
+                                                        <option value="">—</option>
                                                         {LEAD_TYPE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                                     </select>
                                                 </td>
                                                 <td className="px-2 py-2 min-w-[130px]">
                                                     <div className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border
                                                         ${isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
-                                                        ðŸ”’ {currentUser.name || "You"}
+                                                        🔒 {currentUser.name || "You"}
                                                     </div>
                                                 </td>
                                                 <td className="px-2 py-2">
@@ -397,14 +397,14 @@ const UploadLeads = () => {
                     </div>
                 )}
 
-                {/* â•â•â• STEP: UPLOADING â•â•â• */}
+                {/* === STEP: UPLOADING === */}
                 {step === "uploading" && (
                     <div className={`${card} p-24 flex flex-col items-center justify-center gap-6`}>
                         <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                             <FaSpinner className="text-emerald-500 animate-spin" size={32} />
                         </div>
                         <div className="text-center">
-                            <p className={`text-lg font-black uppercase tracking-tighter ${txt}`}>Uploading {parsedRows.length} lead{parsedRows.length !== 1 ? "s" : ""}â€¦</p>
+                            <p className={`text-lg font-black uppercase tracking-tighter ${txt}`}>Uploading {parsedRows.length} lead{parsedRows.length !== 1 ? "s" : ""}...</p>
                             <p className={`text-[10px] font-black uppercase tracking-widest animate-pulse mt-1 ${sub}`}>Saving to Lead Management database</p>
                         </div>
                     </div>
@@ -527,27 +527,27 @@ const UploadLeads = () => {
                                                         {(myLeadsPage - 1) * LEADS_PER_PAGE + idx + 1}
                                                     </td>
                                                     <td className={`px-4 py-3 text-xs font-bold ${txt} whitespace-nowrap`}>
-                                                        {lead.name || "â€”"}
+                                                        {lead.name || "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-xs font-semibold ${sub} whitespace-nowrap`}>
-                                                        {lead.phoneNumber || "â€”"}
+                                                        {lead.phoneNumber || "—"}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         {lead.leadType ? (
                                                             <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${ltc.bg} ${ltc.border} ${ltc.text}`}>
                                                                 {lead.leadType}
                                                             </span>
-                                                        ) : <span className={`text-xs ${sub}`}>â€”</span>}
+                                                        ) : <span className={`text-xs ${sub}`}>—</span>}
                                                     </td>
-                                                    <td className={`px-4 py-3 text-xs font-semibold ${sub}`}>{lead.source || "â€”"}</td>
+                                                    <td className={`px-4 py-3 text-xs font-semibold ${sub}`}>{lead.source || "—"}</td>
                                                     <td className={`px-4 py-3 text-xs font-semibold ${sub} whitespace-nowrap`}>
-                                                        {lead.centre?.centreName || lead.centre?.name || "â€”"}
+                                                        {lead.centre?.centreName || lead.centre?.name || "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-xs font-semibold ${sub}`}>
-                                                        {lead.className?.name || "â€”"}
+                                                        {lead.className?.name || "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-xs font-semibold ${sub}`}>
-                                                        {lead.course?.name || lead.course?.courseName || "â€”"}
+                                                        {lead.course?.name || lead.course?.courseName || "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-[10px] font-bold ${sub} whitespace-nowrap`}>
                                                         {formatDate(lead.createdAt)}
@@ -563,7 +563,7 @@ const UploadLeads = () => {
                             {myLeadsPages > 1 && (
                                 <div className={`flex items-center justify-between px-6 py-4 border-t ${isDark ? "border-gray-800" : "border-gray-100"}`}>
                                     <p className={`text-[10px] font-bold ${sub}`}>
-                                        Showing {(myLeadsPage - 1) * LEADS_PER_PAGE + 1}â€“{Math.min(myLeadsPage * LEADS_PER_PAGE, myLeadsTotal)} of {myLeadsTotal.toLocaleString()}
+                                        Showing {(myLeadsPage - 1) * LEADS_PER_PAGE + 1}–{Math.min(myLeadsPage * LEADS_PER_PAGE, myLeadsTotal)} of {myLeadsTotal.toLocaleString()}
                                     </p>
                                     <div className="flex items-center gap-2">
                                         <button
