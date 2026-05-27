@@ -438,7 +438,7 @@ const SalaryExpenseHub = () => {
                         {/* Search + Filter bar */}
                         <div style={{
                             display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 22,
-                            background: card, border: `1px solid ${border}`, borderRadius: 12,
+                            background: card, border: `1px solid ${border}`, borderRadius: 4,
                             padding: "14px 18px", alignItems: "center"
                         }}>
                             {/* Search */}

@@ -170,13 +170,34 @@ const GetAllExpense = () => {
         givenBy: ""
     });
 
+    // Given-By user search
+    const [allUsers, setAllUsers] = useState([]);
+    const [givenBySearch, setGivenBySearch] = useState("");
+    const [showGivenByDropdown, setShowGivenByDropdown] = useState(false);
+
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = hasPermission(user, "financeFees", "expense", "create");
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
         fetchExpenses();
+        fetchUsers();
     }, []);
+
+    const fetchUsers = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${API_URL}/hr/employee/dropdown`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = res.data;
+            // endpoint may return array directly or { employees: [] }
+            const list = Array.isArray(data) ? data : (data.employees || data.users || []);
+            setAllUsers(list);
+        } catch {
+            // silently ignore – users list is optional
+        }
+    };
 
     const fetchExpenses = async () => {
         setLoading(true);
@@ -207,6 +228,8 @@ const GetAllExpense = () => {
         setSelectedExpense(expense);
         const remaining = expense.remainingAmount !== undefined ? expense.remainingAmount : expense.amount;
         setApprovalData({ reason: "", givenBy: "", amountPaid: String(remaining) });
+        setGivenBySearch("");
+        setShowGivenByDropdown(false);
         setShowApproveModal(true);
     };
 
@@ -880,15 +903,68 @@ const GetAllExpense = () => {
                                     placeholder="Enter reason..."
                                 />
                             </div>
-                            <div className="mb-6">
+                            <div className="mb-6" style={{ position: "relative" }}>
                                 <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Given By (Optional)</label>
                                 <input
                                     type="text"
-                                    value={approvalData.givenBy}
-                                    onChange={(e) => setApprovalData({...approvalData, givenBy: e.target.value})}
+                                    value={givenBySearch}
+                                    onChange={(e) => {
+                                        setGivenBySearch(e.target.value);
+                                        setApprovalData({ ...approvalData, givenBy: e.target.value });
+                                        setShowGivenByDropdown(true);
+                                    }}
+                                    onFocus={() => setShowGivenByDropdown(true)}
+                                    onBlur={() => setTimeout(() => setShowGivenByDropdown(false), 180)}
                                     className={inputClass}
-                                    placeholder="Enter name of person giving..."
+                                    placeholder="Search user name..."
+                                    autoComplete="off"
                                 />
+                                {showGivenByDropdown && (() => {
+                                    const q = givenBySearch.trim().toLowerCase();
+                                    const matches = allUsers.filter(u =>
+                                        (u.name || "").toLowerCase().includes(q)
+                                    ).slice(0, 8);
+                                    return matches.length > 0 ? (
+                                        <ul style={{
+                                            position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999,
+                                            background: isDarkMode ? "#1a1f24" : "#fff",
+                                            border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`,
+                                            borderRadius: 8, marginTop: 4,
+                                            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                                            listStyle: "none", padding: 4, margin: 0, maxHeight: 200, overflowY: "auto"
+                                        }}>
+                                            {matches.map((u) => (
+                                                <li
+                                                    key={u._id}
+                                                    onMouseDown={() => {
+                                                        setGivenBySearch(u.name);
+                                                        setApprovalData({ ...approvalData, givenBy: u.name });
+                                                        setShowGivenByDropdown(false);
+                                                    }}
+                                                    style={{
+                                                        padding: "8px 12px", cursor: "pointer", borderRadius: 6,
+                                                        fontSize: "0.85rem",
+                                                        color: isDarkMode ? "#e2e8f0" : "#1e293b",
+                                                        display: "flex", alignItems: "center", gap: 8
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = isDarkMode ? "#334155" : "#f1f5f9"}
+                                                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                                                >
+                                                    <div style={{
+                                                        width: 28, height: 28, borderRadius: "50%",
+                                                        background: "linear-gradient(135deg,#6366f1,#818cf8)",
+                                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                                        color: "#fff", fontWeight: 800, fontSize: "0.75rem", flexShrink: 0
+                                                    }}>{(u.name || "?")[0].toUpperCase()}</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600 }}>{u.name}</div>
+                                                        {u.role && <div style={{ fontSize: "0.72rem", color: isDarkMode ? "#94a3b8" : "#64748b", textTransform: "capitalize" }}>{u.role}</div>}
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : null;
+                                })()}
                             </div>
 
                             <div className="flex justify-end gap-3">
