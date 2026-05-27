@@ -134,27 +134,62 @@ const updateExpence = async (req,res) => {
             });
         }
 
+        let updateData = {
+            name,
+            category,
+            months,
+            approvedBy,
+            approvedDate,
+            expenseDate,
+            createdBy,
+            financeStatus,
+            financeApprovedBy,
+            financeApprovedDate,
+            givenBy,
+            reason,
+            amount
+        };
+
+        if (data.expenseType === 'Salary' && financeStatus === 'Approved') {
+            const originalAmount = data.originalAmount !== undefined ? data.originalAmount : (data.amount || amount || 0);
+            const currentPaidAmount = data.paidAmount || 0;
+            const currentRemainingAmount = data.remainingAmount !== undefined ? data.remainingAmount : originalAmount;
+
+            const actualAmountPaid = req.body.amountPaid !== undefined ? Number(req.body.amountPaid) : currentRemainingAmount;
+
+            const newPayment = {
+                amountPaid: actualAmountPaid,
+                paidDate: new Date(),
+                paidBy: financeApprovedBy || null,
+                givenBy: givenBy || "",
+                reason: reason || ""
+            };
+
+            const updatedPayments = [...(data.payments || []), newPayment];
+            const newPaidAmount = currentPaidAmount + actualAmountPaid;
+            const newRemainingAmount = Math.max(0, originalAmount - newPaidAmount);
+
+            const finalStatus = newRemainingAmount <= 0 ? 'Approved' : 'Pending';
+
+            updateData = {
+                ...updateData,
+                originalAmount,
+                paidAmount: newPaidAmount,
+                remainingAmount: newRemainingAmount,
+                payments: updatedPayments,
+                financeStatus: finalStatus,
+                financeApprovedBy: finalStatus === 'Approved' ? (financeApprovedBy || data.financeApprovedBy) : null,
+                financeApprovedDate: finalStatus === 'Approved' ? (financeApprovedDate || new Date()) : null
+            };
+        }
+
         const updateExpensedata = await Expense.findByIdAndUpdate(
             id,
+            updateData,
             {
-                name,
-                category,
-                months,
-                approvedBy,
-                approvedDate,
-                expenseDate,
-                createdBy,
-                financeStatus,
-                financeApprovedBy,
-                financeApprovedDate,
-                givenBy,
-                reason,
-                amount
-            },{
-        new: true,
-        runValidators: true
-    }
-
+                new: true,
+                runValidators: true
+            }
         );
 
         res.status(201).json({
@@ -163,6 +198,7 @@ const updateExpence = async (req,res) => {
             updateExpensedata
         });
     } catch (error) {
+        console.error("Update expense error:", error);
         res.status(500).json({
             success:false,
             message:"Internal server error",

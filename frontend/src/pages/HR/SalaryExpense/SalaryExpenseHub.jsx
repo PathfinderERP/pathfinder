@@ -616,32 +616,46 @@ const SalaryExpenseHub = () => {
                                 </div>
                             ) : (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                    {salaryHistory.map((h, i) => (
-                                        <div key={i} style={{
-                                            background: inputBg, borderRadius: 10,
-                                            padding: "12px 16px", display: "flex",
-                                            justifyContent: "space-between", alignItems: "center"
-                                        }}>
-                                            <div>
-                                                <div style={{ fontWeight: 700, fontSize: "0.88rem", color: text }}>
-                                                    {h.months ? `${h.months} — ` : ""}{h.salaryPeriod}
+                                    {salaryHistory.map((h, i) => {
+                                        const isApproved = h.financeStatus?.toLowerCase() === "approved";
+                                        const isRejected = h.financeStatus?.toLowerCase() === "rejected";
+                                        const isPartiallyPaid = !isApproved && !isRejected && h.paidAmount > 0;
+                                        const reqAmount = h.originalAmount !== undefined ? h.originalAmount : h.amount;
+                                        return (
+                                            <div key={i} style={{
+                                                background: inputBg, borderRadius: 10,
+                                                padding: "12px 16px", display: "flex",
+                                                justifyContent: "space-between", alignItems: "center"
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: text }}>
+                                                        {h.months ? `${h.months} — ` : ""}{h.salaryPeriod}
+                                                    </div>
+                                                    <div style={{ fontSize: "0.75rem", color: sub, display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
+                                                        <div>Requested: {fmt(reqAmount)}</div>
+                                                        {h.paidAmount > 0 && <div style={{ color: "#16a34a", fontWeight: 600 }}>Paid: {fmt(h.paidAmount)}</div>}
+                                                        {h.remainingAmount > 0 && h.paidAmount > 0 && <div style={{ color: "#d97706", fontWeight: 600 }}>Remaining: {fmt(h.remainingAmount)}</div>}
+                                                        <div style={{ fontSize: "0.7rem", marginTop: 2 }}>
+                                                            {h.createdAt ? new Date(h.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div style={{ fontSize: "0.75rem", color: sub }}>
-                                                    {h.createdAt ? new Date(h.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                                    <span style={{ fontWeight: 800, color: text, fontSize: "0.92rem" }}>
+                                                        {fmt(h.remainingAmount !== undefined && h.remainingAmount > 0 ? h.remainingAmount : reqAmount)}
+                                                    </span>
+                                                    <span style={{
+                                                        fontSize: "0.7rem", fontWeight: 700, borderRadius: 20, padding: "2px 10px",
+                                                        background: isApproved ? "#f0fdf4" : isRejected ? "#fef2f2" : isPartiallyPaid ? "#fffbeb" : "#fef9c3",
+                                                        color: isApproved ? "#16a34a" : isRejected ? "#dc2626" : isPartiallyPaid ? "#d97706" : "#ca8a04",
+                                                        textTransform: "capitalize"
+                                                    }}>
+                                                        {isApproved ? "approved" : isRejected ? "rejected" : isPartiallyPaid ? "partially paid" : (h.financeStatus || "pending")}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                                                <span style={{ fontWeight: 800, color: text, fontSize: "0.92rem" }}>{fmt(h.amount)}</span>
-                                                <span style={{
-                                                    fontSize: "0.7rem", fontWeight: 700, borderRadius: 20, padding: "2px 10px",
-                                                    background: h.financeStatus === "approved" ? "#f0fdf4" : h.financeStatus === "rejected" ? "#fef2f2" : "#fef9c3",
-                                                    color: h.financeStatus === "approved" ? "#16a34a" : h.financeStatus === "rejected" ? "#dc2626" : "#ca8a04"
-                                                }}>
-                                                    {h.financeStatus || "pending"}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
