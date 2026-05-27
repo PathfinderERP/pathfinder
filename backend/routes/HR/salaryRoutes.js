@@ -4,7 +4,8 @@ import {
     getDepartmentsByCenter, 
     getEmployeesByDepartment,
     getAllEmployeesByCenter,
-    approveSalary, 
+    approveSalary,
+    approveSalaryBulk,
     getSalaryHistory 
 } from "../../controllers/HR/salaryController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
@@ -18,6 +19,7 @@ router.get("/departments/:centerId", getDepartmentsByCenter);
 router.get("/employees/:centerId/:departmentId", getEmployeesByDepartment);
 router.get("/all-employees/:centerId", getAllEmployeesByCenter);
 router.post("/approve", approveSalary);
+router.post("/approve-bulk", approveSalaryBulk);
 router.get("/history/:employeeId", getSalaryHistory);
 
 export default router;

@@ -154,6 +154,103 @@ export const approveSalary = async (req, res) => {
     }
 };
 
+// Submit bulk salary approvals (creates pending expenses for multiple employees)
+// salaryMonth (body): optional default month when each entry omits salaryMonth
+// each entry may include salaryMonth to override (different month per employee)
+export const approveSalaryBulk = async (req, res) => {
+    try {
+        const { centerId, salaryMonth: globalSalaryMonth, salaryPeriod, employees } = req.body;
+        const hrUserId = req.user._id;
+
+        if (!centerId || !salaryPeriod) {
+            return res.status(400).json({ success: false, message: "Center and payout week are required" });
+        }
+
+        if (!Array.isArray(employees) || employees.length === 0) {
+            return res.status(400).json({ success: false, message: "Select at least one employee" });
+        }
+
+        const created = [];
+        const failed = [];
+
+        for (const entry of employees) {
+            const { employeeId, amount, salaryMonth: entryMonth } = entry;
+            const parsedAmount = Number(amount);
+            const resolvedMonth = (entryMonth && String(entryMonth).trim()) || (globalSalaryMonth && String(globalSalaryMonth).trim()) || "";
+
+            if (!employeeId) {
+                failed.push({ employeeId: null, reason: "Missing employee ID" });
+                continue;
+            }
+            if (!resolvedMonth) {
+                failed.push({ employeeId, reason: "Missing salary month" });
+                continue;
+            }
+            if (!parsedAmount || parsedAmount <= 0) {
+                failed.push({ employeeId, reason: "Invalid amount" });
+                continue;
+            }
+
+            try {
+                const employeeRecord = await Employee.findOne({ user: employeeId })
+                    .populate("user", "name")
+                    .populate("department", "departmentName");
+
+                if (!employeeRecord?.user) {
+                    failed.push({ employeeId, reason: "Employee not found" });
+                    continue;
+                }
+
+                const newExpense = new Expense({
+                    expenseType: "Salary",
+                    employeeId,
+                    centreId: centerId,
+                    departmentId: employeeRecord.department?._id || employeeRecord.department || null,
+                    months: resolvedMonth,
+                    salaryPeriod,
+                    amount: parsedAmount,
+                    originalAmount: parsedAmount,
+                    remainingAmount: parsedAmount,
+                    paidAmount: 0,
+                    hrApprovedBy: hrUserId,
+                    hrApprovedDate: new Date(),
+                    financeStatus: "Pending",
+                    createdBy: hrUserId,
+                });
+
+                await newExpense.save();
+                created.push({
+                    employeeId,
+                    name: employeeRecord.name || employeeRecord.user?.name,
+                    expenseId: newExpense._id,
+                });
+            } catch (err) {
+                console.error(`Bulk salary error for ${employeeId}:`, err);
+                failed.push({ employeeId, reason: "Failed to create expense" });
+            }
+        }
+
+        if (created.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No salary requests were created",
+                created: [],
+                failed,
+            });
+        }
+
+        res.status(201).json({
+            success: true,
+            message: `${created.length} salary request(s) submitted for finance approval`,
+            created,
+            failed,
+        });
+    } catch (error) {
+        console.error("Error submitting bulk salary approval:", error);
+        res.status(500).json({ success: false, message: "Server error submitting bulk salary approval" });
+    }
+};
+
 // Get salary history for an employee
 export const getSalaryHistory = async (req, res) => {
     try {

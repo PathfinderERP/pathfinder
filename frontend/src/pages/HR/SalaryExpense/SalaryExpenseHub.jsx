@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Layout from "../../../components/Layout";
 import {
-    FaBuilding, FaUsers, FaUser, FaMoneyBillWave,
+    FaBuilding, FaUsers, FaMoneyBillWave,
     FaArrowLeft, FaCheck, FaSearch, FaFilter,
-    FaChevronDown, FaChevronUp, FaTimes
+    FaChevronDown, FaChevronUp, FaTimes, FaPaperPlane
 } from "react-icons/fa";
+
+const SALARY_MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+];
+
+const PAYOUT_WEEKS = ["Week 1", "Week 2", "Week 3", "Week 4", "Full Month"];
 import { toast } from "react-toastify";
 import { useTheme } from "../../../context/ThemeContext";
 
@@ -64,6 +71,14 @@ const SalaryExpenseHub = () => {
     /* approval form */
     const [approvalData, setApprovalData] = useState({ salaryMonth: "", salaryPeriod: "", amount: "" });
 
+    /* bulk selection */
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkForm, setBulkForm] = useState({ salaryMonth: "", salaryPeriod: "", monthMode: "same" });
+    const [bulkMonths, setBulkMonths] = useState({});
+    const [bulkAmounts, setBulkAmounts] = useState({});
+    const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
     const [loading, setLoading] = useState(false);
 
     /* ── fetch centers ── */
@@ -97,6 +112,8 @@ const SalaryExpenseHub = () => {
                 setSearch("");
                 setDeptFilter("all");
                 setExpandedDept(null);
+                setSelectedIds(new Set());
+                setShowBulkModal(false);
                 setStep(2);
             } else toast.error(data.message || "Failed to load employees");
         } catch { toast.error("Network error loading employees"); }
@@ -154,7 +171,129 @@ const SalaryExpenseHub = () => {
     /* ── goBack ── */
     const goBack = () => {
         if (step === 3) { setStep(2); setSalaryHistory([]); setSelectedEmployee(null); }
-        else if (step === 2) { setStep(1); setEmployees([]); setSelectedCenter(null); }
+        else if (step === 2) {
+            setStep(1);
+            setEmployees([]);
+            setSelectedCenter(null);
+            setSelectedIds(new Set());
+            setShowBulkModal(false);
+        }
+    };
+
+    const toggleEmployeeSelect = (empId) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(empId)) next.delete(empId);
+            else next.add(empId);
+            return next;
+        });
+    };
+
+    const toggleDeptSelect = (deptEmps) => {
+        const ids = deptEmps.map((e) => e._id);
+        const allSelected = ids.every((id) => selectedIds.has(id));
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (allSelected) ids.forEach((id) => next.delete(id));
+            else ids.forEach((id) => next.add(id));
+            return next;
+        });
+    };
+
+    const toggleSelectAllFiltered = () => {
+        const ids = filtered.map((e) => e._id);
+        const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (allSelected) ids.forEach((id) => next.delete(id));
+            else ids.forEach((id) => next.add(id));
+            return next;
+        });
+    };
+
+    const clearSelection = () => setSelectedIds(new Set());
+
+    const selectedEmployees = useMemo(
+        () => employees.filter((e) => selectedIds.has(e._id)),
+        [employees, selectedIds]
+    );
+
+    const openBulkModal = () => {
+        if (selectedEmployees.length === 0) {
+            toast.error("Select at least one employee");
+            return;
+        }
+        const amounts = {};
+        const months = {};
+        selectedEmployees.forEach((emp) => {
+            amounts[emp._id] = emp.currentSalary ? String(emp.currentSalary) : "";
+            months[emp._id] = "";
+        });
+        setBulkAmounts(amounts);
+        setBulkMonths(months);
+        setBulkForm({ salaryMonth: "", salaryPeriod: "", monthMode: "same" });
+        setShowBulkModal(true);
+    };
+
+    const submitBulkApproval = async () => {
+        if (!bulkForm.salaryPeriod) {
+            toast.error("Please select payout week");
+            return;
+        }
+        if (bulkForm.monthMode === "same" && !bulkForm.salaryMonth) {
+            toast.error("Please select salary month");
+            return;
+        }
+        if (bulkForm.monthMode === "different" && selectedEmployees.some((emp) => !bulkMonths[emp._id])) {
+            toast.error("Please select month for every selected employee");
+            return;
+        }
+
+        const payloadEmployees = selectedEmployees.map((emp) => ({
+            employeeId: emp._id,
+            amount: bulkAmounts[emp._id],
+            salaryMonth: bulkForm.monthMode === "different" ? bulkMonths[emp._id] : undefined,
+        }));
+
+        const invalid = payloadEmployees.find((e) => !e.amount || Number(e.amount) <= 0);
+        if (invalid) {
+            toast.error("Enter a valid amount for every selected employee");
+            return;
+        }
+
+        setBulkSubmitting(true);
+        try {
+            const res = await fetch(`${API}/hr/salary/approve-bulk`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                    centerId: selectedCenter._id,
+                    salaryMonth: bulkForm.monthMode === "same" ? bulkForm.salaryMonth : undefined,
+                    salaryPeriod: bulkForm.salaryPeriod,
+                    employees: payloadEmployees,
+                }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                const failCount = data.failed?.length || 0;
+                if (failCount > 0) {
+                    toast.warn(`${data.created?.length || 0} submitted, ${failCount} failed`);
+                } else {
+                    toast.success(data.message || "Bulk salary requests submitted ✓");
+                }
+                setShowBulkModal(false);
+                clearSelection();
+            } else {
+                toast.error(data.message || "Bulk submit failed");
+            }
+        } catch {
+            toast.error("Error submitting bulk salary requests");
+        }
+        setBulkSubmitting(false);
     };
 
     /* ── filtered + grouped employees ── */
@@ -341,13 +480,74 @@ const SalaryExpenseHub = () => {
                                 </select>
                             </div>
 
-                            {/* Count badge */}
-                            <div style={{ marginLeft: "auto", background: `${accent}18`, color: accent2,
-                                padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
-                                whiteSpace: "nowrap" }}>
-                                {filtered.length} employee{filtered.length !== 1 ? "s" : ""}
+                            {/* Select all + count */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto", flexWrap: "wrap" }}>
+                                <label style={{
+                                    display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                                    fontSize: "0.82rem", color: sub, whiteSpace: "nowrap"
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={filtered.length > 0 && filtered.every((e) => selectedIds.has(e._id))}
+                                        onChange={toggleSelectAllFiltered}
+                                        style={{ width: 16, height: 16, accentColor: accent, cursor: "pointer" }}
+                                    />
+                                    Select all
+                                </label>
+                                <div style={{ background: `${accent}18`, color: accent2,
+                                    padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
+                                    whiteSpace: "nowrap" }}>
+                                    {filtered.length} employee{filtered.length !== 1 ? "s" : ""}
+                                </div>
+                                {selectedIds.size > 0 && (
+                                    <div style={{
+                                        background: "#10b98120", color: "#34d399",
+                                        padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700
+                                    }}>
+                                        {selectedIds.size} selected
+                                    </div>
+                                )}
                             </div>
                         </div>
+
+                        {/* Bulk action bar */}
+                        {selectedIds.size > 0 && (
+                            <div style={{
+                                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                                flexWrap: "wrap", marginBottom: 18, padding: "14px 18px",
+                                background: `linear-gradient(135deg, ${accent}22, ${accent2}18)`,
+                                border: `1px solid ${accent}44`, borderRadius: 12
+                            }}>
+                                <div style={{ color: text, fontSize: "0.9rem", fontWeight: 600 }}>
+                                    {selectedIds.size} employee{selectedIds.size !== 1 ? "s" : ""} selected for bulk salary request
+                                </div>
+                                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                    <button
+                                        type="button"
+                                        onClick={clearSelection}
+                                        style={{
+                                            background: "transparent", border: `1px solid ${border}`,
+                                            borderRadius: 8, padding: "8px 14px", cursor: "pointer",
+                                            color: sub, fontWeight: 600, fontSize: "0.82rem"
+                                        }}
+                                    >
+                                        Clear selection
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={openBulkModal}
+                                        style={{
+                                            background: `linear-gradient(135deg, ${accent}, ${accent2})`,
+                                            color: "#fff", border: "none", borderRadius: 8,
+                                            padding: "8px 16px", cursor: "pointer", fontWeight: 700,
+                                            fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 8
+                                        }}
+                                    >
+                                        <FaPaperPlane size={12} /> Request salary for selected
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Grouped sections */}
                         {Object.keys(grouped).length === 0 ? (
@@ -364,25 +564,38 @@ const SalaryExpenseHub = () => {
                                     }}>
                                         {/* Section header */}
                                         <div
-                                            onClick={() => setExpandedDept(expandedDept === deptName ? null : deptName)}
                                             style={{
                                                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                                                padding: "14px 20px", cursor: "pointer",
+                                                padding: "14px 20px",
                                                 borderBottom: isExpanded ? `1px solid ${border}` : "none",
                                                 background: isDark ? "#1e293b" : "#f8fafc"
                                             }}>
                                             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                                <FaUsers size={16} color={accent} />
-                                                <span style={{ fontWeight: 700, fontSize: "0.95rem", color: text }}>
-                                                    {deptName}
-                                                </span>
-                                                <span style={{
-                                                    background: `${accent}20`, color: accent2,
-                                                    borderRadius: 20, padding: "2px 10px",
-                                                    fontSize: "0.75rem", fontWeight: 700
-                                                }}>{emps.length}</span>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={emps.length > 0 && emps.every((e) => selectedIds.has(e._id))}
+                                                    onChange={(e) => { e.stopPropagation(); toggleDeptSelect(emps); }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{ width: 16, height: 16, accentColor: accent, cursor: "pointer" }}
+                                                />
+                                                <div
+                                                    onClick={() => setExpandedDept(expandedDept === deptName ? null : deptName)}
+                                                    style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flex: 1 }}
+                                                >
+                                                    <FaUsers size={16} color={accent} />
+                                                    <span style={{ fontWeight: 700, fontSize: "0.95rem", color: text }}>
+                                                        {deptName}
+                                                    </span>
+                                                    <span style={{
+                                                        background: `${accent}20`, color: accent2,
+                                                        borderRadius: 20, padding: "2px 10px",
+                                                        fontSize: "0.75rem", fontWeight: 700
+                                                    }}>{emps.length}</span>
+                                                </div>
                                             </div>
-                                            {isExpanded ? <FaChevronUp size={13} color={sub} /> : <FaChevronDown size={13} color={sub} />}
+                                            <div onClick={() => setExpandedDept(expandedDept === deptName ? null : deptName)} style={{ cursor: "pointer", padding: 4 }}>
+                                                {isExpanded ? <FaChevronUp size={13} color={sub} /> : <FaChevronDown size={13} color={sub} />}
+                                            </div>
                                         </div>
 
                                         {/* Employee Table */}
@@ -391,6 +604,7 @@ const SalaryExpenseHub = () => {
                                                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                                                     <thead>
                                                         <tr style={{ background: isDark ? "#0f172a" : "#f1f5f9" }}>
+                                                            <th style={{ padding: "10px 16px", width: 44 }} />
                                                             {["Employee", "ID", "Email", "Mobile", "Department", "Current Salary", "Action"].map(h => (
                                                                 <th key={h} style={{
                                                                     padding: "10px 16px", textAlign: "left",
@@ -402,16 +616,34 @@ const SalaryExpenseHub = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {emps.map((emp, i) => (
+                                                        {emps.map((emp, i) => {
+                                                            const isSelected = selectedIds.has(emp._id);
+                                                            return (
                                                             <tr key={emp._id}
                                                                 style={{
                                                                     borderTop: `1px solid ${border}`,
-                                                                    background: i % 2 === 0 ? "transparent" : (isDark ? "#0f172a30" : "#f8fafc50"),
+                                                                    background: isSelected
+                                                                        ? (isDark ? "#312e8120" : "#eef2ff")
+                                                                        : i % 2 === 0 ? "transparent" : (isDark ? "#0f172a30" : "#f8fafc50"),
                                                                     transition: "background 0.15s"
                                                                 }}
-                                                                onMouseEnter={e => e.currentTarget.style.background = isDark ? "#334155" : "#e0e7ff"}
-                                                                onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : (isDark ? "#0f172a30" : "#f8fafc50")}
+                                                                onMouseEnter={e => {
+                                                                    if (!isSelected) e.currentTarget.style.background = isDark ? "#334155" : "#e0e7ff";
+                                                                }}
+                                                                onMouseLeave={e => {
+                                                                    e.currentTarget.style.background = isSelected
+                                                                        ? (isDark ? "#312e8120" : "#eef2ff")
+                                                                        : i % 2 === 0 ? "transparent" : (isDark ? "#0f172a30" : "#f8fafc50");
+                                                                }}
                                                             >
+                                                                <td style={{ padding: "12px 16px", width: 44 }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isSelected}
+                                                                        onChange={() => toggleEmployeeSelect(emp._id)}
+                                                                        style={{ width: 16, height: 16, accentColor: accent, cursor: "pointer" }}
+                                                                    />
+                                                                </td>
                                                                 {/* Name + avatar */}
                                                                 <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                                                                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -457,7 +689,7 @@ const SalaryExpenseHub = () => {
                                                                     </button>
                                                                 </td>
                                                             </tr>
-                                                        ))}
+                                                        );})}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -536,7 +768,7 @@ const SalaryExpenseHub = () => {
                                                 color: text, padding: "10px 12px", fontSize: "0.87rem", outline: "none"
                                             }}>
                                             <option value="">— Select Month —</option>
-                                            {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
+                                            {SALARY_MONTHS.map(m => (
                                                 <option key={m} value={m}>{m}</option>
                                             ))}
                                         </select>
@@ -555,11 +787,9 @@ const SalaryExpenseHub = () => {
                                                 color: text, padding: "10px 12px", fontSize: "0.87rem", outline: "none"
                                             }}>
                                             <option value="">— Select Week —</option>
-                                            <option value="Week 1">Week 1</option>
-                                            <option value="Week 2">Week 2</option>
-                                            <option value="Week 3">Week 3</option>
-                                            <option value="Week 4">Week 4</option>
-                                            <option value="Full Month">Full Month</option>
+                                            {PAYOUT_WEEKS.map(w => (
+                                                <option key={w} value={w}>{w}</option>
+                                            ))}
                                         </select>
                                     </div>
 
@@ -658,6 +888,211 @@ const SalaryExpenseHub = () => {
                                     })}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Bulk salary request modal */}
+                {showBulkModal && (
+                    <div style={{
+                        position: "fixed", inset: 0, zIndex: 1000,
+                        background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+                        display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+                    }}>
+                        <div style={{
+                            background: card, border: `1px solid ${border}`, borderRadius: 16,
+                            width: "100%", maxWidth: 720, maxHeight: "90vh", overflow: "hidden",
+                            display: "flex", flexDirection: "column", boxShadow: "0 24px 48px rgba(0,0,0,0.35)"
+                        }}>
+                            <div style={{
+                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                                padding: "18px 22px", borderBottom: `1px solid ${border}`
+                            }}>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: text }}>
+                                        Bulk Salary Request
+                                    </h2>
+                                    <p style={{ margin: "4px 0 0", fontSize: "0.8rem", color: sub }}>
+                                        {selectedEmployees.length} employee{selectedEmployees.length !== 1 ? "s" : ""} · {selectedCenter?.centreName}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowBulkModal(false)}
+                                    style={{ background: "transparent", border: "none", cursor: "pointer", color: sub, padding: 6 }}
+                                >
+                                    <FaTimes size={18} />
+                                </button>
+                            </div>
+
+                            <div style={{ padding: "18px 22px", overflowY: "auto", flex: 1 }}>
+                                <div style={{ marginBottom: 14 }}>
+                                    <label style={{ display: "block", fontSize: "0.8rem", color: sub, fontWeight: 600, marginBottom: 6 }}>
+                                        Salary Month Mode
+                                    </label>
+                                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 8, color: text, fontSize: "0.85rem", cursor: "pointer" }}>
+                                            <input
+                                                type="radio"
+                                                name="bulkMonthMode"
+                                                value="same"
+                                                checked={bulkForm.monthMode === "same"}
+                                                onChange={(e) => setBulkForm((p) => ({ ...p, monthMode: e.target.value }))}
+                                                style={{ accentColor: accent }}
+                                            />
+                                            Same month for everyone
+                                        </label>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 8, color: text, fontSize: "0.85rem", cursor: "pointer" }}>
+                                            <input
+                                                type="radio"
+                                                name="bulkMonthMode"
+                                                value="different"
+                                                checked={bulkForm.monthMode === "different"}
+                                                onChange={(e) => setBulkForm((p) => ({ ...p, monthMode: e.target.value }))}
+                                                style={{ accentColor: accent }}
+                                            />
+                                            Different month per employee
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+                                    <div>
+                                        <label style={{ display: "block", fontSize: "0.8rem", color: sub, fontWeight: 600, marginBottom: 6 }}>
+                                            Salary Month (work done in)
+                                        </label>
+                                        <select
+                                            value={bulkForm.salaryMonth}
+                                            onChange={(e) => setBulkForm((p) => ({ ...p, salaryMonth: e.target.value }))}
+                                            disabled={bulkForm.monthMode !== "same"}
+                                            style={{
+                                                width: "100%", background: inputBg, border: `1px solid ${border}`,
+                                                borderRadius: 8, color: text, padding: "10px 12px", fontSize: "0.87rem", outline: "none",
+                                                opacity: bulkForm.monthMode === "same" ? 1 : 0.6,
+                                                cursor: bulkForm.monthMode === "same" ? "pointer" : "not-allowed"
+                                            }}
+                                        >
+                                            <option value="">— Select Month —</option>
+                                            {SALARY_MONTHS.map((m) => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", fontSize: "0.8rem", color: sub, fontWeight: 600, marginBottom: 6 }}>
+                                            Payout Week
+                                        </label>
+                                        <select
+                                            value={bulkForm.salaryPeriod}
+                                            onChange={(e) => setBulkForm((p) => ({ ...p, salaryPeriod: e.target.value }))}
+                                            style={{
+                                                width: "100%", background: inputBg, border: `1px solid ${border}`,
+                                                borderRadius: 8, color: text, padding: "10px 12px", fontSize: "0.87rem", outline: "none"
+                                            }}
+                                        >
+                                            <option value="">— Select Week —</option>
+                                            {PAYOUT_WEEKS.map((w) => (
+                                                <option key={w} value={w}>{w}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    border: `1px solid ${border}`, borderRadius: 10, overflow: "hidden"
+                                }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                                        <thead>
+                                            <tr style={{ background: isDark ? "#0f172a" : "#f1f5f9" }}>
+                                                <th style={{ padding: "10px 14px", textAlign: "left", color: sub, fontSize: "0.72rem" }}>Employee</th>
+                                                <th style={{ padding: "10px 14px", textAlign: "left", color: sub, fontSize: "0.72rem" }}>Department</th>
+                                                <th style={{ padding: "10px 14px", textAlign: "left", color: sub, fontSize: "0.72rem", width: 160 }}>Month</th>
+                                                <th style={{ padding: "10px 14px", textAlign: "right", color: sub, fontSize: "0.72rem", width: 140 }}>Amount (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selectedEmployees.map((emp) => (
+                                                <tr key={emp._id} style={{ borderTop: `1px solid ${border}` }}>
+                                                    <td style={{ padding: "10px 14px", color: text, fontWeight: 600 }}>
+                                                        {emp.name}
+                                                        <div style={{ fontSize: "0.72rem", color: sub, fontWeight: 400 }}>{emp.employeeId}</div>
+                                                    </td>
+                                                    <td style={{ padding: "10px 14px", color: sub }}>{emp.departmentName || "—"}</td>
+                                                    <td style={{ padding: "10px 14px" }}>
+                                                        {bulkForm.monthMode === "same" ? (
+                                                            <div style={{ color: text, fontSize: "0.82rem" }}>
+                                                                {bulkForm.salaryMonth || "—"}
+                                                            </div>
+                                                        ) : (
+                                                            <select
+                                                                value={bulkMonths[emp._id] || ""}
+                                                                onChange={(e) => setBulkMonths((p) => ({ ...p, [emp._id]: e.target.value }))}
+                                                                style={{
+                                                                    width: "100%", background: inputBg, border: `1px solid ${border}`,
+                                                                    borderRadius: 6, color: text, padding: "8px 10px",
+                                                                    fontSize: "0.82rem", outline: "none"
+                                                                }}
+                                                            >
+                                                                <option value="">Select</option>
+                                                                {SALARY_MONTHS.map((m) => (
+                                                                    <option key={m} value={m}>{m}</option>
+                                                                ))}
+                                                            </select>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: "10px 14px" }}>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={bulkAmounts[emp._id] || ""}
+                                                            onChange={(e) => setBulkAmounts((p) => ({ ...p, [emp._id]: e.target.value }))}
+                                                            placeholder="Amount"
+                                                            style={{
+                                                                width: "100%", background: inputBg, border: `1px solid ${border}`,
+                                                                borderRadius: 6, color: text, padding: "8px 10px",
+                                                                fontSize: "0.85rem", outline: "none", textAlign: "right"
+                                                            }}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                display: "flex", justifyContent: "flex-end", gap: 10,
+                                padding: "16px 22px", borderTop: `1px solid ${border}`
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowBulkModal(false)}
+                                    disabled={bulkSubmitting}
+                                    style={{
+                                        background: "transparent", border: `1px solid ${border}`,
+                                        borderRadius: 8, padding: "10px 18px", cursor: "pointer",
+                                        color: sub, fontWeight: 600, fontSize: "0.85rem"
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={submitBulkApproval}
+                                    disabled={bulkSubmitting}
+                                    style={{
+                                        background: `linear-gradient(135deg, ${accent}, ${accent2})`,
+                                        color: "#fff", border: "none", borderRadius: 8,
+                                        padding: "10px 20px", cursor: bulkSubmitting ? "not-allowed" : "pointer",
+                                        fontWeight: 700, fontSize: "0.85rem", opacity: bulkSubmitting ? 0.7 : 1,
+                                        display: "flex", alignItems: "center", gap: 8
+                                    }}
+                                >
+                                    <FaPaperPlane size={12} />
+                                    {bulkSubmitting ? "Submitting…" : `Submit ${selectedEmployees.length} request(s)`}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

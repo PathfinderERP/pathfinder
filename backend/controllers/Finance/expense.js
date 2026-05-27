@@ -49,6 +49,7 @@ const createExpense = async (req, res) => {
 const getAllExpence = async (req, res) => {
     try {
         const expences = await Expense.find()
+            .sort({ createdAt: -1 })
             .populate("category")
             .populate("createdBy")
             .populate("approvedBy")
