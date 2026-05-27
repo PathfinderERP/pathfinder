@@ -86,7 +86,26 @@ const expenseSchema = new mongoose.Schema(
         },
         reason: {
             type: String
-        }
+        },
+        originalAmount: {
+            type: Number
+        },
+        paidAmount: {
+            type: Number,
+            default: 0
+        },
+        remainingAmount: {
+            type: Number
+        },
+        payments: [
+            {
+                amountPaid: { type: Number, required: true },
+                paidDate: { type: Date, default: Date.now },
+                paidBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+                givenBy: String,
+                reason: String
+            }
+        ]
     }, { timestamps: true }
 );
 
