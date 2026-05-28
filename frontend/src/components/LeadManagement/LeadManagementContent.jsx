@@ -1394,6 +1394,7 @@ const LeadManagementContent = () => {
                                             <span>S/N</span>
                                         </div>
                                     </th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned At</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Follow Up</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Name</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Email</th>
@@ -1406,7 +1407,7 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>School</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned At</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Source</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[260px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
@@ -1414,20 +1415,20 @@ const LeadManagementContent = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <>
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={16} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
                                     </>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="16" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="17" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -1435,7 +1436,7 @@ const LeadManagementContent = () => {
                                     {/* Bulk Selection Banner */}
                                     {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
                                         <tr>
-                                            <td colSpan="16" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                            <td colSpan="17" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
                                                 {isAllFilteredSelected ? (
                                                     <div className="flex items-center justify-center gap-4">
                                                         <span>All {totalLeads} leads matching these filters are selected.</span>
@@ -1461,6 +1462,14 @@ const LeadManagementContent = () => {
                                                         className="cursor-pointer"
                                                     />
                                                     <span>{(currentPage - 1) * limit + index + 1}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                    {new Date(lead.assignedAt || lead.createdAt).toLocaleDateString('en-GB')}
+                                                </div>
+                                                <div className="text-[9px] font-black text-cyan-500 mt-0.5">
+                                                    {new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -1520,11 +1529,8 @@ const LeadManagementContent = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                    {new Date(lead.assignedAt || lead.createdAt).toLocaleDateString('en-GB')}
-                                                </div>
-                                                <div className="text-[9px] font-black text-cyan-500 mt-0.5">
-                                                    {new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                <div className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                    {lead.source || "N/A"}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
