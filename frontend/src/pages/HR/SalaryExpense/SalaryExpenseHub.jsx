@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Layout from "../../../components/Layout";
 import {
     FaBuilding, FaUsers, FaMoneyBillWave,
@@ -14,6 +14,150 @@ const SALARY_MONTHS = [
 const PAYOUT_WEEKS = ["Week 1", "Week 2", "Week 3", "Week 4", "Full Month"];
 import { toast } from "react-toastify";
 import { useTheme } from "../../../context/ThemeContext";
+
+/* ─── MultiSelect Component ───────────────────────────────── */
+const MultiSelect = ({ label, options, selectedValues, onChange, placeholder, isDark, card, border, text, sub, inputBg }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleToggleOption = (value) => {
+        if (value === "all") {
+            if (selectedValues.includes("all")) {
+                onChange([]);
+            } else {
+                onChange(["all"]);
+            }
+        } else {
+            let next = selectedValues.filter(v => v !== "all");
+            if (next.includes(value)) {
+                next = next.filter(v => v !== value);
+            } else {
+                next.push(value);
+            }
+            if (next.length === 0 || next.length === options.length) {
+                onChange(["all"]);
+            } else {
+                onChange(next);
+            }
+        }
+    };
+
+    const isAllSelected = selectedValues.includes("all") || selectedValues.length === 0;
+
+    const displayLabel = () => {
+        if (isAllSelected) return `All ${placeholder}s`;
+        if (selectedValues.length === 1) {
+            const found = options.find(o => o.value === selectedValues[0]);
+            return found ? found.label : selectedValues[0];
+        }
+        return `${selectedValues.length} ${placeholder}s Selected`;
+    };
+
+    return (
+        <div ref={containerRef} style={{ position: "relative", display: "inline-block", minWidth: 200 }}>
+            <span style={{ fontSize: "0.78rem", color: sub, display: "block", marginBottom: 4, fontWeight: 600 }}>{label}</span>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background: inputBg,
+                    border: `1px solid ${border}`,
+                    borderRadius: 8,
+                    color: text,
+                    padding: "9px 12px",
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    outline: "none",
+                    textAlign: "left",
+                    height: 38,
+                    boxSizing: "border-box"
+                }}>
+                <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", marginRight: 8 }}>
+                    {displayLabel()}
+                </span>
+                <span style={{ fontSize: "0.6rem", color: sub }}>▼</span>
+            </button>
+
+            {isOpen && (
+                <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    zIndex: 999,
+                    marginTop: 6,
+                    background: card,
+                    border: `1px solid ${border}`,
+                    borderRadius: 8,
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                    maxHeight: 250,
+                    overflowY: "auto",
+                    padding: "8px 0"
+                }}>
+                    <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "8px 14px",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                        color: text,
+                        userSelect: "none",
+                        background: isAllSelected ? (isDark ? "#33415555" : "#f1f5f9") : "transparent"
+                    }}>
+                        <input
+                            type="checkbox"
+                            checked={isAllSelected}
+                            onChange={() => handleToggleOption("all")}
+                            style={{ cursor: "pointer", accentColor: "#6366f1" }}
+                        />
+                        <span style={{ fontWeight: 600 }}>All {placeholder}s</span>
+                    </label>
+                    <div style={{ height: 1, background: border, margin: "4px 0" }} />
+                    {options.map(opt => {
+                        const isChecked = !isAllSelected && selectedValues.includes(opt.value);
+                        return (
+                            <label key={opt.value} style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: "8px 14px",
+                                cursor: "pointer",
+                                fontSize: "0.85rem",
+                                color: text,
+                                userSelect: "none",
+                                background: isChecked ? (isDark ? "#33415555" : "#f1f5f9") : "transparent"
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected || isChecked}
+                                    disabled={isAllSelected}
+                                    onChange={() => handleToggleOption(opt.value)}
+                                    style={{ cursor: "pointer", accentColor: "#6366f1" }}
+                                />
+                                <span>{opt.label}</span>
+                            </label>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
 
 /* ─── helpers ─────────────────────────────────────────────── */
 const fmt = (n) =>
@@ -49,8 +193,8 @@ const SalaryExpenseHub = () => {
     const isDark = theme === "dark";
     const API = import.meta.env.VITE_API_URL;
 
-    /* steps: 1 = Centers  |  2 = Employees  |  3 = Approval */
-    const [step, setStep] = useState(1);
+    /* steps: 2 = Employees  |  3 = Approval */
+    const [step, setStep] = useState(2);
 
     /* data */
     const [centers, setCenters] = useState([]);
@@ -59,20 +203,22 @@ const SalaryExpenseHub = () => {
     const [salaryHistory, setSalaryHistory] = useState([]);
 
     /* selected */
-    const [selectedCenter, setSelectedCenter] = useState(null);
+    const [selectedCenter, setSelectedCenter] = useState({ _id: "all", centreName: "All Centres" });
     const [selectedEmployee, setSelectedEmployee] = useState(null);
 
     /* filters (step 2) */
     const [search, setSearch] = useState("");
+    const [selectedCenterIds, setSelectedCenterIds] = useState(["all"]);
+    const [selectedDeptFilters, setSelectedDeptFilters] = useState(["all"]);
+    const [staffTypeFilter, setStaffTypeFilter] = useState("all");
     const [centerSearch, setCenterSearch] = useState("");
-    const [deptFilter, setDeptFilter] = useState("all");
-    const [expandedDept, setExpandedDept] = useState(null);   // for grouped accordion
+    const [expandedDept, setExpandedDept] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(new Set());
 
     /* approval form */
     const [approvalData, setApprovalData] = useState({ salaryMonth: "", salaryPeriod: "", amount: "" });
 
     /* bulk selection */
-    const [selectedIds, setSelectedIds] = useState(new Set());
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [bulkForm, setBulkForm] = useState({ salaryMonth: "", salaryPeriod: "", monthMode: "same" });
     const [bulkMonths, setBulkMonths] = useState({});
@@ -81,8 +227,11 @@ const SalaryExpenseHub = () => {
 
     const [loading, setLoading] = useState(false);
 
-    /* ── fetch centers ── */
-    useEffect(() => { fetchCenters(); }, []);
+    /* ── fetch centers and employees ── */
+    useEffect(() => {
+        fetchCenters();
+        fetchEmployees({ _id: "all", centreName: "All Centres" });
+    }, []);
 
     const fetchCenters = async () => {
         setLoading(true);
@@ -110,7 +259,9 @@ const SalaryExpenseHub = () => {
                 setDeptOptions(data.departments || []);
                 setSelectedCenter(center);
                 setSearch("");
-                setDeptFilter("all");
+                setSelectedCenterIds([center._id]);
+                setSelectedDeptFilters(["all"]);
+                setStaffTypeFilter("all");
                 setExpandedDept(null);
                 setSelectedIds(new Set());
                 setShowBulkModal(false);
@@ -171,13 +322,6 @@ const SalaryExpenseHub = () => {
     /* ── goBack ── */
     const goBack = () => {
         if (step === 3) { setStep(2); setSalaryHistory([]); setSelectedEmployee(null); }
-        else if (step === 2) {
-            setStep(1);
-            setEmployees([]);
-            setSelectedCenter(null);
-            setSelectedIds(new Set());
-            setShowBulkModal(false);
-        }
     };
 
     const toggleEmployeeSelect = (empId) => {
@@ -299,17 +443,34 @@ const SalaryExpenseHub = () => {
     /* ── filtered + grouped employees ── wefwef*/
     const filtered = useMemo(() => {
         return employees.filter(e => {
-            const matchDept = deptFilter === "all" || e.departmentName === deptFilter;
+            const isAllCenters = selectedCenterIds.includes("all") || selectedCenterIds.length === 0;
+            const matchCenter = isAllCenters || selectedCenterIds.includes(e.centreId);
+
+            const isAllDepts = selectedDeptFilters.includes("all") || selectedDeptFilters.length === 0;
+            const matchDept = isAllDepts || selectedDeptFilters.includes(e.departmentName);
+
+            let matchStaffType = true;
+            const userRole = (e.role || "").toLowerCase();
+            if (staffTypeFilter === "teacher") {
+                matchStaffType = userRole === "teacher";
+            } else if (staffTypeFilter === "hod") {
+                matchStaffType = userRole === "hod";
+            } else if (staffTypeFilter === "staff") {
+                matchStaffType = userRole !== "teacher" && userRole !== "hod";
+            }
+
             const q = search.trim().toLowerCase();
             const matchSearch = !q ||
                 (e.name || "").toLowerCase().includes(q) ||
                 (e.employeeId || "").toLowerCase().includes(q) ||
                 (e.email || "").toLowerCase().includes(q) ||
                 (e.role || "").toLowerCase().includes(q) ||
-                (e.departmentName || "").toLowerCase().includes(q);
-            return matchDept && matchSearch;
+                (e.departmentName || "").toLowerCase().includes(q) ||
+                (e.centreName || "").toLowerCase().includes(q);
+
+            return matchCenter && matchDept && matchStaffType && matchSearch;
         });
-    }, [employees, search, deptFilter]);
+    }, [employees, search, selectedCenterIds, selectedDeptFilters, staffTypeFilter]);
 
     const grouped = useMemo(() => {
         const map = {};
@@ -338,7 +499,7 @@ const SalaryExpenseHub = () => {
 
                 {/* ── Header breadcrumb ── */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-                    {step > 1 && (
+                    {step === 3 && (
                         <button onClick={goBack} style={{
                             background: isDark ? "#1e293b" : "#e2e8f0",
                             border: "none", borderRadius: 8, padding: "8px 14px",
@@ -350,16 +511,13 @@ const SalaryExpenseHub = () => {
                     )}
                     <div>
                         <h1 style={{ margin: 0, fontSize: "1.45rem", fontWeight: 800, color: text }}>
-                            {step === 1 && "Salary Expense — Select Center"}
                             {step === 2 && `Employees — ${selectedCenter?.centreName}`}
                             {step === 3 && `Salary Approval — ${selectedEmployee?.name}`}
                         </h1>
                         {/* breadcrumb trail */}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: "0.78rem", color: sub }}>
-                            <span style={{ cursor: step > 1 ? "pointer" : "default", color: step > 1 ? accent2 : sub }}
-                                onClick={() => step > 1 && setStep(1)}>Centers</span>
-                            {step >= 2 && <><span>›</span><span style={{ cursor: step > 2 ? "pointer" : "default", color: step > 2 ? accent2 : sub }}
-                                onClick={() => step > 2 && setStep(2)}>{selectedCenter?.centreName}</span></>}
+                            <span style={{ cursor: step > 2 ? "pointer" : "default", color: step > 2 ? accent2 : sub }}
+                                onClick={() => step > 2 && setStep(2)}>Employees</span>
                             {step === 3 && <><span>›</span><span>{selectedEmployee?.name}</span></>}
                         </div>
                     </div>
@@ -378,59 +536,7 @@ const SalaryExpenseHub = () => {
                     </div>
                 )}
 
-                {/* ════ STEP 1 — Centers ════ */}
-                {!loading && step === 1 && (
-                    <div>
-                        {/* Center search bar */}
-                        <div style={{
-                            position: "relative", marginBottom: 22, maxWidth: 400,
-                            background: card, border: `1px solid ${border}`, borderRadius: 12,
-                            padding: "8px 12px", display: "flex", alignItems: "center"
-                        }}>
-                            <FaSearch size={13} style={{ marginLeft: 6, marginRight: 10, color: sub }} />
-                            <input
-                                value={centerSearch}
-                                onChange={e => setCenterSearch(e.target.value)}
-                                placeholder="Search centers by name..."
-                                style={{
-                                    width: "100%", background: "transparent", border: "none",
-                                    color: text, fontSize: "0.87rem", outline: "none"
-                                }}
-                            />
-                            {centerSearch && (
-                                <FaTimes onClick={() => setCenterSearch("")} size={12}
-                                    style={{ color: sub, cursor: "pointer", marginRight: 6 }} />
-                            )}
-                        </div>
 
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 18 }}>
-                            {centers.filter(c => (c.centreName || "").toLowerCase().includes(centerSearch.toLowerCase())).length === 0 ? (
-                                <p style={{ color: sub, gridColumn: "1/-1", textAlign: "center", padding: 40 }}>
-                                    No matching centers found.
-                                </p>
-                            ) : centers.filter(c => (c.centreName || "").toLowerCase().includes(centerSearch.toLowerCase())).map(c => (
-                                <div key={c._id} onClick={() => fetchEmployees(c)}
-                                    style={{
-                                        background: card, border: `1px solid ${border}`, borderRadius: 14,
-                                        padding: "22px 20px", cursor: "pointer", transition: "all 0.2s",
-                                        display: "flex", flexDirection: "column", gap: 10
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 6px 24px ${accent}33`; e.currentTarget.style.borderColor = accent; }}
-                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = border; }}>
-                                    <div style={{
-                                        width: 46, height: 46, borderRadius: 12,
-                                        background: `linear-gradient(135deg, ${accent}, ${accent2})`,
-                                        display: "flex", alignItems: "center", justifyContent: "center"
-                                    }}>
-                                        <FaBuilding color="#fff" size={20} />
-                                    </div>
-                                    <div style={{ fontWeight: 700, fontSize: "0.97rem", color: text }}>{c.centreName}</div>
-                                    <div style={{ fontSize: "0.77rem", color: sub }}>Click to view employees</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {/* ════ STEP 2 — Employees (search + filter + grouped) ════ */}
                 {!loading && step === 2 && (
@@ -465,22 +571,52 @@ const SalaryExpenseHub = () => {
                                 )}
                             </div>
 
-                            {/* Department filter */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                                <FaFilter size={13} color={sub} />
-                                <span style={{ fontSize: "0.82rem", color: sub, whiteSpace: "nowrap" }}>Department:</span>
+                            {/* Center multi-select */}
+                            <MultiSelect
+                                label="Centers"
+                                placeholder="Centre"
+                                options={centers.map(c => ({ value: c._id, label: c.centreName }))}
+                                selectedValues={selectedCenterIds}
+                                onChange={setSelectedCenterIds}
+                                isDark={isDark}
+                                card={card}
+                                border={border}
+                                text={text}
+                                sub={sub}
+                                inputBg={inputBg}
+                            />
+
+                            {/* Department multi-select */}
+                            <MultiSelect
+                                label="Departments"
+                                placeholder="Department"
+                                options={deptOptions.map(d => ({ value: d, label: d }))}
+                                selectedValues={selectedDeptFilters}
+                                onChange={setSelectedDeptFilters}
+                                isDark={isDark}
+                                card={card}
+                                border={border}
+                                text={text}
+                                sub={sub}
+                                inputBg={inputBg}
+                            />
+
+                            {/* Staff Type filter */}
+                            <div style={{ display: "flex", flexDirection: "column", minWidth: 160 }}>
+                                <span style={{ fontSize: "0.78rem", color: sub, marginBottom: 4, fontWeight: 600 }}>Staff Type</span>
                                 <select
-                                    value={deptFilter}
-                                    onChange={e => setDeptFilter(e.target.value)}
+                                    value={staffTypeFilter}
+                                    onChange={e => setStaffTypeFilter(e.target.value)}
                                     style={{
                                         background: inputBg, border: `1px solid ${border}`,
-                                        borderRadius: 8, color: text, padding: "8px 12px",
-                                        fontSize: "0.85rem", cursor: "pointer", outline: "none"
+                                        borderRadius: 8, color: text, padding: "9px 12px",
+                                        fontSize: "0.85rem", cursor: "pointer", outline: "none",
+                                        height: 38
                                     }}>
-                                    <option value="all">All Departments</option>
-                                    {deptOptions.map(d => (
-                                        <option key={d} value={d}>{d}</option>
-                                    ))}
+                                    <option value="all">All Staff Types</option>
+                                    <option value="staff">Normal Staff</option>
+                                    <option value="teacher">Teachers</option>
+                                    <option value="hod">HODs</option>
                                 </select>
                             </div>
 
@@ -611,7 +747,7 @@ const SalaryExpenseHub = () => {
                                                     <thead>
                                                         <tr style={{ background: isDark ? "#0f172a" : "#f1f5f9" }}>
                                                             <th style={{ padding: "10px 16px", width: 44 }} />
-                                                            {["Employee", "ID", "Email", "Mobile", "Department", "Current Salary", "Action"].map(h => (
+                                                            {["Employee", "ID", "Email", "Mobile", "Department", "Centre", "Current Salary", "Action"].map(h => (
                                                                 <th key={h} style={{
                                                                     padding: "10px 16px", textAlign: "left",
                                                                     color: sub, fontWeight: 700, fontSize: "0.75rem",
@@ -676,6 +812,9 @@ const SalaryExpenseHub = () => {
                                                                         <span style={roleBadge(emp.role, isDark)}>
                                                                             {emp.departmentName || emp.role || "—"}
                                                                         </span>
+                                                                    </td>
+                                                                    <td style={{ padding: "12px 16px", color: text, whiteSpace: "nowrap" }}>
+                                                                        {emp.centreName || "—"}
                                                                     </td>
                                                                     <td style={{ padding: "12px 16px", fontWeight: 700, color: text, whiteSpace: "nowrap" }}>
                                                                         {fmt(emp.currentSalary)}

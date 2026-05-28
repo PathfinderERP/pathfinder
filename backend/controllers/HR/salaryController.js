@@ -2,13 +2,18 @@ import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Expense from "../../models/Finance/Expense.js";
 import Employee from "../../models/HR/Employee.js";
+import Department from "../../models/Master_data/Department.js";
 import mongoose from "mongoose";
 
 // Get all centers that have active employees based on primaryCentre
 export const getCenters = async (req, res) => {
     try {
         const activeUsers = await User.find({ isActive: true }).distinct('_id');
-        const primaryCentres = await Employee.distinct('primaryCentre', { user: { $in: activeUsers }, primaryCentre: { $ne: null } });
+        const primaryCentres = await Employee.distinct('primaryCentre', { 
+            user: { $in: activeUsers }, 
+            primaryCentre: { $ne: null },
+            status: "Active"
+        });
 
         const centers = await Centre.find({
             _id: { $in: primaryCentres },
@@ -50,16 +55,21 @@ export const getEmployeesByDepartment = async (req, res) => {
         }).select('name email employeeId role teacherType mobNum');
 
         const userIds = users.map(u => u._id);
-        const employeesInfo = await Employee.find({ user: { $in: userIds } }).select('user currentSalary');
+        const employeesInfo = await Employee.find({ 
+            user: { $in: userIds },
+            status: "Active"
+        }).select('user currentSalary');
         const salaryMap = {};
         employeesInfo.forEach(emp => {
             if (emp.user) salaryMap[emp.user.toString()] = emp.currentSalary || 0;
         });
-        const employeesWithSalary = users.map(u => {
-            const userObj = u.toObject();
-            userObj.currentSalary = salaryMap[u._id.toString()] || 0;
-            return userObj;
-        });
+        const employeesWithSalary = users
+            .filter(u => salaryMap[u._id.toString()] !== undefined)
+            .map(u => {
+                const userObj = u.toObject();
+                userObj.currentSalary = salaryMap[u._id.toString()] || 0;
+                return userObj;
+            });
         res.status(200).json({ success: true, employees: employeesWithSalary });
     } catch (error) {
         console.error("Error fetching employees:", error);
@@ -72,14 +82,18 @@ export const getAllEmployeesByCenter = async (req, res) => {
     try {
         const { centerId } = req.params;
 
-        const employees = await Employee.find({
-            primaryCentre: centerId
-        })
+        const query = { status: "Active" };
+        if (centerId && centerId !== "all") {
+            query.primaryCentre = centerId;
+        }
+
+        const employees = await Employee.find(query)
         .populate({
             path: 'user',
             select: 'name email role isActive mobNum employeeId'
         })
-        .populate('department', 'departmentName');
+        .populate('department', 'departmentName')
+        .populate('primaryCentre', 'centreName');
 
         // Filter only active employees (where user account is active)
         const activeEmployees = employees.filter(emp => emp.user && emp.user.isActive);
@@ -94,7 +108,9 @@ export const getAllEmployeesByCenter = async (req, res) => {
                 mobNum: emp.phoneNumber || userObj.mobNum || "—",
                 role: userObj.role,
                 departmentName: emp.department?.departmentName || "Other Department",
-                currentSalary: emp.currentSalary || 0
+                currentSalary: emp.currentSalary || 0,
+                centreId: emp.primaryCentre?._id || null,
+                centreName: emp.primaryCentre?.centreName || "Other Centre"
             };
         });
 
@@ -124,14 +140,19 @@ export const approveSalary = async (req, res) => {
             return res.status(400).json({ success: false, message: "Missing required fields" });
         }
 
-        // Find the employee record to get their actual department
+        // Find the employee record to get their actual department and centre
         const employeeRecord = await Employee.findOne({ user: employeeId });
         const resolvedDeptId = employeeRecord ? employeeRecord.department : null;
+        const resolvedCentreId = employeeRecord?.primaryCentre || (centerId !== "all" ? centerId : null);
+
+        if (!resolvedCentreId) {
+            return res.status(400).json({ success: false, message: "No center assigned to employee" });
+        }
 
         const newExpense = new Expense({
             expenseType: 'Salary',
             employeeId,
-            centreId: centerId,
+            centreId: resolvedCentreId,
             departmentId: resolvedDeptId,
             months: salaryMonth,
             salaryPeriod,
@@ -201,10 +222,16 @@ export const approveSalaryBulk = async (req, res) => {
                     continue;
                 }
 
+                const resolvedCentreId = employeeRecord.primaryCentre || (centerId !== "all" ? centerId : null);
+                if (!resolvedCentreId) {
+                    failed.push({ employeeId, reason: "No center assigned to employee" });
+                    continue;
+                }
+
                 const newExpense = new Expense({
                     expenseType: "Salary",
                     employeeId,
-                    centreId: centerId,
+                    centreId: resolvedCentreId,
                     departmentId: employeeRecord.department?._id || employeeRecord.department || null,
                     months: resolvedMonth,
                     salaryPeriod,

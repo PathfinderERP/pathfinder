@@ -113,18 +113,38 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
                     return isActive && allowedRoles.includes(r);
                 });
-                const uniqueUsers = leadUsers.filter((u, index, self) =>
-                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
-                );
-                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-                setTelecallers(uniqueUsers);
+
+                // Find duplicate active user names
+                const nameCounts = {};
+                leadUsers.forEach(u => {
+                    const name = u.name?.trim();
+                    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+                });
+
+                const formattedUsers = leadUsers.map(u => {
+                    const name = u.name?.trim();
+                    const isDuplicate = nameCounts[name] > 1;
+                    let displayName = u.name;
+                    if (isDuplicate) {
+                        const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
+                        displayName = `${u.name} (${centreNames || 'No Centre'})`;
+                    }
+                    return {
+                        ...u,
+                        displayName,
+                        value: isDuplicate ? displayName : u.name
+                    };
+                });
+
+                formattedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+                setTelecallers(formattedUsers);
 
                 // Auto-select the current user as default
-                const currentLeadUser = uniqueUsers.find(u => u.name && user.name && u.name.toLowerCase() === user.name.toLowerCase());
+                const currentLeadUser = formattedUsers.find(u => u.name && user.name && u.name.toLowerCase() === user.name.toLowerCase());
                 if (currentLeadUser) {
-                    setFormData(prev => ({ ...prev, leadResponsibility: currentLeadUser.name }));
-                } else if (uniqueUsers.length === 1) {
-                    setFormData(prev => ({ ...prev, leadResponsibility: uniqueUsers[0].name }));
+                    setFormData(prev => ({ ...prev, leadResponsibility: currentLeadUser.value || currentLeadUser.name }));
+                } else if (formattedUsers.length === 1) {
+                    setFormData(prev => ({ ...prev, leadResponsibility: formattedUsers[0].value || formattedUsers[0].name }));
                 } else if (user.name) {
                     // Fallback to current user name directly
                     setFormData(prev => ({ ...prev, leadResponsibility: user.name }));
@@ -398,7 +418,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                             <label className={labelClasses}>Assign To *</label>
                             {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
                                 <CustomSearchSelect
-                                    options={telecallers.map(t => ({ value: t.name, label: t.name }))}
+                                    options={telecallers.map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))}
                                     value={formData.leadResponsibility}
                                     onChange={(val) => setFormData({ ...formData, leadResponsibility: val })}
                                     placeholder="Select Agent"

@@ -340,23 +340,43 @@ const LeadManagementContent = () => {
                     const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
                     return isActive && allowedRoles.includes(r);
                 });
-                const uniqueUsers = leadUsers.filter((u, index, self) =>
-                    self.findIndex(t => t.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase()) === index
-                );
-                uniqueUsers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered & Deduplicated Users:", uniqueUsers.length);
-                setTelecallers(uniqueUsers);
+
+                // Find duplicate active user names
+                const nameCounts = {};
+                leadUsers.forEach(u => {
+                    const name = u.name?.trim();
+                    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+                });
+
+                const formattedUsers = leadUsers.map(u => {
+                    const name = u.name?.trim();
+                    const isDuplicate = nameCounts[name] > 1;
+                    let displayName = u.name;
+                    if (isDuplicate) {
+                        const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
+                        displayName = `${u.name} (${centreNames || 'No Centre'})`;
+                    }
+                    return {
+                        ...u,
+                        displayName,
+                        value: isDuplicate ? displayName : u.name
+                    };
+                });
+
+                formattedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+                console.log("Lead Management - Fetched Users:", userData.users?.length, "Filtered Users:", formattedUsers.length);
+                setTelecallers(formattedUsers);
 
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
                 // Managerial roles shouldn't be auto-filtered to themselves
                 const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
-                const currentLeadUser = uniqueUsers.find(t => t.name === currentUser.name);
+                const currentLeadUser = formattedUsers.find(t => t.name === currentUser.name);
                 if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
                         ...prev,
                         leadResponsibility: prev.leadResponsibility.length > 0
                             ? prev.leadResponsibility
-                            : [{ value: currentLeadUser.name, label: currentLeadUser.name }]
+                            : [{ value: currentLeadUser.value, label: currentLeadUser.displayName }]
                     }));
                 }
             }
@@ -1242,8 +1262,8 @@ const LeadManagementContent = () => {
                             <CustomMultiSelect
                                 options={
                                     ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
-                                        ? telecallers.map(t => ({ value: t.name, label: t.name }))
-                                        : telecallers.filter(t => t.name === user?.name).map(t => ({ value: t.name, label: t.name }))
+                                        ? telecallers.map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))
+                                        : telecallers.filter(t => t.name === user?.name).map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))
                                 }
                                 value={filters.leadResponsibility}
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
@@ -1688,7 +1708,7 @@ const LeadManagementContent = () => {
             {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
             {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
             {showBulkUpdateModal && <BulkUpdateLeadModal selectedLeadIds={selectedLeads} isDarkMode={isDarkMode} onClose={() => setShowBulkUpdateModal(false)} onSuccess={() => { setShowBulkUpdateModal(false); fetchLeads(); }} />}
-            {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead) => { setShowDetailModal(false); setSelectedLead(lead); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
+            {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead) => { setShowDetailModal(false); setSelectedLead(lead); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} />}
             {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); fetchLeads(); fetchFollowUpStats(); }} />}
             {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}
             {showFollowUpListModal && <FollowUpListModal isDarkMode={isDarkMode} onClose={() => setShowFollowUpListModal(false)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}

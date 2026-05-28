@@ -766,7 +766,31 @@ const TelecallingConsole = () => {
                 }
                 // De-duplicate the list by ID to prevent React key warnings
                 const uniqueTelecallers = Array.from(new Map(telecallersList.map(u => [u._id, u])).values());
-                setTelecallers(uniqueTelecallers);
+
+                // Find duplicate active user names
+                const nameCounts = {};
+                uniqueTelecallers.forEach(u => {
+                    const name = u.name?.trim();
+                    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+                });
+
+                const formattedTelecallers = uniqueTelecallers.map(u => {
+                    const name = u.name?.trim();
+                    const isDuplicate = nameCounts[name] > 1;
+                    let displayName = u.name;
+                    if (isDuplicate) {
+                        const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
+                        displayName = `${u.name} (${centreNames || 'No Centre'})`;
+                    }
+                    return {
+                        ...u,
+                        displayName,
+                        value: isDuplicate ? displayName : u.name
+                    };
+                });
+
+                formattedTelecallers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+                setTelecallers(formattedTelecallers);
             }
         } catch (error) {
             console.error("Error fetching telecallers:", error);
@@ -806,7 +830,7 @@ const TelecallingConsole = () => {
     };
 
     const handleTelecallerClick = (telecaller) => {
-        navigate(`/admissions/telecalling-console?telecaller=${encodeURIComponent(telecaller.name)}`);
+        navigate(`/admissions/telecalling-console?telecaller=${encodeURIComponent(telecaller.displayName || telecaller.name)}`);
     };
 
 
@@ -1387,7 +1411,7 @@ const TelecallingConsole = () => {
                                                                               ['telecaller', 'counsellor'];
                                                                 return roles.includes(u.role);
                                                             })
-                                                            .map(u => ({ label: u.name, value: u._id }))}
+                                                            .map(u => ({ label: u.displayName || u.name, value: u._id }))}
                                                         selectedValues={selectedTelecallers}
                                                         onChange={setSelectedTelecallers}
                                                         theme={isDarkMode ? 'dark' : 'light'}
@@ -1405,7 +1429,7 @@ const TelecallingConsole = () => {
                                                                               ['telecaller', 'counsellor'];
                                                                 return isCentralized && roles.includes(u.role);
                                                             })
-                                                            .map(u => ({ label: u.name, value: u._id }))}
+                                                            .map(u => ({ label: u.displayName || u.name, value: u._id }))}
                                                         selectedValues={selectedCentralizedTelecallers}
                                                         onChange={setSelectedCentralizedTelecallers}
                                                         theme={isDarkMode ? 'dark' : 'light'}
@@ -1638,7 +1662,7 @@ const TelecallingConsole = () => {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex justify-between items-start">
-                                                                <h3 className={`text-lg font-black uppercase tracking-tight truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{caller.name}</h3>
+                                                                <h3 className={`text-lg font-black uppercase tracking-tight truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{caller.displayName || caller.name}</h3>
                                                                 {caller.redFlags > 0 && (
                                                                     <div className="flex gap-0.5 ml-2 shrink-0">
                                                                         {[...Array(caller.redFlags)].map((_, i) => (

@@ -28,20 +28,75 @@ export const getLeadDashboardStats = async (req, res) => {
         const summary = summaryArr[0] || { totalLeads: 0, hotLeads: 0, warmLeads: 0, coldLeads: 0 };
 
         // Telecaller Performance Aggregation (using baseQuery - respects current leadType filter)
-        const telecallers = await LeadManagement.aggregate([
+        const aggregatedTelecallers = await LeadManagement.aggregate([
             { $match: baseQuery },
             {
                 $group: {
-                    _id: "$leadResponsibility",
+                    _id: {
+                        name: "$leadResponsibility",
+                        centre: "$centre"
+                    },
                     totalLeads: { $sum: 1 },
                     hotLeads: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
                     warmLeads: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
                     coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
                     totalFollowUps: { $sum: { $size: { $ifNull: ["$followUps", []] } } }
                 }
-            },
-            { $sort: { totalLeads: -1 } }
+            }
         ]);
+
+        // Resolve aggregated performance back to telecaller names (with centre name if duplicate)
+        const activeUsers = await User.find({ isActive: true }).populate('centres');
+        const telecallersMap = new Map();
+
+        for (const item of aggregatedTelecallers) {
+            const rawName = item._id?.name || "OPERATIVE_ANONYMOUS";
+            const centreId = item._id?.centre;
+
+            // Find matching active users by name
+            const matchingUsers = activeUsers.filter(u => u.name?.trim()?.toLowerCase() === rawName.trim().toLowerCase());
+            
+            let displayName = rawName;
+            if (matchingUsers.length > 1) {
+                // Duplicate active user name exists! Match by centre.
+                const matchingUser = matchingUsers.find(u => {
+                    const uCentres = (u.centres || []).map(c => (c._id || c).toString());
+                    return centreId && uCentres.includes(centreId.toString());
+                });
+
+                if (matchingUser) {
+                    const centreDoc = matchingUser.centres?.find(c => c._id.toString() === centreId.toString());
+                    const centreName = centreDoc ? (centreDoc.centreName || centreDoc.name) : "Unknown Centre";
+                    displayName = `${matchingUser.name} (${centreName})`;
+                } else if (centreId) {
+                    const CentreSchema = (await import("../../models/Master_data/Centre.js")).default;
+                    const centreDoc = await CentreSchema.findById(centreId).select('centreName');
+                    if (centreDoc) {
+                        displayName = `${rawName} (${centreDoc.centreName})`;
+                    }
+                }
+            }
+
+            if (telecallersMap.has(displayName)) {
+                const existing = telecallersMap.get(displayName);
+                existing.totalLeads += item.totalLeads;
+                existing.hotLeads += item.hotLeads;
+                existing.warmLeads += item.warmLeads;
+                existing.coldLeads += item.coldLeads;
+                existing.totalFollowUps += item.totalFollowUps;
+            } else {
+                telecallersMap.set(displayName, {
+                    _id: displayName,
+                    totalLeads: item.totalLeads,
+                    hotLeads: item.hotLeads,
+                    warmLeads: item.warmLeads,
+                    coldLeads: item.coldLeads,
+                    totalFollowUps: item.totalFollowUps
+                });
+            }
+        }
+
+        const telecallers = Array.from(telecallersMap.values()).sort((a, b) => b.totalLeads - a.totalLeads);
 
         // Next Calls (Upcoming follow-ups)
         const nextCalls = await LeadManagement.find({

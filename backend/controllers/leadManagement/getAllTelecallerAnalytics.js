@@ -124,6 +124,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         const telecallers = await User.find(userQuery);
 
         // 2. Aggregate Data
+        // 2. Aggregate Data
         const [historyAgg, statsAgg, admissionAgg, counselledAgg, trendsAgg, mktLeadsAgg, admissionAggResult, leadsTrendAgg] = await Promise.all([
             LeadManagement.aggregate([
                 { $match: activityMatch },
@@ -133,7 +134,8 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                     $group: {
                         _id: {
                             user: { $trim: { input: "$followUps.updatedBy" } },
-                            date: { $dateToString: { format: "%Y-%m-%d", date: "$followUps.date", timezone: "Asia/Kolkata" } }
+                            date: { $dateToString: { format: "%Y-%m-%d", date: "$followUps.date", timezone: "Asia/Kolkata" } },
+                            centre: "$centre"
                         },
                         count: { $sum: 1 }
                     }
@@ -147,32 +149,32 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                     $facet: {
                         current: [
                             { $match: { "followUps.date": { $gte: startDate, $lte: endDate } } },
-                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, centre: "$centre" }, count: { $sum: 1 } } }
                         ],
                         previous: [
                             { $match: { "followUps.date": { $gte: prevStartDate, $lte: prevEndDate } } },
-                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, centre: "$centre" }, count: { $sum: 1 } } }
                         ],
                         hot: [
                             { $match: { "followUps.status": "HOT LEAD" } },
-                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, lead: "$_id" } } },
-                            { $group: { _id: "$_id.user", count: { $sum: 1 } } }
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, centre: "$centre", lead: "$_id" } } },
+                            { $group: { _id: { user: "$_id.user", centre: "$_id.centre" }, count: { $sum: 1 } } }
                         ],
                         today: [
                             { $match: { "followUps.date": { $gte: startOfDay, $lte: endOfDay } } },
-                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, centre: "$centre" }, count: { $sum: 1 } } }
                         ],
                         yesterday: [
                             { $match: { "followUps.date": { $gte: startOfYesterday, $lte: endOfYesterday } } },
-                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, centre: "$centre" }, count: { $sum: 1 } } }
                         ],
                         thisMonth: [
                             { $match: { "followUps.date": { $gte: startOfThisMonth, $lte: endDate } } },
-                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, centre: "$centre" }, count: { $sum: 1 } } }
                         ],
                         lastMonth: [
                             { $match: { "followUps.date": { $gte: startOfLastMonth, $lte: endOfLastMonth } } },
-                            { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
+                            { $group: { _id: { user: { $trim: { input: "$followUps.updatedBy" } }, centre: "$centre" }, count: { $sum: 1 } } }
                         ]
                     }
                 }
@@ -183,7 +185,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             ]),
             LeadManagement.aggregate([
                 { $match: { ...baseLeadFilters, isCounseled: true, updatedAt: { $gte: startDate, $lte: endDate } } },
-                { $group: { _id: "$leadResponsibility", count: { $sum: 1 } } }
+                { $group: { _id: { name: "$leadResponsibility", centre: "$centre" }, count: { $sum: 1 } } }
             ]),
             LeadManagement.aggregate([
                 { $match: activityMatch },
@@ -252,10 +254,32 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // 3. Process Data Maps
         const perfMap = {};
-        const getPerf = (idOrName) => {
-            const key = normalize(idOrName);
-            if (!perfMap[key]) perfMap[key] = { history: {}, current: 0, prev: 0, hot: 0, today: 0, yesterday: 0, counselled: 0, thisMonth: 0, lastMonth: 0 };
-            return perfMap[key];
+        telecallers.forEach(u => {
+            perfMap[u._id.toString()] = { history: {}, current: 0, prev: 0, hot: 0, today: 0, yesterday: 0, counselled: 0, thisMonth: 0, lastMonth: 0 };
+        });
+
+        const findMatchingUser = (userNameOrId, centreId) => {
+            if (!userNameOrId) return null;
+            const keyStr = String(userNameOrId);
+            
+            if (mongoose.Types.ObjectId.isValid(keyStr)) {
+                return telecallers.find(u => u._id.toString() === keyStr);
+            }
+            
+            const normalizedName = normalize(keyStr);
+            const matchingUsers = telecallers.filter(u => normalize(u.name) === normalizedName);
+            if (matchingUsers.length === 0) return null;
+            if (matchingUsers.length === 1) return matchingUsers[0];
+            
+            if (centreId) {
+                const matched = matchingUsers.find(u => {
+                    const uCentres = (u.centres || []).map(c => (c._id || c).toString());
+                    return uCentres.includes(centreId.toString());
+                });
+                if (matched) return matched;
+            }
+            
+            return matchingUsers[0];
         };
 
         const mktPerfMap = {};
@@ -268,21 +292,59 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         if (historyAgg) {
             historyAgg.forEach(h => {
                 if (h._id && h._id.user) {
-                    const p = getPerf(h._id.user);
-                    p.history[h._id.date] = (p.history[h._id.date] || 0) + h.count;
+                    const u = findMatchingUser(h._id.user, h._id.centre);
+                    if (u) {
+                        const p = perfMap[u._id.toString()];
+                        p.history[h._id.date] = (p.history[h._id.date] || 0) + h.count;
+                    }
                 }
             });
         }
 
         if (statsAgg && statsAgg[0]) {
             const s0 = statsAgg[0];
-            if (s0.current) s0.current.forEach(s => { if (s._id) getPerf(s._id).current += s.count; });
-            if (s0.previous) s0.previous.forEach(s => { if (s._id) getPerf(s._id).prev += s.count; });
-            if (s0.hot) s0.hot.forEach(s => { if (s._id) getPerf(s._id).hot += s.count; });
-            if (s0.today) s0.today.forEach(s => { if (s._id) getPerf(s._id).today += s.count; });
-            if (s0.yesterday) s0.yesterday.forEach(s => { if (s._id) getPerf(s._id).yesterday += s.count; });
-            if (s0.thisMonth) s0.thisMonth.forEach(s => { if (s._id) getPerf(s._id).thisMonth += s.count; });
-            if (s0.lastMonth) s0.lastMonth.forEach(s => { if (s._id) getPerf(s._id).lastMonth += s.count; });
+            if (s0.current) s0.current.forEach(s => {
+                if (s._id && s._id.user) {
+                    const u = findMatchingUser(s._id.user, s._id.centre);
+                    if (u) perfMap[u._id.toString()].current += s.count;
+                }
+            });
+            if (s0.previous) s0.previous.forEach(s => {
+                if (s._id && s._id.user) {
+                    const u = findMatchingUser(s._id.user, s._id.centre);
+                    if (u) perfMap[u._id.toString()].prev += s.count;
+                }
+            });
+            if (s0.hot) s0.hot.forEach(s => {
+                if (s._id && s._id.user) {
+                    const u = findMatchingUser(s._id.user, s._id.centre);
+                    if (u) perfMap[u._id.toString()].hot += s.count;
+                }
+            });
+            if (s0.today) s0.today.forEach(s => {
+                if (s._id && s._id.user) {
+                    const u = findMatchingUser(s._id.user, s._id.centre);
+                    if (u) perfMap[u._id.toString()].today += s.count;
+                }
+            });
+            if (s0.yesterday) s0.yesterday.forEach(s => {
+                if (s._id && s._id.user) {
+                    const u = findMatchingUser(s._id.user, s._id.centre);
+                    if (u) perfMap[u._id.toString()].yesterday += s.count;
+                }
+            });
+            if (s0.thisMonth) s0.thisMonth.forEach(s => {
+                if (s._id && s._id.user) {
+                    const u = findMatchingUser(s._id.user, s._id.centre);
+                    if (u) perfMap[u._id.toString()].thisMonth += s.count;
+                }
+            });
+            if (s0.lastMonth) s0.lastMonth.forEach(s => {
+                if (s._id && s._id.user) {
+                    const u = findMatchingUser(s._id.user, s._id.centre);
+                    if (u) perfMap[u._id.toString()].lastMonth += s.count;
+                }
+            });
         }
 
         if (mktLeadsAgg && mktLeadsAgg[0]) {
@@ -297,7 +359,15 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         }
 
         if (counselledAgg) {
-            counselledAgg.forEach(c => { if (c._id) getPerf(c._id).counselled = (getPerf(c._id).counselled || 0) + c.count; });
+            counselledAgg.forEach(c => {
+                if (c._id && c._id.name) {
+                    const u = findMatchingUser(c._id.name, c._id.centre);
+                    if (u) {
+                        const p = perfMap[u._id.toString()];
+                        p.counselled = (p.counselled || 0) + c.count;
+                    }
+                }
+            });
         }
 
         const admissionCounts = {};
@@ -318,32 +388,24 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // 4. Final Mapping
         const finalTelecallers = telecallers.map((u) => {
-            const namePerf = perfMap[normalize(u.name)] || { history: {}, current: 0, prev: 0 };
-            const idPerf = perfMap[normalize(u._id)] || { history: {}, current: 0, prev: 0 };
+            const uPerf = perfMap[u._id.toString()] || { history: {}, current: 0, prev: 0, hot: 0, today: 0, yesterday: 0, counselled: 0, thisMonth: 0, lastMonth: 0 };
             const mktPerf = mktPerfMap[u._id.toString()] || { current: 0, prev: 0, today: 0, yesterday: 0, thisMonth: 0, lastMonth: 0, hot: 0 };
 
-            // Fix: SUM history instead of merging (avoid overwriting overlapping dates)
-            const combinedHistory = {};
-            const allActivityDates = new Set([...Object.keys(namePerf.history), ...Object.keys(idPerf.history)]);
-            allActivityDates.forEach(date => {
-                combinedHistory[date] = (namePerf.history[date] || 0) + (idPerf.history[date] || 0);
-            });
+            const combinedHistory = uPerf.history || {};
 
             const todayStr = last5DaysList[0];
             const yesterdayStr = last5DaysList[1];
 
             const isMarketing = u.role?.toLowerCase() === 'marketing';
 
-            // Core logic: Telecallers measured by follow-ups, Marketing by lead generation
-            // Always sum Name and ID buckets to handle cases where system uses both
-            const effectiveCurrent = isMarketing ? mktPerf.current : (namePerf.current + idPerf.current);
-            const effectivePrev = isMarketing ? mktPerf.prev : (namePerf.prev + idPerf.prev);
+            const effectiveCurrent = isMarketing ? mktPerf.current : uPerf.current;
+            const effectivePrev = isMarketing ? mktPerf.prev : uPerf.prev;
             const effectiveToday = isMarketing ? mktPerf.today : (combinedHistory[todayStr] || 0);
             const effectiveYesterday = isMarketing ? mktPerf.yesterday : (combinedHistory[yesterdayStr] || 0);
-            const effectiveThisMonth = isMarketing ? mktPerf.thisMonth : (namePerf.thisMonth + idPerf.thisMonth);
-            const effectiveLastMonth = isMarketing ? mktPerf.lastMonth : (namePerf.lastMonth + idPerf.lastMonth);
+            const effectiveThisMonth = isMarketing ? mktPerf.thisMonth : uPerf.thisMonth;
+            const effectiveLastMonth = isMarketing ? mktPerf.lastMonth : uPerf.lastMonth;
 
-            const followUpHot = (namePerf.hot + idPerf.hot);
+            const followUpHot = uPerf.hot;
             const admissions = admissionCounts[u._id.toString()] || 0;
             const effectiveHot = isMarketing ? mktPerf.hot : (followUpHot + admissions);
 
@@ -359,10 +421,18 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 return { date: dateStr, count, met: count >= callTarget, points, bonusPoints };
             }).reverse();
 
+            const matchingUsers = telecallers.filter(tc => tc.name?.trim()?.toLowerCase() === u.name?.trim()?.toLowerCase());
+            const hasDuplicateName = matchingUsers.length > 1;
+            let displayName = u.name;
+            if (hasDuplicateName) {
+                const centreNames = (u.centres || []).map(c => c.centreName || c.name).join(', ');
+                displayName = `${u.name} (${centreNames || 'No Centre'})`;
+            }
+
             return {
                 _id: u._id,
                 userId: u._id,
-                name: u.name,
+                name: displayName,
                 role: u.role,
                 mobNum: u.mobNum,
                 redFlags: u.redFlags || 0,
@@ -373,7 +443,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
                 yesterdayCalls: effectiveYesterday,
                 thisMonthCalls: effectiveThisMonth,
                 lastMonthCalls: effectiveLastMonth,
-                counselledCount: namePerf.counselled || 0,
+                counselledCount: uPerf.counselled || 0,
                 admissions,
                 hotLeads: effectiveHot,
                 conversions: effectiveHot,
