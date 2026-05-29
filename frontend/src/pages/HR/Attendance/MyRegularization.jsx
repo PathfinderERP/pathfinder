@@ -21,6 +21,8 @@ const MyRegularization = () => {
     });
 
     const [showForm, setShowForm] = useState(false);
+    const [selectedDateAttendance, setSelectedDateAttendance] = useState(null);
+    const [checkingDate, setCheckingDate] = useState(false);
 
     // Camera and Location States
     const [facingMode, setFacingMode] = useState("user");
@@ -35,6 +37,35 @@ const MyRegularization = () => {
     useEffect(() => {
         fetchEmployeeProfile();
     }, []);
+
+    const checkDateAttendance = async (date) => {
+        if (!date) {
+            setSelectedDateAttendance(null);
+            return;
+        }
+        setCheckingDate(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/check-date?date=${date}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setSelectedDateAttendance(data);
+            } else {
+                setSelectedDateAttendance(null);
+            }
+        } catch (error) {
+            console.error("Error checking date attendance:", error);
+            setSelectedDateAttendance(null);
+        } finally {
+            setCheckingDate(false);
+        }
+    };
+
+    useEffect(() => {
+        checkDateAttendance(formData.date);
+    }, [formData.date]);
 
     useEffect(() => {
         if (employeeId) {
@@ -249,6 +280,19 @@ const MyRegularization = () => {
         }
     };
 
+    const getRequestedDuration = () => {
+        if (!formData.fromTime || !formData.toTime) return 0;
+        const [fromH, fromM] = formData.fromTime.split(':').map(Number);
+        const [toH, toM] = formData.toTime.split(':').map(Number);
+        const diff = (toH * 60 + toM) - (fromH * 60 + fromM);
+        return diff > 0 ? parseFloat((diff / 60).toFixed(2)) : 0;
+    };
+
+    const requestedDuration = getRequestedDuration();
+    const totalSimulatedHours = selectedDateAttendance 
+        ? parseFloat(((selectedDateAttendance.workingHours || 0) + requestedDuration).toFixed(2))
+        : requestedDuration;
+
     return (
         <Layout activePage="Employee Center">
             <div className="p-4 md:p-6 space-y-6 animate-fade-in max-w-5xl mx-auto pb-20">
@@ -273,7 +317,7 @@ const MyRegularization = () => {
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-2xl border p-6 md:p-8 animate-slide-in-top`}>
                         <h2 className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-wider mb-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} pb-4`}>Submit Correction Request</h2>
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                                 <div className="space-y-2">
                                     <label className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>Select Date</label>
                                     <input
@@ -283,6 +327,31 @@ const MyRegularization = () => {
                                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                         className={`w-full p-4 ${isDarkMode ? 'bg-gray-900 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'} border rounded-xl font-bold outline-none focus:border-blue-500 transition-colors`}
                                     />
+                                </div>
+                                <div className="space-y-2">
+                                    {checkingDate && (
+                                        <div className="text-[10px] font-bold text-blue-500 uppercase tracking-wider animate-pulse flex items-center gap-2 p-4">
+                                            <FaSpinner className="animate-spin" /> Fetching attendance details...
+                                        </div>
+                                    )}
+
+                                    {!checkingDate && selectedDateAttendance && (
+                                        <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-blue-950/20 border-blue-900/50 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-800'} text-xs font-bold leading-relaxed space-y-1 shadow-sm`}>
+                                            {selectedDateAttendance.exists ? (
+                                                <>
+                                                    <p className="font-black text-[10px] uppercase tracking-widest mb-1 text-blue-500">Attendance Status Found</p>
+                                                    <p>You checked in at <span className="font-mono text-emerald-500">{selectedDateAttendance.checkIn || '--:--'}</span> and checked out at <span className="font-mono text-emerald-500">{selectedDateAttendance.checkOut || '--:--'}</span> on this day.</p>
+                                                    <p>Existing marked time: <span className="text-emerald-500 font-extrabold">{selectedDateAttendance.workingHours} hours</span> (Status: <span className="uppercase">{selectedDateAttendance.status}</span>).</p>
+                                                    <p className="text-[10px] uppercase tracking-wide opacity-80 mt-1">💡 Any approved regularization hours will be added to this existing time.</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p className="font-black text-[10px] uppercase tracking-widest mb-1 text-amber-500">No Attendance Found</p>
+                                                    <p>No check-in or check-out is recorded for this date. You can request regularization for the full day (typically up to {selectedDateAttendance.targetHours} hours).</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -306,6 +375,16 @@ const MyRegularization = () => {
                                     />
                                 </div>
                             </div>
+
+                            {requestedDuration > 0 && (
+                                <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-300' : 'bg-emerald-50 border-emerald-100 text-emerald-800'} text-xs font-bold leading-relaxed space-y-1 shadow-sm animate-fade-in`}>
+                                    <p className="font-black text-[10px] uppercase tracking-widest mb-1 text-emerald-500">Regularization Calculation</p>
+                                    <p>Requested Duration: <span className="font-mono text-emerald-500 font-extrabold">{requestedDuration} hours</span></p>
+                                    {selectedDateAttendance?.exists && (
+                                        <p>Total Working Hours after approval: <span className="font-mono text-emerald-500 font-extrabold">{selectedDateAttendance.workingHours}h (physical) + {requestedDuration}h (regularized) = {totalSimulatedHours} hours</span></p>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="space-y-4">
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Regularization Type</label>

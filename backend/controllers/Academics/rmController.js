@@ -41,7 +41,9 @@ export const createRM = async (req, res) => {
             employeeId,
             password: hashedPassword,
             role: "RM",
-            centres
+            centres,
+            createdBy: req.user.id,
+            updatedBy: req.user.id
         });
 
         await newRM.save();
@@ -98,6 +100,8 @@ export const updateRM = async (req, res) => {
         if (centreId !== undefined) {
             updates.centres = centreId ? [centreId] : [];
         }
+
+        updates.updatedBy = req.user.id;
 
         const updatedRM = await User.findByIdAndUpdate(id, updates, { new: true });
 

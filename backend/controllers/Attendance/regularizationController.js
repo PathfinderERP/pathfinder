@@ -167,14 +167,27 @@ export const updateRegularizationStatus = async (req, res) => {
             }
 
             if (attendance) {
-                attendance.status = 'Present'; // Or 'Half Day' based on hours? Stick to Present for now.
-                attendance.workingHours = calculatedWorkingHours;
+                attendance.status = 'Present';
+                attendance.workingHours = Number(((attendance.workingHours || 0) + calculatedWorkingHours).toFixed(2));
 
-                if (checkInDate) attendance.checkIn.time = checkInDate;
-                if (checkOutDate) attendance.checkOut.time = checkOutDate;
+                // Preserve physical check-in/check-out if already present
+                if (!attendance.checkIn?.time && checkInDate) {
+                    attendance.checkIn = { 
+                        time: checkInDate, 
+                        address: 'Regularized',
+                        latitude: regularization.latitude,
+                        longitude: regularization.longitude
+                    };
+                }
+                if (!attendance.checkOut?.time && checkOutDate) {
+                    attendance.checkOut = { 
+                        time: checkOutDate, 
+                        address: 'Regularized'
+                    };
+                }
 
                 // Append remark
-                const newRemark = `Regularized (${regularization.type}): ${regularization.reason}`;
+                const newRemark = `Regularized Added ${calculatedWorkingHours}h (${regularization.type}): ${regularization.reason}`;
                 attendance.remarks = attendance.remarks
                     ? `${attendance.remarks} | ${newRemark}`
                     : newRemark;

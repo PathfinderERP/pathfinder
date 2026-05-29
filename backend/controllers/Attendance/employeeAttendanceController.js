@@ -1173,3 +1173,48 @@ export const bulkImportAttendance = async (req, res) => {
         res.status(500).json({ message: "Server error during import", error: error.message });
     }
 };
+
+// Check Attendance for a specific date
+export const checkDateAttendance = async (req, res) => {
+    try {
+        const { date } = req.query;
+        if (!date) {
+            return res.status(400).json({ message: "Date is required" });
+        }
+        
+        const userId = req.user.id;
+        const queryDate = startOfDay(new Date(date));
+        
+        // Find existing attendance
+        const attendance = await EmployeeAttendance.findOne({
+            user: userId,
+            date: queryDate
+        }).populate("centreId", "centreName");
+        
+        // Find employee to get shift details
+        const employee = await Employee.findOne({ user: userId });
+        const targetHours = employee?.workingHours || 9;
+        
+        if (attendance) {
+            return res.status(200).json({
+                exists: true,
+                checkIn: attendance.checkIn?.time ? format(new Date(attendance.checkIn.time), "HH:mm") : null,
+                checkOut: attendance.checkOut?.time ? format(new Date(attendance.checkOut.time), "HH:mm") : null,
+                workingHours: attendance.workingHours || 0,
+                status: attendance.status || "Present",
+                targetHours
+            });
+        }
+        
+        return res.status(200).json({
+            exists: false,
+            workingHours: 0,
+            status: "Absent",
+            targetHours
+        });
+    } catch (error) {
+        console.error("Check Date Attendance Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+

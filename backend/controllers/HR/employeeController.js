@@ -782,10 +782,11 @@ export const updateMyProfile = async (req, res) => {
             }
         }
 
+        employee.updatedBy = userId;
         await employee.save();
 
         // Sync with User record
-        const userUpdate = { name: employee.name };
+        const userUpdate = { name: employee.name, updatedBy: userId };
         if (employee.phoneNumber) {
             userUpdate.mobNum = employee.phoneNumber;
         }
@@ -949,7 +950,9 @@ export const bulkImportEmployees = async (req, res) => {
                         centres: data.primaryCentre ? [data.primaryCentre] : [],
                         permissions: [],
                         granularPermissions: {}, // Default perms handled by model pre-save hook
-                        isActive: data.status ? (data.status === "Active") : true
+                        isActive: data.status ? (data.status === "Active") : true,
+                        createdBy: req.user.id,
+                        updatedBy: req.user.id
                     });
                     await user.save();
                 }
