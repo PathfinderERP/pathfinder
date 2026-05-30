@@ -9,7 +9,7 @@ import {
     FaUpload, FaFileExcel, FaArrowLeft, FaCheckCircle, FaTimesCircle,
     FaDownload, FaSpinner, FaUsers, FaEye, FaTrash, FaCloudUploadAlt,
     FaInfoCircle, FaShieldAlt, FaHistory, FaChevronLeft, FaChevronRight,
-    FaPhone, FaTag, FaCalendarAlt
+    FaPhone, FaTag, FaCalendarAlt, FaSync, FaExclamationTriangle
 } from "react-icons/fa";
 
 /* ─── Column map: Excel header → DB field ─── */
@@ -80,6 +80,38 @@ const UploadLeads = () => {
     const [dragOver, setDragOver] = useState(false);
     const fileInputRef = useRef(null);
 
+    const [aiFeedback, setAiFeedback] = useState("");
+    const [analyzingAi, setAnalyzingAi] = useState(false);
+    
+    const analyzeErrorWithAI = async (errorMsg) => {
+        setAnalyzingAi(true);
+        setAiFeedback("");
+        try {
+            const token = localStorage.getItem("token");
+            const prompt = `I am trying to upload a bulk lead Excel file but encountered this error:\n${errorMsg}\n\nCould you please explain what is wrong and how to fix it based on your knowledge of the system? Make it human-readable, clear and concise.`;
+            
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/ai/chat`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ message: prompt })
+            });
+            const data = await response.json();
+            if (response.ok && data.response) {
+                setAiFeedback(data.response);
+            } else {
+                setAiFeedback("AI could not analyze the error at this moment.");
+            }
+        } catch (error) {
+            console.error("AI Error:", error);
+            setAiFeedback("Failed to fetch AI analysis.");
+        } finally {
+            setAnalyzingAi(false);
+        }
+    };
+
     /* ── My Uploads history ── */
     const [myLeads, setMyLeads] = useState([]);
     const [myLeadsTotal, setMyLeadsTotal] = useState(0);
@@ -137,15 +169,20 @@ const UploadLeads = () => {
                 if (!raw.length) { toast.warning("The file appears to be empty."); return; }
                 const rows = raw.map(parseRow).filter(r => r.name);
                 if (!rows.length) {
-                    toast.error("No valid rows found. Make sure the 'Name' column exists and has data.");
+                    const msg = "No valid rows found. Make sure the 'Name' column exists and has data.";
+                    toast.error(msg);
+                    analyzeErrorWithAI(msg);
                     return;
                 }
                 setParsedRows(rows);
                 setStep("preview");
+                setAiFeedback(""); // clear any previous feedback
                 toast.success(`${rows.length} lead(s) parsed successfully!`);
             } catch (err) {
                 console.error(err);
-                toast.error("Failed to read file. Please check the format.");
+                const msg = "Failed to read file. Please check the format.";
+                toast.error(msg);
+                analyzeErrorWithAI(msg);
             }
         };
         reader.readAsBinaryString(file);
@@ -171,13 +208,18 @@ const UploadLeads = () => {
                 setStep("done");
                 toast.success(data.message);
                 fetchMyUploads(1); // refresh history
+                setAiFeedback("");
             } else {
-                toast.error(data.message || "Upload failed.");
+                const msg = data.message || "Upload failed.";
+                toast.error(msg);
+                analyzeErrorWithAI(msg);
                 setStep("preview");
             }
         } catch (err) {
             console.error(err);
-            toast.error("Network error. Please try again.");
+            const msg = "Network error. Please try again.";
+            toast.error(msg);
+            analyzeErrorWithAI(msg);
             setStep("preview");
         }
     };
@@ -187,6 +229,7 @@ const UploadLeads = () => {
         setFileName("");
         setUploadResult(null);
         setStep("idle");
+        setAiFeedback("");
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -259,6 +302,25 @@ const UploadLeads = () => {
                         </button>
                     </p>
                 </div>
+
+                {/* AI Feedback Section */}
+                {(analyzingAi || aiFeedback) && (
+                    <div className={`p-4 rounded-xl border flex flex-col gap-3 ${isDark ? 'bg-cyan-900/20 border-cyan-500/30 text-cyan-300' : 'bg-cyan-50 border-cyan-200 text-cyan-700'}`}>
+                        <div className="flex items-center gap-2">
+                            <FaInfoCircle className="text-cyan-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500">AI Assistant Analysis</span>
+                        </div>
+                        {analyzingAi ? (
+                            <div className="flex items-center gap-2 text-sm italic">
+                                <FaSync className="animate-spin text-cyan-500" /> Analyzing error and suggesting fixes...
+                            </div>
+                        ) : (
+                            <div className="text-sm font-medium whitespace-pre-wrap leading-relaxed">
+                                {aiFeedback}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* ═══ STEP: IDLE — drop zone ═══ */}
                 {step === "idle" && (
