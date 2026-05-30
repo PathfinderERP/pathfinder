@@ -57,6 +57,33 @@ const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, session
         }
     }, [target, viewMode]);
 
+    // Auto-update calendar year when month or financial year changes
+    useEffect(() => {
+        if (formData.financialYear && formData.month) {
+            const parts = formData.financialYear.split('-');
+            if (parts.length === 2) {
+                const startYear = parseInt(parts[0], 10);
+                const endYear = parseInt(parts[1], 10);
+                const firstHalfMonths = ["April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                
+                let computedYear = formData.year;
+                if (formData.month === "YEARLY" || formData.month === "Annual") {
+                    computedYear = startYear;
+                } else if (formData.month.includes(",")) {
+                    const firstMonth = formData.month.split(',')[0].trim();
+                    computedYear = firstHalfMonths.includes(firstMonth) ? startYear : endYear;
+                } else {
+                    computedYear = firstHalfMonths.includes(formData.month) ? startYear : endYear;
+                }
+                
+                setFormData(prev => ({
+                    ...prev,
+                    year: computedYear
+                }));
+            }
+        }
+    }, [formData.month, formData.financialYear]);
+
     const handleCentreChange = (selectedOptions) => {
         const selected = selectedOptions || [];
         setSelectedCentres(selected);
