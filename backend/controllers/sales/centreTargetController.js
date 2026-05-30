@@ -25,9 +25,29 @@ export const createCentreTarget = async (req, res) => {
         const createdTargets = [];
         const existingErrors = [];
 
+        // Calculate correct calendar year based on financialYear and month
+        let calculatedYear = Number(year);
+        if (financialYear && month) {
+            const parts = financialYear.split('-');
+            if (parts.length === 2) {
+                const startYear = parseInt(parts[0], 10);
+                const endYear = parseInt(parts[1], 10);
+                const firstHalfMonths = ["April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                
+                if (month === "YEARLY" || month === "Annual") {
+                    calculatedYear = startYear;
+                } else if (month.includes(",")) {
+                    const firstMonth = month.split(',')[0].trim();
+                    calculatedYear = firstHalfMonths.includes(firstMonth) ? startYear : endYear;
+                } else {
+                    calculatedYear = firstHalfMonths.includes(month) ? startYear : endYear;
+                }
+            }
+        }
+
         for (const centreId of centreIds) {
             // Check if target already exists for this centre-month-year
-            const existing = await CentreTarget.findOne({ centre: centreId, year, month });
+            const existing = await CentreTarget.findOne({ centre: centreId, year: calculatedYear, month });
             if (existing) {
                 existingErrors.push(`Target already exists for centre ID: ${centreId}`);
                 continue;
@@ -36,7 +56,7 @@ export const createCentreTarget = async (req, res) => {
             const newTarget = new CentreTarget({
                 centre: centreId,
                 financialYear,
-                year,
+                year: calculatedYear,
                 month,
                 targetAmount: individualTargetAmount,
                 achievedAmount: Number(achievedAmount) || 0,
@@ -250,6 +270,30 @@ export const updateCentreTarget = async (req, res) => {
         if (updateData.achievedAmount !== undefined) {
             updateData.achievedAmountWithGST = Number(updateData.achievedAmount) || 0;
             updateData.achievedAmountExclGST = (Number(updateData.achievedAmount) || 0) / 1.18;
+        }
+
+        // Calculate correct calendar year based on updated financialYear and month
+        if (updateData.financialYear || updateData.month) {
+            const financialYear = updateData.financialYear || target.financialYear;
+            const month = updateData.month || target.month;
+            
+            if (financialYear && month) {
+                const parts = financialYear.split('-');
+                if (parts.length === 2) {
+                    const startYear = parseInt(parts[0], 10);
+                    const endYear = parseInt(parts[1], 10);
+                    const firstHalfMonths = ["April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                    
+                    if (month === "YEARLY" || month === "Annual") {
+                        updateData.year = startYear;
+                    } else if (month.includes(",")) {
+                        const firstMonth = month.split(',')[0].trim();
+                        updateData.year = firstHalfMonths.includes(firstMonth) ? startYear : endYear;
+                    } else {
+                        updateData.year = firstHalfMonths.includes(month) ? startYear : endYear;
+                    }
+                }
+            }
         }
 
         if (target.groupId) {

@@ -18,6 +18,7 @@ import { useTheme } from "../../../context/ThemeContext";
 /* ─── MultiSelect Component ───────────────────────────────── */
 const MultiSelect = ({ label, options, selectedValues, onChange, placeholder, isDark, card, border, text, sub, inputBg }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const containerRef = useRef(null);
 
     useEffect(() => {
@@ -30,6 +31,12 @@ const MultiSelect = ({ label, options, selectedValues, onChange, placeholder, is
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        if (!isOpen) {
+            setSearchQuery("");
+        }
+    }, [isOpen]);
+
     const handleToggleOption = (value) => {
         if (value === "all") {
             if (selectedValues.includes("all")) {
@@ -38,11 +45,15 @@ const MultiSelect = ({ label, options, selectedValues, onChange, placeholder, is
                 onChange(["all"]);
             }
         } else {
-            let next = selectedValues.filter(v => v !== "all");
-            if (next.includes(value)) {
-                next = next.filter(v => v !== value);
+            let next;
+            if (selectedValues.includes("all")) {
+                next = options.map(o => o.value).filter(v => v !== value);
             } else {
-                next.push(value);
+                if (selectedValues.includes(value)) {
+                    next = selectedValues.filter(v => v !== value);
+                } else {
+                    next = [...selectedValues, value];
+                }
             }
             if (next.length === 0 || next.length === options.length) {
                 onChange(["all"]);
@@ -52,16 +63,20 @@ const MultiSelect = ({ label, options, selectedValues, onChange, placeholder, is
         }
     };
 
-    const isAllSelected = selectedValues.includes("all") || selectedValues.length === 0;
+    const isAllSelected = selectedValues.includes("all");
 
     const displayLabel = () => {
-        if (isAllSelected) return `All ${placeholder}s`;
+        if (isAllSelected || selectedValues.length === 0) return `All ${placeholder}s`;
         if (selectedValues.length === 1) {
             const found = options.find(o => o.value === selectedValues[0]);
             return found ? found.label : selectedValues[0];
         }
         return `${selectedValues.length} ${placeholder}s Selected`;
     };
+
+    const filteredOptions = options.filter(opt =>
+        (opt.label || "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <div ref={containerRef} style={{ position: "relative", display: "inline-block", minWidth: 200 }}>
@@ -104,34 +119,34 @@ const MultiSelect = ({ label, options, selectedValues, onChange, placeholder, is
                     border: `1px solid ${border}`,
                     borderRadius: 8,
                     boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-                    maxHeight: 250,
+                    maxHeight: 280,
                     overflowY: "auto",
                     padding: "8px 0"
                 }}>
-                    <label style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "8px 14px",
-                        cursor: "pointer",
-                        fontSize: "0.85rem",
-                        color: text,
-                        userSelect: "none",
-                        background: isAllSelected ? (isDark ? "#33415555" : "#f1f5f9") : "transparent"
-                    }}>
+                    {/* Search Input */}
+                    <div style={{ padding: "4px 12px 10px 12px" }}>
                         <input
-                            type="checkbox"
-                            checked={isAllSelected}
-                            onChange={() => handleToggleOption("all")}
-                            style={{ cursor: "pointer", accentColor: "#6366f1" }}
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder={`Search ${placeholder}...`}
+                            style={{
+                                width: "100%",
+                                background: inputBg,
+                                border: `1px solid ${border}`,
+                                borderRadius: 6,
+                                color: text,
+                                padding: "6px 10px",
+                                fontSize: "0.8rem",
+                                outline: "none",
+                                boxSizing: "border-box"
+                            }}
                         />
-                        <span style={{ fontWeight: 600 }}>All {placeholder}s</span>
-                    </label>
-                    <div style={{ height: 1, background: border, margin: "4px 0" }} />
-                    {options.map(opt => {
-                        const isChecked = !isAllSelected && selectedValues.includes(opt.value);
-                        return (
-                            <label key={opt.value} style={{
+                    </div>
+
+                    {!searchQuery && (
+                        <>
+                            <label style={{
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 10,
@@ -140,19 +155,50 @@ const MultiSelect = ({ label, options, selectedValues, onChange, placeholder, is
                                 fontSize: "0.85rem",
                                 color: text,
                                 userSelect: "none",
-                                background: isChecked ? (isDark ? "#33415555" : "#f1f5f9") : "transparent"
+                                background: isAllSelected ? (isDark ? "#33415555" : "#f1f5f9") : "transparent"
                             }}>
                                 <input
                                     type="checkbox"
-                                    checked={isAllSelected || isChecked}
-                                    disabled={isAllSelected}
-                                    onChange={() => handleToggleOption(opt.value)}
+                                    checked={isAllSelected}
+                                    onChange={() => handleToggleOption("all")}
                                     style={{ cursor: "pointer", accentColor: "#6366f1" }}
                                 />
-                                <span>{opt.label}</span>
+                                <span style={{ fontWeight: 600 }}>All {placeholder}s</span>
                             </label>
-                        );
-                    })}
+                            <div style={{ height: 1, background: border, margin: "4px 0" }} />
+                        </>
+                    )}
+
+                    {filteredOptions.length === 0 ? (
+                        <div style={{ padding: "8px 14px", fontSize: "0.8rem", color: sub, textAlign: "center" }}>
+                            No matches found
+                        </div>
+                    ) : (
+                        filteredOptions.map(opt => {
+                            const isChecked = isAllSelected || selectedValues.includes(opt.value);
+                            return (
+                                <label key={opt.value} style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 10,
+                                    padding: "8px 14px",
+                                    cursor: "pointer",
+                                    fontSize: "0.85rem",
+                                    color: text,
+                                    userSelect: "none",
+                                    background: isChecked ? (isDark ? "#33415555" : "#f1f5f9") : "transparent"
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => handleToggleOption(opt.value)}
+                                        style={{ cursor: "pointer", accentColor: "#6366f1" }}
+                                    />
+                                    <span>{opt.label}</span>
+                                </label>
+                            );
+                        })
+                    )}
                 </div>
             )}
         </div>
@@ -210,7 +256,7 @@ const SalaryExpenseHub = () => {
     const [search, setSearch] = useState("");
     const [selectedCenterIds, setSelectedCenterIds] = useState(["all"]);
     const [selectedDeptFilters, setSelectedDeptFilters] = useState(["all"]);
-    const [staffTypeFilter, setStaffTypeFilter] = useState("all");
+    const [selectedStaffTypes, setSelectedStaffTypes] = useState(["all"]);
     const [centerSearch, setCenterSearch] = useState("");
     const [expandedDept, setExpandedDept] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -261,7 +307,7 @@ const SalaryExpenseHub = () => {
                 setSearch("");
                 setSelectedCenterIds([center._id]);
                 setSelectedDeptFilters(["all"]);
-                setStaffTypeFilter("all");
+                setSelectedStaffTypes(["all"]);
                 setExpandedDept(null);
                 setSelectedIds(new Set());
                 setShowBulkModal(false);
@@ -449,14 +495,16 @@ const SalaryExpenseHub = () => {
             const isAllDepts = selectedDeptFilters.includes("all") || selectedDeptFilters.length === 0;
             const matchDept = isAllDepts || selectedDeptFilters.includes(e.departmentName);
 
-            let matchStaffType = true;
-            const userRole = (e.role || "").toLowerCase();
-            if (staffTypeFilter === "teacher") {
-                matchStaffType = userRole === "teacher";
-            } else if (staffTypeFilter === "hod") {
-                matchStaffType = userRole === "hod";
-            } else if (staffTypeFilter === "staff") {
-                matchStaffType = userRole !== "teacher" && userRole !== "hod";
+            const isAllStaffTypes = selectedStaffTypes.includes("all") || selectedStaffTypes.length === 0;
+            let matchStaffType = isAllStaffTypes;
+            if (!isAllStaffTypes) {
+                const userRole = (e.role || "").toLowerCase();
+                matchStaffType = selectedStaffTypes.some(type => {
+                    if (type === "teacher") return userRole === "teacher";
+                    if (type === "hod") return userRole === "hod";
+                    if (type === "staff") return userRole !== "teacher" && userRole !== "hod";
+                    return false;
+                });
             }
 
             const q = search.trim().toLowerCase();
@@ -470,7 +518,7 @@ const SalaryExpenseHub = () => {
 
             return matchCenter && matchDept && matchStaffType && matchSearch;
         });
-    }, [employees, search, selectedCenterIds, selectedDeptFilters, staffTypeFilter]);
+    }, [employees, search, selectedCenterIds, selectedDeptFilters, selectedStaffTypes]);
 
     const grouped = useMemo(() => {
         const map = {};
@@ -602,23 +650,23 @@ const SalaryExpenseHub = () => {
                             />
 
                             {/* Staff Type filter */}
-                            <div style={{ display: "flex", flexDirection: "column", minWidth: 160 }}>
-                                <span style={{ fontSize: "0.78rem", color: sub, marginBottom: 4, fontWeight: 600 }}>Staff Type</span>
-                                <select
-                                    value={staffTypeFilter}
-                                    onChange={e => setStaffTypeFilter(e.target.value)}
-                                    style={{
-                                        background: inputBg, border: `1px solid ${border}`,
-                                        borderRadius: 8, color: text, padding: "9px 12px",
-                                        fontSize: "0.85rem", cursor: "pointer", outline: "none",
-                                        height: 38
-                                    }}>
-                                    <option value="all">All Staff Types</option>
-                                    <option value="staff">Normal Staff</option>
-                                    <option value="teacher">Teachers</option>
-                                    <option value="hod">HODs</option>
-                                </select>
-                            </div>
+                            <MultiSelect
+                                label="Staff Type"
+                                placeholder="Staff Type"
+                                options={[
+                                    { value: "staff", label: "Normal Staff" },
+                                    { value: "teacher", label: "Teachers" },
+                                    { value: "hod", label: "HODs" }
+                                ]}
+                                selectedValues={selectedStaffTypes}
+                                onChange={setSelectedStaffTypes}
+                                isDark={isDark}
+                                card={card}
+                                border={border}
+                                text={text}
+                                sub={sub}
+                                inputBg={inputBg}
+                            />
 
                             {/* Select all + count */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto", flexWrap: "wrap" }}>
