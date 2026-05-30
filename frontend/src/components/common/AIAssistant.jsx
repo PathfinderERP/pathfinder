@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     FaRobot, FaTimes, FaPaperPlane, FaChevronRight,
     FaUserGraduate, FaUsers, FaMoneyBillWave,
-    FaUserTie, FaArrowLeft, FaChartBar
+    FaUserTie, FaArrowLeft, FaChartBar, FaExpand, FaCompress
 } from 'react-icons/fa';
 import { MdAutoAwesome } from 'react-icons/md';
 import axios from 'axios';
@@ -85,6 +85,7 @@ const AIAssistant = () => {
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [view, setView] = useState('welcome'); // welcome, choice, chat
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -155,7 +156,7 @@ const AIAssistant = () => {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-[9999] font-sans">
+        <div className={`z-[9999] font-sans ${isFullscreen ? 'fixed inset-0 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm' : 'fixed bottom-6 right-6'}`}>
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -163,7 +164,9 @@ const AIAssistant = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="mb-4 w-80 md:w-[400px] h-[580px] bg-white/90 dark:bg-[#1c2128]/97 backdrop-blur-2xl border border-white/30 dark:border-gray-700/60 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
+                        className={`bg-white/90 dark:bg-[#1c2128]/97 backdrop-blur-2xl border border-white/30 dark:border-gray-700/60 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden transition-all duration-300 ${
+                            isFullscreen ? 'w-full h-full max-w-5xl max-h-[85vh]' : 'mb-4 w-80 md:w-[400px] h-[580px]'
+                        }`}
                     >
                         {/* Header */}
                         <div className="p-4 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white flex justify-between items-center shadow-lg relative overflow-hidden">
@@ -189,12 +192,22 @@ const AIAssistant = () => {
                                     </div>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setIsOpen(false)}
-                                className="relative z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
-                            >
-                                <FaTimes />
-                            </button>
+                            <div className="flex items-center gap-1 relative z-10">
+                                <button
+                                    onClick={() => setIsFullscreen(!isFullscreen)}
+                                    className="hover:bg-white/20 p-2 rounded-full transition-colors"
+                                    title={isFullscreen ? "Minimize" : "Maximize"}
+                                >
+                                    {isFullscreen ? <FaCompress size={12} /> : <FaExpand size={12} />}
+                                </button>
+                                <button
+                                    onClick={() => setIsOpen(false)}
+                                    className="hover:bg-white/20 p-2 rounded-full transition-colors"
+                                    title="Close"
+                                >
+                                    <FaTimes />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Messages Area */}

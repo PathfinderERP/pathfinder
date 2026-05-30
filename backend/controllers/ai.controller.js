@@ -5,6 +5,7 @@ import LeadManagement from "../models/LeadManagement.js";
 import Admission from "../models/Admission/Admission.js";
 import Employee from "../models/HR/Employee.js";
 import Expense from "../models/Finance/Expense.js";
+import User from "../models/User.js";
 import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
@@ -37,14 +38,16 @@ STRICT RULES:
 LEAD MANAGEMENT MODULE TRAINING:
 - Add Lead Workflow: 
   Click the 'Add Lead' button on the Lead Management page. Fill in Contact Information (Name, Email, Phone), Academic Details (Origin School, Target Class, Board, Target Exam), Assignment Details (Target Centre, Lead Priority: HOT/WARM/COLD LEAD), select the Course and Origin Source, and assign it to an Agent (telecaller). Click 'Save Lead'.
-- Bulk Operations: 
-  You can import leads using the 'Import Excel' button, or export them. To update many leads at once, select multiple checkboxes and click 'Update Multiple Data'.
-- Follow-ups: 
-  Leads have follow-up histories. You can add a follow-up directly from a lead, mark their priority (HOT/WARM/COLD), and schedule the 'Next Follow Up' date. Use the 'Follow Up List' button to view a dedicated table of all scheduled follow-ups, which can be filtered by Centre, Agent, and Date.
+- Bulk Operations & Excel Imports: 
+  You can bulk import Fresh Leads (added as pending) or Contacted Leads (matched by phone/email, updates remarks and feedback). You can also perform bulk updates, bulk deletes by filter, and export leads or telecaller logs to Excel.
+- Follow-ups & Calling (Twilio): 
+  Leads have follow-up histories. You can add a follow-up directly from a lead, mark their priority, select feedback (e.g., Interested, Call back later), and schedule the 'Next Follow Up' date. The system supports direct Twilio voice calling from the app, and call recordings are available. A 'Red Flag' system highlights leads with missed follow-ups.
 - Conversion to Admission: 
   Leads can be explicitly tagged as "Walk-Ins" via the action menu. To officially admit a lead, click on their action menu: choose 'Normal Counseling' to be redirected to the "Student Registration" page, or 'Board Counseling' to be redirected to the "Board Admissions" page.
 - Dashboard & Analytics: 
-  The Lead Management page features a Lead Trend Chart (line graph) and a Centre Call Bar Chart for visual analytics. You can also view Hot, Warm, Cold, and Scheduled follow-ups using the top summary cards.
+  The Lead Management module provides extensive analytics, including an overall Lead Dashboard, Centre Analysis, Follow Up Stats, and detailed Telecaller Analytics to monitor agent performance.
+- Marketing Planner:
+  Campaigns and marketing plans are integrated directly into the lead tracking system.
 
 GENERAL ERP WORKFLOWS:
 - Normal Admission: Step 1: Find the lead in Lead Management. Step 2: Navigate to "Student Registration" to create the profile. Step 3: Go to "Student Admission". Step 4: Search the student. Step 5: Fill course/fee details. Step 6: Review and Save.
@@ -98,52 +101,134 @@ const detectIntent = (message) => {
 
     // Default to summary if nothing matches
     if (detected.size === 0) detected.add("summary");
-    return [...detected];
+    return Array.from(detected);
+};
+
+const extractDateRange = (message) => {
+    const lower = message.toLowerCase();
+    const now = new Date();
+    
+    // Check for explicit months first
+    const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    for (let i = 0; i < months.length; i++) {
+        if (lower.includes(months[i])) {
+            let year = now.getFullYear();
+            const yearMatch = lower.match(/\b(20\d{2})\b/);
+            if (yearMatch) year = parseInt(yearMatch[1]);
+            const startDate = new Date(year, i, 1);
+            const endDate = new Date(year, i + 1, 0, 23, 59, 59, 999);
+            return { $gte: startDate, $lte: endDate };
+        }
+    }
+
+    if (lower.includes("yesterday")) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 1);
+        const start = new Date(d);
+        start.setHours(0,0,0,0);
+        const end = new Date(d);
+        end.setHours(23,59,59,999);
+        return { $gte: start, $lte: end };
+    } else if (lower.includes("this week")) {
+        const start = new Date(now);
+        start.setDate(now.getDate() - now.getDay()); // Sunday
+        start.setHours(0,0,0,0);
+        const end = new Date(now);
+        end.setHours(23,59,59,999);
+        return { $gte: start, $lte: end };
+    } else if (lower.includes("last week")) {
+        const start = new Date(now);
+        start.setDate(now.getDate() - now.getDay() - 7);
+        start.setHours(0,0,0,0);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23,59,59,999);
+        return { $gte: start, $lte: end };
+    } else if (lower.includes("this month")) {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        return { $gte: start, $lte: end };
+    } else if (lower.includes("last month")) {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        return { $gte: start, $lte: end };
+    } else if (lower.includes("this year")) {
+        const start = new Date(now.getFullYear(), 0, 1);
+        const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        return { $gte: start, $lte: end };
+    } else if (lower.includes("last year")) {
+        const start = new Date(now.getFullYear() - 1, 0, 1);
+        const end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+        return { $gte: start, $lte: end };
+    }
+
+    return null; // fallback to today or unspecified later
 };
 
 // ─────────────────────────────────────────────────────────────
-// DATA FETCHERS — each fetches lean, focused ERP data
+// DATA FETCHERS — pulls live data from MongoDB
 // ─────────────────────────────────────────────────────────────
 
-const fetchLeadData = async (userCentre = null) => {
-    try {
-        const query = {};
-        const totalLeads = await LeadManagement.countDocuments(query);
-        const hotLeads = await LeadManagement.countDocuments({ ...query, leadType: "HOT LEAD" });
-        const warmLeads = await LeadManagement.countDocuments({ ...query, leadType: "WARM LEAD" });
-        const coldLeads = await LeadManagement.countDocuments({ ...query, leadType: "COLD LEAD" });
-        const counselled = await LeadManagement.countDocuments({ ...query, isCounseled: true });
+const getCentreFilter = async (user, fieldName = "centre") => {
+    if (!user) return {};
+    const role = (user.role || "").toLowerCase().replace(/\s+/g, "");
+    if (["superadmin", "super admin"].includes(role)) return {};
 
-        // Leads added today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayLeads = await LeadManagement.countDocuments({
-            ...query,
-            createdAt: { $gte: today }
+    try {
+        const userDoc = await User.findById(user.id || user._id).select("centres");
+        if (userDoc && userDoc.centres && userDoc.centres.length > 0) {
+            return { [fieldName]: { $in: userDoc.centres } };
+        }
+    } catch (err) {
+        console.error("Error fetching user centres:", err);
+    }
+    // If no centres or error, restrict to nothing
+    return { [fieldName]: null };
+};
+
+const fetchLeadData = async (user, dateFilter) => {
+    try {
+        const centreFilter = await getCentreFilter(user, "centre");
+        
+        // Time filter defaults to today if not provided
+        let timeFilter = dateFilter;
+        if (!timeFilter) {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            timeFilter = { $gte: startOfDay, $lte: endOfDay };
+        }
+
+        const totalLeads = await LeadManagement.countDocuments(centreFilter);
+        const hotLeads = await LeadManagement.countDocuments({ ...centreFilter, leadType: "HOT LEAD" });
+        const warmLeads = await LeadManagement.countDocuments({ ...centreFilter, leadType: "WARM LEAD" });
+        const coldLeads = await LeadManagement.countDocuments({ ...centreFilter, leadType: "COLD LEAD" });
+        const counselled = await LeadManagement.countDocuments({ ...centreFilter, isCounseled: true });
+
+        // Leads added in the period
+        const periodLeads = await LeadManagement.countDocuments({
+            ...centreFilter,
+            createdAt: timeFilter
         });
 
-        // Leads needing follow-up today or overdue
+        // Leads needing follow-up in the period
         const followUpDue = await LeadManagement.countDocuments({
-            ...query,
-            nextFollowUpDate: { $lte: new Date() },
+            ...centreFilter,
+            nextFollowUpDate: timeFilter,
             isCounseled: false
         });
 
         // Recent 5 leads
-        const recentLeads = await LeadManagement.find(query)
+        const recentLeads = await LeadManagement.find(centreFilter)
             .sort({ createdAt: -1 })
             .limit(5)
             .select("name phoneNumber leadType source createdAt isCounseled")
             .lean();
 
         return {
-            totalLeads,
-            hotLeads,
-            warmLeads,
-            coldLeads,
-            counselled,
-            todayLeads,
-            followUpDue,
+            totalLeads, hotLeads, warmLeads, coldLeads, counselled,
+            periodLeads, followUpDue,
             recentLeads
         };
     } catch (err) {
@@ -152,15 +237,32 @@ const fetchLeadData = async (userCentre = null) => {
     }
 };
 
-const fetchStudentData = async () => {
+const fetchStudentData = async (user, dateFilter) => {
     try {
-        const total = await Student.countDocuments();
-        const active = await Student.countDocuments({ status: "Active" });
-        const deactivated = await Student.countDocuments({ status: "Deactivated" });
-        const enrolled = await Student.countDocuments({ isEnrolled: true });
+        const centreFilter = await getCentreFilter(user, "studentsDetails.centre");
+        const total = await Student.countDocuments(centreFilter);
+        const active = await Student.countDocuments({ ...centreFilter, status: "Active" });
+        const deactivated = await Student.countDocuments({ ...centreFilter, status: "Deactivated" });
+        const enrolled = await Student.countDocuments({ ...centreFilter, isEnrolled: true });
+
+        // Note: Students are generally active/inactive overall, period queries might apply to recent joiners
+        let timeFilter = dateFilter;
+        if (!timeFilter) {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            timeFilter = { $gte: startOfDay, $lte: endOfDay };
+        }
+
+        const periodStudents = await Student.countDocuments({
+            ...centreFilter,
+            createdAt: timeFilter
+        });
 
         // Centre-wise breakdown
         const centreBreakdown = await Student.aggregate([
+            { $match: centreFilter },
             {
                 $unwind: "$studentsDetails"
             },
@@ -175,17 +277,15 @@ const fetchStudentData = async () => {
         ]);
 
         // Recent 5 students
-        const recentStudents = await Student.find()
+        const recentStudents = await Student.find(centreFilter)
             .sort({ createdAt: -1 })
             .limit(5)
             .select("studentsDetails.studentName studentsDetails.centre studentsDetails.mobileNum isEnrolled status createdAt")
             .lean();
 
         return {
-            total,
-            active,
-            deactivated,
-            enrolled,
+            total, active, deactivated, enrolled,
+            periodStudents,
             centreBreakdown,
             recentStudents
         };
@@ -195,28 +295,45 @@ const fetchStudentData = async () => {
     }
 };
 
-const fetchAdmissionData = async () => {
+const fetchAdmissionData = async (user, dateFilter) => {
     try {
-        const total = await Admission.countDocuments();
-        const active = await Admission.countDocuments({ admissionStatus: "ACTIVE" });
-        const cancelled = await Admission.countDocuments({ admissionStatus: "CANCELLED" });
-        const normalType = await Admission.countDocuments({ admissionType: "NORMAL" });
-        const boardType = await Admission.countDocuments({ admissionType: "BOARD" });
+        const centreFilter = await getCentreFilter(user, "centre");
+        const total = await Admission.countDocuments(centreFilter);
+        const active = await Admission.countDocuments({ ...centreFilter, admissionStatus: "ACTIVE" });
+        const cancelled = await Admission.countDocuments({ ...centreFilter, admissionStatus: "CANCELLED" });
+        const normalType = await Admission.countDocuments({ ...centreFilter, admissionType: "NORMAL" });
+        const boardType = await Admission.countDocuments({ ...centreFilter, admissionType: "BOARD" });
 
         // Payment status breakdown
-        const pendingPayment = await Admission.countDocuments({ paymentStatus: "PENDING" });
-        const partialPayment = await Admission.countDocuments({ paymentStatus: "PARTIAL" });
-        const completedPayment = await Admission.countDocuments({ paymentStatus: "COMPLETED" });
+        const pendingPayment = await Admission.countDocuments({ ...centreFilter, paymentStatus: "PENDING" });
+        const partialPayment = await Admission.countDocuments({ ...centreFilter, paymentStatus: "PARTIAL" });
+        const completedPayment = await Admission.countDocuments({ ...centreFilter, paymentStatus: "COMPLETED" });
 
         // Overdue installments
-        const now = new Date();
         const overdueAdmissions = await Admission.countDocuments({
+            ...centreFilter,
             "paymentBreakdown.status": "OVERDUE"
+        });
+
+        // Time filter defaults to today if not provided
+        let timeFilter = dateFilter;
+        if (!timeFilter) {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            timeFilter = { $gte: startOfDay, $lte: endOfDay };
+        }
+
+        // Admissions in period
+        const periodAdmissions = await Admission.countDocuments({
+            ...centreFilter,
+            admissionDate: timeFilter
         });
 
         // Financial totals
         const financialAgg = await Admission.aggregate([
-            { $match: { admissionStatus: "ACTIVE" } },
+            { $match: { ...centreFilter, admissionStatus: "ACTIVE" } },
             {
                 $group: {
                     _id: null,
@@ -227,22 +344,16 @@ const fetchAdmissionData = async () => {
             }
         ]);
 
-        // Today's admissions
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayAdmissions = await Admission.countDocuments({
-            admissionDate: { $gte: today }
-        });
-
         // Centre-wise admissions
         const centreBreakdown = await Admission.aggregate([
+            { $match: centreFilter },
             { $group: { _id: "$centre", count: { $sum: 1 } } },
             { $sort: { count: -1 } },
             { $limit: 10 }
         ]);
 
         // Recent 5 admissions
-        const recentAdmissions = await Admission.find({ admissionStatus: "ACTIVE" })
+        const recentAdmissions = await Admission.find({ ...centreFilter, admissionStatus: "ACTIVE" })
             .sort({ createdAt: -1 })
             .limit(5)
             .populate("student", "studentsDetails")
@@ -261,7 +372,7 @@ const fetchAdmissionData = async () => {
             partialPayment,
             completedPayment,
             overdueAdmissions,
-            todayAdmissions,
+            periodAdmissions,
             centreBreakdown,
             totalFeesCharged: fin.totalFees || 0,
             totalAmountCollected: fin.totalPaid || 0,
@@ -274,8 +385,9 @@ const fetchAdmissionData = async () => {
     }
 };
 
-const fetchFinanceData = async () => {
+const fetchFinanceData = async (user) => {
     try {
+        // Finance is typically global, but leaving placeholder for user parameter
         // Expense summary
         const totalExpenses = await Expense.aggregate([
             { $group: { _id: null, total: { $sum: "$amount" } } }
@@ -315,8 +427,9 @@ const fetchFinanceData = async () => {
     }
 };
 
-const fetchHRData = async () => {
+const fetchHRData = async (user) => {
     try {
+        // HR is typically global
         const total = await Employee.countDocuments();
         const active = await Employee.countDocuments({ status: "Active" });
         const inactive = await Employee.countDocuments({ status: "Inactive" });
@@ -369,27 +482,41 @@ const fetchHRData = async () => {
     }
 };
 
-const fetchSummaryData = async () => {
+const fetchSummaryData = async (user, dateFilter) => {
     // Fetch lightweight dashboard-level stats
     try {
+        const studentFilter = await getCentreFilter(user, "studentsDetails.centre");
+        const leadFilter = await getCentreFilter(user, "centre");
+        const admissionFilter = await getCentreFilter(user, "centre");
+
+        let timeFilter = dateFilter;
+        if (!timeFilter) {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            timeFilter = { $gte: startOfDay, $lte: endOfDay };
+        }
+
         const [
             totalStudents, activeStudents,
             totalLeads, hotLeads,
-            totalAdmissions, todayAdmissions,
+            totalAdmissions, periodAdmissions,
             totalEmployees, activeEmployees
         ] = await Promise.all([
-            Student.countDocuments(),
-            Student.countDocuments({ status: "Active" }),
-            LeadManagement.countDocuments(),
-            LeadManagement.countDocuments({ leadType: "HOT LEAD" }),
-            Admission.countDocuments(),
-            Admission.countDocuments({ admissionDate: { $gte: (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })() } }),
-            Employee.countDocuments(),
+            Student.countDocuments(studentFilter),
+            Student.countDocuments({ ...studentFilter, status: "Active" }),
+            LeadManagement.countDocuments(leadFilter),
+            LeadManagement.countDocuments({ ...leadFilter, leadType: "HOT LEAD" }),
+            Admission.countDocuments(admissionFilter),
+            Admission.countDocuments({ ...admissionFilter, admissionDate: timeFilter }),
+            Employee.countDocuments(), // HR Global
             Employee.countDocuments({ status: "Active" })
         ]);
 
         // Total revenue collected
         const revenueAgg = await Admission.aggregate([
+            { $match: admissionFilter },
             { $group: { _id: null, collected: { $sum: "$totalPaidAmount" }, total: { $sum: "$totalFees" } } }
         ]);
         const rev = revenueAgg[0] || {};
@@ -397,7 +524,7 @@ const fetchSummaryData = async () => {
         return {
             students: { total: totalStudents, active: activeStudents },
             leads: { total: totalLeads, hot: hotLeads },
-            admissions: { total: totalAdmissions, today: todayAdmissions },
+            admissions: { total: totalAdmissions, periodAdmissions },
             employees: { total: totalEmployees, active: activeEmployees },
             revenue: {
                 totalCharged: rev.total || 0,
@@ -414,27 +541,27 @@ const fetchSummaryData = async () => {
 // ─────────────────────────────────────────────────────────────
 // CONTEXT BUILDER — assembles ERP data based on detected intent
 // ─────────────────────────────────────────────────────────────
-const buildERPContext = async (intents) => {
+const buildERPContext = async (intents, user, dateFilter) => {
     const context = {};
     const fetchTasks = [];
 
     if (intents.includes("summary")) {
-        fetchTasks.push(fetchSummaryData().then(d => { if (d) context.summary = d; }));
+        fetchTasks.push(fetchSummaryData(user, dateFilter).then(d => { if (d) context.summary = d; }));
     }
     if (intents.includes("leads")) {
-        fetchTasks.push(fetchLeadData().then(d => { if (d) context.leads = d; }));
+        fetchTasks.push(fetchLeadData(user, dateFilter).then(d => { if (d) context.leads = d; }));
     }
     if (intents.includes("students")) {
-        fetchTasks.push(fetchStudentData().then(d => { if (d) context.students = d; }));
+        fetchTasks.push(fetchStudentData(user, dateFilter).then(d => { if (d) context.students = d; }));
     }
     if (intents.includes("admissions") || intents.includes("finance")) {
-        fetchTasks.push(fetchAdmissionData().then(d => { if (d) context.admissions = d; }));
+        fetchTasks.push(fetchAdmissionData(user, dateFilter).then(d => { if (d) context.admissions = d; }));
     }
     if (intents.includes("finance")) {
-        fetchTasks.push(fetchFinanceData().then(d => { if (d) context.finance = d; }));
+        fetchTasks.push(fetchFinanceData(user, dateFilter).then(d => { if (d) context.finance = d; }));
     }
     if (intents.includes("hr")) {
-        fetchTasks.push(fetchHRData().then(d => { if (d) context.hr = d; }));
+        fetchTasks.push(fetchHRData(user, dateFilter).then(d => { if (d) context.hr = d; }));
     }
 
     await Promise.all(fetchTasks);
@@ -452,11 +579,12 @@ export const chatWithAI = async (req, res) => {
             return res.status(400).json({ error: "Message is required" });
         }
 
-        // 1. Detect what the user is asking about
+        // 1. Detect what the user is asking about and extract potential date filters
         const intents = detectIntent(message);
+        const dateFilter = extractDateRange(message);
 
-        // 2. Fetch relevant live ERP data
-        const erpData = await buildERPContext(intents);
+        // 2. Fetch relevant live ERP data restricted to user's assigned centres and date
+        const erpData = await buildERPContext(intents, req.user, dateFilter);
 
         // 3. Build the full prompt with context
         const erpDataString = JSON.stringify(erpData, null, 2);
