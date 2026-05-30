@@ -17,6 +17,7 @@ import CourseReport from "./pages/Sales/CourseReport";
 import DiscountReport from "./pages/Sales/DiscountReport";
 import TransactionReport from "./pages/Sales/TransactionReport";
 import DailyCollection from "./pages/Sales/DailyCollection";
+import AdmissionCourseReport from "./pages/Sales/AdmissionCourseReport";
 import BoardReport from "./pages/Sales/BoardReport";
 import QuarterlyTargetReport from "./pages/Sales/QuarterlyTargetReport";
 import WeeklyTarget from "./pages/Sales/WeeklyTarget";
@@ -238,6 +239,7 @@ function App() {
         <Route path="/sales/discount-report" element={<ProtectedRoute><DiscountReport /></ProtectedRoute>} />
         <Route path="/sales/transaction-report" element={<ProtectedRoute><TransactionReport /></ProtectedRoute>} />
         <Route path="/sales/daily-collection" element={<ProtectedRoute><DailyCollection /></ProtectedRoute>} />
+        <Route path="/sales/admission-course-report" element={<ProtectedRoute><AdmissionCourseReport /></ProtectedRoute>} />
         <Route path="/sales/board-report" element={<ProtectedRoute><BoardReport /></ProtectedRoute>} />
         <Route path="/sales/quarterly-target-report" element={<ProtectedRoute><QuarterlyTargetReport /></ProtectedRoute>} />
         <Route path="/sales/weekly-target" element={<ProtectedRoute><WeeklyTarget /></ProtectedRoute>} />
