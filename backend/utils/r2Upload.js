@@ -117,7 +117,7 @@ export const getSignedFileUrl = async (fileUrl) => {
         if (publicUrl && fileUrl.startsWith(publicUrl)) {
             key = fileUrl.replace(`${publicUrl}/`, "");
         } else {
-            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/"];
+            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/", "petty_cash/"];
             for (const prefix of prefixes) {
                 const index = fileUrl.indexOf(prefix);
                 if (index !== -1) {
@@ -134,6 +134,7 @@ export const getSignedFileUrl = async (fileUrl) => {
         const command = new GetObjectCommand({
             Bucket: process.env.R2_BUCKET_NAME,
             Key: key,
+            ResponseContentDisposition: "inline",
         });
 
         // Sign for 1 hour

@@ -3,34 +3,15 @@ import PettyCashExpenditure from "../../models/Finance/PettyCashExpenditure.js";
 import PettyCashRequest from "../../models/Finance/PettyCashRequest.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Employee from "../../models/HR/Employee.js";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import s3Client from "../../config/r2Config.js";
 import multer from "multer";
 import User from "../../models/User.js";
+import { getSignedFileUrl, uploadToR2 } from "../../utils/r2Upload.js";
 
 const storage = multer.memoryStorage();
 export const upload = multer({
     storage: storage,
     limits: { fileSize: 10 * 1024 * 1024 }
 });
-
-const uploadToR2 = async (file, folder = "petty_cash") => {
-    if (!file) return null;
-    let publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "") || "https://pub-3c9d12dd00618b00795184bc5ff0c333.r2.dev";
-    const fileName = `${folder}/${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
-    const uploadParams = {
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: fileName,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-    };
-    try {
-        await s3Client.send(new PutObjectCommand(uploadParams));
-        return `${publicUrl}/${fileName}`;
-    } catch (error) {
-        throw new Error("File upload failed: " + error.message);
-    }
-};
 
 // Get all centres with petty cash details
 export const getPettyCashCentres = async (req, res) => {
@@ -91,7 +72,7 @@ export const addExpenditure = async (req, res) => {
 
         let billImageUrl = null;
         if (req.file) {
-            billImageUrl = await uploadToR2(req.file);
+            billImageUrl = await uploadToR2(req.file, "petty_cash");
         }
 
         const userId = req.user.id || req.user._id;
@@ -115,7 +96,11 @@ export const addExpenditure = async (req, res) => {
         });
 
         await expenditure.save();
-        res.status(201).json({ message: "Expenditure request submitted", data: expenditure });
+        const expObj = expenditure.toObject();
+        if (expObj.billImage) {
+            expObj.billImage = await getSignedFileUrl(expObj.billImage);
+        }
+        res.status(201).json({ message: "Expenditure request submitted", data: expObj });
     } catch (err) {
         console.error("Add Expenditure Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
@@ -194,8 +179,18 @@ export const getExpenditures = async (req, res) => {
             .skip(skip)
             .limit(limit);
 
+        const signedExpenditures = await Promise.all(
+            expenditures.map(async (exp) => {
+                const expObj = exp.toObject();
+                if (expObj.billImage) {
+                    expObj.billImage = await getSignedFileUrl(expObj.billImage);
+                }
+                return expObj;
+            })
+        );
+
         res.status(200).json({
-            expenditures,
+            expenditures: signedExpenditures,
             totalPages: Math.ceil(totalExpenditures / limit),
             currentPage: page,
             totalItems: totalExpenditures
@@ -241,7 +236,12 @@ export const approveExpenditure = async (req, res) => {
         expenditure.actionDate = new Date();
         await expenditure.save();
 
-        res.status(200).json({ message: "Expenditure approved", data: expenditure });
+        const expObj = expenditure.toObject();
+        if (expObj.billImage) {
+            expObj.billImage = await getSignedFileUrl(expObj.billImage);
+        }
+
+        res.status(200).json({ message: "Expenditure approved", data: expObj });
     } catch (err) {
         console.error("Approve Expenditure Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
@@ -278,7 +278,12 @@ export const rejectExpenditure = async (req, res) => {
         expenditure.rejectionReason = reason;
         await expenditure.save();
 
-        res.status(200).json({ message: "Expenditure rejected", data: expenditure });
+        const expObj = expenditure.toObject();
+        if (expObj.billImage) {
+            expObj.billImage = await getSignedFileUrl(expObj.billImage);
+        }
+
+        res.status(200).json({ message: "Expenditure rejected", data: expObj });
     } catch (err) {
         console.error("Reject Expenditure Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
