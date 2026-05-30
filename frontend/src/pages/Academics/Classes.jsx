@@ -1577,6 +1577,8 @@ const Classes = () => {
         coordinatorId: isCoordinator ? user._id : "",
         fromDate: "",
         toDate: "",
+        startTime: "",
+        endTime: "",
         search: ""
     });
 
@@ -1881,6 +1883,8 @@ const Classes = () => {
             coordinatorId: isCoordinator ? user._id : "",
             fromDate: "",
             toDate: "",
+            startTime: "",
+            endTime: "",
             search: ""
         });
         setPage(1);
@@ -2252,6 +2256,32 @@ const Classes = () => {
                                 type="date"
                                 name="toDate"
                                 value={filters.toDate}
+                                onChange={handleFilterChange}
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                            />
+                        </div>
+
+                        {/* Start Time */}
+                        <div className="flex flex-col">
+                            <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Start Time</label>
+                            <input
+                                type="time"
+                                name="startTime"
+                                value={filters.startTime}
+                                onChange={handleFilterChange}
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                            />
+                        </div>
+
+                        {/* End Time */}
+                        <div className="flex flex-col">
+                            <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">End Time</label>
+                            <input
+                                type="time"
+                                name="endTime"
+                                value={filters.endTime}
                                 onChange={handleFilterChange}
                                 className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
