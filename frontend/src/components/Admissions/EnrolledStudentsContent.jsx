@@ -35,6 +35,9 @@ const EnrolledStudentsContent = () => {
     const [filterMode, setFilterMode] = useState([]);
     const [filterCourseType, setFilterCourseType] = useState([]);
     const [filterAllocationStatus, setFilterAllocationStatus] = useState([]);
+    const [filterLeadBy, setFilterLeadBy] = useState([]);
+    const [filterCounselledBy, setFilterCounselledBy] = useState([]);
+    const [filterAdmissionBy, setFilterAdmissionBy] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -50,6 +53,7 @@ const EnrolledStudentsContent = () => {
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterSessions, setMasterSessions] = useState([]);
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const [activeEmployees, setActiveEmployees] = useState([]);
     const [studentAdmissions, setStudentAdmissions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -126,11 +130,12 @@ const EnrolledStudentsContent = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, courseRes, classRes, sessionRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, employeeRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
-                fetch(`${apiUrl}/session/list`, { headers })
+                fetch(`${apiUrl}/session/list`, { headers }),
+                fetch(`${apiUrl}/admission/active-employees`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -141,6 +146,9 @@ const EnrolledStudentsContent = () => {
             if (courseRes.ok) setMasterCourses(await courseRes.json());
             if (classRes.ok) setMasterClasses(await classRes.json());
             if (sessionRes.ok) setMasterSessions(await sessionRes.json());
+            if (employeeRes && employeeRes.ok) {
+                setActiveEmployees(await employeeRes.json());
+            }
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
@@ -519,7 +527,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
 
     // Filter students
     useEffect(() => {
@@ -687,6 +695,68 @@ const EnrolledStudentsContent = () => {
             });
         }
 
+        if (filterLeadBy.length > 0) {
+            result = result.filter(item => {
+                const latestAdmission = item.admissions.filter(a => {
+                    const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                    if (!isTypeMatch) return false;
+                    const admDate = new Date(a.admissionDate);
+                    if (startDate && admDate < new Date(startDate)) return false;
+                    if (endDate) {
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (admDate > end) return false;
+                    }
+                    return true;
+                })[0] || item.latestAdmission;
+                
+                const leadBy = item.student?.leadBy || latestAdmission?.leadBy;
+                const leadByName = leadBy?.name || "System";
+                return filterLeadBy.includes(leadByName);
+            });
+        }
+
+        if (filterCounselledBy.length > 0) {
+            result = result.filter(item => {
+                const latestAdmission = item.admissions.filter(a => {
+                    const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                    if (!isTypeMatch) return false;
+                    const admDate = new Date(a.admissionDate);
+                    if (startDate && admDate < new Date(startDate)) return false;
+                    if (endDate) {
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (admDate > end) return false;
+                    }
+                    return true;
+                })[0] || item.latestAdmission;
+
+                const counselBy = item.student?.counselledByDetails || latestAdmission?.counselledByDetails;
+                const counselByName = counselBy?.name || item.student?.counselledBy || "N/A";
+                return filterCounselledBy.includes(counselByName);
+            });
+        }
+
+        if (filterAdmissionBy.length > 0) {
+            result = result.filter(item => {
+                const latestAdmission = item.admissions.filter(a => {
+                    const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                    if (!isTypeMatch) return false;
+                    const admDate = new Date(a.admissionDate);
+                    if (startDate && admDate < new Date(startDate)) return false;
+                    if (endDate) {
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (admDate > end) return false;
+                    }
+                    return true;
+                })[0] || item.latestAdmission;
+
+                const admittedByName = latestAdmission?.createdBy?.name || (latestAdmission?.createdBy ? "Unknown" : "System");
+                return filterAdmissionBy.includes(admittedByName);
+            });
+        }
+
         // Filter by student status (viewMode)
         result = result.filter(item => {
             if (viewMode === 'Board') {
@@ -697,7 +767,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -772,6 +842,9 @@ const EnrolledStudentsContent = () => {
         setFilterMode([]);
         setFilterCourseType([]);
         setFilterAllocationStatus([]);
+        setFilterLeadBy([]);
+        setFilterCounselledBy([]);
+        setFilterAdmissionBy([]);
         setStartDate("");
         setEndDate("");
         setCurrentPage(1);
@@ -1525,6 +1598,54 @@ const EnrolledStudentsContent = () => {
                                 ]}
                                 selectedValues={filterAllocationStatus}
                                 onChange={setFilterAllocationStatus}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Lead By"
+                                placeholder="ALL LEADS"
+                                options={activeEmployees.map(e => e.name).filter(Boolean).reduce((acc, name) => {
+                                    if (!acc.some(o => o.value === name)) {
+                                        acc.push({ value: name, label: name.toUpperCase() });
+                                    }
+                                    return acc;
+                                }, []).sort((a, b) => a.label.localeCompare(b.label))}
+                                selectedValues={filterLeadBy}
+                                onChange={setFilterLeadBy}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Counselled By"
+                                placeholder="ALL COUNSELLORS"
+                                options={activeEmployees.map(e => e.name).filter(Boolean).reduce((acc, name) => {
+                                    if (!acc.some(o => o.value === name)) {
+                                        acc.push({ value: name, label: name.toUpperCase() });
+                                    }
+                                    return acc;
+                                }, []).sort((a, b) => a.label.localeCompare(b.label))}
+                                selectedValues={filterCounselledBy}
+                                onChange={setFilterCounselledBy}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Admission By"
+                                placeholder="ALL ADMISSIONS"
+                                options={activeEmployees.map(e => e.name).filter(Boolean).reduce((acc, name) => {
+                                    if (!acc.some(o => o.value === name)) {
+                                        acc.push({ value: name, label: name.toUpperCase() });
+                                    }
+                                    return acc;
+                                }, []).sort((a, b) => a.label.localeCompare(b.label))}
+                                selectedValues={filterAdmissionBy}
+                                onChange={setFilterAdmissionBy}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

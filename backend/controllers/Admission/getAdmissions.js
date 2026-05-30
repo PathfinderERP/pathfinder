@@ -271,3 +271,22 @@ export const getAdmissions = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+export const getActiveEmployees = async (req, res) => {
+    try {
+        const User = (await import("../../models/User.js")).default;
+        const activeEmployees = await User.find({
+            isActive: true,
+            role: { $ne: "teacher" }
+        })
+        .select("name")
+        .sort({ name: 1 })
+        .lean();
+
+        res.status(200).json(activeEmployees);
+    } catch (err) {
+        console.error("getActiveEmployees error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
