@@ -2,18 +2,89 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FaRobot, FaTimes, FaPaperPlane, FaChevronRight,
-    FaUserGraduate, FaUsers, FaComments, FaMoneyBillWave,
-    FaUserTie, FaArrowLeft, FaGraduationCap
+    FaUserGraduate, FaUsers, FaMoneyBillWave,
+    FaUserTie, FaArrowLeft, FaChartBar
 } from 'react-icons/fa';
+import { MdAutoAwesome } from 'react-icons/md';
 import axios from 'axios';
 
+
+// ── Simple Markdown Renderer ──────────────────────────────────
+const MarkdownText = ({ text }) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+
+    return (
+        <div className="ai-markdown space-y-1">
+            {lines.map((line, i) => {
+                // Heading
+                if (line.startsWith('### ')) return <h4 key={i} className="font-black text-xs uppercase tracking-wider text-cyan-600 dark:text-cyan-400 mt-2">{line.slice(4)}</h4>;
+                if (line.startsWith('## ')) return <h3 key={i} className="font-black text-sm text-gray-800 dark:text-gray-100 mt-2">{line.slice(3)}</h3>;
+                if (line.startsWith('# ')) return <h2 key={i} className="font-black text-sm text-gray-900 dark:text-white mt-2">{line.slice(2)}</h2>;
+
+                // Bullet points
+                if (line.startsWith('- ') || line.startsWith('* ')) {
+                    const content = line.slice(2);
+                    return (
+                        <div key={i} className="flex gap-1.5 items-start">
+                            <span className="text-cyan-500 mt-0.5 text-xs">•</span>
+                            <span>{formatInline(content)}</span>
+                        </div>
+                    );
+                }
+
+                // Numbered list
+                if (/^\d+\.\s/.test(line)) {
+                    const match = line.match(/^(\d+)\.\s(.*)$/);
+                    if (match) {
+                        return (
+                            <div key={i} className="flex gap-1.5 items-start">
+                                <span className="text-cyan-600 font-bold min-w-[16px] text-xs">{match[1]}.</span>
+                                <span>{formatInline(match[2])}</span>
+                            </div>
+                        );
+                    }
+                }
+
+                // Horizontal rule
+                if (line === '---' || line === '***') return <hr key={i} className="border-gray-200 dark:border-gray-700 my-1" />;
+
+                // Empty line
+                if (!line.trim()) return <div key={i} className="h-1" />;
+
+                // Regular paragraph
+                return <p key={i}>{formatInline(line)}</p>;
+            })}
+        </div>
+    );
+};
+
+// Inline formatting (bold, italic, code)
+const formatInline = (text) => {
+    const parts = [];
+    const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+        const raw = match[0];
+        if (raw.startsWith('**')) parts.push(<strong key={match.index} className="font-bold text-gray-900 dark:text-white">{raw.slice(2, -2)}</strong>);
+        else if (raw.startsWith('*')) parts.push(<em key={match.index} className="italic">{raw.slice(1, -1)}</em>);
+        else if (raw.startsWith('`')) parts.push(<code key={match.index} className="bg-gray-100 dark:bg-gray-800 rounded px-1 text-[10px] font-mono text-cyan-600">{raw.slice(1, -1)}</code>);
+        lastIndex = match.index + raw.length;
+    }
+    if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+    return parts.length ? parts : text;
+};
+
+// ── Main Component ────────────────────────────────────────────
 const AIAssistant = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
-    const [view, setView] = useState('welcome'); // welcome, choice, instructions, chat
-    const [activeGuide, setActiveGuide] = useState(null);
+    const [view, setView] = useState('welcome'); // welcome, choice, chat
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -21,14 +92,13 @@ const AIAssistant = () => {
     };
 
     useEffect(() => {
-        if (isOpen) {
-            scrollToBottom();
-            if (messages.length === 0) {
-                setTimeout(() => {
-                    addBotMessage("Welcome to Pathfinder ERP Assistant! 🚀\nI can guide you through any part of the system. What do you need help with today?");
-                    setView('choice');
-                }, 500);
-            }
+        if (isOpen && messages.length === 0) {
+            setTimeout(() => {
+                addBotMessage(
+                    "Hello! I'm **Pathfinder AI** 🤖\n\nI have live access to your ERP data. Ask me anything about:\n- **Admissions & Fees** — today's admissions, pending payments\n- **Leads** — hot leads, follow-up counts\n- **Students** — enrolled, active, centre-wise\n- **HR** — employees, salary bill\n- **Finance** — expenses, collections\n- **Or just ask** — \"Give me today's ERP summary\""
+                );
+                setView('choice');
+            }, 400);
         }
     }, [isOpen]);
 
@@ -42,84 +112,25 @@ const AIAssistant = () => {
         setMessages(prev => [...prev, { role: 'user', text }]);
     };
 
-    const erpGuides = {
-        'lead': {
-            title: 'Lead Management',
-            icon: <FaUsers className="text-purple-600" />,
-            bg: 'bg-purple-100 dark:bg-purple-900/50',
-            steps: [
-                { title: "Dashboard", detail: "Go to the lead management page ." },
-                { title: "Add Lead", detail: "Then add the lead details , after that it will be appeared in the dashboard .You can ypload it by excel file also ." },
-                { title: "Follow Up", detail: " Then click in the lead and add the follow up details .Click on the follow up then start the call , it will record the call then after completion you can update the details from hot to cold or cold to hot .Then add some feed back and next follow up date , means on which date they told you to call again, you can leave it blank if you want to call them immediately." },
-                { title: "Save the follow up", detail: "Then save the follow up." }
-            ]
-        },
-        'counselling': {
-            title: 'Counselling',
-            icon: <FaComments className="text-pink-600" />,
-            bg: 'bg-pink-100 dark:bg-pink-900/50',
-            steps: [
-                { title: "Counselling Pool", detail: "Inside the admission section click on the counselled students section, then click on the add counselling button at the top right corner." },
-                { title: "Fill the details", detail: "Fill the details of the student and the course.At first search the course from the search bar in the course section (if not present then you can create the course). select the course and fill the form with students data and save that form ." },
-                { title: "Schedule Next", detail: "You can edit it later by clicking on the edit button." },
-                { title: "Proceed to Admit", detail: "If convinced, start the admission finalization process." }
-            ]
-        },
-        'enrollment': {
-            title: 'Enrollment & Admission',
-            icon: <FaUserGraduate className="text-cyan-600" />,
-            bg: 'bg-cyan-100 dark:bg-cyan-900/50',
-            steps: [
-                { title: "Go to Counselling section", detail: "Click on the students right side Admit button." },
-                { title: "Admission Form", detail: "Fill the amount details, means the total amount which they are paying as down payment , and the for the remaining amount they want to divide for how many months , and if you want to give them some discount then you can give it here (FEE WAIVER)." },
-                { title: "Confirm the Admission", detail: "Confirm the admission by clicking on the confirm button.And generate the bill .You can also download it or print it.Then go to the enrolled students list." },
-                { title: "Installment Payment", detail: "In the enrolled students list, click the row of that student, then you can see the installment payment details.You can also download it or print it.And during the installment you can also pay the more or the less amount than the installment amount, the remaining or the extra amount will be adjusted in the next installment." }
-            ]
-        },
-        'finance': {
-            title: 'Finance & Fees',
-            icon: <FaMoneyBillWave className="text-emerald-600" />,
-            bg: 'bg-emerald-100 dark:bg-emerald-900/50',
-            steps: [
-                { title: "Fee Collection", detail: "Go to Active Students to 'Pay Now' for EMI or pending fees." },
-                { title: "Transaction List", detail: "View 'Finance & Fees > Transaction List' for all payments." },
-                { title: "Defaulters", detail: "Track students who have missed their due dates." },
-                { title: "Reports", detail: "Check out finance reports from the Sales Dashboard." }
-            ]
-        },
-        'employee': {
-            title: 'Employee Center',
-            icon: <FaUserTie className="text-orange-600" />,
-            bg: 'bg-orange-100 dark:bg-orange-900/50',
-            steps: [
-                { title: "My Profile", detail: "View your employee details, attendance, and leave balance." },
-                { title: "Apply Leave", detail: "Submit a leave application through the 'Leave Management' tab." },
-                { title: "Attendance", detail: "Check your daily and monthly biometric check-in/out logs." },
-                { title: "Payslips", detail: "Access your monthly payslip history." }
-            ]
-        }
+    const quickPrompts = [
+        { label: "Today's ERP Summary", icon: <MdAutoAwesome />, prompt: "Give me today's complete ERP overview and summary" },
+        { label: "Pending Payments", icon: <FaMoneyBillWave />, prompt: "Show me all pending and overdue payment admissions" },
+        { label: "Lead Overview", icon: <FaUsers />, prompt: "How many leads do we have? Break down by hot, warm and cold" },
+        { label: "Admission Stats", icon: <FaUserGraduate />, prompt: "Give me the complete admissions statistics and revenue collected" },
+        { label: "Employee Summary", icon: <FaUserTie />, prompt: "Give me a summary of all employees and total monthly salary bill" },
+        { label: "Finance Report", icon: <FaChartBar />, prompt: "Show me the finance and expense summary for this month" },
+    ];
+
+    const handleQuickPrompt = (prompt) => {
+        setInputValue(prompt);
+        handleSendMessage(null, prompt);
     };
 
-    const handleChoice = (key) => {
-        const guide = erpGuides[key];
-        addUserMessage(`Help me with ${guide.title}`);
-
-        setIsTyping(true);
-        setView('chat'); // Hide choices temporarily
-
-        setTimeout(() => {
-            setIsTyping(false);
-            addBotMessage(`Here is your quick guide for **${guide.title}**! Let me know if you need more details.`);
-            setActiveGuide(guide);
-            setView('instructions');
-        }, 800);
-    };
-
-    const handleSendMessage = async (e) => {
+    const handleSendMessage = async (e, overrideMsg = null) => {
         if (e) e.preventDefault();
-        if (!inputValue.trim()) return;
+        const userMsg = overrideMsg || inputValue;
+        if (!userMsg.trim()) return;
 
-        const userMsg = inputValue;
         setInputValue('');
         addUserMessage(userMsg);
         setIsTyping(true);
@@ -139,7 +150,7 @@ const AIAssistant = () => {
         } catch (error) {
             console.error("AI Error:", error);
             setIsTyping(false);
-            addBotMessage("I'm sorry, I'm having trouble connecting to my brain right now. Please try again later.");
+            addBotMessage("⚠️ I'm having trouble connecting to the ERP right now. Please check your connection and try again.");
         }
     };
 
@@ -151,124 +162,103 @@ const AIAssistant = () => {
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="mb-4 w-80 md:w-96 h-[550px] bg-white/80 dark:bg-[#1c2128]/95 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="mb-4 w-80 md:w-[400px] h-[580px] bg-white/90 dark:bg-[#1c2128]/97 backdrop-blur-2xl border border-white/30 dark:border-gray-700/60 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
                     >
                         {/* Header */}
-                        <div className="p-4 bg-gradient-to-r from-cyan-600 to-blue-600 text-white flex justify-between items-center z-10 shadow-sm relative">
-                            <div className="flex items-center gap-3">
-                                {view === 'instructions' ? (
-                                    <button onClick={() => setView('choice')} className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+                        <div className="p-4 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white flex justify-between items-center shadow-lg relative overflow-hidden">
+                            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '18px 18px' }}></div>
+                            <div className="flex items-center gap-3 relative z-10">
+                                {view === 'chat' ? (
+                                    <button
+                                        onClick={() => setView('choice')}
+                                        className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+                                    >
                                         <FaArrowLeft className="text-sm" />
                                     </button>
                                 ) : (
-                                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center ring-2 ring-white/30">
                                         <FaRobot className="text-xl" />
                                     </div>
                                 )}
                                 <div>
-                                    <h3 className="font-bold text-sm">ERP Assistant</h3>
-                                    <div className="flex items-center gap-1">
-                                        <span className="w-2 h-2 rounded-full bg-green-400"></span>
-                                        <span className="text-[10px] opacity-80 uppercase tracking-wider font-bold">Online</span>
+                                    <h3 className="font-black text-sm tracking-wide">Pathfinder AI</h3>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                                        <span className="text-[10px] opacity-90 uppercase tracking-widest font-bold">Live ERP Access</span>
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors">
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="relative z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
+                            >
                                 <FaTimes />
                             </button>
                         </div>
 
                         {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
                             {messages.map((msg, idx) => (
                                 <motion.div
-                                    initial={{ opacity: 0, x: msg.role === 'bot' ? -10 : 10 }}
-                                    animate={{ opacity: 1, x: 0 }}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
                                     key={idx}
                                     className={`flex ${msg.role === 'bot' ? 'justify-start' : 'justify-end'}`}
                                 >
-                                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'bot'
-                                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none border border-gray-200 dark:border-gray-700'
-                                        : 'bg-cyan-600 text-white rounded-tr-none shadow-md'
-                                        }`}>
-                                        {msg.text.split('\n').map((line, i) => {
-                                            // Handle basic bolding markdown
-                                            const formattedLine = line.split('**').map((part, index) =>
-                                                index % 2 === 1 ? <strong key={index}>{part}</strong> : part
-                                            );
-                                            return <p key={i} className={i > 0 ? 'mt-1' : ''}>{formattedLine}</p>;
-                                        })}
+                                    {msg.role === 'bot' && (
+                                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center mr-2 mt-0.5 shrink-0 shadow-md">
+                                            <FaRobot className="text-white text-[10px]" />
+                                        </div>
+                                    )}
+                                    <div className={`max-w-[82%] p-3 rounded-2xl text-xs leading-relaxed ${
+                                        msg.role === 'bot'
+                                            ? 'bg-gray-50 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200 rounded-tl-none border border-gray-100 dark:border-gray-700/50 shadow-sm'
+                                            : 'bg-gradient-to-br from-cyan-600 to-blue-600 text-white rounded-tr-none shadow-lg'
+                                    }`}>
+                                        {msg.role === 'bot'
+                                            ? <MarkdownText text={msg.text} />
+                                            : <p>{msg.text}</p>
+                                        }
                                     </div>
                                 </motion.div>
                             ))}
 
-                            {/* Views */}
+                            {/* Quick Prompts Panel */}
                             {view === 'choice' && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="pt-2 grid grid-cols-1 gap-2"
+                                    className="pt-1 grid grid-cols-1 gap-2"
                                 >
-                                    {Object.entries(erpGuides).map(([key, guide]) => (
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1">Quick Questions</p>
+                                    {quickPrompts.map((qp, i) => (
                                         <button
-                                            key={key}
-                                            onClick={() => handleChoice(key)}
-                                            className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:border-cyan-300 hover:shadow-md dark:hover:bg-gray-700 transition-all flex items-center gap-3 group"
+                                            key={i}
+                                            onClick={() => handleQuickPrompt(qp.prompt)}
+                                            className="w-full p-2.5 bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/60 rounded-xl hover:border-cyan-400 hover:shadow-md hover:bg-cyan-50/50 dark:hover:bg-gray-700/60 transition-all flex items-center gap-3 group text-left"
                                         >
-                                            <div className={`w-8 h-8 rounded-lg ${guide.bg} flex items-center justify-center transition-colors`}>
-                                                {guide.icon}
+                                            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-100 to-blue-100 dark:from-cyan-900/40 dark:to-blue-900/40 flex items-center justify-center text-cyan-600 dark:text-cyan-400 text-xs shrink-0">
+                                                {qp.icon}
                                             </div>
-                                            <div className="text-left flex-1">
-                                                <div className="text-sm font-bold dark:text-gray-200">{guide.title}</div>
-                                            </div>
-                                            <FaChevronRight className="text-gray-300 dark:text-gray-500 text-xs group-hover:text-cyan-500 transition-colors" />
+                                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{qp.label}</span>
+                                            <FaChevronRight className="ml-auto text-gray-300 dark:text-gray-600 text-[10px] group-hover:text-cyan-500 transition-colors" />
                                         </button>
                                     ))}
                                 </motion.div>
                             )}
 
-                            {view === 'instructions' && activeGuide && (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="space-y-4 pl-2"
-                                >
-                                    <div className="relative border-l-2 border-cyan-100 dark:border-gray-700 pl-4 py-2 space-y-5">
-                                        {activeGuide.steps.map((step, i) => (
-                                            <div key={i} className="relative">
-                                                <div className="absolute -left-[25px] top-0 w-6 h-6 rounded-full bg-cyan-600 border-4 border-white dark:border-gray-900 text-white text-[10px] flex items-center justify-center font-black">
-                                                    {i + 1}
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs font-black dark:text-gray-200 uppercase tracking-wide text-cyan-600 dark:text-cyan-400">{step.title}</div>
-                                                    <div className="text-[11px] text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">{step.detail}</div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setView('choice')}
-                                            className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                        >
-                                            Back to Menu
-                                        </button>
-                                        <button
-                                            onClick={() => setView('chat')}
-                                            className="flex-1 py-2.5 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800 rounded-lg text-xs font-bold hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
-                                        >
-                                            Ask specific question
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-
+                            {/* Typing Indicator */}
                             {isTyping && (
                                 <div className="flex justify-start">
-                                    <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-2xl rounded-tl-none flex gap-1 items-center h-10 border border-gray-200 dark:border-gray-700">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce"></span>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce delay-150"></span>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce delay-300"></span>
+                                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center mr-2 shrink-0 shadow-md">
+                                        <FaRobot className="text-white text-[10px]" />
+                                    </div>
+                                    <div className="bg-gray-50 dark:bg-gray-800/80 p-3 rounded-2xl rounded-tl-none flex gap-1.5 items-center border border-gray-100 dark:border-gray-700/50">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                        <span className="text-[10px] text-gray-400 ml-1">Analysing ERP data...</span>
                                     </div>
                                 </div>
                             )}
@@ -276,54 +266,69 @@ const AIAssistant = () => {
                         </div>
 
                         {/* Input Area */}
-                        <form onSubmit={handleSendMessage} className="p-3 bg-white dark:bg-[#1c2128] border-t border-gray-100 dark:border-gray-800 flex gap-2">
+                        <form
+                            onSubmit={handleSendMessage}
+                            className="p-3 bg-white/80 dark:bg-[#1c2128]/90 border-t border-gray-100 dark:border-gray-800 flex gap-2"
+                        >
                             {view === 'chat' && (
                                 <button
                                     type="button"
                                     onClick={() => setView('choice')}
-                                    className="w-10 h-10 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl flex items-center justify-center hover:bg-gray-200 transition-colors shrink-0"
-                                    title="Back to Topics"
+                                    className="w-10 h-10 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0"
+                                    title="Back to Quick Questions"
                                 >
-                                    <FaRobot />
+                                    <MdAutoAwesome />
                                 </button>
                             )}
                             <input
                                 type="text"
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
-                                placeholder="Ask me anything..."
-                                className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-cyan-500 dark:text-white"
+                                placeholder="Ask anything about your ERP..."
+                                className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 dark:text-white placeholder-gray-400 transition-all"
                             />
                             <button
                                 type="submit"
                                 disabled={!inputValue.trim() || isTyping}
-                                className="w-10 h-10 bg-gradient-to-tr from-cyan-600 to-blue-600 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:focus:ring-offset-[#1c2128] text-white rounded-xl flex items-center justify-center hover:from-cyan-500 hover:to-blue-500 transition-all shadow-lg shrink-0 disabled:opacity-50"
+                                className="w-10 h-10 bg-gradient-to-tr from-cyan-600 to-blue-600 text-white rounded-xl flex items-center justify-center hover:from-cyan-500 hover:to-blue-500 transition-all shadow-lg shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                <FaPaperPlane className="text-xs ml-[-2px]" />
+                                <FaPaperPlane className="text-xs" />
                             </button>
                         </form>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Bubble Toggle */}
+            {/* Floating Button */}
             <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.2)] ${isOpen
-                    ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white border border-gray-200 dark:border-gray-700'
-                    : 'bg-gradient-to-tr from-cyan-600 to-blue-600 text-white'
-                    }`}
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-[0_8px_32px_rgba(0,150,255,0.35)] relative ${
+                    isOpen
+                        ? 'bg-white dark:bg-gray-800 text-gray-700 dark:text-white border border-gray-200 dark:border-gray-700'
+                        : 'bg-gradient-to-tr from-cyan-600 to-blue-600 text-white'
+                }`}
             >
-                {isOpen ? <FaTimes className="text-xl" /> : <FaRobot className="text-2xl" />}
+                <AnimatePresence mode="wait">
+                    {isOpen ? (
+                        <motion.span key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                            <FaTimes className="text-xl" />
+                        </motion.span>
+                    ) : (
+                        <motion.span key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                            <FaRobot className="text-2xl" />
+                        </motion.span>
+                    )}
+                </AnimatePresence>
+
                 {!isOpen && (
                     <motion.span
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-[#1c2128]"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-gray-900 shadow"
                     >
-                        1
+                        AI
                     </motion.span>
                 )}
             </motion.button>
@@ -332,4 +337,3 @@ const AIAssistant = () => {
 };
 
 export default AIAssistant;
-
