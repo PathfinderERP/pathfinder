@@ -2596,7 +2596,7 @@ const Classes = () => {
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Hours</label>
                                             <input
                                                 type="number"
-                                                step="0.25"
+                                                step="0.10"
                                                 min="0"
                                                 required
                                                 value={editingClassData.classHours !== undefined ? editingClassData.classHours : ''}

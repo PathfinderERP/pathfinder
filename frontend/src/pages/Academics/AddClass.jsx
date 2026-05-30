@@ -441,8 +441,8 @@ const AddClass = () => {
                                 name="classHours"
                                 value={formData.classHours}
                                 onChange={handleChange}
-                                step="0.5"
-                                placeholder="e.g. 1.5"
+                                step="0.10"
+                                placeholder="e.g. 1.10"
                                 className={`w-full rounded-lg p-3 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
                                 required
                             />
