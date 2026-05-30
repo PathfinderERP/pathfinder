@@ -14,7 +14,7 @@ export const getFollowUpStats = async (req, res) => {
         if (leadResponsibility) {
             const identifiers = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
             for (const val of identifiers) {
-                const resolved = await resolveAgentIdentifier(val);
+                const resolved = await resolveAgentIdentifier(val, req.user);
                 if (resolved) {
                     if (resolved.leadMatch) {
                         leadResponsibilityQuery.$or.push(resolved.leadMatch);

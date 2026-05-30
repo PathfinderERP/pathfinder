@@ -20,7 +20,7 @@ const normalizeValue = (val) => {
  * Resolves an agent identifier (which could be an ObjectId, a string like "Name (Centre Name)", or just a name string)
  * into matching conditions for LeadManagement queries.
  */
-export const resolveAgentIdentifier = async (val) => {
+export const resolveAgentIdentifier = async (val, currentUser = null) => {
     if (!val) return null;
     
     let user = null;
@@ -49,10 +49,40 @@ export const resolveAgentIdentifier = async (val) => {
     
     // 3. Fallback: Treat as plain name string
     if (!user && typeof val === 'string') {
-        user = await User.findOne({
-            name: { $regex: new RegExp(`^${val}$`, "i") },
-            isActive: true
-        }).populate('centres');
+        let currentDbUser = null;
+        if (currentUser) {
+            if (typeof currentUser.populate === 'function') {
+                currentDbUser = currentUser;
+            } else {
+                currentDbUser = await User.findById(currentUser.id || currentUser._id).populate('centres');
+            }
+        }
+
+        if (currentDbUser && currentDbUser.name && currentDbUser.name.toLowerCase().trim() === val.toLowerCase().trim()) {
+            user = currentDbUser;
+            if (user && typeof user.populate === 'function' && (!user.populated || !user.populated('centres'))) {
+                await user.populate('centres');
+            }
+        } else {
+            const matchingUsers = await User.find({
+                name: { $regex: new RegExp(`^${val}$`, "i") },
+                isActive: true
+            }).populate('centres');
+            
+            if (matchingUsers.length > 0) {
+                if (matchingUsers.length === 1) {
+                    user = matchingUsers[0];
+                } else if (currentUser) {
+                    const currentUserCentreIds = (currentUser.centres || []).map(c => (c._id || c).toString());
+                    const sharedCenterUser = matchingUsers.find(u => 
+                        (u.centres || []).some(c => currentUserCentreIds.includes((c._id || c).toString()))
+                    );
+                    user = sharedCenterUser || matchingUsers[0];
+                } else {
+                    user = matchingUsers[0];
+                }
+            }
+        }
     }
     
     if (user) {
@@ -179,7 +209,7 @@ export const buildLeadQuery = async (queryParams, user) => {
         if (cleanValues.length > 0) {
             const orConditions = [];
             for (const val of cleanValues) {
-                const resolved = await resolveAgentIdentifier(val);
+                const resolved = await resolveAgentIdentifier(val, user);
                 if (resolved && resolved.leadMatch) {
                     orConditions.push(resolved.leadMatch);
                 }

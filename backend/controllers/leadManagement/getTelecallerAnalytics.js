@@ -11,7 +11,7 @@ export const getTelecallerAnalytics = async (req, res) => {
         const { fromDate, toDate, startTime, endTime } = req.query;
         const telecallerNameFromUrl = decodeURIComponent(telecallerId);
 
-        const resolved = await resolveAgentIdentifier(telecallerNameFromUrl);
+        const resolved = await resolveAgentIdentifier(telecallerNameFromUrl, req.user);
         let leadMatch = resolved ? resolved.leadMatch : {};
         let followUpMatch = resolved ? resolved.followUpMatch : {};
         let telecallerIds = resolved && resolved.user ? [resolved.user._id] : [];
