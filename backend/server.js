@@ -97,7 +97,7 @@ const app = express();
 
 app.use(express.json({ limit: "500mb" }));
 app.use(cors({
-    origin: ["https://pathfinder-three-mu.vercel.app", "http://localhost:5173", "http://localhost:5000", "https://pfndrerp.in"],
+    origin: ["https://pathfinder-three-mu.vercel.app", "http://localhost:5173", "http://localhost:5000", "https://pfndrerp.in", "http://localhost:8081", "http://localhost:8082", "https://app.studypathportal.in/"],
     credentials: true
 }));
 app.use(express.urlencoded({ extended: true, limit: "500mb" }));
