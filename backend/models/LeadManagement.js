@@ -74,6 +74,9 @@ const leadManagementSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
+    marketingBy: {
+        type: String,
+    },
     // New fields for easier querying
     lastFollowUpDate: {
         type: Date
