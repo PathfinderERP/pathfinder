@@ -67,8 +67,23 @@ export const updateMyProfile = async (req, res) => {
         if (name) user.name = name;
         if (email) user.email = email;
         if (mobNum) user.mobNum = mobNum;
+        
+        user.updatedBy = userId;
 
         await user.save();
+
+        // Sync changes with Employee record if it exists
+        await Employee.findOneAndUpdate(
+            { user: userId },
+            { 
+                $set: { 
+                    name: user.name, 
+                    email: user.email, 
+                    phoneNumber: user.mobNum, 
+                    updatedBy: userId 
+                } 
+            }
+        );
 
         // Return updated user without password
         const updatedUser = await User.findById(userId)

@@ -182,17 +182,24 @@ export const transferCourse = async (req, res) => {
         const installmentAmount = Math.ceil(remainingAmount / numberOfInstallments);
         const paymentBreakdown = [];
         const currentDate = new Date();
+        let remainingToDistribute = Math.max(0, remainingAmount);
 
         for (let i = 0; i < numberOfInstallments; i++) {
             const dueDate = new Date(currentDate);
             dueDate.setMonth(dueDate.getMonth() + i + 1);
 
+            let amount = 0;
+            if (i === numberOfInstallments - 1) {
+                amount = Math.max(0, remainingToDistribute);
+            } else {
+                amount = Math.max(0, Math.min(installmentAmount, remainingToDistribute));
+            }
+            remainingToDistribute = parseFloat((remainingToDistribute - amount).toFixed(3));
+
             paymentBreakdown.push({
                 installmentNumber: i + 1,
                 dueDate: dueDate,
-                amount: i === numberOfInstallments - 1
-                    ? remainingAmount - (installmentAmount * (numberOfInstallments - 1))
-                    : installmentAmount,
+                amount: amount,
                 status: "PENDING",
                 remarks: i === 0 && creditAmount > 0 ? `Transferred from ${sourceCourseName}. Credit: ₹${creditAmount}` : ""
             });

@@ -44,6 +44,8 @@ export const createCoordinator = async (req, res) => {
             if (name) existingUser.name = name;
             if (mobNum) existingUser.mobNum = mobNum;
 
+            existingUser.updatedBy = req.user.id;
+
             await existingUser.save();
             return res.status(200).json({ 
                 message: "Existing user promoted to Class Coordinator successfully", 
@@ -65,7 +67,9 @@ export const createCoordinator = async (req, res) => {
             employeeId,
             password: hashedPassword,
             role: "Class_Coordinator",
-            centres
+            centres,
+            createdBy: req.user.id,
+            updatedBy: req.user.id
         });
 
         await newCoordinator.save();
@@ -83,7 +87,7 @@ export const getAllCoordinators = async (req, res) => {
         let query = { role: "Class_Coordinator" };
 
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "zonalhead", "hr", "class_coordinator", "rm", "hod"];
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod"];
         const isPrivileged = privilegedRoles.includes(userRole);
 
         if (userRole !== "superadmin" && userRole !== "super admin" && userRole !== "hr") {
@@ -122,6 +126,8 @@ export const updateCoordinator = async (req, res) => {
         if (centreId !== undefined) {
             updates.centres = centreId ? [centreId] : [];
         }
+
+        updates.updatedBy = req.user.id;
 
         const updatedCoordinator = await User.findByIdAndUpdate(id, updates, { new: true });
 

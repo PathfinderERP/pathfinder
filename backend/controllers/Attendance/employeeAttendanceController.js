@@ -3,6 +3,7 @@ import Employee from "../../models/HR/Employee.js";
 import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Holiday from "../../models/Attendance/Holiday.js";
+import Regularization from "../../models/Attendance/Regularization.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear, isToday, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 
@@ -351,6 +352,11 @@ export const getMyAttendance = async (req, res) => {
             return res.status(404).json({ message: "Employee profile not found" });
         }
 
+        const regularizations = await Regularization.find({
+            employeeId: employee._id,
+            date: { $gte: start, $lte: end }
+        }).populate("reviewedBy", "name");
+
         // Calculate early checkouts this week for warning
         const today = new Date();
         const startOfMarkWeek = startOfWeek(today, { weekStartsOn: 1 });
@@ -412,6 +418,7 @@ export const getMyAttendance = async (req, res) => {
                 ...employee.toObject() // Include full details if needed
             },
             attendances,
+            regularizations,
             holidays,
             workingDays: normalizedWorkingDays,
             workingHours: employee.workingHours,
@@ -548,12 +555,27 @@ export const getAllAttendance = async (req, res) => {
             });
         }
 
-        // Sign profile images
+        const employeeIds = attendances.map(att => att.employeeId?._id).filter(Boolean);
+        const regularizations = await Regularization.find({
+            employeeId: { $in: employeeIds },
+            date: query.date || {}
+        }).populate("reviewedBy", "name");
+
+        // Sign profile images and attach regularization details
         const signedAttendances = await Promise.all(attendances.map(async (att) => {
+            const attObj = att.toObject ? att.toObject() : att;
             if (att.employeeId && att.employeeId.profileImage) {
-                att.employeeId.profileImage = await getSignedFileUrl(att.employeeId.profileImage);
+                attObj.employeeId.profileImage = await getSignedFileUrl(att.employeeId.profileImage);
             }
-            return att;
+            const attDateStr = format(new Date(att.date), "yyyy-MM-dd");
+            const reg = regularizations.find(r => 
+                r.employeeId.toString() === att.employeeId?._id?.toString() && 
+                format(new Date(r.date), "yyyy-MM-dd") === attDateStr
+            );
+            if (reg) {
+                attObj.regularization = reg;
+            }
+            return attObj;
         }));
 
         res.status(200).json(signedAttendances);
@@ -623,6 +645,16 @@ export const getAttendanceAnalysis = async (req, res) => {
             new Date(a.date) >= periodStart && new Date(a.date) <= periodEnd
         );
 
+        // Fetch user's employee profile and regularization requests for the period
+        const employee = await Employee.findOne({ user: targetUserId });
+        let regularizations = [];
+        if (employee) {
+            regularizations = await Regularization.find({
+                employeeId: employee._id,
+                date: { $gte: periodStart, $lte: periodEnd }
+            }).populate("reviewedBy", "name");
+        }
+
         // 3. Calculate Detailed Period Stats
         let totalHours = 0;
         let minHours = Infinity;
@@ -644,6 +676,7 @@ export const getAttendanceAnalysis = async (req, res) => {
 
             const att = filteredAttendances.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
             const isPastDay = startOfDay(day) < todayStart;
+            const reg = regularizations.find(r => format(new Date(r.date), 'yyyy-MM-dd') === dayStr);
 
             if (att) {
                 let wh = att.workingHours || 0;
@@ -695,7 +728,8 @@ export const getAttendanceAnalysis = async (req, res) => {
                     hours: wh,
                     status: status,
                     checkIn: att.checkIn?.time || '-',
-                    checkOut: (att.checkOut?.time && status !== 'Absent') ? att.checkOut.time : '-'
+                    checkOut: (att.checkOut?.time && status !== 'Absent') ? att.checkOut.time : '-',
+                    regularization: reg
                 };
             } else {
                 const isWeekendDay = day.getDay() === 0; // Sunday
@@ -707,7 +741,8 @@ export const getAttendanceAnalysis = async (req, res) => {
                     hours: 0,
                     status: 'Absent',
                     checkIn: '-',
-                    checkOut: '-'
+                    checkOut: '-',
+                    regularization: reg
                 };
             }
         }).filter(Boolean);
@@ -1138,3 +1173,48 @@ export const bulkImportAttendance = async (req, res) => {
         res.status(500).json({ message: "Server error during import", error: error.message });
     }
 };
+
+// Check Attendance for a specific date
+export const checkDateAttendance = async (req, res) => {
+    try {
+        const { date } = req.query;
+        if (!date) {
+            return res.status(400).json({ message: "Date is required" });
+        }
+        
+        const userId = req.user.id;
+        const queryDate = startOfDay(new Date(date));
+        
+        // Find existing attendance
+        const attendance = await EmployeeAttendance.findOne({
+            user: userId,
+            date: queryDate
+        }).populate("centreId", "centreName");
+        
+        // Find employee to get shift details
+        const employee = await Employee.findOne({ user: userId });
+        const targetHours = employee?.workingHours || 9;
+        
+        if (attendance) {
+            return res.status(200).json({
+                exists: true,
+                checkIn: attendance.checkIn?.time ? format(new Date(attendance.checkIn.time), "HH:mm") : null,
+                checkOut: attendance.checkOut?.time ? format(new Date(attendance.checkOut.time), "HH:mm") : null,
+                workingHours: attendance.workingHours || 0,
+                status: attendance.status || "Present",
+                targetHours
+            });
+        }
+        
+        return res.status(200).json({
+            exists: false,
+            workingHours: 0,
+            status: "Absent",
+            targetHours
+        });
+    } catch (error) {
+        console.error("Check Date Attendance Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+

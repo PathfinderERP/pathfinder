@@ -9,6 +9,7 @@ import StudentRegistration from "./pages/StudentRegistration";
 import Finance from "./pages/Finance";
 import Sales from "./pages/Sales";
 import CentreTarget from "./pages/Sales/CentreTarget";
+import ComparisonAnalysis from "./pages/Sales/ComparisonAnalysis";
 import CentreRank from "./pages/Sales/CentreRank";
 import TargetAchievementReport from "./pages/Sales/TargetAchievementReport";
 import AdmissionReport from "./pages/Sales/AdmissionReport";
@@ -16,6 +17,7 @@ import CourseReport from "./pages/Sales/CourseReport";
 import DiscountReport from "./pages/Sales/DiscountReport";
 import TransactionReport from "./pages/Sales/TransactionReport";
 import DailyCollection from "./pages/Sales/DailyCollection";
+import AdmissionCourseReport from "./pages/Sales/AdmissionCourseReport";
 import BoardReport from "./pages/Sales/BoardReport";
 import QuarterlyTargetReport from "./pages/Sales/QuarterlyTargetReport";
 import WeeklyTarget from "./pages/Sales/WeeklyTarget";
@@ -47,6 +49,7 @@ import MasterDataSource from "./pages/MasterDataSource";
 import MasterDataSession from "./pages/MasterDataSession";
 import MasterDataScript from "./pages/MasterDataScript";
 import MasterDataExpenseCategory from "./pages/MasterDataExpenseCategory";
+import FinanceExpenseCategory from "./pages/FinanceExpenseCategory";
 import MasterDataExpenseSubCategory from "./pages/MasterDataExpenseSubCategory";
 import MasterDataExpenditureType from "./pages/MasterDataExpenditureType";
 import PettyCashCentre from "./pages/PettyCash/PettyCashCentre";
@@ -63,6 +66,7 @@ import ZoneManagement from "./pages/ZoneManagement";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
 import MasterDataBoardCourseSubject from "./pages/MasterDataBoardCourseSubject.jsx";
 import MarketingCRM from "./pages/MarketingCRM";
+import UploadLeads from "./pages/LeadManagement/UploadLeads";
 // import SystemLogs from "./pages/Admin/SystemLogs";
 
 // ... [existing imports]
@@ -102,6 +106,7 @@ import TeacherRoutineSchedule from "./pages/Academics/TeacherRoutineSchedule";
 // HR Pages
 import EmployeeList from "./pages/HR/EmployeeList";
 import AddEmployee from "./pages/HR/AddEmployee";
+import SalaryExpenseHub from "./pages/HR/SalaryExpense/SalaryExpenseHub";
 import ViewEmployee from "./pages/HR/ViewEmployee";
 import EmployeeLetters from "./pages/HR/EmployeeLetters";
 import OfferLetter from "./pages/HR/Letters/OfferLetter";
@@ -154,6 +159,8 @@ import BudgetDetails from "./pages/Finance/BudgetDetails";
 import PartTimeTeachers from "./pages/Finance/PartTimeTeachers";
 import PayEmployee from "./pages/Finance/PayEmployee";
 import PayEmployeeDetails from "./pages/Finance/PayEmployeeDetails";
+import CreateExpense from "./pages/expense/CreateExpense";
+import GetAllExpense from "./pages/expense/GetAllExpense";
 import CEOControlTower from "./pages/CEOControlTower";
 import Store from "./pages/Operations/Store";
 import MarketingOperations from "./pages/Operations/Marketing";
@@ -188,6 +195,7 @@ function App() {
         <Route path="/red-flag-desk" element={<ProtectedRoute><RedFlagDesk /></ProtectedRoute>} />
         <Route path="/daily-tracking-log" element={<ProtectedRoute><DailyTrackingLog /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
+        <Route path="/marketing-crm/upload-leads" element={<ProtectedRoute><UploadLeads /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
         <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />
         <Route path="/board-course-admission/:studentId" element={<ProtectedRoute><BoardCourseAdmissionPage /></ProtectedRoute>} />
@@ -218,8 +226,12 @@ function App() {
         <Route path="/finance/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
         <Route path="/finance/budget/:centreId" element={<ProtectedRoute><BudgetDetails /></ProtectedRoute>} />
         <Route path="/finance/part-time-teachers" element={<ProtectedRoute><PartTimeTeachers /></ProtectedRoute>} />
+        <Route path="/finance/expenses" element={<ProtectedRoute><GetAllExpense /></ProtectedRoute>} />
+        <Route path="/finance/expense/create" element={<ProtectedRoute><CreateExpense /></ProtectedRoute>} />
+        <Route path="/expense/create" element={<ProtectedRoute><CreateExpense /></ProtectedRoute>} />
         <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
         <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
+        <Route path="/sales/comparison-analysis" element={<ProtectedRoute><ComparisonAnalysis /></ProtectedRoute>} />
         <Route path="/sales/centre-rank" element={<ProtectedRoute><CentreRank /></ProtectedRoute>} />
         <Route path="/sales/target-achievement-report" element={<ProtectedRoute><TargetAchievementReport /></ProtectedRoute>} />
         <Route path="/sales/admission-report" element={<ProtectedRoute><AdmissionReport /></ProtectedRoute>} />
@@ -227,12 +239,14 @@ function App() {
         <Route path="/sales/discount-report" element={<ProtectedRoute><DiscountReport /></ProtectedRoute>} />
         <Route path="/sales/transaction-report" element={<ProtectedRoute><TransactionReport /></ProtectedRoute>} />
         <Route path="/sales/daily-collection" element={<ProtectedRoute><DailyCollection /></ProtectedRoute>} />
+        <Route path="/sales/admission-course-report" element={<ProtectedRoute><AdmissionCourseReport /></ProtectedRoute>} />
         <Route path="/sales/board-report" element={<ProtectedRoute><BoardReport /></ProtectedRoute>} />
         <Route path="/sales/quarterly-target-report" element={<ProtectedRoute><QuarterlyTargetReport /></ProtectedRoute>} />
         <Route path="/sales/weekly-target" element={<ProtectedRoute><WeeklyTarget /></ProtectedRoute>} />
         <Route path="/sales/final-weekend-target" element={<ProtectedRoute><FinalWeekendTarget /></ProtectedRoute>} />
         <Route path="/sales/course-target" element={<ProtectedRoute><CourseTarget /></ProtectedRoute>} />
         <Route path="/hr" element={<ProtectedRoute><HR /></ProtectedRoute>} />
+        <Route path="/hr/salary-expense" element={<ProtectedRoute><SalaryExpenseHub /></ProtectedRoute>} />
         <Route path="/hr/employee/list" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
         <Route path="/hr/employee/add" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
         <Route path="/hr/employee/edit/:id" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
@@ -314,6 +328,7 @@ function App() {
         <Route path="/master-data/session" element={<ProtectedRoute><MasterDataSession /></ProtectedRoute>} />
         <Route path="/master-data/script" element={<ProtectedRoute><MasterDataScript /></ProtectedRoute>} />
         <Route path="/master-data/expense-category" element={<ProtectedRoute><MasterDataExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute><FinanceExpenseCategory /></ProtectedRoute>} />
         <Route path="/master-data/expense-subcategory" element={<ProtectedRoute><MasterDataExpenseSubCategory /></ProtectedRoute>} />
         <Route path="/master-data/expenditure-type" element={<ProtectedRoute><MasterDataExpenditureType /></ProtectedRoute>} />
         <Route path="/master-data/account" element={<ProtectedRoute><MasterDataAccount /></ProtectedRoute>} />

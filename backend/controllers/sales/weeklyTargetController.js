@@ -478,3 +478,220 @@ export const getWeeklyTarget = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
+/**
+ * Build FIXED 7-day week periods for a given month/year.
+ * Week 1: days 1-7
+ * Week 2: days 8-14
+ * Week 3: days 15-21
+ * Week 4: days 22-28
+ * Week 5: days 29-end (only if daysInMonth > 28)
+ */
+const buildFixedWeeks = (year, monthIndex) => {
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const periods = [
+        { weekNumber: 1, start: 1,  end: 7  },
+        { weekNumber: 2, start: 8,  end: 14 },
+        { weekNumber: 3, start: 15, end: 21 },
+        { weekNumber: 4, start: 22, end: 28 },
+    ];
+
+    if (daysInMonth > 28) {
+        periods.push({ weekNumber: 5, start: 29, end: daysInMonth });
+    }
+
+    return periods
+        .filter(p => p.start <= daysInMonth)
+        .map(p => {
+            const actualEnd = Math.min(p.end, daysInMonth);
+            const days = [];
+            for (let d = p.start; d <= actualEnd; d++) {
+                const date = new Date(year, monthIndex, d);
+                const dow  = date.getDay(); // 0=Sun … 6=Sat
+                days.push({
+                    day:       d,
+                    dayName:   dayNames[dow],
+                    isWeekend: dow === 0 || dow === 6,
+                    isEmpty:   false
+                });
+            }
+            return {
+                weekNumber: p.weekNumber,
+                startDay:   p.start,
+                endDay:     actualEnd,
+                actualDays: days.length,
+                days
+            };
+        });
+};
+
+// GET /sales/final-weekend-target
+export const getFinalWeekendTarget = async (req, res) => {
+    try {
+        const { month, year, centre } = req.query;
+
+        if (!month || !year) {
+            return res.status(400).json({ message: "Month and year are required" });
+        }
+
+        const monthIndex = monthNames.indexOf(month);
+        if (monthIndex === -1) {
+            return res.status(400).json({ message: "Invalid month name" });
+        }
+
+        const parsedYear  = parseInt(year, 10);
+        const daysInMonth = new Date(parsedYear, monthIndex + 1, 0).getDate();
+        const fixedWeeks  = buildFixedWeeks(parsedYear, monthIndex);
+
+        // --- Centre Access Control ---
+        let allowedCentreIds = [];
+        if (req.user.role !== "superAdmin") {
+            allowedCentreIds = (req.user.centres || []).map(c =>
+                c._id ? c._id.toString() : c.toString()
+            );
+        }
+
+        let centreQuery = {};
+        if (centre) {
+            const requestedIds = centre.split(",").filter(Boolean);
+            if (req.user.role !== "superAdmin") {
+                const finalIds = requestedIds.filter(id => allowedCentreIds.includes(id));
+                centreQuery = { _id: { $in: finalIds.length > 0 ? finalIds : ["__NONE__"] } };
+            } else {
+                centreQuery = { _id: { $in: requestedIds } };
+            }
+        } else if (req.user.role !== "superAdmin") {
+            centreQuery = {
+                _id: { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] }
+            };
+        }
+
+        const centres      = await Centre.find(centreQuery).sort({ centreName: 1 });
+        const startOfMonth = new Date(parsedYear, monthIndex, 1);
+        const endOfMonth   = new Date(parsedYear, monthIndex + 1, 0, 23, 59, 59, 999);
+
+        const results = await Promise.all(
+            centres.map(async (c) => {
+                const targetRecord = await CentreTarget.findOne({
+                    centre: c._id,
+                    year:   parsedYear,
+                    month:  month
+                });
+
+                const monthlyTargetExclGST = targetRecord ? targetRecord.targetAmount : 0;
+
+                // Fetch raw daily totals for the month
+                const dailyRaw = await getDailyAchievedForCentre(
+                    c.centreName, startOfMonth, endOfMonth
+                );
+
+                // Build day-keyed map: { dayNum -> { exclGST } }
+                const dayMap = {};
+                dailyRaw.forEach(d => {
+                    const dDay = d._id.day;
+                    if (!dayMap[dDay]) dayMap[dDay] = { exclGST: 0 };
+                    dayMap[dDay].exclGST += d.totalExclGST || 0;
+                });
+
+                let totalAchievedExclGST = 0;
+                let totalWeekendExclGST  = 0;
+
+                const weekData = fixedWeeks.map(week => {
+                    // Proportional target for this week's days
+                    const phaseTarget = daysInMonth > 0
+                        ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
+                        : 0;
+
+                    const workingTarget    = phaseTarget * 0.30;
+                    const baseWeekendTarget = phaseTarget * 0.70;
+
+                    let phaseAchieved   = 0;
+                    let weekendAchieved = 0;
+                    let workingAchieved = 0;
+                    let satAchieved     = 0;
+                    let sunAchieved     = 0;
+
+                    week.days.forEach(d => {
+                        const achieved = dayMap[d.day]?.exclGST || 0;
+                        phaseAchieved += achieved;
+                        if (d.isWeekend) {
+                            weekendAchieved += achieved;
+                            if (d.dayName === 'Sat') satAchieved += achieved;
+                            if (d.dayName === 'Sun') sunAchieved += achieved;
+                        }
+                        else {
+                            workingAchieved += achieved;
+                        }
+                    });
+
+                    totalAchievedExclGST += phaseAchieved;
+                    totalWeekendExclGST  += weekendAchieved;
+
+                    const workingDeficit        = Math.max(0, workingTarget - workingAchieved);
+                    const adjustedWeekendTarget = baseWeekendTarget + workingDeficit;
+                    
+                    const satTarget = adjustedWeekendTarget * 0.30;
+                    const sunTarget = adjustedWeekendTarget * 0.70;
+                    const satDeficit = Math.max(0, satTarget - satAchieved);
+                    const sunDeficit = Math.max(0, sunTarget - sunAchieved);
+
+                    const weekendDeficit        = Math.max(0, adjustedWeekendTarget - weekendAchieved);
+                    const pct = phaseTarget > 0
+                        ? parseFloat(((phaseAchieved / phaseTarget) * 100).toFixed(1))
+                        : 0;
+
+                    return {
+                        weekNumber:             week.weekNumber,
+                        startDay:               week.startDay,
+                        endDay:                 week.endDay,
+                        actualDays:             week.actualDays,
+                        phaseTarget,
+                        workingTarget,
+                        baseWeekendTarget,
+                        workingAchieved,
+                        workingDeficit,
+                        weekendAchieved,
+                        adjustedWeekendTarget,
+                        weekendDeficit,
+                        satTarget,
+                        satAchieved,
+                        satDeficit,
+                        sunTarget,
+                        sunAchieved,
+                        sunDeficit,
+                        phaseAchieved,
+                        pct
+                    };
+                });
+
+                return {
+                    centreId:              c._id,
+                    centreName:            c.centreName,
+                    status:                c.status,
+                    monthlyTargetExclGST,
+                    daysInMonth,
+                    numberOfWeeks:         fixedWeeks.length,
+                    totalAchievedExclGST,
+                    totalWeekendExclGST,
+                    overallPct: monthlyTargetExclGST > 0
+                        ? parseFloat(((totalAchievedExclGST / monthlyTargetExclGST) * 100).toFixed(1))
+                        : 0,
+                    weeks: weekData
+                };
+            })
+        );
+
+        res.status(200).json({
+            month,
+            year:         parsedYear,
+            daysInMonth,
+            numberOfWeeks: fixedWeeks.length,
+            centres:       results
+        });
+    } catch (error) {
+        console.error("getFinalWeekendTarget Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};

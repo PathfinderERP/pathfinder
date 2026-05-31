@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaUpload, FaDownload, FaFileExcel, FaSync, FaExclamationTriangle, FaCheckCircle, FaPhoneAlt, FaUserPlus } from "react-icons/fa";
+import { FaTimes, FaUpload, FaDownload, FaFileExcel, FaSync, FaExclamationTriangle, FaCheckCircle, FaPhoneAlt, FaUserPlus, FaInfoCircle } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -13,6 +13,38 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const [file, setFile] = useState(null);
     const [errorMsg, setErrorMsg] = useState("");
     const [importResults, setImportResults] = useState(null); // for contacted mode result summary
+
+    const [aiFeedback, setAiFeedback] = useState("");
+    const [analyzingAi, setAnalyzingAi] = useState(false);
+
+    const analyzeErrorsWithAI = async (errorsList) => {
+        setAnalyzingAi(true);
+        setAiFeedback("");
+        try {
+            const token = localStorage.getItem("token");
+            const prompt = `I am trying to upload a bulk lead Excel file but encountered these validation errors:\n${errorsList.join('\\n')}\n\nCould you please explain what is wrong and how to fix it based on your knowledge of the system? Make it human-readable, clear and concise.`;
+            
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/ai/chat`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ message: prompt })
+            });
+            const data = await response.json();
+            if (response.ok && data.response) {
+                setAiFeedback(data.response);
+            } else {
+                setAiFeedback("AI could not analyze the errors at this moment.");
+            }
+        } catch (error) {
+            console.error("AI Error:", error);
+            setAiFeedback("Failed to fetch AI analysis.");
+        } finally {
+            setAnalyzingAi(false);
+        }
+    };
 
     // Master data
     const [classes, setClasses] = useState([]);
@@ -32,6 +64,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         setFile(null);
         setErrorMsg("");
         setImportResults(null);
+        setAiFeedback("");
+        setAnalyzingAi(false);
     }, [mode]);
 
     const fetchValidationData = async () => {
@@ -66,10 +100,37 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             setFeedbackOptions(Array.isArray(feedbackData) ? feedbackData.map(f => f.name) : []);
 
             if (userRes.ok && userData.users) {
-                const leadUsers = (userData.users || []).filter(u =>
-                    ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'admin', 'RM', 'centerIncharge', 'zonalManager', 'zonalHead'].includes(u.role)
-                );
-                setTelecallers(leadUsers);
+                const leadUsers = (userData.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
+                });
+
+                // Find duplicate active user names
+                const nameCounts = {};
+                leadUsers.forEach(u => {
+                    const name = u.name?.trim();
+                    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+                });
+
+                const formattedUsers = leadUsers.map(u => {
+                    const name = u.name?.trim();
+                    const isDuplicate = nameCounts[name] > 1;
+                    let displayName = u.name;
+                    if (isDuplicate) {
+                        const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
+                        displayName = `${u.name} (${centreNames || 'No Centre'})`;
+                    }
+                    return {
+                        ...u,
+                        displayName,
+                        value: isDuplicate ? displayName : u.name
+                    };
+                });
+
+                formattedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+                setTelecallers(formattedUsers);
             }
         } catch (error) {
             console.error("Error fetching validation data:", error);
@@ -81,6 +142,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         setFile(e.target.files[0]);
         setErrorMsg("");
         setImportResults(null);
+        setAiFeedback("");
+        setAnalyzingAi(false);
         if (e.target.files[0]) {
             toast.info(`File [${e.target.files[0].name.toUpperCase()}] ready for import`);
         }
@@ -161,11 +224,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 const uploadedColumns = Object.keys(jsonData[0] || {});
                 const extraColumns = uploadedColumns.filter(col => !ALLOWED_FRESH_COLUMNS.includes(col));
                 if (extraColumns.length > 0) {
-                    setErrorMsg(
-                        `Extra columns detected: [${extraColumns.join(", ")}]\n\nPlease remove these extra columns. Only the following columns are allowed:\n${ALLOWED_FRESH_COLUMNS.join(", ")}`
-                    );
+                    const msg = `Extra columns detected: [${extraColumns.join(", ")}]\n\nPlease remove these extra columns. Only the following columns are allowed:\n${ALLOWED_FRESH_COLUMNS.join(", ")}`;
+                    setErrorMsg(msg);
                     setValidating(false);
                     toast.error("Extra columns found – upload blocked ,you can only upload the column which are in the template");
+                    analyzeErrorsWithAI([msg]);
                     return;
                 }
                 // ──────────────────────────────────────────────────────────
@@ -184,7 +247,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     if (row.LeadResponse) {
                         const telecallerExists = telecallers.some(
-                            t => t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
+                            t => (t.displayName || t.name).toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim() ||
+                                 t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
                         );
                         if (!telecallerExists) {
                             errors.push(`Row ${rowNum}: Agent '${row.LeadResponse}' not found`);
@@ -236,6 +300,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     setErrorMsg(`Validation Error:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...and ${errors.length - 5} more` : ''}`);
                     setValidating(false);
                     toast.error("Validation Failed");
+                    analyzeErrorsWithAI(errors);
                     return;
                 }
 
@@ -307,11 +372,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 const uploadedContactedColumns = Object.keys(jsonData[0] || {});
                 const extraContactedColumns = uploadedContactedColumns.filter(col => !ALLOWED_CONTACTED_COLUMNS.includes(col));
                 if (extraContactedColumns.length > 0) {
-                    setErrorMsg(
-                        `Extra columns detected: [${extraContactedColumns.join(", ")}]\n\nPlease remove these extra columns. Only the following columns are allowed:\n${ALLOWED_CONTACTED_COLUMNS.join(", ")}`
-                    );
+                    const msg = `Extra columns detected: [${extraContactedColumns.join(", ")}]\n\nPlease remove these extra columns. Only the following columns are allowed:\n${ALLOWED_CONTACTED_COLUMNS.join(", ")}`;
+                    setErrorMsg(msg);
                     setValidating(false);
                     toast.error("Extra columns found – upload blocked ,you can only upload the column which are in the template.");
+                    analyzeErrorsWithAI([msg]);
                     return;
                 }
                 // ──────────────────────────────────────────────────────────
@@ -334,7 +399,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     if (row.LeadResponse) {
                         const telecallerExists = telecallers.some(
-                            t => t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
+                            t => (t.displayName || t.name).toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim() ||
+                                 t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
                         );
                         if (!telecallerExists) {
                             errors.push(`Row ${rowNum}: Agent '${row.LeadResponse}' not found`);
@@ -400,6 +466,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     setErrorMsg(`Validation Error:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...and ${errors.length - 5} more` : ''}`);
                     setValidating(false);
                     toast.error("Validation Failed");
+                    analyzeErrorsWithAI(errors);
                     return;
                 }
 
@@ -550,12 +617,33 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     {/* Error */}
                     {errorMsg && (
-                        <div className={`p-4 rounded-[4px] border border-dashed flex items-start gap-4 transition-all ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
-                            <FaExclamationTriangle className="mt-1 flex-shrink-0" />
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase tracking-widest">Import Error</p>
-                                <p className="text-[11px] font-medium whitespace-pre-wrap leading-relaxed">{errorMsg}</p>
+                        <div className={`p-4 rounded-[4px] border border-dashed flex flex-col gap-4 transition-all ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
+                            <div className="flex items-start gap-4">
+                                <FaExclamationTriangle className="mt-1 flex-shrink-0" />
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest">Import Error</p>
+                                    <p className="text-[11px] font-medium whitespace-pre-wrap leading-relaxed">{errorMsg}</p>
+                                </div>
                             </div>
+                            
+                            {/* AI Feedback Section */}
+                            {(analyzingAi || aiFeedback) && (
+                                <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-cyan-900/20 border-cyan-500/30 text-cyan-300' : 'bg-cyan-50 border-cyan-200 text-cyan-700'}`}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <FaInfoCircle className="text-cyan-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500">AI Assistant</span>
+                                    </div>
+                                    {analyzingAi ? (
+                                        <div className="flex items-center gap-2 text-[11px] italic">
+                                            <FaSync className="animate-spin text-cyan-500" /> Analyzing error and suggesting fixes...
+                                        </div>
+                                    ) : (
+                                        <div className="text-[11px] font-medium whitespace-pre-wrap leading-relaxed">
+                                            {aiFeedback}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

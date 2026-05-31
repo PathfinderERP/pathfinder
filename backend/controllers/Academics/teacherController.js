@@ -82,7 +82,9 @@ export const bulkImportTeachers = async (req, res) => {
                     isSubjectHod: isTrue(data.isSubjectHod || data.subjectWiseHod),
 
                     permissions: [],
-                    granularPermissions: {}
+                    granularPermissions: {},
+                    createdBy: req.user.id,
+                    updatedBy: req.user.id
                 });
 
                 await newTeacher.save();
@@ -175,7 +177,9 @@ export const createTeacher = async (req, res) => {
             centres,
             isDeptHod: isDeptHod || false,
             isBoardHod: isBoardHod || false,
-            isSubjectHod: isSubjectHod || false
+            isSubjectHod: isSubjectHod || false,
+            createdBy: req.user.id,
+            updatedBy: req.user.id
         });
 
         await newTeacher.save();
@@ -222,6 +226,7 @@ export const updateTeacher = async (req, res) => {
             updates.teacherDepartment = [];
         }
 
+        updates.updatedBy = req.user.id;
         const updatedTeacher = await User.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
 
         if (!updatedTeacher) {
@@ -272,7 +277,7 @@ export const getAllTeachers = async (req, res) => {
         let query = { role: { $in: ["teacher", "HOD"] } };
 
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "zonalhead", "hr", "class_coordinator", "rm", "hod"];
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod", "coordinator"];
         const isPrivileged = privilegedRoles.includes(userRole);
 
         if (userRole !== "superadmin" && userRole !== "super admin" && userRole !== "hr") {

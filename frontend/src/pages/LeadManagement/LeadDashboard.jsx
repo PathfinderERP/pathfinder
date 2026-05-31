@@ -62,10 +62,37 @@ const LeadDashboard = () => {
             }
             if (usersRes.ok) {
                 const usersData = await usersRes.json();
-                const agents = (usersData.users || []).filter(u =>
-                    ['telecaller', 'centralizedTelecaller', 'counsellor'].includes(u.role)
-                );
-                setTelecallerList(agents);
+                const leadUsers = (usersData.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
+                });
+
+                // Find duplicate active user names
+                const nameCounts = {};
+                leadUsers.forEach(u => {
+                    const name = u.name?.trim();
+                    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+                });
+
+                const formattedAgents = leadUsers.map(u => {
+                    const name = u.name?.trim();
+                    const isDuplicate = nameCounts[name] > 1;
+                    let displayName = u.name;
+                    if (isDuplicate) {
+                        const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
+                        displayName = `${u.name} (${centreNames || 'No Centre'})`;
+                    }
+                    return {
+                        ...u,
+                        displayName,
+                        value: isDuplicate ? displayName : u.name
+                    };
+                });
+
+                formattedAgents.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+                setTelecallerList(formattedAgents);
             }
         } catch (error) {
             console.error("Failed to fetch metadata:", error);
@@ -260,7 +287,7 @@ const LeadDashboard = () => {
                             { label: "Origin Source", name: "source", type: "multi-select", options: sources.map(s => ({ value: s.sourceName, label: s.sourceName })) },
                             { label: "Feedback Status", name: "feedback", type: "multi-select", options: feedbacks.map(f => ({ value: f.name, label: f.name })) },
                             { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'WARM LEAD', label: 'WARM LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }] },
-                            { label: "Agent Identity", name: "leadResponsibility", type: "multi-select", options: telecallerList.map(t => ({ value: t.name, label: t.name })) },
+                            { label: "Agent Identity", name: "leadResponsibility", type: "multi-select", options: telecallerList.map(t => ({ value: t.value || t.name, label: t.displayName || t.name })) },
                             { label: "Student Cipher", name: "search", type: "text", placeholder: "SEARCH..." },
                             { label: "Window Start", name: "fromDate", type: "date" },
                             { label: "Window End", name: "toDate", type: "date" }

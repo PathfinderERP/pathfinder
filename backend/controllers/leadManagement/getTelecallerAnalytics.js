@@ -2,6 +2,7 @@ import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
 import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import { resolveAgentIdentifier } from "../../utils/leadQueryHelper.js";
 import mongoose from "mongoose";
 
 export const getTelecallerAnalytics = async (req, res) => {
@@ -10,17 +11,11 @@ export const getTelecallerAnalytics = async (req, res) => {
         const { fromDate, toDate, startTime, endTime } = req.query;
         const telecallerNameFromUrl = decodeURIComponent(telecallerId);
 
-        // VERY IMPORTANT: Find all user IDs matching this name to handle duplicates
-        const telecallers = await User.find({
-            name: { $regex: new RegExp(`^${telecallerNameFromUrl}$`, "i") }
-        });
-        const telecallerIds = telecallers.map(u => u._id);
-        const telecallerNames = telecallers.map(u => u.name);
-
-        if (telecallerNames.length === 0) {
-            // Fallback to the name from URL if no user found in DB (unlikely but possible for legacy data)
-            telecallerNames.push(telecallerNameFromUrl);
-        }
+        const resolved = await resolveAgentIdentifier(telecallerNameFromUrl, req.user);
+        let leadMatch = resolved ? resolved.leadMatch : {};
+        let followUpMatch = resolved ? resolved.followUpMatch : {};
+        let telecallerIds = resolved && resolved.user ? [resolved.user._id] : [];
+        let telecallerNames = resolved ? [resolved.name] : [telecallerNameFromUrl];
 
         // Build follow-up filter
         const followUpFilter = {};
@@ -64,7 +59,7 @@ export const getTelecallerAnalytics = async (req, res) => {
 
         // 1. Lead Status Distribution
         const statusAggregation = await LeadManagement.aggregate([
-            { $match: { leadResponsibility: { $in: telecallerNames } } },
+            { $match: leadMatch },
             { $group: { _id: "$leadType", count: { $sum: 1 } } }
         ]);
 
@@ -73,7 +68,7 @@ export const getTelecallerAnalytics = async (req, res) => {
             { $unwind: "$followUps" },
             {
                 $match: {
-                    "followUps.updatedBy": { $in: telecallerNames },
+                    ...followUpMatch,
                     ...followUpFilter,
                     ...timeMatch
                 }
@@ -92,7 +87,7 @@ export const getTelecallerAnalytics = async (req, res) => {
 
         const callStats = await LeadManagement.aggregate([
             { $unwind: "$followUps" },
-            { $match: { "followUps.updatedBy": { $in: telecallerNames } } },
+            { $match: followUpMatch },
             {
                 $facet: {
                     today: [{ $match: { "followUps.date": { $gte: today, $lt: tomorrow } } }, { $count: "count" }],
@@ -112,12 +107,12 @@ export const getTelecallerAnalytics = async (req, res) => {
         const calls = callStats[0] || { today: [], yesterday: [], last7Days: [], last30Days: [], trend: [] };
 
         // 4. Performance Metrics (CONVERSION IS KEY HERE)
-        const totalAssigned = await LeadManagement.countDocuments({ leadResponsibility: { $in: telecallerNames } });
-        const uncontactedCount = await LeadManagement.countDocuments({ leadResponsibility: { $in: telecallerNames }, followUps: { $size: 0 } });
+        const totalAssigned = await LeadManagement.countDocuments(leadMatch);
+        const uncontactedCount = await LeadManagement.countDocuments({ ...leadMatch, followUps: { $size: 0 } });
 
         const followUpMetrics = await LeadManagement.aggregate([
             { $unwind: "$followUps" },
-            { $match: { "followUps.updatedBy": { $in: telecallerNames } } },
+            { $match: followUpMatch },
             {
                 $facet: {
                     totalFollowUps: [{ $count: "count" }],
@@ -134,8 +129,16 @@ export const getTelecallerAnalytics = async (req, res) => {
         const totalFollowUpCount = followUpMetrics[0]?.totalFollowUps[0]?.count || 0;
 
         // COUNT ACTUAL ADMISSIONS (DIRECT & ENROLLMENT)
+        const admissionQuery = {};
+        if (telecallerIds.length > 0) {
+            admissionQuery.createdBy = { $in: telecallerIds };
+        } else {
+            const users = await User.find({ name: { $in: telecallerNames } });
+            admissionQuery.createdBy = { $in: users.map(u => u._id) };
+        }
+
         const actualAdmissionsCount = await Admission.countDocuments({
-            createdBy: { $in: telecallerIds },
+            ...admissionQuery,
             createdAt: { $gte: fromDate ? new Date(fromDate) : thirtyDaysAgo, $lte: toDate ? new Date(toDate) : new Date() }
         });
 
@@ -143,14 +146,14 @@ export const getTelecallerAnalytics = async (req, res) => {
 
         // 5. Detailed Admission Analysis for Charts
         const admissionFilter = {
-            leadResponsibility: { $in: telecallerNames },
+            ...leadMatch,
             $or: [{ leadType: "ADMISSION TAKEN" }, { "followUps.status": "ADMISSION TAKEN" }]
         };
 
         const [leadAdmissionsRaw, directAdmissionsRaw] = await Promise.all([
             LeadManagement.find(admissionFilter),
             Admission.find({
-                createdBy: { $in: telecallerIds },
+                ...admissionQuery,
                 createdAt: { $gte: fromDate ? new Date(fromDate) : thirtyDaysAgo, $lte: toDate ? new Date(toDate) : new Date() }
             })
         ]);
@@ -222,3 +225,4 @@ export const getTelecallerAnalytics = async (req, res) => {
         res.status(500).json({ message: "Server error fetching analytics" });
     }
 };
+

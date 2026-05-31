@@ -39,6 +39,7 @@ import coordinatorRoutes from "./routes/Academics/coordinator.routes.js";
 import employeeRoutes from "./routes/HR/employee.routes.js";
 import cvAnalysisRoutes from "./routes/HR/cvAnalysis.routes.js";
 import letterRoutes from "./routes/HR/letter.routes.js";
+import salaryRoutes from "./routes/HR/salaryRoutes.js";
 import designationRoutes from "./routes/designation/designation.routes.js";
 import attendanceRoutes from "./routes/Attendance/attendance.routes.js";
 import employeeAttendanceRoutes from "./routes/Attendance/employeeAttendance.routes.js";
@@ -61,6 +62,7 @@ import centerTaggingRoutes from "./routes/Finance/centerTaggingRoutes.js";
 import budgetRoutes from "./routes/Finance/budgetRoutes.js";
 import partTimeTeacherRoutes from "./routes/Finance/partTimeTeacher.routes.js";
 import payrollRoutes from "./routes/Finance/payroll.routes.js";
+import expenseRoutes from "./routes/Finance/expence.route.js";
 import zoneRoutes from "./routes/masterData/zone.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import ceoRoutes from "./routes/ceoControlTower.js";
@@ -68,6 +70,7 @@ import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
 //updated
+import categoryRoutes from "./routes/masterData/category.route.js";
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
@@ -77,6 +80,7 @@ import dailyTrackingLogRoutes from "./routes/dailyTrackingLog.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import razorpaySMSRoutes from "./routes/payment/razorpaySMS.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+// import expenseRoutes from "./routes/Finance/expence.route.js";
 // import systemLogRoutes from "./routes/systemLog.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
@@ -157,6 +161,7 @@ console.log("Mounting Document Routes...");
 app.use("/api/hr/documents", documentRoutes);
 app.use("/api/hr/employee", employeeRoutes);
 app.use("/api/hr/letters", letterRoutes);
+app.use("/api/hr/salary", salaryRoutes);
 app.use("/api/hr/attendance", attendanceRoutes);
 app.use("/api/hr/employee-attendance", employeeAttendanceRoutes);
 app.use("/api/hr/training", trainingRoutes);
@@ -176,7 +181,7 @@ app.use("/api/finance/center-tagging", centerTaggingRoutes);
 app.use("/api/finance/budget", budgetRoutes);
 app.use("/api/finance/part-time-teachers", partTimeTeacherRoutes);
 app.use("/api/finance/payroll", payrollRoutes);
-
+app.use("/api/finance/expense", expenseRoutes);
 
 // Master Data Routes
 app.use("/api/designation", designationRoutes);
@@ -198,6 +203,7 @@ app.use("/api/daily-tracking-logs", dailyTrackingLogRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/category",categoryRoutes);
 // app.use("/api/system-logs", systemLogRoutes);
 
 

@@ -76,6 +76,9 @@ const TransactionList = () => {
     const [departmentSearch, setDepartmentSearch] = useState("");
     const [selectedStatus, setSelectedStatus] = useState([]);
     const [billFilter, setBillFilter] = useState("all"); // "all" | "no_bill" | "with_bill"
+    const [selectedBilledBy, setSelectedBilledBy] = useState([]);
+    const [isBilledByDropdownOpen, setIsBilledByDropdownOpen] = useState(false);
+    const [billedBySearch, setBilledBySearch] = useState("");
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -88,6 +91,7 @@ const TransactionList = () => {
     const typeDropdownRef = useRef(null);
     const departmentDropdownRef = useRef(null);
     const statusDropdownRef = useRef(null);
+    const billedByDropdownRef = useRef(null);
 
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
@@ -110,6 +114,9 @@ const TransactionList = () => {
             }
             if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
                 setIsStatusDropdownOpen(false);
+            }
+            if (billedByDropdownRef.current && !billedByDropdownRef.current.contains(event.target)) {
+                setIsBilledByDropdownOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -255,15 +262,21 @@ const TransactionList = () => {
         setCentreSearch("");
         setDepartmentSearch("");
         setBillFilter("all");
+        setSelectedBilledBy([]);
+        setBilledBySearch("");
         toast.info("Filters reset");
     };
 
-    // --- Derived filtered data (client-side bill filter: all / no_bill / with_bill) ---
-    const filteredReport = billFilter === "no_bill"
-        ? detailedReport.filter(item => !item.receiptNo || item.receiptNo === "-" || item.receiptNo.toString().trim() === "" || item.receiptNo === "undefined" || !item.receiptNo.toString().toUpperCase().includes("PATH"))
-        : billFilter === "with_bill"
-            ? detailedReport.filter(item => item.receiptNo && item.receiptNo !== "-" && item.receiptNo.toString().trim() !== "" && item.receiptNo !== "undefined" && item.receiptNo.toString().toUpperCase().includes("PATH"))
-            : detailedReport.filter(item => item.receiptNo && item.receiptNo.toString().toUpperCase().includes("PATH"));
+    // --- Derived filtered data (client-side bill filter + billed by filter) ---
+    const uniqueBilledByOptions = [...new Set(detailedReport.map(item => item.takenBy).filter(Boolean))];
+
+    const filteredReport = detailedReport
+        .filter(item => {
+            if (billFilter === "no_bill") return !item.receiptNo || item.receiptNo === "-" || item.receiptNo.toString().trim() === "" || item.receiptNo === "undefined" || !item.receiptNo.toString().toUpperCase().includes("PATH");
+            if (billFilter === "with_bill") return item.receiptNo && item.receiptNo !== "-" && item.receiptNo.toString().trim() !== "" && item.receiptNo !== "undefined" && item.receiptNo.toString().toUpperCase().includes("PATH");
+            return item.receiptNo && item.receiptNo.toString().toUpperCase().includes("PATH");
+        })
+        .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"));
 
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
     const dynamicSelectionTotalWithGst = filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -282,8 +295,8 @@ const TransactionList = () => {
             "Date", "Received Date", "Enroll No.", "Receipt No", "Student Name",
             "Student Email", "Student Mobile", "Whatsapp", "Address", "Guardian Name", "Guardian Mobile",
             "Session", "Department", "Course Name", "Transaction Type", "Transaction ID",
-            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Billed By",
-            "Total Classes", "Present", "Absent", "Attendance %", "Attendance Status"
+            "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Billed By"
+
         ];
         const data = filteredReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
@@ -309,11 +322,11 @@ const TransactionList = () => {
             item.amount,
             item.status,
             item.takenBy || "System",
-            item.totalClasses,
-            item.presentCount,
-            item.absentCount,
-            item.attendancePercent ? `${item.attendancePercent.toFixed(1)}%` : "0%",
-            item.attendanceStatus
+            // item.totalClasses,
+            // item.presentCount,
+            // item.absentCount,
+            // item.attendancePercent ? `${item.attendancePercent.toFixed(1)}%` : "0%",
+            // item.attendanceStatus
         ]);
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -660,6 +673,55 @@ const TransactionList = () => {
                         )}
                     </div>
 
+                    {/* Billed By (MultiSelect) */}
+                    <div className="relative" ref={billedByDropdownRef}>
+                        <div
+                            onClick={() => setIsBilledByDropdownOpen(!isBilledByDropdownOpen)}
+                            className={`min-w-[180px] h-10 px-3 py-2 ${btnBg} rounded-md cursor-pointer flex justify-between items-center text-sm transition-colors`}
+                        >
+                            <span className="truncate">
+                                {selectedBilledBy.length === 0 ? "-Billed By-" : `${selectedBilledBy.length} Selected`}
+                            </span>
+                            <FaChevronDown size={10} className={`transform transition-transform ${isBilledByDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                        {isBilledByDropdownOpen && (
+                            <div className={`absolute top-full left-0 mt-1 w-64 z-[9999] ${dropdownBg} rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden`}>
+                                <div className={`p-2 ${dropdownHdr} sticky top-0 z-10`}>
+                                    <div className="relative">
+                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Billed By..."
+                                            value={billedBySearch}
+                                            onChange={(e) => setBilledBySearch(e.target.value)}
+                                            className={`w-full pl-8 pr-2 py-1.5 text-xs rounded focus:border-blue-500 outline-none font-bold uppercase ${inputBg}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {uniqueBilledByOptions
+                                        .filter(name => name.toLowerCase().includes(billedBySearch.toLowerCase()))
+                                        .map(name => (
+                                            <div
+                                                key={name}
+                                                className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${dropdownRow}`}
+                                                onClick={() => setSelectedBilledBy(prev =>
+                                                    prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+                                                )}
+                                            >
+                                                <input type="checkbox" checked={selectedBilledBy.includes(name)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" />
+                                                <span className={`text-xs ${dropdownTxt} truncate font-bold uppercase`}>{name}</span>
+                                            </div>
+                                        ))}
+                                    {uniqueBilledByOptions.filter(n => n.toLowerCase().includes(billedBySearch.toLowerCase())).length === 0 && (
+                                        <div className={`p-4 text-center text-[10px] ${subText} font-black uppercase`}>No results found</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Bill Filter Segmented Control
                     <div className={`flex items-center rounded-lg ${segmentBorder} overflow-hidden text-xs font-black uppercase tracking-widest`}>
                         {[
@@ -772,7 +834,7 @@ const TransactionList = () => {
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Session</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Department</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Course Name</th>
-                                    <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[100px]`}>Attendance</th>
+                                    {/* <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[100px]`}>Attendance</th> */}
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[120px]`}>Transaction Type</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Transaction ID</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Payment Mode</th>
@@ -816,11 +878,11 @@ const TransactionList = () => {
                                             <td className={`p-4 text-sm ${tTxtSub} font-bold`}>{item.session || "-"}</td>
                                             <td className={`p-4 text-sm ${isDark ? 'text-orange-400' : 'text-orange-500'} font-bold uppercase`}>{item.department || "-"}</td>
                                             <td className={`p-4 text-sm ${tTxtSub} max-w-xs truncate`} title={item.course}>{item.course}</td>
-                                            <td className="p-4 text-sm">
+                                            {/* <td className="p-4 text-sm">
                                                 <div className={`px-2 py-0.5 rounded-full text-[10px] font-black text-center ${item.attendanceStatus === 'Available' ? (isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700') : (isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-600')}`}>
                                                     {item.attendanceStatus === 'Available' ? `${item.attendancePercent.toFixed(1)}%` : 'N/A'}
                                                 </div>
-                                            </td>
+                                            </td> */}
                                             <td className={`p-4 text-sm ${tTxtSub}`}>
                                                 {item.installmentNumber === 0 ? "Initial" : "EMI"}
                                             </td>

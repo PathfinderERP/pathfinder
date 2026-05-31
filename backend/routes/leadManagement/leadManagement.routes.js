@@ -8,6 +8,8 @@ import { bulkDeleteLeads } from "../../controllers/leadManagement/bulkDeleteLead
 import { bulkDeleteLeadsByFilter } from "../../controllers/leadManagement/bulkDeleteLeadsByFilter.js";
 import { addFollowUp } from "../../controllers/leadManagement/addFollowUp.js";
 import { bulkContactedLeads } from "../../controllers/leadManagement/bulkContactedLeads.js";
+import { bulkUpdateLeads } from "../../controllers/leadManagement/bulkUpdateLeads.js";
+import { bulkUploadLeads } from "../../controllers/leadManagement/bulkUploadLeads.js";
 import uploadRecording from "../../controllers/leadManagement/uploadRecording.js";
 import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadDashboard.js";
 import { getFollowUpStats } from "../../controllers/leadManagement/getFollowUpStats.js";
@@ -18,6 +20,9 @@ import { getTelecallerAnalytics } from "../../controllers/leadManagement/getTele
 import { getAllTelecallerAnalytics } from "../../controllers/leadManagement/getAllTelecallerAnalytics.js";
 import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentreAnalysis.js";
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
+import { getPlanners, createPlanner, updatePlannerApproval } from "../../controllers/leadManagement/marketingPlannerController.js";
+import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
+import { initiateTwilioCall, getCallTwiML, handleRecordingCallback, proxyRecording, getVoiceToken, getVoiceTwiML } from "../../controllers/leadManagement/twilioVoice.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -37,9 +42,25 @@ router.post("/red-flags/reset/:userId", requireAuth, resetRedFlags);
 router.post("/red-flags/process-daily", requireAuth, processDailyPenalty);
 router.post("/performance/reset/:userId", requireAuth, resetPerformance);
 
+// Marketing Planner routes
+router.get("/planner", requireAuth, getPlanners);
+router.post("/planner", requireAuth, createPlanner);
+router.put("/planner/:id/approval", requireAuth, updatePlannerApproval);
+
+router.get("/my-uploads", requireAuth, getMyUploads);
+router.post("/bulk-upload", requireAuth, bulkUploadLeads);
 router.post("/bulk-delete", requireAuth, bulkDeleteLeads);
 router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);
 router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
+router.post("/bulk-update", requireAuth, bulkUpdateLeads);
+
+// Twilio Call routes
+router.post("/call/initiate", requireAuth, initiateTwilioCall);
+router.all("/call/twiml", getCallTwiML);
+router.all("/call/recording-callback", handleRecordingCallback);
+router.get("/call/recording-proxy", proxyRecording);
+router.get("/call/token", requireAuth, getVoiceToken);
+router.all("/call/voice-twiml", getVoiceTwiML);
 
 // Generic ID route must come AFTER specific routes
 router.get("/:id", requireAuth, getLeadById);

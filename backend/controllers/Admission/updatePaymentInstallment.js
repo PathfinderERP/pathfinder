@@ -167,10 +167,10 @@ export const updatePaymentInstallment = async (req, res) => {
             for (const nextInst of subsequentInstallments) {
                 if (excess <= 0) break;
                 
-                const deductFromThis = Math.min(excess, nextInst.amount);
+                const deductFromThis = Math.min(excess, Math.max(0, nextInst.amount));
                 if (deductFromThis > 0) {
-                    nextInst.amount -= deductFromThis;
-                    excess -= deductFromThis;
+                    nextInst.amount = parseFloat(Math.max(0, nextInst.amount - deductFromThis).toFixed(3));
+                    excess = parseFloat(Math.max(0, excess - deductFromThis).toFixed(3));
                     
                     // Update remarks to show credit source
                     const creditNote = `Credit of ₹${deductFromThis} from Inst #${installmentNumber}`;
@@ -203,9 +203,12 @@ export const updatePaymentInstallment = async (req, res) => {
             }
         }
 
-        // Logical Edge Case: Final sweep to ensure ANY pending installment with 0 amount is auto-settled
-        // This handles cases where manual adjustments or previous errors left 0-balance milestones pending.
+        // Logical Edge Case: Final sweep to ensure all installment amounts are non-negative,
+        // and any pending installment with 0 (or less) amount is auto-settled.
         admission.paymentBreakdown.forEach(p => {
+            if (p.amount < 0) {
+                p.amount = 0;
+            }
             if (p.status === "PENDING" && p.amount === 0) {
                 p.status = "PAID";
                 p.paidDate = new Date();

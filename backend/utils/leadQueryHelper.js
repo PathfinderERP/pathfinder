@@ -1,11 +1,9 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import CentreSchema from "../models/Master_data/Centre.js";
 
 /**
  * Normalizes filter values that might be strings, IDs, or objects from CustomMultiSelect
- */
-/**
- * Normalizes filter values and casts to ObjectId if necessary
  */
 const normalizeValue = (val) => {
     if (!val) return val;
@@ -16,6 +14,127 @@ const normalizeValue = (val) => {
         return new mongoose.Types.ObjectId(val);
     }
     return val;
+};
+
+/**
+ * Resolves an agent identifier (which could be an ObjectId, a string like "Name (Centre Name)", or just a name string)
+ * into matching conditions for LeadManagement queries.
+ */
+export const resolveAgentIdentifier = async (val, currentUser = null) => {
+    if (!val) return null;
+    
+    let user = null;
+    
+    // 1. Check if ObjectId
+    if (mongoose.Types.ObjectId.isValid(val)) {
+        user = await User.findById(val).populate('centres');
+    }
+    
+    // 2. Check if "Name (Centre Name)" format
+    if (!user && typeof val === 'string') {
+        const match = val.match(/^(.+?)\s*\((.+?)\)$/);
+        if (match) {
+            const userName = match[1].trim();
+            const centreName = match[2].trim();
+            const centreDoc = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${centreName}$`, "i") } });
+            if (centreDoc) {
+                user = await User.findOne({
+                    name: { $regex: new RegExp(`^${userName}$`, "i") },
+                    centres: centreDoc._id,
+                    isActive: true
+                }).populate('centres');
+            }
+        }
+    }
+    
+    // 3. Fallback: Treat as plain name string
+    if (!user && typeof val === 'string') {
+        let currentDbUser = null;
+        if (currentUser) {
+            if (typeof currentUser.populate === 'function') {
+                currentDbUser = currentUser;
+            } else {
+                currentDbUser = await User.findById(currentUser.id || currentUser._id).populate('centres');
+            }
+        }
+
+        if (currentDbUser && currentDbUser.name && currentDbUser.name.toLowerCase().trim() === val.toLowerCase().trim()) {
+            user = currentDbUser;
+            if (user && typeof user.populate === 'function' && (!user.populated || !user.populated('centres'))) {
+                await user.populate('centres');
+            }
+        } else {
+            const matchingUsers = await User.find({
+                name: { $regex: new RegExp(`^${val}$`, "i") },
+                isActive: true
+            }).populate('centres');
+            
+            if (matchingUsers.length > 0) {
+                if (matchingUsers.length === 1) {
+                    user = matchingUsers[0];
+                } else if (currentUser) {
+                    const currentUserCentreIds = (currentUser.centres || []).map(c => (c._id || c).toString());
+                    const sharedCenterUser = matchingUsers.find(u => 
+                        (u.centres || []).some(c => currentUserCentreIds.includes((c._id || c).toString()))
+                    );
+                    user = sharedCenterUser || matchingUsers[0];
+                } else {
+                    user = matchingUsers[0];
+                }
+            }
+        }
+    }
+    
+    if (user) {
+        const escapedName = user.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const centreIds = (user.centres || []).map(c => c._id || c);
+        
+        // Check if there are other active users with this name
+        const duplicateUsers = await User.find({
+            name: { $regex: new RegExp(`^${escapedName}$`, "i") },
+            isActive: true
+        });
+        
+        const isDuplicateName = duplicateUsers.length > 1;
+        const nameRegex = new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i");
+        
+        const leadMatch = {
+            leadResponsibility: { $regex: nameRegex }
+        };
+        
+        const followUpMatch = {
+            "followUps.updatedBy": { $regex: nameRegex }
+        };
+        
+        if (isDuplicateName && centreIds.length > 0) {
+            leadMatch.centre = { $in: centreIds };
+            followUpMatch.centre = { $in: centreIds }; 
+        }
+        
+        return {
+            user,
+            name: user.name,
+            centreIds,
+            isDuplicateName,
+            leadMatch,
+            followUpMatch
+        };
+    }
+    
+    // If not found in User collection (e.g. legacy/unknown data), return direct name match regex
+    const escapedVal = String(val).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nameRegex = new RegExp(`^${escapedVal}(?:\\s*\\(.*\\))?$`, "i");
+    return {
+        name: String(val),
+        centreIds: [],
+        isDuplicateName: false,
+        leadMatch: {
+            leadResponsibility: { $regex: nameRegex }
+        },
+        followUpMatch: {
+            "followUps.updatedBy": { $regex: nameRegex }
+        }
+    };
 };
 
 export const buildLeadQuery = async (queryParams, user) => {
@@ -83,14 +202,28 @@ export const buildLeadQuery = async (queryParams, user) => {
         query.centre = { $in: values };
     }
 
-    // Responsibility filter (Telecaller names)
+    // Responsibility filter (Telecaller names / IDs / unique display names)
     if (leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0)) {
-        const names = Array.isArray(leadResponsibility) ? normalizeValue(leadResponsibility) : [normalizeValue(leadResponsibility)];
-        const cleanNames = names.filter(n => typeof n === 'string');
-        if (cleanNames.length > 0) {
-            query.leadResponsibility = {
-                $in: cleanNames.map(n => new RegExp(`^${n}$`, "i"))
-            };
+        const values = Array.isArray(leadResponsibility) ? normalizeValue(leadResponsibility) : [normalizeValue(leadResponsibility)];
+        const cleanValues = values.filter(v => v);
+        if (cleanValues.length > 0) {
+            const orConditions = [];
+            for (const val of cleanValues) {
+                const resolved = await resolveAgentIdentifier(val, user);
+                if (resolved && resolved.leadMatch) {
+                    orConditions.push(resolved.leadMatch);
+                }
+            }
+            if (orConditions.length > 0) {
+                if (query.$and) {
+                    query.$and.push({ $or: orConditions });
+                } else if (query.$or) {
+                    query.$and = [{ $or: query.$or }, { $or: orConditions }];
+                    delete query.$or;
+                } else {
+                    query.$or = orConditions;
+                }
+            }
         }
     }
 
@@ -114,7 +247,7 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     // Access Control Logic
     const userRole = (user.role || "").toLowerCase().replace(/\s+/g, "");
-    const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
+    const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod'];
     const isPrivileged = privilegedRoles.includes(userRole);
     const isSuperAdmin = ['superadmin', 'super admin'].includes(userRole);
 
@@ -125,9 +258,28 @@ export const buildLeadQuery = async (queryParams, user) => {
         const userCentreIds = userDoc.centres || [];
         const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+        // Check if there are other active users with the same name
+        const duplicateUsers = await User.find({
+            name: { $regex: new RegExp(`^${escapedName}$`, "i") },
+            isActive: true
+        });
+        const isDuplicateName = duplicateUsers.length > 1;
+
+        let leadRespCondition;
+        if (isDuplicateName && userCentreIds.length > 0) {
+            leadRespCondition = {
+                leadResponsibility: { $regex: new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i") },
+                centre: { $in: userCentreIds }
+            };
+        } else {
+            leadRespCondition = {
+                leadResponsibility: { $regex: new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i") }
+            };
+        }
+
         const orConditions = [
             { createdBy: userDoc._id },
-            { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
+            leadRespCondition
         ];
 
         if (isPrivileged && userCentreIds.length > 0) {
@@ -145,6 +297,10 @@ export const buildLeadQuery = async (queryParams, user) => {
             
             if (isFilteringSelf) {
                 delete query.leadResponsibility;
+                if (query.$or) {
+                    query.$or = query.$or.filter(cond => !cond.leadResponsibility);
+                    if (query.$or.length === 0) delete query.$or;
+                }
             }
         }
 
@@ -164,9 +320,6 @@ export const buildLeadQuery = async (queryParams, user) => {
                 // If no requested centres are allowed, restrict to user's centres
                 query.centre = { $in: userCentreIds };
             }
-        } else if (userCentreIds.length > 0) {
-             // Handled by orConditions but if we want strict centre filtering
-             // query.centre = { $in: userCentreIds };
         }
     }
 

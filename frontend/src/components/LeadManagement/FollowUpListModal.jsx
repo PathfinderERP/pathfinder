@@ -35,7 +35,37 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
             const userRes = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, { headers: { Authorization: `Bearer ${token}` } });
             if (userRes.ok) {
                 const data = await userRes.json();
-                setTelecallers((data.users || []).filter(u => u.role === 'telecaller'));
+                const leadUsers = (data.users || []).filter(u => {
+                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    const isActive = u.isActive !== false;
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    return isActive && allowedRoles.includes(r);
+                });
+
+                // Find duplicate active user names
+                const nameCounts = {};
+                leadUsers.forEach(u => {
+                    const name = u.name?.trim();
+                    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+                });
+
+                const formattedUsers = leadUsers.map(u => {
+                    const name = u.name?.trim();
+                    const isDuplicate = nameCounts[name] > 1;
+                    let displayName = u.name;
+                    if (isDuplicate) {
+                        const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
+                        displayName = `${u.name} (${centreNames || 'No Centre'})`;
+                    }
+                    return {
+                        ...u,
+                        displayName,
+                        value: isDuplicate ? displayName : u.name
+                    };
+                });
+
+                formattedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+                setTelecallers(formattedUsers);
             }
         } catch (err) {
             console.error(err);
@@ -178,7 +208,7 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
                                 className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             >
                                 <option value="">ALL TELECALLERS</option>
-                                {telecallers.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
+                                {telecallers.map(u => <option key={u.value || u.name} value={u.value || u.name}>{u.displayName || u.name}</option>)}
                             </select>
                         </div>
                     </div>

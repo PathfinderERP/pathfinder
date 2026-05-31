@@ -53,10 +53,39 @@ const DailyTrackingLog = () => {
     const [editCompletedWork, setEditCompletedWork] = useState("");
     const [editStatus, setEditStatus] = useState("Completed");
 
-    // Standard departments list
-    const departments = [
-        "All", "Academics", "Telecalling", "Admissions", "Marketing", "HR", "Finance", "Management", "Administration", "Operations"
-    ];
+    // Roles list & display labels
+    const rolesMap = {
+        "All": "All",
+        "admin": "Admin",
+        "superadmin": "Superadmin",
+        "coordinator": "Coordinator",
+        "accounts": "Accounts",
+        "hr": "HR",
+        "digital": "Digital",
+        "marketing": "Marketing",
+        "telecaller": "Telecaller",
+        "counsellor": "Counsellor",
+        "teacher": "Teacher"
+    };
+    const roles = Object.keys(rolesMap);
+
+    const getDisplayRoleName = (role) => {
+        if (!role) return "Employee";
+        const normalized = role.toLowerCase();
+        if (normalized.includes("admin")) {
+            if (normalized.includes("super")) return "Superadmin";
+            return "Admin";
+        }
+        if (normalized.includes("coordinator")) return "Coordinator";
+        if (normalized.includes("telecaller")) return "Telecaller";
+        if (normalized.includes("accounts")) return "Accounts";
+        if (normalized.includes("hr")) return "HR";
+        if (normalized.includes("digital")) return "Digital";
+        if (normalized.includes("marketing")) return "Marketing";
+        if (normalized.includes("counsellor")) return "Counsellor";
+        if (normalized.includes("teacher")) return "Teacher";
+        return role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    };
 
     // Fetch user's logs
     const fetchMyLog = async (date) => {
@@ -81,11 +110,11 @@ const DailyTrackingLog = () => {
     };
 
     // Fetch board logs
-    const fetchBoardLogs = async (date, dept = selectedDept, name = searchEmployee) => {
+    const fetchBoardLogs = async (date, role, name) => {
         setLoading(true);
         try {
             let url = `${apiUrl}/daily-tracking-logs/board?date=${date}`;
-            if (dept && dept !== "All") url += `&department=${dept}`;
+            if (role && role !== "All") url += `&role=${role}`;
             if (name) url += `&employeeName=${encodeURIComponent(name)}`;
 
             const res = await fetch(url, {
@@ -109,9 +138,9 @@ const DailyTrackingLog = () => {
         if (activeTab === "myLog") {
             fetchMyLog(selectedDate);
         } else {
-            fetchBoardLogs(selectedDate);
+            fetchBoardLogs(selectedDate, selectedDept, searchEmployee);
         }
-    }, [activeTab, selectedDate]);
+    }, [activeTab, selectedDate, selectedDept, searchEmployee]);
 
     // Handle Form Submit
     const handleAddActivity = async (e) => {
@@ -303,14 +332,12 @@ const DailyTrackingLog = () => {
     };
 
     // Board filtration handlers
-    const handleFilterChange = (dept) => {
-        setSelectedDept(dept);
-        fetchBoardLogs(selectedDate, dept, searchEmployee);
+    const handleFilterChange = (role) => {
+        setSelectedDept(role);
     };
 
     const handleSearchChange = (val) => {
         setSearchEmployee(val);
-        fetchBoardLogs(selectedDate, selectedDept, val);
     };
 
     return (
@@ -401,37 +428,6 @@ const DailyTrackingLog = () => {
                                 Add Work Entry
                             </h3>
                             <form onSubmit={handleAddActivity} className="space-y-4">
-                                <div>
-                                    <label className={`block text-xs font-semibold mb-2 uppercase tracking-wider ${
-                                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                                    }`}>
-                                        Time Frame
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <span className="text-[10px] text-gray-500 block mb-1">Start Time</span>
-                                            <input
-                                                type="time"
-                                                value={startTime}
-                                                onChange={(e) => setStartTime(e.target.value)}
-                                                className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                                                    isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
-                                                }`}
-                                            />
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] text-gray-500 block mb-1">End Time</span>
-                                            <input
-                                                type="time"
-                                                value={endTime}
-                                                onChange={(e) => setEndTime(e.target.value)}
-                                                className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-                                                    isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
-                                                }`}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
 
                                 <div>
                                     <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${
@@ -707,19 +703,19 @@ const DailyTrackingLog = () => {
                         <div className="flex flex-wrap items-center gap-3">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Filter:</span>
                             <div className="flex flex-wrap gap-1">
-                                {departments.map(dept => (
+                                {roles.map(roleKey => (
                                     <button
-                                        key={dept}
-                                        onClick={() => handleFilterChange(dept)}
+                                        key={roleKey}
+                                        onClick={() => handleFilterChange(roleKey)}
                                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
-                                            selectedDept === dept
+                                            selectedDept === roleKey
                                                 ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
                                                 : (isDarkMode 
                                                     ? "bg-gray-800 text-gray-400 hover:text-white" 
                                                     : "bg-slate-100 text-slate-600 hover:bg-slate-200")
                                         }`}
                                     >
-                                        {dept}
+                                        {rolesMap[roleKey]}
                                     </button>
                                 ))}
                             </div>
@@ -773,7 +769,7 @@ const DailyTrackingLog = () => {
                                                 <div>
                                                     <h4 className="font-bold text-sm leading-tight">{log.userName}</h4>
                                                     <p className={`text-[10px] ${isDarkMode ? "text-indigo-400" : "text-indigo-600"} font-black uppercase tracking-wider`}>
-                                                        {log.department}
+                                                        {getDisplayRoleName(log.user?.role || log.department)}
                                                     </p>
                                                     <p className="text-[10px] text-gray-500">
                                                         {log.user?.designation || "Employee"}
@@ -783,6 +779,12 @@ const DailyTrackingLog = () => {
 
                                             {/* Work ratios */}
                                             <div className="flex gap-2">
+                                                {completedCount === 0 && pendingCount === 0 && (
+                                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                                        No Entry
+                                                    </span>
+                                                )}
                                                 {completedCount > 0 && (
                                                     <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center gap-1">
                                                         <FaCheck className="text-[7px]" />
@@ -791,7 +793,7 @@ const DailyTrackingLog = () => {
                                                 )}
                                                 {pendingCount > 0 && (
                                                     <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
-                                                        <span className="w-1 h-1 rounded-full bg-amber-500" />
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                                                         {pendingCount} Active
                                                     </span>
                                                 )}
@@ -800,48 +802,60 @@ const DailyTrackingLog = () => {
 
                                         {/* Employee Activities today */}
                                         <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
-                                            {log.activities.map((act) => (
-                                                <div 
-                                                    key={act._id} 
-                                                    className={`p-3 rounded-xl border ${
-                                                        isDarkMode 
-                                                            ? "bg-[#1f252d]/60 border-gray-800" 
-                                                            : "bg-slate-50 border-slate-100"
-                                                    }`}
-                                                >
-                                                    <div className="flex justify-between items-center mb-1.5">
-                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
-                                                            isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"
-                                                        }`}>
-                                                            {act.time}
-                                                        </span>
-                                                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                                                            act.status === "Completed"
-                                                                ? "bg-emerald-500/10 text-emerald-500"
-                                                                : "bg-amber-500/10 text-amber-500"
-                                                        }`}>
-                                                            {act.status}
-                                                        </span>
-                                                    </div>
-
-                                                    <p className={`text-xs leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                                        {act.workDetails}
-                                                    </p>
-
-                                                    {act.completedWork && (
-                                                        <div className={`mt-2 p-2 rounded border border-dashed text-[11px] ${
-                                                            isDarkMode 
-                                                                ? "bg-emerald-950/5 border-emerald-900/30 text-emerald-400" 
-                                                                : "bg-emerald-50/20 border-emerald-200 text-emerald-700"
-                                                        }`}>
-                                                            <div className="font-extrabold flex items-center gap-1 mb-0.5 text-[9px] uppercase tracking-wider">
-                                                                <FaCheckCircle /> Completed Work
-                                                            </div>
-                                                            <p className="opacity-90">{act.completedWork}</p>
-                                                        </div>
-                                                    )}
+                                            {log.activities.length === 0 ? (
+                                                <div className={`p-4 rounded-xl border border-dashed text-center flex flex-col items-center justify-center ${
+                                                    isDarkMode 
+                                                        ? "bg-[#1f252d]/30 border-gray-800 text-gray-500" 
+                                                        : "bg-slate-50 border-slate-200 text-gray-400"
+                                                }`}>
+                                                    <FaClock className="text-xl mb-1 text-gray-500/50" />
+                                                    <p className="text-xs font-semibold">Pending Log Submission</p>
+                                                    <p className="text-[10px] opacity-75">This employee hasn't logged any activities yet today.</p>
                                                 </div>
-                                            ))}
+                                            ) : (
+                                                log.activities.map((act) => (
+                                                    <div 
+                                                        key={act._id} 
+                                                        className={`p-3 rounded-xl border ${
+                                                            isDarkMode 
+                                                                ? "bg-[#1f252d]/60 border-gray-800" 
+                                                                : "bg-slate-50 border-slate-100"
+                                                        }`}
+                                                    >
+                                                        <div className="flex justify-between items-center mb-1.5">
+                                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                                                                isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"
+                                                            }`}>
+                                                                {act.time}
+                                                            </span>
+                                                            <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                                                act.status === "Completed"
+                                                                    ? "bg-emerald-500/10 text-emerald-500"
+                                                                    : "bg-amber-500/10 text-amber-500"
+                                                            }`}>
+                                                                {act.status}
+                                                            </span>
+                                                        </div>
+
+                                                        <p className={`text-xs leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                                            {act.workDetails}
+                                                        </p>
+
+                                                        {act.completedWork && (
+                                                            <div className={`mt-2 p-2 rounded border border-dashed text-[11px] ${
+                                                                isDarkMode 
+                                                                    ? "bg-emerald-950/5 border-emerald-900/30 text-emerald-400" 
+                                                                    : "bg-emerald-50/20 border-emerald-200 text-emerald-700"
+                                                            }`}>
+                                                                <div className="font-extrabold flex items-center gap-1 mb-0.5 text-[9px] uppercase tracking-wider">
+                                                                    <FaCheckCircle /> Completed Work
+                                                                </div>
+                                                                <p className="opacity-90">{act.completedWork}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
                                         </div>
                                     </div>
                                 );

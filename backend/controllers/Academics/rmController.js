@@ -41,7 +41,9 @@ export const createRM = async (req, res) => {
             employeeId,
             password: hashedPassword,
             role: "RM",
-            centres
+            centres,
+            createdBy: req.user.id,
+            updatedBy: req.user.id
         });
 
         await newRM.save();
@@ -59,7 +61,7 @@ export const getAllRMs = async (req, res) => {
         let query = { role: "RM" };
 
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "zonalhead", "hr", "class_coordinator", "rm", "hod"];
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod"];
         const isPrivileged = privilegedRoles.includes(userRole);
 
         if (userRole !== "superadmin" && userRole !== "super admin" && userRole !== "hr") {
@@ -98,6 +100,8 @@ export const updateRM = async (req, res) => {
         if (centreId !== undefined) {
             updates.centres = centreId ? [centreId] : [];
         }
+
+        updates.updatedBy = req.user.id;
 
         const updatedRM = await User.findByIdAndUpdate(id, updates, { new: true });
 

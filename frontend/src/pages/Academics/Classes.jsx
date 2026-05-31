@@ -839,7 +839,7 @@
 //                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterId?.chapterName || cls.chapterName || "-"}</td>
 //                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
 //                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
-//                                             <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
+//                                             <td className="p-4">{cls.coordinatorName || cls.coordinatorId?.name || "-"}</td>
 //                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
 //                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
 //                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
@@ -898,7 +898,7 @@
 //                                                     )}
 //                                                     {cls.status === "Ongoing" && (
 //                                                         <div className="flex gap-1 items-center">
-//                                                             {(isAdmin || isCoordinator) ? (
+//                                                             {(isAdmin || isCoordinator || isAcademicAdmin) ? (
 //                                                                 <button
 //                                                                     onClick={() => handleEndClass(cls._id)}
 //                                                                     className="bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold uppercase border border-red-700 hover:bg-red-700 transition-all shadow-lg animate-pulse"
@@ -920,12 +920,12 @@
 //                                             </td>
 //                                             <td className="p-4 text-right">
 //                                                 <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-//                                                     {(canEdit || isAdmin || isCoordinator) && (
+//                                                     {(canEdit || isAcademicAdmin) && (
 //                                                         <button onClick={() => handleEdit(cls)} title="Edit Class" className="text-yellow-400 hover:text-yellow-200 transition-colors">
 //                                                             <FaEdit />
 //                                                         </button>
 //                                                     )}
-//                                                     {(canDelete || isAdmin || isCoordinator) && (
+//                                                     {(canDelete || isAcademicAdmin) && (
 //                                                         <button onClick={() => handleDelete(cls._id)} title="Delete Class" className="text-red-400 hover:text-red-300 transition-colors">
 //                                                             <FaTrash />
 //                                                         </button>
@@ -1556,7 +1556,13 @@ const Classes = () => {
     }, []);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isAdmin = user.role === "admin" || user.role === "superAdmin";
+    const ALL_ROLES_FOR_CLASS = [
+        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 
+        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 
+        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts', 
+        'coordinator', 'digital'
+    ];
+    const isAcademicAdmin = ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
     const isSuperAdmin = user.role === "superAdmin";
     const isCoordinator = user.role === "Class_Coordinator";
     const isTeacher = user.role === "teacher";
@@ -1571,6 +1577,8 @@ const Classes = () => {
         coordinatorId: isCoordinator ? user._id : "",
         fromDate: "",
         toDate: "",
+        startTime: "",
+        endTime: "",
         search: ""
     });
 
@@ -1875,6 +1883,8 @@ const Classes = () => {
             coordinatorId: isCoordinator ? user._id : "",
             fromDate: "",
             toDate: "",
+            startTime: "",
+            endTime: "",
             search: ""
         });
         setPage(1);
@@ -1999,6 +2009,10 @@ const Classes = () => {
             (cls.batchId?._id ? [cls.batchId._id.toString()] :
                 (cls.batchId ? [cls.batchId.toString()] : [])));
 
+        const coordinatorIds = (cls.coordinatorIds?.map(c => (c._id || c).toString()) || 
+                                (cls.coordinatorId?._id ? [cls.coordinatorId._id.toString()] : 
+                                (cls.coordinatorId ? [cls.coordinatorId.toString()] : [])));
+
         setEditingClassData({
             ...cls,
             acadClassId,
@@ -2011,6 +2025,7 @@ const Classes = () => {
             subjectId: (cls.subjectId?._id || cls.subjectId || "").toString(),
             teacherId: (cls.teacherId?._id || cls.teacherId || "").toString(),
             coordinatorId: (cls.coordinatorId?._id || cls.coordinatorId || "").toString(),
+            coordinatorIds,
             examId: (cls.examId?._id || cls.examId || "").toString(),
             date: cls.date ? new Date(cls.date).toISOString().split('T')[0] : ""
         });
@@ -2246,6 +2261,32 @@ const Classes = () => {
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                             />
                         </div>
+
+                        {/* Start Time */}
+                        <div className="flex flex-col">
+                            <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Start Time</label>
+                            <input
+                                type="time"
+                                name="startTime"
+                                value={filters.startTime}
+                                onChange={handleFilterChange}
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                            />
+                        </div>
+
+                        {/* End Time */}
+                        <div className="flex flex-col">
+                            <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">End Time</label>
+                            <input
+                                type="time"
+                                name="endTime"
+                                value={filters.endTime}
+                                onChange={handleFilterChange}
+                                className={`p-2 rounded-lg border focus:border-cyan-500 outline-none text-sm ${isDarkMode ? 'bg-[#131619] text-white border-gray-700 dark-picker' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                            />
+                        </div>
                     </div>
 
                     {/* Search Actions Row */}
@@ -2375,7 +2416,7 @@ const Classes = () => {
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
                                             <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
                                             <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
-                                            <td className="p-4">{cls.coordinatorId?.name || "-"}</td>
+                                            <td className="p-4">{cls.coordinatorName || cls.coordinatorId?.name || "-"}</td>
                                             <td className="p-4 font-mono">{formatDate(cls.date)}</td>
                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
@@ -2400,7 +2441,7 @@ const Classes = () => {
                                                 {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
                                             </td>
                                             <td className="p-4 text-center">
-                                                {cls.status === "Completed" && (isAdmin || isCoordinator) && (
+                                                {cls.status === "Completed" && isAcademicAdmin && (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedClassForFeedback(cls);
@@ -2421,7 +2462,7 @@ const Classes = () => {
                                             <td className="p-4">
                                                 <div className="relative group/hover">
                                                     {cls.status === "Upcoming" && (
-                                                        (isAdmin || isCoordinator) ? (
+                                                        isAcademicAdmin ? (
                                                             <button
                                                                 onClick={() => handleStartClass(cls._id)}
                                                                 className="bg-green-600/10 text-green-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-green-600/30 hover:bg-green-600 hover:text-white transition-all shadow-lg shadow-green-900/10"
@@ -2434,7 +2475,7 @@ const Classes = () => {
                                                     )}
                                                     {cls.status === "Ongoing" && (
                                                         <div className="flex gap-1 items-center">
-                                                            {(isAdmin || isCoordinator) ? (
+                                                            {isAcademicAdmin ? (
                                                                 <button
                                                                     onClick={() => handleEndClass(cls._id)}
                                                                     className="bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold uppercase border border-red-700 hover:bg-red-700 transition-all shadow-lg animate-pulse"
@@ -2456,12 +2497,12 @@ const Classes = () => {
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-3 transition-opacity">
-                                                    {(canEdit || isAdmin || isCoordinator) && (
+                                                    {(canEdit || isAcademicAdmin) && (
                                                         <button onClick={() => handleEdit(cls)} title="Edit Class" className="text-yellow-400 hover:text-yellow-200 transition-colors">
                                                             <FaEdit />
                                                         </button>
                                                     )}
-                                                    {(canDelete || isAdmin || isCoordinator) && (
+                                                    {(canDelete || isAcademicAdmin) && (
                                                         <button onClick={() => handleDelete(cls._id)} title="Delete Class" className="text-red-400 hover:text-red-300 transition-colors">
                                                             <FaTrash />
                                                         </button>
@@ -2585,7 +2626,7 @@ const Classes = () => {
                                             <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Hours</label>
                                             <input
                                                 type="number"
-                                                step="0.25"
+                                                step="0.10"
                                                 min="0"
                                                 required
                                                 value={editingClassData.classHours !== undefined ? editingClassData.classHours : ''}
@@ -2630,18 +2671,30 @@ const Classes = () => {
                                     />
 
                                     {/* Coordinator */}
-                                    <SearchableSelect
-                                        label="Coordinator"
-                                        name="coordinatorId"
-                                        value={editingClassData.coordinatorId}
-                                        options={dropdownData.coordinators || []}
-                                        displayPath="name"
-                                        valuePath="_id"
-                                        onChange={(e) => setEditingClassData({ ...editingClassData, coordinatorId: e.target.value })}
-                                        placeholder="Select Coordinator"
-                                        isDarkMode={isDarkMode}
-                                        fullWidth={false}
-                                    />
+                                    <div className="flex flex-col gap-2">
+                                        <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Coordinator(s) (Optional)</label>
+                                        <Select
+                                            isMulti
+                                            options={(dropdownData.coordinators || []).filter(c => {
+                                                if (editingClassData.centreIds?.length > 0) {
+                                                    return c.centres?.some(ctrl => editingClassData.centreIds.includes((ctrl._id || ctrl).toString()));
+                                                }
+                                                return true;
+                                            }).map(c => ({ value: c._id.toString(), label: c.name }))}
+                                            value={(dropdownData.coordinators || []).filter(c => editingClassData.coordinatorIds?.includes(c._id.toString())).map(c => ({ value: c._id.toString(), label: c.name }))}
+                                            onChange={(selected) => {
+                                                const values = selected ? selected.map(opt => opt.value) : [];
+                                                setEditingClassData({
+                                                    ...editingClassData,
+                                                    coordinatorIds: values,
+                                                    coordinatorId: values.length > 0 ? values[0] : ""
+                                                });
+                                            }}
+                                            placeholder="Select Coordinators"
+                                            styles={customSelectStyles}
+                                            className="text-sm"
+                                        />
+                                    </div>
 
 
                                     {/* Session & Academic Class */}

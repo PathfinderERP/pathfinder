@@ -36,6 +36,8 @@ const TopicList = () => {
     const [viewOnly, setViewOnly] = useState(false);
     const [formData, setFormData] = useState({ topicName: "", chapterId: "", subjectId: "", classId: "" });
     const [editId, setEditId] = useState(null);
+    const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+    const [bulkFormData, setBulkFormData] = useState({ classId: "", subjectId: "", chapterId: "" });
 
     const API_URL = import.meta.env.VITE_API_URL;
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -281,6 +283,36 @@ const TopicList = () => {
         }
     };
 
+    const handleBulkUpdateSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/topic/bulk-update`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ids: selectedIds,
+                    updateFields: bulkFormData
+                })
+            });
+
+            if (response.ok) {
+                toast.success("Topics updated successfully");
+                setShowBulkEditModal(false);
+                setSelectedIds([]);
+                fetchTopics();
+            } else {
+                const res = await response.json();
+                toast.error(res.message || "Bulk update failed");
+            }
+        } catch {
+            toast.error("Server error");
+        }
+    };
+
     useEffect(() => {
         fetchTopics();
     }, [fetchTopics]);
@@ -366,12 +398,23 @@ const TopicList = () => {
                         </div>
                         <div className="flex flex-wrap gap-2 w-full md:w-auto">
                             {selectedIds.length > 0 && (
-                                <button
-                                    onClick={handleBulkDelete}
-                                    className="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-red-600/20 text-sm"
-                                >
-                                    <FaTrash /> Delete ({selectedIds.length})
-                                </button>
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setBulkFormData({ classId: "", subjectId: "", chapterId: "" });
+                                            setShowBulkEditModal(true);
+                                        }}
+                                        className="bg-yellow-600 hover:bg-yellow-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-yellow-600/20 text-sm"
+                                    >
+                                        <FaEdit /> Bulk Edit ({selectedIds.length})
+                                    </button>
+                                    <button
+                                        onClick={handleBulkDelete}
+                                        className="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md shadow-red-600/20 text-sm"
+                                    >
+                                        <FaTrash /> Delete ({selectedIds.length})
+                                    </button>
+                                </>
                             )}
                             <ExcelImportExport
                                 columns={topicColumns}
@@ -632,6 +675,83 @@ const TopicList = () => {
                                         </button>
                                     </div>
                                 )}
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Bulk Edit Modal */}
+                {showBulkEditModal && (
+                    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 backdrop-blur-sm p-4">
+                        <div className={`w-full max-w-lg rounded-xl border shadow-2xl animate-fade-in flex flex-col max-h-[90vh] transition-colors ${isDarkMode ? 'bg-[#1e2530] border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <div className={`p-4 md:p-6 border-b flex justify-between items-center rounded-t-xl sticky top-0 z-10 ${isDarkMode ? 'border-gray-700 bg-[#1e2530]' : 'border-gray-100 bg-white'}`}>
+                                <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    Bulk Edit Selected Topics ({selectedIds.length})
+                                </h2>
+                                <button onClick={() => setShowBulkEditModal(false)} className={`text-2xl transition-colors ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>&times;</button>
+                            </div>
+
+                            <form onSubmit={handleBulkUpdateSubmit} className="p-4 md:p-6 space-y-4 overflow-y-auto">
+                                <div>
+                                    <label className={`block text-sm mb-2 font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class</label>
+                                    <select
+                                        required
+                                        value={bulkFormData.classId}
+                                        onChange={(e) => setBulkFormData({ ...bulkFormData, classId: e.target.value, subjectId: "", chapterId: "" })}
+                                        className={`w-full rounded-lg px-4 py-2.5 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm'}`}
+                                    >
+                                        <option value="">Select Class</option>
+                                        {classes.map(c => <option key={c._id} value={c._id}>{c.className}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className={`block text-sm mb-2 font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Subject</label>
+                                    <select
+                                        required
+                                        disabled={!bulkFormData.classId}
+                                        value={bulkFormData.subjectId}
+                                        onChange={(e) => setBulkFormData({ ...bulkFormData, subjectId: e.target.value, chapterId: "" })}
+                                        className={`w-full rounded-lg px-4 py-2.5 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500 disabled:opacity-70' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm disabled:bg-gray-100'}`}
+                                    >
+                                        <option value="">Select Subject</option>
+                                        {subjects.filter(s => s.classId?._id === bulkFormData.classId || s.classId === bulkFormData.classId).map(s => (
+                                            <option key={s._id} value={s._id}>{s.subjectName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className={`block text-sm mb-2 font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Chapter</label>
+                                    <select
+                                        required
+                                        disabled={!bulkFormData.subjectId}
+                                        value={bulkFormData.chapterId}
+                                        onChange={(e) => setBulkFormData({ ...bulkFormData, chapterId: e.target.value })}
+                                        className={`w-full rounded-lg px-4 py-2.5 outline-none transition-all border ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500 disabled:opacity-70' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-600 shadow-sm disabled:bg-gray-100'}`}
+                                    >
+                                        <option value="">Select Chapter</option>
+                                        {chapters.filter(ch => (ch.subjectId?._id || ch.subjectId) === bulkFormData.subjectId).map(ch => (
+                                            <option key={ch._id} value={ch._id}>{ch.chapterName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex justify-end gap-3 mt-4 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowBulkEditModal(false)}
+                                        className={`px-4 py-2 rounded-lg transition text-sm font-bold ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold rounded-lg transition shadow-lg shadow-cyan-600/20 text-sm"
+                                    >
+                                        Update Topics
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>

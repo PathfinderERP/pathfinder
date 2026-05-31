@@ -6,7 +6,8 @@ import {
     FaBullhorn, FaThLarge, FaDatabase, FaChevronDown, FaChevronUp, FaUsers,
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
     FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus,
-    FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle
+    FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle,
+    FaFlag
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -64,7 +65,14 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
-        { name: "Red Flag Desk", icon: <FaExclamationCircle />, path: "/red-flag-desk" },
+        {
+            name: "Tracking & Flagging",
+            icon: <FaFlag />,
+            subItems: [
+                { name: "Daily Center Tracking", path: "/daily-center-tracking", permissionModule: "dailyCenterTracking" },
+                { name: "Red Flag Desk", path: "/red-flag-desk" }
+            ]
+        },
         { name: "Daily Tracking Log", icon: <FaHistory />, path: "/daily-tracking-log" },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
@@ -138,6 +146,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Cash Transfer", path: "/finance/cash/transfer", permissionSection: "cashTransfer" },
                 { name: "Cash Receive", path: "/finance/cash/receive", permissionSection: "cashReceive" },
                 { name: "Transaction List", path: "/finance/transaction-list", permissionSection: "transactionReport" },
+                { name: "Expense Category", path: "/master-data/finance-expense-category", permissionSection: "financeExpenseCategory" },
+                { name: "Expenses", path: "/finance/expenses", permissionSection: "expense" },
+                { name: "Add Expense", path: "/finance/expense/create", permissionSection: "expense" },
                 //{ name: "Analysis", path: "/finance/analysis", permissionSection: "financialAnalysis" },
                 //{ name: "Center Tagging", path: "/finance/center-tagging", permissionSection: "centerTagging" },
                 //{ name: "Budget", path: "/finance/budget", permissionSection: "budget" },
@@ -156,13 +167,15 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "sales",
             subItems: [
                 { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" },
+                { name: "Comparison Analysis", path: "/sales/comparison-analysis", permissionSection: "centreTarget" },
                 //{ name: "Weekly Weekends Target", path: "/sales/weekly-target", permissionSection: "centreTarget" },
                 { name: "Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },
                 { name: "Course Target", path: "/sales/course-target", permissionSection: "centreTarget" },
                 { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
                 { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },
-                { name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
-                { name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },
+                //{ name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
+                //{ name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },
+                { name: "Admission & Course Report", path: "/sales/admission-course-report", permissionSection: "admissionReport" },
                 //  { name: "Discount Report Analysis", path: "/sales/discount-report", permissionSection: "discountReport" },
                 //{ name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
                 { name: "Daily Collection", path: "/sales/daily-collection", permissionSection: "transactionReport" },
@@ -242,6 +255,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Upload File", path: "/hr/documents/upload", icon: <FaFileUpload />, permissionSection: "upload" },
                 { name: "All Feedback", path: "/hr/feedback", icon: <FaCommentDots />, permissionSection: "feedback" },
                 { name: "Reimbursement List", path: "/hr/reimbursement", icon: <FaMoneyCheckAlt />, permissionSection: "reimbursement" },
+                { name: "Salary Expense", path: "/hr/salary-expense", icon: <FaMoneyBillWave />, permissionSection: "reimbursement" },
                 { name: "Resign Request", path: "/hr/resign-request", icon: <FaUserMinus />, permissionSection: "resign" },
                 { name: "Birthday Lists", path: "/hr/birthday", icon: <FaBirthdayCake />, permissionSection: "birthday" },
             ]
@@ -281,7 +295,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Follow-up Feedback", path: "/master-data/follow-up-feedback", permissionSection: "followUpFeedback" },
             ],
         },
-        { name: "Daily Center Tracking", icon: <FaBuilding />, path: "/daily-center-tracking", permissionModule: "dailyCenterTracking" },
         {
             name: "Course Management",
             icon: <FaBook />,
@@ -341,7 +354,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Daily Tracking Log") return true;
+        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Daily Tracking Log" || item.name === "Tracking & Flagging") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
@@ -380,25 +393,33 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     }).map(item => {
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
-                if (sub.permissionSection) {
-                    if (sub.permissionAction) {
-                        return hasPermission(user, item.permissionModule, sub.permissionSection, sub.permissionAction);
+                const permModule = sub.permissionModule || item.permissionModule;
+                if (permModule) {
+                    if (sub.permissionSection) {
+                        if (sub.permissionAction) {
+                            return hasPermission(user, permModule, sub.permissionSection, sub.permissionAction);
+                        }
+                        const section = granularPermissions[permModule]?.[sub.permissionSection];
+                        return !!section;
                     }
-                    const section = granularPermissions[item.permissionModule]?.[sub.permissionSection];
-                    return !!section;
+                    return hasModuleAccess(user, permModule);
                 }
-                return true;
+                return userPermissions.includes(sub.name);
             }).map(sub => {
                 if (sub.subItems && !isSuperAdmin) {
                     const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
-                        if (nestedSub.permissionSection) {
-                            if (nestedSub.permissionAction) {
-                                return hasPermission(user, item.permissionModule, nestedSub.permissionSection, nestedSub.permissionAction);
+                        const nestedPermModule = nestedSub.permissionModule || sub.permissionModule || item.permissionModule;
+                        if (nestedPermModule) {
+                            if (nestedSub.permissionSection) {
+                                if (nestedSub.permissionAction) {
+                                    return hasPermission(user, nestedPermModule, nestedSub.permissionSection, nestedSub.permissionAction);
+                                }
+                                const section = granularPermissions[nestedPermModule]?.[nestedSub.permissionSection];
+                                return !!section;
                             }
-                            const section = granularPermissions[item.permissionModule]?.[nestedSub.permissionSection];
-                            return !!section;
+                            return hasModuleAccess(user, nestedPermModule);
                         }
-                        return true;
+                        return userPermissions.includes(nestedSub.name);
                     });
                     if (filteredNestedSubItems.length > 0) {
                         return { ...sub, subItems: filteredNestedSubItems };
@@ -546,7 +567,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                 return roles.map(r => {
                                     if (r === 'centerIncharge') return 'Center Incharge';
                                     if (r === 'zonalManager') return 'Zonal Manager';
-                                    if (r === 'zonalHead') return 'Zonal Head';
+                                    if (r === 'HOD') return 'HOD';
                                     if (r === 'superAdmin') return 'SuperAdmin';
                                     if (r === 'hr') return 'HR';
                                     return (typeof r === 'string' && r.length > 0) ? r.charAt(0).toUpperCase() + r.slice(1) : r;

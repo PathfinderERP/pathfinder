@@ -1,5 +1,6 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
+import { resolveAgentIdentifier } from "../../utils/leadQueryHelper.js";
 import mongoose from "mongoose";
 
 export const getFollowUpStats = async (req, res) => {
@@ -7,11 +8,27 @@ export const getFollowUpStats = async (req, res) => {
         const { fromDate, toDate, centre, leadResponsibility, scheduledDate, startTime, endTime } = req.query;
 
         // 1. Resolve potential telecaller names
-        let telecallerNames = [];
+        const leadResponsibilityQuery = { $or: [] };
+        const followUpUserQuery = { $or: [] };
+
         if (leadResponsibility) {
-            const namesToSearch = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-            const users = await User.find({ name: { $in: namesToSearch.map(n => new RegExp(`^${n}$`, "i")) } });
-            telecallerNames = users.length > 0 ? users.map(u => u.name) : namesToSearch;
+            const identifiers = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+            for (const val of identifiers) {
+                const resolved = await resolveAgentIdentifier(val, req.user);
+                if (resolved) {
+                    if (resolved.leadMatch) {
+                        leadResponsibilityQuery.$or.push(resolved.leadMatch);
+                    }
+                    if (resolved.followUpMatch) {
+                        const fMatch = { ...resolved.followUpMatch };
+                        if (fMatch["followUps.updatedBy"]) {
+                            fMatch["followUp.updatedBy"] = fMatch["followUps.updatedBy"];
+                            delete fMatch["followUps.updatedBy"];
+                        }
+                        followUpUserQuery.$or.push(fMatch);
+                    }
+                }
+            }
         }
 
         // 2. Resolve Centre IDs
@@ -75,12 +92,13 @@ export const getFollowUpStats = async (req, res) => {
         if (centreIds.length > 0) baseMatch.centre = { $in: centreIds };
 
         const leadOwnerMatch = { ...baseMatch };
-        if (telecallerNames.length > 0) {
-            leadOwnerMatch.leadResponsibility = { $in: telecallerNames };
+        if (leadResponsibilityQuery.$or && leadResponsibilityQuery.$or.length > 0) {
+            leadOwnerMatch.$and = leadOwnerMatch.$and || [];
+            leadOwnerMatch.$and.push(leadResponsibilityQuery);
         }
 
         const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'zonalhead', 'hr', 'class_coordinator', 'rm', 'hod'];
+        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod'];
         const isPrivileged = privilegedRoles.includes(curUserRoleStr);
 
         if (curUserRoleStr !== 'superadmin' && curUserRoleStr !== 'super admin') {
@@ -100,11 +118,13 @@ export const getFollowUpStats = async (req, res) => {
                     accessLimit.$or.push({ centre: { $in: userCentreIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) } });
                 }
 
-                if (leadOwnerMatch.leadResponsibility && !isPrivileged) {
+                if (leadResponsibilityQuery.$or && leadResponsibilityQuery.$or.length > 0 && !isPrivileged) {
                     const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
                     const isFilteringSelf = filterNames.some(n => n.toLowerCase().trim() === userDoc.name.toLowerCase().trim());
-                    if (isFilteringSelf) {
-                        delete leadOwnerMatch.leadResponsibility;
+                    if (!isFilteringSelf) {
+                        leadResponsibilityQuery.$or = [
+                            { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
+                        ];
                     }
                 }
 
@@ -136,7 +156,7 @@ export const getFollowUpStats = async (req, res) => {
                             $match: {
                                 ...(Object.keys(activityDateFilter).length > 0 ? { "followUp.date": activityDateFilter } : {}),
                                 ...timeMatch,
-                                ...(telecallerNames.length > 0 ? { "followUp.updatedBy": { $in: telecallerNames } } : {})
+                                ...(followUpUserQuery.$or && followUpUserQuery.$or.length > 0 ? followUpUserQuery : {})
                             }
                         },
                         {

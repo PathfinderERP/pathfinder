@@ -1,10 +1,18 @@
 import React from "react";
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay } from "react-icons/fa";
+import { toast } from "react-toastify";
+import { Device } from "@twilio/voice-sdk";
 
-const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, canEdit, canDelete, isDarkMode }) => {
+const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, canEdit, canDelete, isDarkMode }) => {
     const [recordings, setRecordings] = React.useState(lead?.recordings || []);
-
     const [userProfile, setUserProfile] = React.useState(null);
+    const [callStatus, setCallStatus] = React.useState("idle"); // idle, connecting, ringing, connected, error, disconnected
+    const [callMessage, setCallMessage] = React.useState("");
+    const [callDuration, setCallDuration] = React.useState(0);
+
+    const deviceRef = React.useRef(null);
+    const connectionRef = React.useRef(null);
+    const timerRef = React.useRef(null);
 
     const fetchUserProfile = async () => {
         try {
@@ -26,7 +34,158 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             setRecordings(lead.recordings || []);
         }
         fetchUserProfile();
+
+        return () => {
+            if (connectionRef.current) {
+                connectionRef.current.disconnect();
+            }
+            if (deviceRef.current) {
+                deviceRef.current.destroy();
+            }
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
+        };
     }, [lead]);
+
+    const formatDuration = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleCallNow = async () => {
+        const leadNumber = lead.phoneNumber || lead.secondPhoneNumber;
+        if (!leadNumber) {
+            toast.error("Lead does not have any phone number configured.");
+            return;
+        }
+
+        setCallStatus("connecting");
+        setCallMessage("Requesting microphone permissions & fetching token...");
+
+        try {
+            // 1. Request microphone permission
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // 2. Fetch Voice Token from Backend
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/token`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || "Failed to fetch voice token");
+            }
+
+            // 3. Initialize Twilio Device if not already done
+            if (!deviceRef.current) {
+                const device = new Device(data.token, {
+                    codecPreferences: ['opus', 'pcmu'],
+                    fakeLocalDTMF: true,
+                    enableIceRestart: true
+                });
+
+                device.on('registered', () => {
+                    console.log('Twilio WebRTC Device registered successfully.');
+                });
+
+                device.on('error', (error) => {
+                    console.error('Twilio Device Error:', error);
+                    setCallStatus("error");
+                    setCallMessage(`Device Error: ${error.message}`);
+                    toast.error(`Twilio Error: ${error.message}`);
+                });
+
+                deviceRef.current = device;
+            }
+
+            // Ensure Device is registered/ready
+            if (deviceRef.current.state === 'unregistered') {
+                await deviceRef.current.register();
+            }
+
+            setCallMessage("Connecting call...");
+
+            // 4. Dial outbound call passing lead credentials to Voice TwiML webhook
+            const connection = await deviceRef.current.connect({
+                params: {
+                    leadNumber: leadNumber,
+                    leadId: lead._id
+                }
+            });
+
+            connectionRef.current = connection;
+
+            connection.on('ringing', () => {
+                setCallStatus("ringing");
+                setCallMessage("Ringing lead's phone...");
+            });
+
+            connection.on('accept', () => {
+                setCallStatus("connected");
+                setCallMessage("Call connected! Talk now.");
+                
+                // Start timer
+                setCallDuration(0);
+                if (timerRef.current) clearInterval(timerRef.current);
+                timerRef.current = setInterval(() => {
+                    setCallDuration((prev) => prev + 1);
+                }, 1000);
+            });
+
+            connection.on('disconnect', () => {
+                setCallStatus("disconnected");
+                setCallMessage("Call disconnected.");
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+                setTimeout(() => setCallStatus("idle"), 3000);
+            });
+
+            connection.on('error', (error) => {
+                console.error('Call Connection Error:', error);
+                setCallStatus("error");
+                setCallMessage(`Call failed: ${error.message}`);
+                toast.error(`Call failed: ${error.message}`);
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                }
+            });
+
+        } catch (error) {
+            console.error("Outbound WebRTC call error:", error);
+            setCallStatus("error");
+            setCallMessage(error.message || "Failed to initialize WebRTC call.");
+            toast.error(error.message || "Microphone access denied or connection failed.");
+        }
+    };
+
+    const handleHangUp = () => {
+        if (connectionRef.current) {
+            connectionRef.current.disconnect();
+        }
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+        setCallStatus("disconnected");
+        setCallMessage("Call hung up by agent.");
+        setTimeout(() => setCallStatus("idle"), 3000);
+    };
+
+    const getAudioUrl = (url) => {
+        if (!url) return "";
+        if (url.includes("twilio.com")) {
+            const token = localStorage.getItem("token");
+            return `${import.meta.env.VITE_API_URL}/lead-management/call/recording-proxy?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
+        }
+        return url;
+    };
 
     if (!lead) return null;
 
@@ -192,6 +351,31 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                         </div>
                     )}
 
+                    {/* Call Status Bar */}
+                    {callStatus !== "idle" && (
+                        <div className={`p-4 rounded-[4px] border text-[11px] font-bold uppercase tracking-wider flex items-center gap-3 transition-all ${
+                            callStatus === "connecting" ? (isDarkMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700') :
+                            callStatus === "ringing" ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-700') :
+                            callStatus === "connected" ? (isDarkMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-green-50 border-green-200 text-green-700') :
+                            (isDarkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700')
+                        }`}>
+                            <div className={`w-2 h-2 rounded-full ${
+                                callStatus === "connecting" ? 'bg-amber-500 animate-pulse' :
+                                callStatus === "ringing" ? 'bg-cyan-500 animate-ping' :
+                                callStatus === "connected" ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                            }`} />
+                            <span className="flex-1">
+                                {callMessage}
+                                {callStatus === "connected" && ` (${formatDuration(callDuration)})`}
+                            </span>
+                            {!["connecting", "ringing", "connected"].includes(callStatus) && (
+                                <button onClick={() => setCallStatus("idle")} className="text-gray-400 hover:text-white uppercase font-black text-[9px] tracking-widest ml-2">
+                                    Dismiss
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     {/* Recordings Section */}
                     <div className="space-y-4">
                         <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] mb-4 border-b pb-2 flex items-center gap-2 ${isDarkMode ? 'text-cyan-400 border-gray-800' : 'text-cyan-600 border-gray-100'}`}>
@@ -216,7 +400,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                             </div>
                                         </div>
                                         <audio controls className={`h-8 w-32 sm:w-48 transition-opacity ${isDarkMode ? 'opacity-40 hover:opacity-100 invert' : 'opacity-70 hover:opacity-100'}`}>
-                                            <source src={rec.audioUrl} type="audio/mpeg" />
+                                            <source src={getAudioUrl(rec.audioUrl)} type="audio/mpeg" />
                                         </audio>
                                     </div>
                                 ))}
@@ -272,6 +456,34 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                     className={`px-5 py-3 sm:py-2.5 justify-center rounded-[4px] border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-95 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200 hover:bg-cyan-100'}`}
                                 >
                                     <FaEdit size={12} /> Edit
+                                </button>
+                            )}
+                            {!lead.isWalkIn && (
+                                <button
+                                    onClick={async () => {
+                                        if (onWalkIn) {
+                                            await onWalkIn(lead._id);
+                                            onClose();
+                                        }
+                                    }}
+                                    className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-amber-600 text-white hover:bg-amber-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95"
+                                >
+                                    <FaMapMarkerAlt size={12} /> Walk In
+                                </button>
+                            )}
+                            {["connecting", "ringing", "connected"].includes(callStatus) ? (
+                                <button
+                                    onClick={handleHangUp}
+                                    className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-red-600 text-white hover:bg-red-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 animate-pulse"
+                                >
+                                    <FaPhone size={12} className="rotate-[135deg]" /> Hang Up
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleCallNow}
+                                    className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-95"
+                                >
+                                    <FaPhone size={12} /> Call Now
                                 </button>
                             )}
                             <button

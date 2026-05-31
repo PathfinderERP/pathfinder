@@ -187,17 +187,28 @@ export const createAdmission = async (req, res) => {
         // Generate payment breakdown
         const paymentBreakdown = [];
         const currentDate = new Date();
+        let remainingToDistribute = Math.max(0, remainingAmount);
 
         for (let i = 0; i < numberOfInstallments; i++) {
             const dueDate = new Date(currentDate);
             dueDate.setMonth(dueDate.getMonth() + i + 1);
 
+            let amount = 0;
+            if (admissionType === "BOARD") {
+                amount = Math.max(0, Math.min(monthlyPaymentAmount, remainingToDistribute));
+            } else {
+                if (i === numberOfInstallments - 1) {
+                    amount = Math.max(0, remainingToDistribute);
+                } else {
+                    amount = Math.max(0, Math.min(installmentAmount, remainingToDistribute));
+                }
+            }
+            remainingToDistribute = parseFloat((remainingToDistribute - amount).toFixed(3));
+
             paymentBreakdown.push({
                 installmentNumber: i + 1,
                 dueDate: dueDate,
-                amount: admissionType === "BOARD" ? monthlyPaymentAmount : (i === numberOfInstallments - 1
-                    ? remainingAmount - (installmentAmount * (numberOfInstallments - 1))
-                    : installmentAmount),
+                amount: amount,
                 status: "PENDING",
                 remarks: i === 0 && previousBalance > 0 ? `Includes previous balance: ₹${previousBalance}` : ""
             });

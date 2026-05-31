@@ -71,10 +71,10 @@ export const PERMISSION_MODULES = {
                 label: "Admissions",
                 operations: ["create", "edit", "delete", "deactivate"]
             },
-            sectionAllotment: {
-                label: "Section Allotment",
-                operations: ["view", "edit"]
-            },
+            // sectionAllotment: {
+            //     label: "Section Allotment",
+            //     operations: ["view", "edit"]
+            // },
             // salesDashboard: {
             //     label: "Sales Dashboard",
             //     operations: ["create", "edit", "delete"]
@@ -99,19 +99,19 @@ export const PERMISSION_MODULES = {
 
             // New Sections
             studentTeacherReview: { label: "Student Teacher Review", operations: ["create", "edit", "delete"] },
-            liveClassReview: { label: "Live Class Review", operations: ["create", "edit", "delete"] },
-            ccTeacherReview: { label: "CC Teacher Review", operations: ["create", "edit", "delete"] },
+            // liveClassReview: { label: "Live Class Review", operations: ["create", "edit", "delete"] },
+            // ccTeacherReview: { label: "CC Teacher Review", operations: ["create", "edit", "delete"] },
             hodList: { label: "HoD List", operations: ["create", "edit", "delete"] },
-            centreManagement: { label: "Centre Management", operations: ["create", "edit", "delete"] },
-            rmList: { label: "RM List", operations: ["create", "edit", "delete"] },
-            classCoordinator: { label: "Class Coordinator", operations: ["create", "edit", "delete"] },
-            mentalSessionTable: { label: "Mental Session Table", operations: ["create", "edit", "delete"] },
+            // centreManagement: { label: "Centre Management", operations: ["create", "edit", "delete"] },
+            // rmList: { label: "RM List", operations: ["create", "edit", "delete"] },
+            // classCoordinator: { label: "Class Coordinator", operations: ["create", "edit", "delete"] },
+            // mentalSessionTable: { label: "Mental Session Table", operations: ["create", "edit", "delete"] },
             classManagement: { label: "Class Management", operations: ["create", "edit", "delete"] },
             subjects: { label: "Subjects", operations: ["create", "edit", "delete"] },
             chapters: { label: "Chapters", operations: ["create", "edit", "delete"] },
             topics: { label: "Topics", operations: ["create", "edit", "delete"] },
-            sectionLeaderBoard: { label: "Section Leader Board", operations: ["create", "edit", "delete"] },
-            examLeaderBoard: { label: "Exam Leader Board", operations: ["create", "edit", "delete"] },
+            // sectionLeaderBoard: { label: "Section Leader Board", operations: ["create", "edit", "delete"] },
+            // examLeaderBoard: { label: "Exam Leader Board", operations: ["create", "edit", "delete"] },
             upcomingClass: { label: "Upcoming Class", operations: ["create", "edit", "delete"] },
             ongoingClass: { label: "Ongoing Class", operations: ["create", "edit", "delete"] },
             previousClass: { label: "Previous Class", operations: ["create", "edit", "delete"] },
@@ -146,14 +146,14 @@ export const PERMISSION_MODULES = {
             //     label: "Bill Generation",
             //     operations: ["create", "edit", "delete"]
             // },
-            payments: {
-                label: "Payments",
-                operations: ["create", "edit", "delete"]
-            },
-            paymentReminders: {
-                label: "Payment Reminders",
-                operations: ["create", "edit", "delete"]
-            },
+            // payments: {
+            //     label: "Payments",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            // paymentReminders: {
+            //     label: "Payment Reminders",
+            //     operations: ["create", "edit", "delete"]
+            // },
             cashReport: {
                 label: "Cash Report",
                 operations: ["create", "edit", "delete"]
@@ -170,30 +170,30 @@ export const PERMISSION_MODULES = {
                 label: "Financial Analysis",
                 operations: ["create", "edit", "delete"]
             },
-            centerTagging: {
-                label: "Center Tagging",
-                operations: ["create", "edit", "delete"]
-            },
-            budget: {
-                label: "Budget",
-                operations: ["create", "edit", "delete"]
-            },
-            cashCentre: {
-                label: "Cash Centre",
-                operations: ["create", "edit", "delete"]
-            },
+            // centerTagging: {
+            //     label: "Center Tagging",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            // budget: {
+            //     label: "Budget",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            // cashCentre: {
+            //     label: "Cash Centre",
+            //     operations: ["create", "edit", "delete"]
+            // },
             partTimeTeachers: {
                 label: "Part Time Teachers",
                 operations: ["create", "edit", "delete"]
             },
-            financePerson: {
-                label: "Finance Person",
-                operations: ["create", "edit", "delete"]
-            },
-            vendorManagement: {
-                label: "Vendor Management",
-                operations: ["create", "edit", "delete"]
-            },
+            // financePerson: {
+            //     label: "Finance Person",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            // vendorManagement: {
+            //     label: "Vendor Management",
+            //     operations: ["create", "edit", "delete"]
+            // },
             payEmployee: {
                 label: "Pay Employee",
                 operations: ["create", "edit", "delete"]
@@ -202,13 +202,21 @@ export const PERMISSION_MODULES = {
                 label: "Payment Analysis",
                 operations: ["create", "edit", "delete"]
             },
-            budgetAnalysis: {
-                label: "Budget Analysis",
+            // budgetAnalysis: {
+            //     label: "Budget Analysis",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            expense: {
+                label: "Expense Management",
                 operations: ["create", "edit", "delete"]
             },
             transactionReport: {
                 label: "Transaction List",
                 operations: ["view", "create", "edit", "delete"]
+            },
+            financeExpenseCategory: {
+                label: "Finance Expense Category",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
@@ -225,8 +233,8 @@ export const PERMISSION_MODULES = {
             regularizeTable: { label: "Regularize Table", operations: ["create", "edit", "delete"] },
             department: { label: "Department", operations: ["create", "edit", "delete"] },
             designation: { label: "Designation", operations: ["create", "edit", "delete"] },
-            center: { label: "Center Management", operations: ["create", "edit", "delete"] },
-            centerDetails: { label: "Center On/Off Details", operations: ["create", "edit", "delete"] },
+            // center: { label: "Center Management", operations: ["create", "edit", "delete"] },
+            // centerDetails: { label: "Center On/Off Details", operations: ["create", "edit", "delete"] },
             training: { label: "Training List", operations: ["create", "edit", "delete"] },
             posh: { label: "POSH Table", operations: ["create", "edit", "delete"] },
             upload: { label: "Upload File", operations: ["create", "edit", "delete"] },
@@ -234,7 +242,7 @@ export const PERMISSION_MODULES = {
             reimbursement: { label: "Reimbursement List", operations: ["create", "edit", "delete"] },
             resign: { label: "Resign Request", operations: ["create", "edit", "delete"] },
             birthday: { label: "Birthday Lists", operations: ["create", "edit", "delete"] },
-            overview: { label: "Overview", operations: ["create", "edit", "delete"] },
+            // overview: { label: "Overview", operations: ["create", "edit", "delete"] },
             payroll: { label: "Payroll", operations: ["create", "edit", "delete"] }
         }
     },
@@ -311,57 +319,57 @@ export const PERMISSION_MODULES = {
             }
         }
     },
-    digitalPortal: {
-        label: "Digital Portal",
-        sections: {
-            studentPortal: {
-                label: "Student Portal",
-                operations: ["create", "edit", "delete"]
-            },
-            teacherPortal: {
-                label: "Teacher Portal",
-                operations: ["create", "edit", "delete"]
-            },
-            parentPortal: {
-                label: "Parent Portal",
-                operations: ["create", "edit", "delete"]
-            }
-        }
-    },
+    // digitalPortal: {
+    //     label: "Digital Portal",
+    //     sections: {
+    //         studentPortal: {
+    //             label: "Student Portal",
+    //             operations: ["create", "edit", "delete"]
+    //         },
+    //         teacherPortal: {
+    //             label: "Teacher Portal",
+    //             operations: ["create", "edit", "delete"]
+    //         },
+    //         parentPortal: {
+    //             label: "Parent Portal",
+    //             operations: ["create", "edit", "delete"]
+    //         }
+    //     }
+    // },
     marketingCRM: {
         label: "Marketing & CRM",
         sections: {
-            campaigns: {
-                label: "Campaigns",
-                operations: ["create", "edit", "delete"]
-            },
+            // campaigns: {
+            //     label: "Campaigns",
+            //     operations: ["create", "edit", "delete"]
+            // },
             leads: {
                 label: "Leads",
                 operations: ["create", "edit", "delete"]
             },
-            communications: {
-                label: "Communications",
-                operations: ["create", "edit", "delete"]
-            }
+            // communications: {
+            //     label: "Communications",
+            //     operations: ["create", "edit", "delete"]
+            // }
         }
     },
-    franchiseMgmt: {
-        label: "Franchise Mgmt",
-        sections: {
-            franchises: {
-                label: "Franchises",
-                operations: ["create", "edit", "delete"]
-            },
-            agreements: {
-                label: "Agreements",
-                operations: ["create", "edit", "delete"]
-            },
-            royalties: {
-                label: "Royalties",
-                operations: ["create", "edit", "delete"]
-            }
-        }
-    },
+    // franchiseMgmt: {
+    //     label: "Franchise Mgmt",
+    //     sections: {
+    //         franchises: {
+    //             label: "Franchises",
+    //             operations: ["create", "edit", "delete"]
+    //         },
+    //         agreements: {
+    //             label: "Agreements",
+    //             operations: ["create", "edit", "delete"]
+    //         },
+    //         royalties: {
+    //             label: "Royalties",
+    //             operations: ["create", "edit", "delete"]
+    //         }
+    //     }
+    // },
     masterData: {
         label: "Master Data",
         sections: {
@@ -459,14 +467,14 @@ export const PERMISSION_MODULES = {
                 label: "Courses",
                 operations: ["create", "edit", "delete"]
             },
-            curriculum: {
-                label: "Curriculum",
-                operations: ["create", "edit", "delete"]
-            },
-            materials: {
-                label: "Materials",
-                operations: ["create", "edit", "delete"]
-            }
+            // curriculum: {
+            //     label: "Curriculum",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            // materials: {
+            //     label: "Materials",
+            //     operations: ["create", "edit", "delete"]
+            // }
         }
     },
     userManagement: {
@@ -476,14 +484,14 @@ export const PERMISSION_MODULES = {
                 label: "Users",
                 operations: ["create", "edit", "delete"]
             },
-            roles: {
-                label: "Roles",
-                operations: ["create", "edit", "delete"]
-            },
-            permissions: {
-                label: "Permissions",
-                operations: ["create", "edit", "delete"]
-            }
+            // roles: {
+            //     label: "Roles",
+            //     operations: ["create", "edit", "delete"]
+            // },
+            // permissions: {
+            //     label: "Permissions",
+            //     operations: ["create", "edit", "delete"]
+            // }
         }
     },
     leadManagement: {
@@ -526,12 +534,36 @@ export const PERMISSION_MODULES = {
     }
 };
 
+const getUserRole = (userOrPermissions) => {
+    if (userOrPermissions?.role) return userOrPermissions.role;
+    try {
+        const localUser = JSON.parse(localStorage.getItem("user") || "{}");
+        return localUser?.role;
+    } catch (e) {
+        return null;
+    }
+};
+
 // Helper function to check if user has permission
 // Accepts either (granularPermissions, module, section, operation) or (user, module, section, operation)
 export const hasPermission = (granularPermissionsOrUser, module, section, operation) => {
-    // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
+    const role = getUserRole(granularPermissionsOrUser);
+    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
         return true; // SuperAdmin has all permissions
+    }
+
+    const ALL_ROLES_FOR_CLASS = [
+        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
+        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
+        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
+        'coordinator', 'digital'
+    ];
+
+    if (granularPermissionsOrUser && granularPermissionsOrUser.role && module === 'academics' &&
+        ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
+        if (ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === granularPermissionsOrUser.role.toLowerCase())) {
+            return true;
+        }
     }
 
     // Otherwise treat it as granularPermissions object
@@ -542,7 +574,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     // Master permission check for Academics Class Management
     // If user has 'classManagement' or 'classes' permission, they get access to sub-sections
     if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass', 'subjects', 'chapters', 'topics'].includes(section)) {
-        if (granularPermissions[module]?.['classManagement']?.[operation] === true || 
+        if (granularPermissions[module]?.['classManagement']?.[operation] === true ||
             granularPermissions[module]?.['classes']?.[operation] === true) {
             return true;
         }
@@ -555,9 +587,14 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
 // Helper function to check if user has any permission in a module
 export const hasModuleAccess = (granularPermissionsOrUser, module) => {
-    // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
+    const role = getUserRole(granularPermissionsOrUser);
+    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
         return true; // SuperAdmin has access to all modules
+    }
+
+    const normalizedRole = role ? role.toLowerCase() : "";
+    if (module === 'academics' && (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
+        return true;
     }
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
@@ -568,15 +605,15 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
 
 // Helper function to get all accessible modules
 export const getAccessibleModules = (granularPermissionsOrUser) => {
-    // Check if first argument is a user object with role
-    if (granularPermissionsOrUser && (granularPermissionsOrUser.role === 'superAdmin' || granularPermissionsOrUser.role === 'Super Admin')) {
+    const role = getUserRole(granularPermissionsOrUser);
+    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
         return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
     }
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
     if (!granularPermissions) return [];
     return Object.keys(granularPermissions).filter(module =>
-        hasModuleAccess(granularPermissions, module)
+        hasModuleAccess(granularPermissionsOrUser, module)
     );
 };
 

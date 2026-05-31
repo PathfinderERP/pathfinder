@@ -186,10 +186,24 @@ export const requireGranularPermission = (module, section, action) => {
             // Granular Permission Check
             let hasAccess = false;
 
+            // Grant automatic access to class-related academics actions for designated roles
+            const ALL_ROLES_FOR_CLASS = [
+                'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
+                'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
+                'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
+                'coordinator', 'digital'
+            ];
+
+            if (module === 'academics' && ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
+                if (ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase())) {
+                    hasAccess = true;
+                }
+            }
+
             // Master permission check for Academics Class Management
-            if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
+            if (!hasAccess && module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
                 const masterAction = action === "view" ? "create" : action; // If viewing, check if they have any master access
-                if (user.granularPermissions?.[module]?.['classManagement']?.[action] === true || 
+                if (user.granularPermissions?.[module]?.['classManagement']?.[action] === true ||
                     user.granularPermissions?.[module]?.['classes']?.[action] === true ||
                     (action === "view" && (user.granularPermissions?.[module]?.['classManagement'] || user.granularPermissions?.[module]?.['classes']))) {
                     hasAccess = true;

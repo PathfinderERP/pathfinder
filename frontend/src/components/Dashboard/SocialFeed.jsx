@@ -1582,74 +1582,89 @@ const PostCard = ({ post, taggableUsers, onLike, onVote, onComment, onDelete, on
                 showComments && (
                     <div className={`p-6 border-t space-y-6 ${theme === 'dark' ? 'bg-[#131619]/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                         <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar">
-                            {post.comments.map((comment, i) => (
-                                <div key={i} className="flex gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold shrink-0">
-                                        {comment.user?.name?.charAt(0)}
-                                    </div>
-                                    <div className={`p-3 rounded-xl border flex-1 shadow-sm ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <h5 className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{comment.user?.name}</h5>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[9px] font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{new Date(comment.createdAt).toLocaleDateString()}</span>
-                                                {(currentUser.role === "superAdmin" || comment.user?._id === currentUser._id || comment.user === currentUser._id) && (
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingCommentId(comment._id);
-                                                                setEditCommentText(comment.text);
-                                                            }}
-                                                            className="text-cyan-500 hover:text-cyan-600 transition-colors"
-                                                        >
-                                                            <FaEdit size={8} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => onDeleteComment(comment._id)}
-                                                            className="text-red-500 hover:text-red-600 transition-colors"
-                                                        >
-                                                            <FaTrash size={8} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
+                            {post.comments.map((comment, i) => {
+                                const currentUserId = currentUser?._id || currentUser?.id;
+                                const commentUserId = comment.user?._id || comment.user;
+                                const isCommentAuthor = currentUserId && commentUserId && String(commentUserId) === String(currentUserId);
+                                const isPostAuthor = post.author?._id === currentUserId || post.author === currentUserId;
+                                const isSuperAdmin = currentUser.role === "superAdmin";
+
+                                const canEditComment = isSuperAdmin || isCommentAuthor;
+                                const canDeleteComment = isSuperAdmin || isCommentAuthor || isPostAuthor;
+
+                                return (
+                                    <div key={i} className="flex gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold shrink-0">
+                                            {comment.user?.name?.charAt(0)}
                                         </div>
-                                        {editingCommentId === comment._id ? (
-                                            <div className="mt-2 flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={editCommentText}
-                                                    onChange={(e) => setEditCommentText(e.target.value)}
-                                                    className={`flex-1 text-xs border rounded px-2 py-1 outline-none focus:border-cyan-500 ${theme === 'dark' ? 'bg-[#131619] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
-                                                    autoFocus
-                                                    onKeyPress={(e) => {
-                                                        if (e.key === 'Enter') {
+                                        <div className={`p-3 rounded-xl border flex-1 shadow-sm ${theme === 'dark' ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <h5 className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{comment.user?.name}</h5>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-[9px] font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                                    {(canEditComment || canDeleteComment) && (
+                                                        <div className="flex gap-2">
+                                                            {canEditComment && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingCommentId(comment._id);
+                                                                        setEditCommentText(comment.text);
+                                                                    }}
+                                                                    className="text-cyan-500 hover:text-cyan-600 transition-colors"
+                                                                >
+                                                                    <FaEdit size={8} />
+                                                                </button>
+                                                            )}
+                                                            {canDeleteComment && (
+                                                                <button
+                                                                    onClick={() => onDeleteComment(comment._id)}
+                                                                    className="text-red-500 hover:text-red-600 transition-colors"
+                                                                >
+                                                                    <FaTrash size={8} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {editingCommentId === comment._id ? (
+                                                <div className="mt-2 flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={editCommentText}
+                                                        onChange={(e) => setEditCommentText(e.target.value)}
+                                                        className={`flex-1 text-xs border rounded px-2 py-1 outline-none focus:border-cyan-500 ${theme === 'dark' ? 'bg-[#131619] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                                        autoFocus
+                                                        onKeyPress={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                onUpdateComment(comment._id, editCommentText);
+                                                                setEditingCommentId(null);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={() => {
                                                             onUpdateComment(comment._id, editCommentText);
                                                             setEditingCommentId(null);
-                                                        }
-                                                    }}
-                                                />
-                                                <button
-                                                    onClick={() => {
-                                                        onUpdateComment(comment._id, editCommentText);
-                                                        setEditingCommentId(null);
-                                                    }}
-                                                    className="text-[10px] bg-cyan-600 hover:bg-cyan-500 text-white px-2 py-1 rounded font-bold transition-colors"
-                                                >
-                                                    Save
-                                                </button>
-                                                <button
-                                                    onClick={() => setEditingCommentId(null)}
-                                                    className="text-[10px] bg-gray-500 hover:bg-gray-400 text-white px-2 py-1 rounded font-bold transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>{comment.text}</p>
-                                        )}
+                                                        }}
+                                                        className="text-[10px] bg-cyan-600 hover:bg-cyan-500 text-white px-2 py-1 rounded font-bold transition-colors"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingCommentId(null)}
+                                                        className="text-[10px] bg-gray-500 hover:bg-gray-400 text-white px-2 py-1 rounded font-bold transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>{comment.text}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                         <div className="flex gap-3 items-start relative">
                             <div className="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-xs font-bold text-cyan-400 shrink-0 mt-1">

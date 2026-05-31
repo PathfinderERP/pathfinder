@@ -35,6 +35,9 @@ const EnrolledStudentsContent = () => {
     const [filterMode, setFilterMode] = useState([]);
     const [filterCourseType, setFilterCourseType] = useState([]);
     const [filterAllocationStatus, setFilterAllocationStatus] = useState([]);
+    const [filterLeadBy, setFilterLeadBy] = useState([]);
+    const [filterCounselledBy, setFilterCounselledBy] = useState([]);
+    const [filterAdmissionBy, setFilterAdmissionBy] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -50,6 +53,7 @@ const EnrolledStudentsContent = () => {
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterSessions, setMasterSessions] = useState([]);
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const [activeEmployees, setActiveEmployees] = useState([]);
     const [studentAdmissions, setStudentAdmissions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -62,7 +66,7 @@ const EnrolledStudentsContent = () => {
     const [processingPayment, setProcessingPayment] = useState(false);
     const [paymentData, setPaymentData] = useState({
         paidAmount: 0,
-        paymentMethod: "CASH",
+        paymentMethod: "",
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
@@ -126,11 +130,12 @@ const EnrolledStudentsContent = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, courseRes, classRes, sessionRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, employeeRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
-                fetch(`${apiUrl}/session/list`, { headers })
+                fetch(`${apiUrl}/session/list`, { headers }),
+                fetch(`${apiUrl}/admission/active-employees`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -141,29 +146,32 @@ const EnrolledStudentsContent = () => {
             if (courseRes.ok) setMasterCourses(await courseRes.json());
             if (classRes.ok) setMasterClasses(await classRes.json());
             if (sessionRes.ok) setMasterSessions(await sessionRes.json());
+            if (employeeRes && employeeRes.ok) {
+                setActiveEmployees(await employeeRes.json());
+            }
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
     }, [apiUrl]);
-    
+
     // Helper to resolve course name from ID if populate failed
     const resolveCourseName = React.useCallback((admission) => {
         if (!admission) return "N/A";
-        
+
         // 1. If course is populated as an object, return courseName
         if (admission.course && typeof admission.course === 'object' && admission.course.courseName) {
             return admission.course.courseName;
         }
-        
+
         // 2. If it's a Board course, return the constructed boardCourseName or the board's own name
         if (admission.admissionType === 'BOARD') {
             return admission.boardCourseName || admission.board?.boardCourse || admission.board?.name || "Board Course";
         }
-        
+
         // 3. Fallback: If course is just an ID (string), try to find it in masterCourses
-        const courseId = typeof admission.course === 'string' ? admission.course : 
-                         (admission.course?._id || admission.course);
-        
+        const courseId = typeof admission.course === 'string' ? admission.course :
+            (admission.course?._id || admission.course);
+
         if (courseId && typeof courseId === 'string' && courseId.length > 5) {
             const matchedCourse = masterCourses.find(c => c._id === courseId.toString());
             if (matchedCourse) {
@@ -172,13 +180,13 @@ const EnrolledStudentsContent = () => {
             // If still not found in master data, return the ID itself (so it's not "UNSPECIFIED")
             return `COURSE ID: ${courseId}`;
         }
-        
+
         // 4. Final Fallback: If course field is null/missing, try to show Department + Admission Type
         const deptInfo = admission.department?.departmentName || admission.department?.name || "";
         const typeInfo = admission.admissionType || "NORMAL";
-        
+
         if (deptInfo) return `${deptInfo} (${typeInfo})`;
-        
+
         return "UNKNOWN COURSE";
     }, [masterCourses]);
 
@@ -519,7 +527,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
 
     // Filter students
     useEffect(() => {
@@ -687,6 +695,68 @@ const EnrolledStudentsContent = () => {
             });
         }
 
+        if (filterLeadBy.length > 0) {
+            result = result.filter(item => {
+                const latestAdmission = item.admissions.filter(a => {
+                    const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                    if (!isTypeMatch) return false;
+                    const admDate = new Date(a.admissionDate);
+                    if (startDate && admDate < new Date(startDate)) return false;
+                    if (endDate) {
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (admDate > end) return false;
+                    }
+                    return true;
+                })[0] || item.latestAdmission;
+                
+                const leadBy = item.student?.leadBy || latestAdmission?.leadBy;
+                const leadByName = leadBy?.name || "System";
+                return filterLeadBy.includes(leadByName);
+            });
+        }
+
+        if (filterCounselledBy.length > 0) {
+            result = result.filter(item => {
+                const latestAdmission = item.admissions.filter(a => {
+                    const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                    if (!isTypeMatch) return false;
+                    const admDate = new Date(a.admissionDate);
+                    if (startDate && admDate < new Date(startDate)) return false;
+                    if (endDate) {
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (admDate > end) return false;
+                    }
+                    return true;
+                })[0] || item.latestAdmission;
+
+                const counselBy = item.student?.counselledByDetails || latestAdmission?.counselledByDetails;
+                const counselByName = counselBy?.name || item.student?.counselledBy || "N/A";
+                return filterCounselledBy.includes(counselByName);
+            });
+        }
+
+        if (filterAdmissionBy.length > 0) {
+            result = result.filter(item => {
+                const latestAdmission = item.admissions.filter(a => {
+                    const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                    if (!isTypeMatch) return false;
+                    const admDate = new Date(a.admissionDate);
+                    if (startDate && admDate < new Date(startDate)) return false;
+                    if (endDate) {
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (admDate > end) return false;
+                    }
+                    return true;
+                })[0] || item.latestAdmission;
+
+                const admittedByName = latestAdmission?.createdBy?.name || (latestAdmission?.createdBy ? "Unknown" : "System");
+                return filterAdmissionBy.includes(admittedByName);
+            });
+        }
+
         // Filter by student status (viewMode)
         result = result.filter(item => {
             if (viewMode === 'Board') {
@@ -697,7 +767,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -719,7 +789,7 @@ const EnrolledStudentsContent = () => {
 
     const chartData = React.useMemo(() => {
         const admissionsByDate = {};
-        
+
         // If no date filters are applied, the chart defaults to current month data internally
         // without affecting the main table or global stats cards.
         let sourceData = filteredAdmissions;
@@ -727,17 +797,17 @@ const EnrolledStudentsContent = () => {
             const now = new Date();
             const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
             const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-            
+
             sourceData = filteredAdmissions.filter(a => {
                 const d = new Date(a.admissionDate);
                 return d >= firstDay && d <= lastDay;
             });
         }
-        
+
         sourceData.forEach(admission => {
             const dateObj = new Date(admission.admissionDate);
             if (isNaN(dateObj.getTime())) return;
-            
+
             const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
             if (!admissionsByDate[dateStr]) {
                 admissionsByDate[dateStr] = { date: dateStr, count: 0, revenue: 0, rawDate: dateObj };
@@ -772,6 +842,9 @@ const EnrolledStudentsContent = () => {
         setFilterMode([]);
         setFilterCourseType([]);
         setFilterAllocationStatus([]);
+        setFilterLeadBy([]);
+        setFilterCounselledBy([]);
+        setFilterAdmissionBy([]);
         setStartDate("");
         setEndDate("");
         setCurrentPage(1);
@@ -869,7 +942,7 @@ const EnrolledStudentsContent = () => {
             const data = await response.json();
             if (response.ok) {
                 toast.success("Course enrollment purged successfully");
-                
+
                 // Update local modal state
                 const updatedAdmissions = studentAdmissions.filter(ad => ad._id !== admissionId);
                 if (updatedAdmissions.length === 0) {
@@ -878,7 +951,7 @@ const EnrolledStudentsContent = () => {
                 } else {
                     setStudentAdmissions(updatedAdmissions);
                 }
-                
+
                 // Refresh main list
                 fetchAdmissions();
             } else {
@@ -895,7 +968,7 @@ const EnrolledStudentsContent = () => {
         setSelectedInstallment(installment);
         setPaymentData({
             paidAmount: installment.amount,
-            paymentMethod: "CASH",
+            paymentMethod: "",
             transactionId: "",
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
@@ -909,6 +982,11 @@ const EnrolledStudentsContent = () => {
 
     const handlePaymentSubmit = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
+
+        if (!paymentData.paymentMethod) {
+            toast.error("Please select a payment method.");
+            return;
+        }
 
         // Validation: Prevent paying more than total remaining balance
         const remainingBalance = (selectedAdmission.totalFees || 0) - (selectedAdmission.totalPaidAmount || 0);
@@ -1301,34 +1379,34 @@ const EnrolledStudentsContent = () => {
                             <ComposedChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#1f2937" : "#f3f4f6"} vertical={false} />
-                                <XAxis 
-                                    dataKey="date" 
+                                <XAxis
+                                    dataKey="date"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900'}}
+                                    tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900' }}
                                 />
-                                <YAxis 
+                                <YAxis
                                     yAxisId="left"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900'}}
+                                    tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900' }}
                                 />
-                                <YAxis 
+                                <YAxis
                                     yAxisId="right"
                                     orientation="right"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900'}}
+                                    tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 8, fontWeight: '900' }}
                                     tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`}
                                 />
-                                <Tooltip 
-                                    contentStyle={{ 
-                                        backgroundColor: isDarkMode ? '#1a1f24' : '#fff', 
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: isDarkMode ? '#1a1f24' : '#fff',
                                         border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
                                         borderRadius: '4px',
                                         fontSize: '9px',
@@ -1523,6 +1601,54 @@ const EnrolledStudentsContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Lead By"
+                                placeholder="ALL LEADS"
+                                options={activeEmployees.map(e => e.name).filter(Boolean).reduce((acc, name) => {
+                                    if (!acc.some(o => o.value === name)) {
+                                        acc.push({ value: name, label: name.toUpperCase() });
+                                    }
+                                    return acc;
+                                }, []).sort((a, b) => a.label.localeCompare(b.label))}
+                                selectedValues={filterLeadBy}
+                                onChange={setFilterLeadBy}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Counselled By"
+                                placeholder="ALL COUNSELLORS"
+                                options={activeEmployees.map(e => e.name).filter(Boolean).reduce((acc, name) => {
+                                    if (!acc.some(o => o.value === name)) {
+                                        acc.push({ value: name, label: name.toUpperCase() });
+                                    }
+                                    return acc;
+                                }, []).sort((a, b) => a.label.localeCompare(b.label))}
+                                selectedValues={filterCounselledBy}
+                                onChange={setFilterCounselledBy}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Admission By"
+                                placeholder="ALL ADMISSIONS"
+                                options={activeEmployees.map(e => e.name).filter(Boolean).reduce((acc, name) => {
+                                    if (!acc.some(o => o.value === name)) {
+                                        acc.push({ value: name, label: name.toUpperCase() });
+                                    }
+                                    return acc;
+                                }, []).sort((a, b) => a.label.localeCompare(b.label))}
+                                selectedValues={filterAdmissionBy}
+                                onChange={setFilterAdmissionBy}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-800/20">
@@ -1708,7 +1834,7 @@ const EnrolledStudentsContent = () => {
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wide">{student.studentEmail || ""}</p>
+                                                            <p className="text-gray-500 text-[10px] font-bold normal-case tracking-wide">{student.studentEmail || ""}</p>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -1896,7 +2022,7 @@ const EnrolledStudentsContent = () => {
                                 </h3>
                                 <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-widest mt-2 text-gray-500">
                                     <span className="flex items-center gap-1.5"><FaPhoneAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
-                                    <span className="flex items-center gap-1.5"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
+                                    <span className="flex items-center gap-1.5 normal-case"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
                                     <span className="flex items-center gap-1.5"><FaMapMarkerAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
                                     {studentAdmissions[0]?.department?.departmentName && (
                                         <span className="flex items-center gap-1.5"><FaHistory size={10} className="text-orange-500" /> {studentAdmissions[0].department.departmentName}</span>
@@ -2144,7 +2270,7 @@ const EnrolledStudentsContent = () => {
                                                         </div>
                                                         <div className="lg:col-span-2">
                                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">E-Mail Address</p>
-                                                            <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{guardian.guardianEmail || "N/A"}</p>
+                                                            <p className={`font-black normal-case tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{guardian.guardianEmail || "N/A"}</p>
                                                         </div>
                                                         <div className="lg:col-span-2">
                                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Academic Credentials</p>
@@ -2355,7 +2481,7 @@ const EnrolledStudentsContent = () => {
                                                                 <FaMoneyBillWave /> BILLING
                                                             </button>
                                                         )}
-                                                        
+
                                                         {canEdit && (
                                                             <button
                                                                 onClick={() => handleEditAdmission(admission)}
@@ -2561,188 +2687,188 @@ const EnrolledStudentsContent = () => {
                                                 {getAdmissionTab(admission._id) === 'schedule' ? (
                                                     <div>
                                                         <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
-                                                        {admission.admissionType === 'BOARD' ? (
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                                {admission.monthlySubjectHistory?.length > 0 ? (
-                                                                    admission.monthlySubjectHistory.sort((a, b) => a.month.localeCompare(b.month)).map((history, hIdx) => {
-                                                                        const isFirstMonth = hIdx === 0;
-                                                                        const displayPaid = history.isPaid || (isFirstMonth && admission.totalPaidAmount >= (history.totalAmount - 10));
+                                                            {admission.admissionType === 'BOARD' ? (
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                                    {admission.monthlySubjectHistory?.length > 0 ? (
+                                                                        admission.monthlySubjectHistory.sort((a, b) => a.month.localeCompare(b.month)).map((history, hIdx) => {
+                                                                            const isFirstMonth = hIdx === 0;
+                                                                            const displayPaid = history.isPaid || (isFirstMonth && admission.totalPaidAmount >= (history.totalAmount - 10));
 
-                                                                        const getMonthName = (mKey) => {
-                                                                            try {
-                                                                                const [year, month] = mKey.split('-').map(Number);
-                                                                                return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                                                                            } catch { return mKey; }
-                                                                        };
-
-                                                                        return (
-                                                                            <div key={hIdx} className={`p-4 rounded-lg border flex flex-col h-full transition-all group ${displayPaid
-                                                                                ? 'bg-green-500/5 border-green-500/20'
-                                                                                : isDarkMode
-                                                                                    ? 'bg-gray-800 border-gray-700 hover:border-cyan-500/30'
-                                                                                    : 'bg-white border-gray-200 hover:border-cyan-500/30 shadow-sm'
-                                                                                }`}>
-                                                                                <div className="flex justify-between items-center mb-3">
-                                                                                    <div>
-                                                                                        <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Month {hIdx + 1} / {admission.courseDurationMonths}</span>
-                                                                                        <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getMonthName(history.month)}</span>
-                                                                                    </div>
-                                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${displayPaid ? 'bg-green-500 text-white' : (history.status === "PENDING_CLEARANCE" ? 'bg-cyan-500 text-white' : 'bg-yellow-500 text-black')}`}>
-                                                                                        {history.status === "PENDING_CLEARANCE" ? "IN PROCESS" : (displayPaid ? 'PAID' : 'PENDING')}
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="space-y-1 mb-4 flex-grow">
-                                                                                    {history.subjects?.map((sub, sIdx) => (
-                                                                                        <div key={sIdx} className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wide">
-                                                                                            <span className="text-gray-500">{sub.name}</span>
-                                                                                            <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>₹{fmt(sub.price)}</span>
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                                <div className={`pt-3 border-t flex justify-between items-center ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                                                                    <span className="text-gray-500 text-[9px] font-black uppercase tracking-widest">Aggregate</span>
-                                                                                    <span className="text-cyan-500 font-black text-[11px] tracking-widest italic">₹{fmt(history.totalAmount)}</span>
-                                                                                </div>
-                                                                                {displayPaid && (
-                                                                                    <button
-                                                                                        onClick={() => setBillModal({
-                                                                                            show: true,
-                                                                                            admission: admission,
-                                                                                            installment: {
-                                                                                                installmentNumber: 0,
-                                                                                                billingMonth: history.month,
-                                                                                                status: "PAID"
-                                                                                            }
-                                                                                        })}
-                                                                                        className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'}`}
-                                                                                    >
-                                                                                        <FaFileInvoice size={10} /> Extract Bill
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })
-                                                                ) : (
-                                                                    <div className="col-span-full py-12 text-center">
-                                                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest italic mb-4 text-center">No financial cycles initiated</p>
-                                                                        <button
-                                                                            onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
-                                                                            className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] shadow-lg shadow-purple-500/20"
-                                                                        >
-                                                                            GENERATE PRIMARY BILL
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="overflow-x-auto custom-scrollbar">
-                                                                <table className="w-full text-left">
-                                                                    <thead>
-                                                                        <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-100 text-gray-500'}`}>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Inst #</th>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Expiral Date</th>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Base Fee</th>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Variance</th>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Final Amount</th>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Liquidated</th>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Vector</th>
-                                                                            <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Status</th>
-                                                                            {canEdit && <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em] text-center">Action</th>}
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                                                                        {admission.paymentBreakdown?.map((payment, paymentIndex) => {
-                                                                            const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
-                                                                            const previousPaid = paymentIndex === 0 || admission.paymentBreakdown
-                                                                                .slice(0, paymentIndex)
-                                                                                .every(p => ["PAID", "COMPLETED"].includes(p.status));
-
-                                                                            const baseInstallmentAmount = admission.installmentAmount || Math.ceil((admission.totalFees - admission.downPayment) / (admission.numberOfInstallments || 1));
-                                                                            const remarks = payment.remarks || "";
-                                                                            const arrearsMatch = remarks.match(/Includes ₹([\d,]+) arrears from Inst #(\d+)/);
-                                                                            const creditMatch = remarks.match(/Credit of ₹([\d,]+) from Inst #(\d+)/);
-                                                                            const carryForwardMatch = remarks.match(/Carried Forward Arrears: ₹([\d,]+)/);
-
-                                                                            let adjustmentText = null;
-                                                                            let adjustmentColor = "";
-
-                                                                            if (arrearsMatch) {
-                                                                                const amount = arrearsMatch[1].replace(/,/g, '');
-                                                                                const fromInst = arrearsMatch[2];
-                                                                                adjustmentText = `+₹${fmt(amount)} from Inst #${fromInst}`;
-                                                                                adjustmentColor = "text-red-500";
-                                                                            } else if (creditMatch) {
-                                                                                const amount = creditMatch[1].replace(/,/g, '');
-                                                                                const fromInst = creditMatch[2];
-                                                                                adjustmentText = `-₹${fmt(amount)} from Inst #${fromInst}`;
-                                                                                adjustmentColor = "text-green-500";
-                                                                            }
+                                                                            const getMonthName = (mKey) => {
+                                                                                try {
+                                                                                    const [year, month] = mKey.split('-').map(Number);
+                                                                                    return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                                                                                } catch { return mKey; }
+                                                                            };
 
                                                                             return (
-                                                                                <tr key={payment.installmentNumber} className={`transition-all ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
-                                                                                    <td className={`p-4 font-black text-[10px] tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>#{payment.installmentNumber}</td>
-                                                                                    <td className="p-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{formatDate(payment.dueDate)}</td>
-                                                                                    <td className="p-4 text-[11px] font-black tracking-widest text-gray-400">₹{fmt(baseInstallmentAmount)}</td>
-                                                                                    <td className="p-4">
-                                                                                        {adjustmentText ? (
-                                                                                            <span className={`${adjustmentColor} font-black text-[9px] uppercase tracking-tighter`}>
-                                                                                                {adjustmentText}
-                                                                                            </span>
-                                                                                        ) : (
-                                                                                            <span className="text-gray-600">-</span>
-                                                                                        )}
-                                                                                    </td>
-                                                                                    <td className={`p-4 font-black text-[11px] tracking-widest italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(payment.amount)}</td>
-                                                                                    <td className="p-4 text-green-500 font-black text-[11px] tracking-widest italic">₹{fmt(payment.paidAmount)}</td>
-                                                                                    <td className="p-4 text-[9px] font-black uppercase tracking-widest text-gray-500">{payment.paymentMethod || "UNSET"}</td>
-                                                                                    <td className="p-4">
-                                                                                        <div className="flex flex-col gap-1">
-                                                                                            <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-tighter border text-center ${getInstallmentStatusColor(payment.status)}`}>
-                                                                                                {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
-                                                                                            </span>
-                                                                                            {carryForwardMatch && (
-                                                                                                <span className="px-2 py-0.5 bg-yellow-500 text-white rounded-[4px] text-[8px] font-black uppercase tracking-tighter text-center">
-                                                                                                    CF: ₹{fmt(carryForwardMatch[1])}
-                                                                                                </span>
-                                                                                            )}
+                                                                                <div key={hIdx} className={`p-4 rounded-lg border flex flex-col h-full transition-all group ${displayPaid
+                                                                                    ? 'bg-green-500/5 border-green-500/20'
+                                                                                    : isDarkMode
+                                                                                        ? 'bg-gray-800 border-gray-700 hover:border-cyan-500/30'
+                                                                                        : 'bg-white border-gray-200 hover:border-cyan-500/30 shadow-sm'
+                                                                                    }`}>
+                                                                                    <div className="flex justify-between items-center mb-3">
+                                                                                        <div>
+                                                                                            <span className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Month {hIdx + 1} / {admission.courseDurationMonths}</span>
+                                                                                            <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getMonthName(history.month)}</span>
                                                                                         </div>
-                                                                                    </td>
-                                                                                    {canEdit && (
-                                                                                        <td className="p-4 text-center">
-                                                                                            {(!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
-                                                                                                <button
-                                                                                                    onClick={() => selectedStudent.status !== 'Deactivated' && openPaymentModal(admission, payment)}
-                                                                                                    disabled={!previousPaid || selectedStudent.status === 'Deactivated'}
-                                                                                                    className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all shadow-sm ${(!previousPaid || selectedStudent.status === 'Deactivated')
-                                                                                                        ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
-                                                                                                        : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 active:scale-95'
-                                                                                                        }`}
-                                                                                                    title={selectedStudent.status === 'Deactivated' ? "LOCKED" : (!previousPaid ? "PRIOR DEBT" : "PROCESS")}
-                                                                                                >
-                                                                                                    Pay Now
-                                                                                                </button>
+                                                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${displayPaid ? 'bg-green-500 text-white' : (history.status === "PENDING_CLEARANCE" ? 'bg-cyan-500 text-white' : 'bg-yellow-500 text-black')}`}>
+                                                                                            {history.status === "PENDING_CLEARANCE" ? "IN PROCESS" : (displayPaid ? 'PAID' : 'PENDING')}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="space-y-1 mb-4 flex-grow">
+                                                                                        {history.subjects?.map((sub, sIdx) => (
+                                                                                            <div key={sIdx} className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wide">
+                                                                                                <span className="text-gray-500">{sub.name}</span>
+                                                                                                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>₹{fmt(sub.price)}</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    <div className={`pt-3 border-t flex justify-between items-center ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                                                        <span className="text-gray-500 text-[9px] font-black uppercase tracking-widest">Aggregate</span>
+                                                                                        <span className="text-cyan-500 font-black text-[11px] tracking-widest italic">₹{fmt(history.totalAmount)}</span>
+                                                                                    </div>
+                                                                                    {displayPaid && (
+                                                                                        <button
+                                                                                            onClick={() => setBillModal({
+                                                                                                show: true,
+                                                                                                admission: admission,
+                                                                                                installment: {
+                                                                                                    installmentNumber: 0,
+                                                                                                    billingMonth: history.month,
+                                                                                                    status: "PAID"
+                                                                                                }
+                                                                                            })}
+                                                                                            className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'}`}
+                                                                                        >
+                                                                                            <FaFileInvoice size={10} /> Extract Bill
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    ) : (
+                                                                        <div className="col-span-full py-12 text-center">
+                                                                            <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest italic mb-4 text-center">No financial cycles initiated</p>
+                                                                            <button
+                                                                                onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
+                                                                                className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] shadow-lg shadow-purple-500/20"
+                                                                            >
+                                                                                GENERATE PRIMARY BILL
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="overflow-x-auto custom-scrollbar">
+                                                                    <table className="w-full text-left">
+                                                                        <thead>
+                                                                            <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-100 text-gray-500'}`}>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Inst #</th>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Expiral Date</th>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Base Fee</th>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Variance</th>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Final Amount</th>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Liquidated</th>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Vector</th>
+                                                                                <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em]">Status</th>
+                                                                                {canEdit && <th className="p-4 text-[9px] font-black uppercase tracking-[0.2em] text-center">Action</th>}
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                                                                            {admission.paymentBreakdown?.map((payment, paymentIndex) => {
+                                                                                const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
+                                                                                const previousPaid = paymentIndex === 0 || admission.paymentBreakdown
+                                                                                    .slice(0, paymentIndex)
+                                                                                    .every(p => ["PAID", "COMPLETED"].includes(p.status));
+
+                                                                                const baseInstallmentAmount = admission.installmentAmount || Math.ceil((admission.totalFees - admission.downPayment) / (admission.numberOfInstallments || 1));
+                                                                                const remarks = payment.remarks || "";
+                                                                                const arrearsMatch = remarks.match(/Includes ₹([\d,]+) arrears from Inst #(\d+)/);
+                                                                                const creditMatch = remarks.match(/Credit of ₹([\d,]+) from Inst #(\d+)/);
+                                                                                const carryForwardMatch = remarks.match(/Carried Forward Arrears: ₹([\d,]+)/);
+
+                                                                                let adjustmentText = null;
+                                                                                let adjustmentColor = "";
+
+                                                                                if (arrearsMatch) {
+                                                                                    const amount = arrearsMatch[1].replace(/,/g, '');
+                                                                                    const fromInst = arrearsMatch[2];
+                                                                                    adjustmentText = `+₹${fmt(amount)} from Inst #${fromInst}`;
+                                                                                    adjustmentColor = "text-red-500";
+                                                                                } else if (creditMatch) {
+                                                                                    const amount = creditMatch[1].replace(/,/g, '');
+                                                                                    const fromInst = creditMatch[2];
+                                                                                    adjustmentText = `-₹${fmt(amount)} from Inst #${fromInst}`;
+                                                                                    adjustmentColor = "text-green-500";
+                                                                                }
+
+                                                                                return (
+                                                                                    <tr key={payment.installmentNumber} className={`transition-all ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                                                                                        <td className={`p-4 font-black text-[10px] tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>#{payment.installmentNumber}</td>
+                                                                                        <td className="p-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{formatDate(payment.dueDate)}</td>
+                                                                                        <td className="p-4 text-[11px] font-black tracking-widest text-gray-400">₹{fmt(baseInstallmentAmount)}</td>
+                                                                                        <td className="p-4">
+                                                                                            {adjustmentText ? (
+                                                                                                <span className={`${adjustmentColor} font-black text-[9px] uppercase tracking-tighter`}>
+                                                                                                    {adjustmentText}
+                                                                                                </span>
                                                                                             ) : (
-                                                                                                (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
-                                                                                                    <button
-                                                                                                        onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
-                                                                                                        disabled={selectedStudent.status === 'Deactivated'}
-                                                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
-                                                                                                    >
-                                                                                                        <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "REC" : "BILL"}
-                                                                                                    </button>
-                                                                                                )
+                                                                                                <span className="text-gray-600">-</span>
                                                                                             )}
                                                                                         </td>
-                                                                                    )}
-                                                                                </tr>
-                                                                            );
-                                                                        })}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        )}
+                                                                                        <td className={`p-4 font-black text-[11px] tracking-widest italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(payment.amount)}</td>
+                                                                                        <td className="p-4 text-green-500 font-black text-[11px] tracking-widest italic">₹{fmt(payment.paidAmount)}</td>
+                                                                                        <td className="p-4 text-[9px] font-black uppercase tracking-widest text-gray-500">{payment.paymentMethod || "UNSET"}</td>
+                                                                                        <td className="p-4">
+                                                                                            <div className="flex flex-col gap-1">
+                                                                                                <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-tighter border text-center ${getInstallmentStatusColor(payment.status)}`}>
+                                                                                                    {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
+                                                                                                </span>
+                                                                                                {carryForwardMatch && (
+                                                                                                    <span className="px-2 py-0.5 bg-yellow-500 text-white rounded-[4px] text-[8px] font-black uppercase tracking-tighter text-center">
+                                                                                                        CF: ₹{fmt(carryForwardMatch[1])}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </td>
+                                                                                        {canEdit && (
+                                                                                            <td className="p-4 text-center">
+                                                                                                {(!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
+                                                                                                    <button
+                                                                                                        onClick={() => selectedStudent.status !== 'Deactivated' && openPaymentModal(admission, payment)}
+                                                                                                        disabled={!previousPaid || selectedStudent.status === 'Deactivated'}
+                                                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all shadow-sm ${(!previousPaid || selectedStudent.status === 'Deactivated')
+                                                                                                            ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
+                                                                                                            : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 active:scale-95'
+                                                                                                            }`}
+                                                                                                        title={selectedStudent.status === 'Deactivated' ? "LOCKED" : (!previousPaid ? "PRIOR DEBT" : "PROCESS")}
+                                                                                                    >
+                                                                                                        Pay Now
+                                                                                                    </button>
+                                                                                                ) : (
+                                                                                                    (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
+                                                                                                        <button
+                                                                                                            onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                                                            disabled={selectedStudent.status === 'Deactivated'}
+                                                                                                            className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
+                                                                                                        >
+                                                                                                            <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "REC" : "BILL"}
+                                                                                                        </button>
+                                                                                                    )
+                                                                                                )}
+                                                                                            </td>
+                                                                                        )}
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
                                                 ) : (
                                                     <div className="space-y-4">
                                                         {loadingBills[admission._id] ? (
@@ -2919,7 +3045,7 @@ const EnrolledStudentsContent = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                                        REVENUE VECTOR <span className="text-red-500">*</span>
+                                        Payment Method <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={paymentData.paymentMethod}
@@ -2927,6 +3053,7 @@ const EnrolledStudentsContent = () => {
                                         required
                                         className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                     >
+                                        <option value="" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>SELECT PAYMENT METHOD</option>
                                         <option value="CASH" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>HARD CURRENCY (CASH)</option>
                                         <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>Online Payment (UPI)</option>
                                         <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CREDIT/DEBIT CARD</option>
@@ -2937,7 +3064,7 @@ const EnrolledStudentsContent = () => {
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                                        REALIZATION DATE <span className="text-red-500">*</span>
+                                        Received Date <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="date"
@@ -2998,7 +3125,7 @@ const EnrolledStudentsContent = () => {
                                     </div>
                                     <div>
                                         <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
-                                            INSTRUMENT DATE <span className="text-red-500">*</span>
+                                            Cheque Date <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="date"
@@ -3013,7 +3140,7 @@ const EnrolledStudentsContent = () => {
 
                             <div>
                                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                                    NARRATIVE / REMARKS
+                                    REMARKS
                                 </label>
                                 <textarea
                                     value={paymentData.remarks}

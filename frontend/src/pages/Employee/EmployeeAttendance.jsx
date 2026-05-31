@@ -115,6 +115,7 @@ const EmployeeAttendance = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [attendanceData, setAttendanceData] = useState([]);
+    const [regularizations, setRegularizations] = useState([]);
     const [holidays, setHolidays] = useState([]);
     const [workingDays, setWorkingDays] = useState({});
     const [workingHours, setWorkingHours] = useState(0);
@@ -149,6 +150,7 @@ const EmployeeAttendance = () => {
             if (response.ok) {
                 const data = await response.json();
                 setAttendanceData(data.attendances || []);
+                setRegularizations(data.regularizations || []);
                 setHolidays(data.holidays || []);
                 setWorkingDays(data.workingDays || {});
                 setWorkingHours(data.workingHours || 0);
@@ -297,6 +299,7 @@ const EmployeeAttendance = () => {
     const getDayStatus = (date) => {
         const dateStrKey = format(date, "yyyy-MM-dd");
         const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
+        const regularization = regularizations.find(r => format(new Date(r.date), "yyyy-MM-dd") === dateStrKey);
 
         if (record) {
             return {
@@ -309,27 +312,28 @@ const EmployeeAttendance = () => {
                 checkInCentre: record.checkIn?.centreId?.centreName || record.centreId?.centreName || "Office",
                 checkInLabel: record.checkIn?.address || "",
                 checkOutCentre: record.checkOut?.centreId?.centreName || "",
-                checkOutLabel: record.checkOut?.address || ""
+                checkOutLabel: record.checkOut?.address || "",
+                regularization
             };
         }
 
         const holiday = holidays.find(h => isSameDay(new Date(h.date), date));
-        if (holiday) return { type: "Holiday", name: holiday.name, description: holiday.description };
+        if (holiday) return { type: "Holiday", name: holiday.name, description: holiday.description, regularization };
 
         // Before joining date, consider as N/A or just blank
         if (dateOfJoining && date < startOfDay(new Date(dateOfJoining))) {
-            return { type: "NA", name: "-" };
+            return { type: "NA", name: "-", regularization };
         }
 
         const dayName = format(date, "eeee").toLowerCase();
         const isWorkingDay = workingDays && workingDays[dayName];
-        if (!isWorkingDay && dayName) return { type: "Off", name: "Weekly Off" };
+        if (!isWorkingDay && dayName) return { type: "Off", name: "Weekly Off", regularization };
 
         if (date < startOfDay(new Date()) && isWorkingDay) {
-            return { type: "Absent", name: "Absent" };
+            return { type: "Absent", name: "Absent", regularization };
         }
 
-        return { type: "Upcoming" };
+        return { type: "Upcoming", regularization };
     };
 
     // --- Analytics Logic ---
@@ -512,6 +516,73 @@ const EmployeeAttendance = () => {
                                         </p>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Regularization details */}
+                        {status.regularization && (
+                            <div className={`p-6 rounded-2xl border ${
+                                status.regularization.status === 'Approved'
+                                    ? 'bg-emerald-500/5 border-emerald-500/20'
+                                    : status.regularization.status === 'Rejected'
+                                    ? 'bg-red-500/5 border-red-500/20'
+                                    : 'bg-orange-500/5 border-orange-500/20'
+                            } space-y-4`}>
+                                <div className="flex justify-between items-center">
+                                    <h4 className={`text-xs font-black uppercase tracking-widest ${
+                                        status.regularization.status === 'Approved'
+                                            ? 'text-emerald-500'
+                                            : status.regularization.status === 'Rejected'
+                                            ? 'text-red-500'
+                                            : 'text-orange-500'
+                                    }`}>
+                                        Regularization {status.regularization.status}
+                                    </h4>
+                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
+                                        status.regularization.status === 'Approved'
+                                            ? 'bg-emerald-500/20 text-emerald-400'
+                                            : status.regularization.status === 'Rejected'
+                                            ? 'bg-red-500/20 text-red-400'
+                                            : 'bg-orange-500/20 text-orange-400'
+                                    }`}>
+                                        {status.regularization.type}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 text-xs">
+                                    <div className="col-span-2">
+                                        <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reason</span>
+                                        <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic`}>
+                                            "{status.regularization.reason}"
+                                        </p>
+                                    </div>
+                                    {status.regularization.fromTime && status.regularization.toTime && (
+                                        <div className="col-span-2">
+                                            <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Regularized Timings</span>
+                                            <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                {status.regularization.fromTime} - {status.regularization.toTime}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {status.regularization.status !== 'Pending' && (
+                                        <>
+                                            <div>
+                                                <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewed By</span>
+                                                <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                    {status.regularization.reviewedBy?.name || 'Manager'}
+                                                </p>
+                                            </div>
+                                            {status.regularization.reviewRemark && (
+                                                <div className="col-span-2">
+                                                    <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewer Remarks</span>
+                                                    <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic`}>
+                                                        "{status.regularization.reviewRemark}"
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         )}
 
