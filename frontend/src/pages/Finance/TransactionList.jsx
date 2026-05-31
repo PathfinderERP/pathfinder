@@ -283,7 +283,7 @@ const TransactionList = () => {
             "Student Email", "Student Mobile", "Whatsapp", "Address", "Guardian Name", "Guardian Mobile",
             "Session", "Department", "Course Name", "Transaction Type", "Transaction ID",
             "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Billed By",
-            "Total Classes", "Present", "Absent", "Attendance %", "Attendance Status"
+
         ];
         const data = filteredReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
@@ -309,11 +309,11 @@ const TransactionList = () => {
             item.amount,
             item.status,
             item.takenBy || "System",
-            item.totalClasses,
-            item.presentCount,
-            item.absentCount,
-            item.attendancePercent ? `${item.attendancePercent.toFixed(1)}%` : "0%",
-            item.attendanceStatus
+            // item.totalClasses,
+            // item.presentCount,
+            // item.absentCount,
+            // item.attendancePercent ? `${item.attendancePercent.toFixed(1)}%` : "0%",
+            // item.attendanceStatus
         ]);
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -772,7 +772,7 @@ const TransactionList = () => {
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Session</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Department</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Course Name</th>
-                                    <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[100px]`}>Attendance</th>
+                                    {/* <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[100px]`}>Attendance</th> */}
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[120px]`}>Transaction Type</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Transaction ID</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>Payment Mode</th>
@@ -816,11 +816,11 @@ const TransactionList = () => {
                                             <td className={`p-4 text-sm ${tTxtSub} font-bold`}>{item.session || "-"}</td>
                                             <td className={`p-4 text-sm ${isDark ? 'text-orange-400' : 'text-orange-500'} font-bold uppercase`}>{item.department || "-"}</td>
                                             <td className={`p-4 text-sm ${tTxtSub} max-w-xs truncate`} title={item.course}>{item.course}</td>
-                                            <td className="p-4 text-sm">
+                                            {/* <td className="p-4 text-sm">
                                                 <div className={`px-2 py-0.5 rounded-full text-[10px] font-black text-center ${item.attendanceStatus === 'Available' ? (isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700') : (isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-600')}`}>
                                                     {item.attendanceStatus === 'Available' ? `${item.attendancePercent.toFixed(1)}%` : 'N/A'}
                                                 </div>
-                                            </td>
+                                            </td> */}
                                             <td className={`p-4 text-sm ${tTxtSub}`}>
                                                 {item.installmentNumber === 0 ? "Initial" : "EMI"}
                                             </td>
