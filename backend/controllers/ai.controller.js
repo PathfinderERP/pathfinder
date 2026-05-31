@@ -34,6 +34,9 @@ STRICT RULES:
 6. If the user asks for something outside ERP scope, redirect them to ask ERP-related questions.
 7. For financial data, always format amounts as ₹ with commas (e.g., ₹1,25,000).
 8. Always mention the data time range or filters applied if discussing data.
+9. When asked about 'counselled' students, refer to the 'counselled' and 'boardCourseCounselled' counts from Leads data.
+10. When asked about 'enrolled students' or 'board course enrolled', refer to the 'enrolled' and 'boardCourseEnrolled' counts from Students/Admissions data.
+11. When asked about admissions, use the total admissions, normal admissions, and board admissions data.
 
 LEAD MANAGEMENT MODULE TRAINING:
 - Add Lead Workflow: 
@@ -63,16 +66,16 @@ const detectIntent = (message) => {
     const patterns = {
         leads: [
             "lead", "leads", "follow up", "followup", "telecall", "hot lead", "cold lead",
-            "warm lead", "prospect", "enquiry", "inquiry", "potential student"
+            "warm lead", "prospect", "enquiry", "inquiry", "potential student", "counselled", "board course counselled", "counsel"
         ],
         students: [
-            "student", "students", "enrolled", "enrollment", "active student",
+            "student", "students", "enrolled", "enrollment", "active student", "enrolled students", "board course enrolled",
             "deactivated", "inactive student", "student count", "total student"
         ],
         admissions: [
             "admission", "admit", "admissions", "fee", "fees", "installment",
             "payment", "pending payment", "overdue", "paid", "down payment",
-            "board admission", "normal admission", "fee collection", "due", "defaulter"
+            "board admission", "normal admission", "fee collection", "due", "defaulter", "board course admission", "board counseling", "subject", "subjects", "select subjects"
         ],
         finance: [
             "expense", "expenses", "salary expense", "cash", "budget", "petty cash",
@@ -205,6 +208,7 @@ const fetchLeadData = async (user, dateFilter) => {
         const warmLeads = await LeadManagement.countDocuments({ ...centreFilter, leadType: "WARM LEAD" });
         const coldLeads = await LeadManagement.countDocuments({ ...centreFilter, leadType: "COLD LEAD" });
         const counselled = await LeadManagement.countDocuments({ ...centreFilter, isCounseled: true });
+        const boardCourseCounselled = await LeadManagement.countDocuments({ ...centreFilter, isCounseled: true, board: { $exists: true, $ne: null } });
 
         // Leads added in the period
         const periodLeads = await LeadManagement.countDocuments({
@@ -227,7 +231,7 @@ const fetchLeadData = async (user, dateFilter) => {
             .lean();
 
         return {
-            totalLeads, hotLeads, warmLeads, coldLeads, counselled,
+            totalLeads, hotLeads, warmLeads, coldLeads, counselled, boardCourseCounselled,
             periodLeads, followUpDue,
             recentLeads
         };
@@ -244,6 +248,12 @@ const fetchStudentData = async (user, dateFilter) => {
         const active = await Student.countDocuments({ ...centreFilter, status: "Active" });
         const deactivated = await Student.countDocuments({ ...centreFilter, status: "Deactivated" });
         const enrolled = await Student.countDocuments({ ...centreFilter, isEnrolled: true });
+
+        // Calculate Board Course Enrolled by checking Admissions
+        // getCentreFilter returns { "studentsDetails.centre": ... }, we need { "centre": ... } for Admission
+        const admissionCentreFilter = await getCentreFilter(user, "centre");
+        const boardEnrolledAdmissions = await Admission.find({ ...admissionCentreFilter, admissionType: "BOARD", admissionStatus: "ACTIVE" }).distinct('student');
+        const boardCourseEnrolled = boardEnrolledAdmissions.length;
 
         // Note: Students are generally active/inactive overall, period queries might apply to recent joiners
         let timeFilter = dateFilter;
@@ -284,7 +294,7 @@ const fetchStudentData = async (user, dateFilter) => {
             .lean();
 
         return {
-            total, active, deactivated, enrolled,
+            total, active, deactivated, enrolled, boardCourseEnrolled,
             periodStudents,
             centreBreakdown,
             recentStudents
@@ -594,22 +604,42 @@ export const chatWithAI = async (req, res) => {
         let sourceCodeContext = "";
         const isInstructional = ["how", "explain", "work", "details", "code", "files"].some(word => message.toLowerCase().includes(word));
         
-        if (intents.includes("leads") && isInstructional) {
-            try {
-                // Read Lead Management frontend components to give the AI exact runtime technical context
-                const leadMgmtPath = path.resolve(__dirname, "../../frontend/src/components/LeadManagement");
-                if (fs.existsSync(leadMgmtPath)) {
-                    const files = fs.readdirSync(leadMgmtPath).filter(f => f.endsWith('.jsx'));
-                    sourceCodeContext = "\n--- FRONTEND SOURCE CODE (LEAD MANAGEMENT) ---\n";
-                    sourceCodeContext += "The user is asking a detailed operational question. Here is the actual source code of the module so you can give an EXACT, non-generic answer based on the real files:\n\n";
-                    for (const file of files) {
-                        const content = fs.readFileSync(path.join(leadMgmtPath, file), "utf-8");
-                        sourceCodeContext += `\n// File: ${file}\n${content.substring(0, 5000)}...\n`; // Cap file size to save tokens
+        if (isInstructional) {
+            if (intents.includes("leads")) {
+                try {
+                    // Read Lead Management frontend components to give the AI exact runtime technical context
+                    const leadMgmtPath = path.resolve(__dirname, "../../frontend/src/components/LeadManagement");
+                    if (fs.existsSync(leadMgmtPath)) {
+                        const files = fs.readdirSync(leadMgmtPath).filter(f => f.endsWith('.jsx'));
+                        sourceCodeContext += "\n--- FRONTEND SOURCE CODE (LEAD MANAGEMENT) ---\n";
+                        sourceCodeContext += "The user is asking a detailed operational question. Here is the actual source code of the module so you can give an EXACT, non-generic answer based on the real files:\n\n";
+                        for (const file of files) {
+                            const content = fs.readFileSync(path.join(leadMgmtPath, file), "utf-8");
+                            sourceCodeContext += `\n// File: ${file}\n${content.substring(0, 50000)}...\n`; // Cap file size to save tokens
+                        }
+                        sourceCodeContext += "\n--- END OF SOURCE CODE ---\n";
                     }
-                    sourceCodeContext += "\n--- END OF SOURCE CODE ---\n";
+                } catch (err) {
+                    console.error("Error reading frontend source code for AI context (Leads):", err);
                 }
-            } catch (err) {
-                console.error("Error reading frontend source code for AI context:", err);
+            }
+            if (intents.includes("admissions")) {
+                try {
+                    // Read Admissions frontend components
+                    const admissionsPath = path.resolve(__dirname, "../../frontend/src/components/Admissions");
+                    if (fs.existsSync(admissionsPath)) {
+                        const files = fs.readdirSync(admissionsPath).filter(f => f.endsWith('.jsx'));
+                        sourceCodeContext += "\n--- FRONTEND SOURCE CODE (ADMISSIONS & BOARD COUNSELING) ---\n";
+                        sourceCodeContext += "The user is asking a detailed operational question. Here is the actual source code of the module so you can give an EXACT, non-generic answer based on the real files (e.g. how to select subjects, etc.):\n\n";
+                        for (const file of files) {
+                            const content = fs.readFileSync(path.join(admissionsPath, file), "utf-8");
+                            sourceCodeContext += `\n// File: ${file}\n${content.substring(0, 50000)}...\n`;
+                        }
+                        sourceCodeContext += "\n--- END OF SOURCE CODE ---\n";
+                    }
+                } catch (err) {
+                    console.error("Error reading frontend source code for AI context (Admissions):", err);
+                }
             }
         }
 
