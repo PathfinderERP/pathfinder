@@ -1164,6 +1164,37 @@ const BoardAdmissionsContent = () => {
                                 onChange={setFilterProgramme}
                                 theme={theme}
                             />
+                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
+                                <>
+                                    <MultiSelectFilter
+                                        label="Lead By"
+                                        options={[...new Set(boardAdmissions.map(a => {
+                                            const lb = a.studentId?.leadBy || a.leadBy;
+                                            return lb?.name || null;
+                                        }).filter(Boolean))]}
+                                        selectedValues={filterLeadBy}
+                                        onChange={setFilterLeadBy}
+                                        theme={theme}
+                                    />
+                                    <MultiSelectFilter
+                                        label="Counselled By"
+                                        options={[...new Set(boardAdmissions.map(a => {
+                                            const cb = a.studentId?.counselledByDetails || a.counselledByDetails;
+                                            return cb?.name || a.studentId?.counselledBy || null;
+                                        }).filter(Boolean))]}
+                                        selectedValues={filterCounselledBy}
+                                        onChange={setFilterCounselledBy}
+                                        theme={theme}
+                                    />
+                                    <MultiSelectFilter
+                                        label="Admitted By"
+                                        options={[...new Set(boardAdmissions.map(a => a.createdBy?.name).filter(Boolean))]}
+                                        selectedValues={filterAdmissionBy}
+                                        onChange={setFilterAdmissionBy}
+                                        theme={theme}
+                                    />
+                                </>
+                            )}
 
                             <div className="flex items-center gap-2 ml-auto">
                                 <div className="relative">
@@ -1192,6 +1223,9 @@ const BoardAdmissionsContent = () => {
                                         setFilterSubject([]);
                                         setFilterProgramme([]);
                                         setFilterClass([]);
+                                        setFilterLeadBy([]);
+                                        setFilterCounselledBy([]);
+                                        setFilterAdmissionBy([]);
                                         setStartDate("");
                                         setEndDate("");
                                     }}
