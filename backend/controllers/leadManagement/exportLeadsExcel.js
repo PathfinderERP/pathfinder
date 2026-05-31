@@ -35,6 +35,7 @@ export const exportLeadsExcel = async (req, res) => {
             "Lead Type": lead.leadType || "N/A",
             "Source": lead.source || "N/A",
             "Telecaller": lead.leadResponsibility || "N/A",
+            "Marketing By": lead.marketingBy || "N/A",
             "Assigned At": `${new Date(lead.assignedAt || lead.createdAt).toLocaleDateString('en-GB')} ${new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString('en-GB')}`,
             "Last Feedback": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].feedback : "Not Contacted",
             "Remarks": lead.followUps && lead.followUps.length > 0 ? lead.followUps[lead.followUps.length - 1].remarks || "N/A" : "N/A",

@@ -201,6 +201,10 @@ export const buildLeadQuery = async (queryParams, user) => {
         const values = Array.isArray(centre) ? normalizeValue(centre) : [normalizeValue(centre)];
         query.centre = { $in: values };
     }
+    if (queryParams.marketingBy && (!Array.isArray(queryParams.marketingBy) || queryParams.marketingBy.length > 0)) {
+        const values = Array.isArray(queryParams.marketingBy) ? normalizeValue(queryParams.marketingBy) : [normalizeValue(queryParams.marketingBy)];
+        query.marketingBy = { $in: values };
+    }
 
     // Responsibility filter (Telecaller names / IDs / unique display names)
     if (leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0)) {

@@ -96,7 +96,8 @@ const LeadManagementContent = () => {
         fromDate: "", // These are for the table
         toDate: "",   // These are for the table
         feedback: [],
-        followUpStatus: []
+        followUpStatus: [],
+        marketingBy: []
     });
 
     // Dropdown data for filters
@@ -446,7 +447,8 @@ const LeadManagementContent = () => {
             fromDate: "",
             toDate: "",
             feedback: [],
-            followUpStatus: []
+            followUpStatus: [],
+            marketingBy: []
         });
         setSearchTerm("");
         setCurrentPage(1);
@@ -1273,6 +1275,16 @@ const LeadManagementContent = () => {
                             />
                         </div>
                         <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</label>
+                            <CustomMultiSelect
+                                options={telecallers.map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))}
+                                value={filters.marketingBy || []}
+                                onChange={(selected) => handleFilterChange('marketingBy', selected)}
+                                placeholder="Select Marketing User"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>From Date</label>
                             <input
                                 type="date"
@@ -1428,6 +1440,7 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Source</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[260px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
@@ -1551,6 +1564,11 @@ const LeadManagementContent = () => {
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                     {lead.source || "N/A"}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                    {lead.marketingBy || "N/A"}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

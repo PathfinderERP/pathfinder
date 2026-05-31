@@ -35,6 +35,7 @@ export const bulkUploadLeads = async (req, res) => {
                 // The uploader IS the lead responsibility person
                 leadResponsibility: uploaderName,
                 createdBy:          uploaderId,
+                marketingBy:        uploaderName,
                 assignedAt:         new Date(),
             };
 
