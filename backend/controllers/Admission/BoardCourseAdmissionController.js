@@ -316,7 +316,139 @@ export const getBoardAdmissions = async (req, res) => {
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 });
 
-        res.status(200).json(admissions);
+        // Gather student details for bulk lead & counselling lookup
+        const phoneNumbers = [];
+        const emails = [];
+        const studentIds = [];
+        admissions.forEach(a => {
+            if (a.studentId) {
+                studentIds.push(a.studentId._id);
+                if (a.studentId.studentsDetails && a.studentId.studentsDetails[0]) {
+                    const det = a.studentId.studentsDetails[0];
+                    if (det.mobileNum) phoneNumbers.push(det.mobileNum.toString().trim());
+                    if (det.whatsappNumber) phoneNumbers.push(det.whatsappNumber.toString().trim());
+                    if (det.studentEmail) emails.push(det.studentEmail.toString().trim().toLowerCase());
+                }
+            }
+        });
+
+        // Bulk find leads matching by phone/email
+        let leadMap = {};
+        try {
+            const LeadManagement = (await import("../../models/LeadManagement.js")).default;
+            const leads = await LeadManagement.find({
+                $or: [
+                    { phoneNumber: { $in: phoneNumbers } },
+                    { secondPhoneNumber: { $in: phoneNumbers } },
+                    { email: { $in: emails } }
+                ]
+            }).populate('createdBy', 'name').lean();
+
+            leads.forEach(l => {
+                if (l.phoneNumber) leadMap[l.phoneNumber.toString().trim()] = l;
+                if (l.secondPhoneNumber) leadMap[l.secondPhoneNumber.toString().trim()] = l;
+                if (l.email) leadMap[l.email.toString().trim().toLowerCase()] = l;
+            });
+        } catch (leadErr) {
+            console.error("Error fetching matching leads in getBoardAdmissions:", leadErr);
+        }
+
+        // Bulk find board course counsellings
+        let boardCounsMap = {};
+        try {
+            const BoardCourseCounselling = (await import("../../models/Admission/BoardCourseCounselling.js")).default;
+            const boardCouns = await BoardCourseCounselling.find({
+                studentId: { $in: studentIds }
+            }).populate('counselledBy', 'name').lean();
+
+            boardCouns.forEach(bc => {
+                if (bc.studentId) {
+                    boardCounsMap[bc.studentId.toString()] = bc;
+                }
+            });
+        } catch (counsErr) {
+            console.error("Error fetching board counsellings in getBoardAdmissions:", counsErr);
+        }
+
+        // Standardize counselledBy names lookup
+        const mongoose = (await import("mongoose")).default;
+        const userIds = admissions
+            .map(a => a.studentId && a.studentId.counselledBy)
+            .filter(id => id && mongoose.Types.ObjectId.isValid(id));
+        const uniqueUserIds = [...new Set(userIds)];
+        
+        const User = (await import("../../models/User.js")).default;
+        const users = await User.find({ _id: { $in: uniqueUserIds } }).select('name').lean();
+        const userMap = users.reduce((map, user) => {
+            map[user._id.toString().toLowerCase()] = user.name;
+            return map;
+        }, {});
+
+        const populatedAdmissions = admissions.map(admission => {
+            const admissionObj = admission.toObject();
+
+            if (admissionObj.studentId && admissionObj.studentId.counselledBy && mongoose.Types.ObjectId.isValid(admissionObj.studentId.counselledBy)) {
+                const idLower = admissionObj.studentId.counselledBy.toString().toLowerCase();
+                admissionObj.studentId.counselledBy = userMap[idLower] || admissionObj.studentId.counselledBy;
+            }
+
+            let leadBy = { name: "System", createdAt: admissionObj.createdAt || new Date() };
+            let counselledByDetails = {
+                name: (admissionObj.studentId && admissionObj.studentId.counselledBy) || "N/A",
+                createdAt: (admissionObj.studentId && admissionObj.studentId.createdAt) || admissionObj.createdAt || new Date()
+            };
+
+            if (admissionObj.studentId) {
+                // 1. Find matching lead
+                let matchedLead = null;
+                if (admissionObj.studentId.studentsDetails && admissionObj.studentId.studentsDetails[0]) {
+                    const det = admissionObj.studentId.studentsDetails[0];
+                    if (det.mobileNum && leadMap[det.mobileNum.toString().trim()]) {
+                        matchedLead = leadMap[det.mobileNum.toString().trim()];
+                    } else if (det.whatsappNumber && leadMap[det.whatsappNumber.toString().trim()]) {
+                        matchedLead = leadMap[det.whatsappNumber.toString().trim()];
+                    } else if (det.studentEmail && leadMap[det.studentEmail.toString().trim().toLowerCase()]) {
+                        matchedLead = leadMap[det.studentEmail.toString().trim().toLowerCase()];
+                    }
+                }
+
+                if (matchedLead) {
+                    leadBy = {
+                        name: matchedLead.createdBy?.name || "System",
+                        createdAt: matchedLead.createdAt || matchedLead.updatedAt || admissionObj.studentId.createdAt
+                    };
+                } else {
+                    leadBy = {
+                        name: admissionObj.studentId.createdBy || "System",
+                        createdAt: admissionObj.studentId.createdAt || admissionObj.createdAt
+                    };
+                }
+
+                // 2. Counselled By Details
+                const bcRecord = boardCounsMap[admissionObj.studentId._id.toString()];
+                if (bcRecord) {
+                    counselledByDetails = {
+                        name: bcRecord.counselledBy?.name || admissionObj.studentId.counselledBy || "N/A",
+                        createdAt: bcRecord.counselledDate || bcRecord.createdAt || admissionObj.studentId.createdAt
+                    };
+                } else {
+                    counselledByDetails = {
+                        name: admissionObj.studentId.counselledBy || "N/A",
+                        createdAt: admissionObj.studentId.createdAt || admissionObj.createdAt
+                    };
+                }
+
+                admissionObj.studentId.leadBy = leadBy;
+                admissionObj.studentId.counselledByDetails = counselledByDetails;
+            }
+
+            admissionObj.leadBy = leadBy;
+            admissionObj.counselledByDetails = counselledByDetails;
+
+            return admissionObj;
+        });
+
+        res.status(200).json(populatedAdmissions);
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message }); console.error("GET ADMISSIONS ERROR:", error)
     }

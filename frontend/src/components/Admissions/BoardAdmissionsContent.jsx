@@ -30,6 +30,9 @@ const BoardAdmissionsContent = () => {
     const [filterExamTag, setFilterExamTag] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterClass, setFilterClass] = useState([]);
+    const [filterLeadBy, setFilterLeadBy] = useState([]);
+    const [filterCounselledBy, setFilterCounselledBy] = useState([]);
+    const [filterAdmissionBy, setFilterAdmissionBy] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]); // Store allowed centres for the user
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -325,34 +328,61 @@ const BoardAdmissionsContent = () => {
             const isDeactivated = admission.studentId?.status === 'Deactivated';
             const matchesStatus = activeTab === "Deactivated" ? isDeactivated : !isDeactivated;
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesStatus;
+            // Lead By Filter
+            const leadBy = admission.studentId?.leadBy || admission.leadBy;
+            const leadByName = leadBy?.name || "System";
+            const matchesLeadBy = filterLeadBy.length === 0 || filterLeadBy.includes(leadByName);
+
+            // Counselled By Filter
+            const counselledBy = admission.studentId?.counselledByDetails || admission.counselledByDetails;
+            const counselledByName = counselledBy?.name || admission.studentId?.counselledBy || "N/A";
+            const matchesCounselledBy = filterCounselledBy.length === 0 || filterCounselledBy.includes(counselledByName);
+
+            // Admitted By Filter
+            const admittedByName = admission.createdBy?.name || (admission.createdBy ? "Unknown" : "System");
+            const matchesAdmissionBy = filterAdmissionBy.length === 0 || filterAdmissionBy.includes(admittedByName);
+
+            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesStatus && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy;
         });
-    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, activeTab]);
+    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
 
     const handleExportEnrolled = () => {
-        const exportData = filteredBoardAdmissions.map(adm => ({
-            "Admission No": adm.admissionNumber,
-            "Admission Date": new Date(adm.admissionDate || adm.createdAt).toLocaleDateString('en-GB'),
-            "Student Name": adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName,
-            "UID": adm.studentId?._id || "N/A",
-            "Mobile": adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum,
-            "Email": adm.studentId?.studentsDetails?.[0]?.studentEmail || adm.studentEmail,
-            "Centre": adm.centre,
-            "Board": adm.boardId?.boardCourse || "N/A",
-            "Class": adm.lastClass,
-            "Programme": adm.programme,
-            "Session": adm.academicSession,
-            "Course Name": adm.boardCourseName,
-            "Total Expected": adm.totalExpectedAmount,
-            "Total Paid": adm.totalPaidAmount,
-            "Admission Fee": adm.admissionFee,
-            "Exam Fee": adm.examFee,
-            "Exam Fee Paid": adm.examFeePaid,
-            "Exam Fee Status": adm.examFeeStatus,
-            "Subjects": adm.selectedSubjects?.map(s => s.subjectId?.subName || s.name).join(', '),
-            "Admitted By": adm.createdBy?.name || "Admin",
-            "Remarks": adm.remarks
-        }));
+        const exportData = filteredBoardAdmissions.map(adm => {
+            const student = adm.studentId;
+            const leadBy = student?.leadBy || adm.leadBy;
+            const leadByName = leadBy?.name || "System";
+            const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleString('en-GB') : "N/A";
+
+            const counselledBy = student?.counselledByDetails || adm.counselledByDetails;
+            const counselledByName = counselledBy?.name || student?.counselledBy || "N/A";
+            const counselledByDate = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleString('en-GB') : "N/A";
+
+            return {
+                "Admission No": adm.admissionNumber,
+                "Admission Date": new Date(adm.admissionDate || adm.createdAt).toLocaleDateString('en-GB'),
+                "Student Name": adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName,
+                "UID": adm.studentId?._id || "N/A",
+                "Mobile": adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum,
+                "Email": adm.studentId?.studentsDetails?.[0]?.studentEmail || adm.studentEmail,
+                "Centre": adm.centre,
+                "Board": adm.boardId?.boardCourse || "N/A",
+                "Class": adm.lastClass,
+                "Programme": adm.programme,
+                "Session": adm.academicSession,
+                "Course Name": adm.boardCourseName,
+                "Lead By": `${leadByName} (${leadByDate})`,
+                "Counselled By": `${counselledByName} (${counselledByDate})`,
+                "Total Expected": adm.totalExpectedAmount,
+                "Total Paid": adm.totalPaidAmount,
+                "Admission Fee": adm.admissionFee,
+                "Exam Fee": adm.examFee,
+                "Exam Fee Paid": adm.examFeePaid,
+                "Exam Fee Status": adm.examFeeStatus,
+                "Subjects": adm.selectedSubjects?.map(s => s.subjectId?.subName || s.name).join(', '),
+                "Admitted By": adm.createdBy?.name || "Admin",
+                "Remarks": adm.remarks
+            };
+        });
         downloadExcel(exportData, `Enrolled_Board_Admissions_${new Date().toLocaleDateString()}`);
     };
 
@@ -502,6 +532,21 @@ const BoardAdmissionsContent = () => {
 
     const uniqueCentres = [...new Set(visibleStudents.map(s => (activeTab === "Potential" ? s : s.studentId)?.studentsDetails?.[0]?.centre).filter(Boolean))];
     const uniqueBoards = [...new Set(students.map(s => s.studentsDetails?.[0]?.board).filter(Boolean))];
+    const uniqueLeadBy = [...new Set(boardAdmissions.map(item => {
+        const student = item.studentId;
+        const leadBy = student?.leadBy || item.leadBy;
+        return leadBy?.name || "System";
+    }).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+    const uniqueCounselledBy = [...new Set(boardAdmissions.map(item => {
+        const student = item.studentId;
+        const counselledBy = student?.counselledByDetails || item.counselledByDetails;
+        return counselledBy?.name || student?.counselledBy || "N/A";
+    }).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+    const uniqueAdmissionBy = [...new Set(boardAdmissions.map(item => 
+        item.createdBy?.name || (item.createdBy ? "Unknown" : "System")
+    ).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
     const filteredStudents = activeTab === "Potential"
         ? visibleStudents.filter(student => {
@@ -1189,6 +1234,12 @@ const BoardAdmissionsContent = () => {
                                 <th className="p-4">Mobile</th>
                                 {activeTab === "Counselling" && <th className="p-4">Counselled By</th>}
                                 {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Fees Status</th>}
+                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
+                                    <>
+                                        <th className="p-4">Lead By</th>
+                                        <th className="p-4">Counselled By</th>
+                                    </>
+                                )}
                                 {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Admitted By</th>}
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
@@ -1197,9 +1248,9 @@ const BoardAdmissionsContent = () => {
                             {(activeTab === "Potential" ? loading :
                                 activeTab === "Counselling" ? counsellingLoading :
                                     enrolledLoading) ? (
-                                <tr><td colSpan="11" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
+                                <tr><td colSpan="13" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
                             ) : ((activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents).length === 0 ? (
-                                <tr><td colSpan="11" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
+                                <tr><td colSpan="13" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
                             ) : (
                                 ((activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, index) => {
                                     const student = activeTab === "Potential" ? item : item.studentId;
@@ -1247,6 +1298,7 @@ const BoardAdmissionsContent = () => {
                                                     </div>
                                                 </div>
                                             </td>
+
                                             <td className="p-4">
                                                 <span className={`text-[11px] font-black italic tracking-wider ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                                                     {activeTab === "Potential" ? (details.board || "N/A") :
@@ -1289,6 +1341,45 @@ const BoardAdmissionsContent = () => {
                                                     </div>
                                                 </td>
                                             )}
+
+                                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (() => {
+                                                const leadBy = student?.leadBy || item.leadBy;
+                                                const leadByName = leadBy?.name || "System";
+                                                const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
+                                                const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+
+                                                const counselledBy = student?.counselledByDetails || item.counselledByDetails;
+                                                const counselledByName = counselledBy?.name || student?.counselledBy || "N/A";
+                                                const counselledByDate = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleDateString('en-GB') : "N/A";
+                                                const counselledByTime = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+
+                                                return (
+                                                    <>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
+                                                                    {leadByName.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[10px] font-black uppercase text-gray-400">{leadByName}</span>
+                                                                    <span className="text-[8px] font-bold text-gray-500">{leadByDate} {leadByTime && `| ${leadByTime}`}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[10px] text-purple-500 font-black border border-purple-500/20">
+                                                                    {counselledByName.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[10px] font-black uppercase text-gray-400">{counselledByName}</span>
+                                                                    <span className="text-[8px] font-bold text-gray-500">{counselledByDate} {counselledByTime && `| ${counselledByTime}`}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </>
+                                                );
+                                            })()}
 
                                             {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
                                                 <td className="p-4">
