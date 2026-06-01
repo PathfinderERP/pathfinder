@@ -1,5 +1,6 @@
 import DailyTrackingLog from "../models/DailyTrackingLog.js";
 import User from "../models/User.js";
+import Employee from "../models/HR/Employee.js";
 
 // Helper to get midnight in India Standard Time as a standardized UTC Date object
 const getMidnightIST = (dateInput) => {
@@ -179,26 +180,46 @@ export const getDepartmentLogs = async (req, res) => {
             }
         }
 
+        // Determine the allowed centre IDs for filtering by employee primaryCentre
+        let allowedCentreIds = [];
+        let shouldFilterCentres = false;
+
         if (!isSuperAdmin) {
+            // Find logged-in user's Employee document to get their primaryCentre and assigned centres
+            const loggedInEmployee = await Employee.findOne({ user: req.user._id });
+            const userCentreIds = [];
+
+            if (loggedInEmployee) {
+                if (loggedInEmployee.primaryCentre) {
+                    userCentreIds.push(loggedInEmployee.primaryCentre.toString());
+                }
+                if (Array.isArray(loggedInEmployee.centres)) {
+                    loggedInEmployee.centres.forEach(c => {
+                        userCentreIds.push(c.toString());
+                    });
+                }
+            }
+
+            // Fallback/Legacy User model centres
             const userCentres = req.user.centres || [];
-            const userCentreIds = userCentres.map(c => c._id ? c._id.toString() : c.toString());
+            userCentres.forEach(c => {
+                userCentreIds.push(c._id ? c._id.toString() : c.toString());
+            });
             if (req.user.centre) {
                 userCentreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
             }
+            
+            const uniqueUserCentreIds = [...new Set(userCentreIds)].filter(Boolean);
 
-            if (userCentreIds.length > 0) {
-                let allowedCentres = userCentreIds;
+            if (uniqueUserCentreIds.length > 0) {
+                shouldFilterCentres = true;
                 if (centresFilter.length > 0 && !centresFilter.includes("All")) {
-                    allowedCentres = userCentreIds.filter(c => centresFilter.includes(c));
-                }
-
-                if (allowedCentres.length > 0) {
-                    userQuery.$or = [
-                        { centres: { $in: allowedCentres } },
-                        { centre: { $in: allowedCentres } }
-                    ];
+                    allowedCentreIds = uniqueUserCentreIds.filter(c => centresFilter.includes(c));
+                    if (allowedCentreIds.length === 0) {
+                        return res.status(200).json({ logs: [] });
+                    }
                 } else {
-                    return res.status(200).json({ logs: [] });
+                    allowedCentreIds = uniqueUserCentreIds;
                 }
             } else {
                 return res.status(200).json({ logs: [] });
@@ -206,14 +227,54 @@ export const getDepartmentLogs = async (req, res) => {
         } else {
             // SuperAdmin
             if (centresFilter.length > 0 && !centresFilter.includes("All")) {
-                userQuery.$or = [
-                    { centres: { $in: centresFilter } },
-                    { centre: { $in: centresFilter } }
-                ];
+                shouldFilterCentres = true;
+                allowedCentreIds = centresFilter;
             }
         }
 
+        if (shouldFilterCentres) {
+            const objectIdCentres = allowedCentreIds.map(id => {
+                try {
+                    return new mongoose.Types.ObjectId(id);
+                } catch (e) {
+                    return null;
+                }
+            }).filter(Boolean);
+
+            const isSpecificFilterApplied = centresFilter.length > 0 && !centresFilter.includes("All");
+            let empQuery = {};
+
+            if (isSpecificFilterApplied) {
+                // Filter strictly by the selected primary centre
+                empQuery = { primaryCentre: { $in: objectIdCentres } };
+            } else {
+                // If no specific centre filter is selected, match employees whose primaryCentre OR assigned centres match
+                empQuery = {
+                    $or: [
+                        { primaryCentre: { $in: objectIdCentres } },
+                        { centres: { $in: objectIdCentres } }
+                    ]
+                };
+            }
+
+            const employees = await Employee.find(empQuery).select("user");
+            const allowedUserIds = employees.map(emp => emp.user).filter(Boolean);
+            userQuery._id = { $in: allowedUserIds };
+        }
+
         const users = await User.find(userQuery).select("name role designation profileImage centres centre");
+
+        // Fetch Employee details to get their primaryCentre name for display
+        const employeesForUsers = await Employee.find({
+            user: { $in: users.map(u => u._id) }
+        }).populate("primaryCentre", "centreName");
+
+        const employeeMap = new Map();
+        for (const emp of employeesForUsers) {
+            if (emp.user) {
+                employeeMap.set(emp.user.toString(), emp.primaryCentre);
+            }
+        }
 
         // Find existing logs for the day
         const logQuery = { 
@@ -235,18 +296,27 @@ export const getDepartmentLogs = async (req, res) => {
         // Merge users with their logs (or create empty logs)
         const combinedLogs = users.map(user => {
             const existingLog = logMap.get(user._id.toString());
+            const primaryCentre = employeeMap.get(user._id.toString());
+
+            const formattedUser = {
+                _id: user._id,
+                name: user.name,
+                role: user.role,
+                designation: user.designation,
+                profileImage: user.profileImage,
+                primaryCentre: primaryCentre
+            };
+
             if (existingLog) {
-                return existingLog;
+                // Ensure user in existingLog is populated with primaryCentre info
+                const logObj = existingLog.toObject ? existingLog.toObject() : existingLog;
+                logObj.user = formattedUser;
+                return logObj;
             }
+
             return {
                 _id: `temp_${user._id}`,
-                user: {
-                    _id: user._id,
-                    name: user.name,
-                    role: user.role,
-                    designation: user.designation,
-                    profileImage: user.profileImage
-                },
+                user: formattedUser,
                 userName: user.name,
                 department: user.role,
                 date: targetDate,

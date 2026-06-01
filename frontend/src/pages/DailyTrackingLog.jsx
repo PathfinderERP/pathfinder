@@ -863,6 +863,11 @@ const DailyTrackingLog = () => {
                                                     <p className="text-[10px] text-gray-500">
                                                         {log.user?.designation || "Employee"}
                                                     </p>
+                                                    {log.user?.primaryCentre?.centreName && (
+                                                        <p className={`text-[10px] font-bold ${isDarkMode ? "text-indigo-400" : "text-indigo-600"} mt-0.5`}>
+                                                            🏢 {log.user.primaryCentre.centreName}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
 
