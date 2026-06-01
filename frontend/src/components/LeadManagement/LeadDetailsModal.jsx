@@ -1,7 +1,7 @@
 import React from "react";
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { Device } from "@twilio/voice-sdk";
+import ExotelCRMWebSDK from "@exotel-npm-dev/exotel-ip-calling-crm-websdk";
 
 const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, canEdit, canDelete, isDarkMode }) => {
     const [recordings, setRecordings] = React.useState(lead?.recordings || []);
@@ -10,8 +10,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     const [callMessage, setCallMessage] = React.useState("");
     const [callDuration, setCallDuration] = React.useState(0);
 
-    const deviceRef = React.useRef(null);
-    const connectionRef = React.useRef(null);
+    const webPhoneRef = React.useRef(null);
     const timerRef = React.useRef(null);
 
     const fetchUserProfile = async () => {
@@ -36,11 +35,9 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
         fetchUserProfile();
 
         return () => {
-            if (connectionRef.current) {
-                connectionRef.current.disconnect();
-            }
-            if (deviceRef.current) {
-                deviceRef.current.destroy();
+            if (webPhoneRef.current) {
+                webPhoneRef.current.HangupCall();
+                webPhoneRef.current.UnRegisterDevice();
             }
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -80,80 +77,72 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                 throw new Error(data.message || "Failed to fetch voice token");
             }
 
-            // 3. Initialize Twilio Device if not already done
-            if (!deviceRef.current) {
-                const device = new Device(data.token, {
-                    codecPreferences: ['opus', 'pcmu'],
-                    fakeLocalDTMF: true,
-                    enableIceRestart: true
-                });
+            // 3. Initialize Exotel CRM WebSDK if not already done
+            if (!webPhoneRef.current) {
+                const crmWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
 
-                device.on('registered', () => {
-                    console.log('Twilio WebRTC Device registered successfully.');
-                });
+                const HandleCallEvents = (eventType, callObj) => {
+                    console.log("[Exotel Call Event]:", eventType, callObj);
+                    switch (eventType) {
+                        case "incoming":
+                            setCallStatus("ringing");
+                            setCallMessage("Incoming call...");
+                            break;
+                        case "connected":
+                            setCallStatus("connected");
+                            setCallMessage("Call connected! Talk now.");
+                            
+                            // Start timer
+                            setCallDuration(0);
+                            if (timerRef.current) clearInterval(timerRef.current);
+                            timerRef.current = setInterval(() => {
+                                setCallDuration((prev) => prev + 1);
+                            }, 1000);
+                            break;
+                        case "callEnded":
+                            setCallStatus("disconnected");
+                            setCallMessage("Call disconnected.");
+                            if (timerRef.current) {
+                                clearInterval(timerRef.current);
+                                timerRef.current = null;
+                            }
+                            setTimeout(() => setCallStatus("idle"), 3000);
+                            break;
+                        default:
+                            break;
+                    }
+                };
 
-                device.on('error', (error) => {
-                    console.error('Twilio Device Error:', error);
-                    setCallStatus("error");
-                    setCallMessage(`Device Error: ${error.message}`);
-                    toast.error(`Twilio Error: ${error.message}`);
-                });
+                const RegisterationEvent = (event) => {
+                    console.log("[Exotel Register Event]:", event);
+                    if (event === "registered") {
+                        console.log('Exotel WebRTC Device registered successfully.');
+                    }
+                };
 
-                deviceRef.current = device;
+                const crmWebPhone = await crmWebSDK.Initialize(HandleCallEvents, RegisterationEvent);
+                if (!crmWebPhone) {
+                    throw new Error("Exotel WebRTC device initialization failed. Check your credentials and network.");
+                }
+                webPhoneRef.current = crmWebPhone;
             }
 
-            // Ensure Device is registered/ready
-            if (deviceRef.current.state === 'unregistered') {
-                await deviceRef.current.register();
+            if (!webPhoneRef.current) {
+                throw new Error("Exotel softphone is not initialized.");
             }
 
             setCallMessage("Connecting call...");
 
-            // 4. Dial outbound call passing lead credentials to Voice TwiML webhook
-            const connection = await deviceRef.current.connect({
-                params: {
-                    leadNumber: leadNumber,
-                    leadId: lead._id
-                }
-            });
-
-            connectionRef.current = connection;
-
-            connection.on('ringing', () => {
-                setCallStatus("ringing");
-                setCallMessage("Ringing lead's phone...");
-            });
-
-            connection.on('accept', () => {
-                setCallStatus("connected");
-                setCallMessage("Call connected! Talk now.");
-                
-                // Start timer
-                setCallDuration(0);
-                if (timerRef.current) clearInterval(timerRef.current);
-                timerRef.current = setInterval(() => {
-                    setCallDuration((prev) => prev + 1);
-                }, 1000);
-            });
-
-            connection.on('disconnect', () => {
-                setCallStatus("disconnected");
-                setCallMessage("Call disconnected.");
-                if (timerRef.current) {
-                    clearInterval(timerRef.current);
-                    timerRef.current = null;
-                }
-                setTimeout(() => setCallStatus("idle"), 3000);
-            });
-
-            connection.on('error', (error) => {
-                console.error('Call Connection Error:', error);
-                setCallStatus("error");
-                setCallMessage(`Call failed: ${error.message}`);
-                toast.error(`Call failed: ${error.message}`);
-                if (timerRef.current) {
-                    clearInterval(timerRef.current);
-                    timerRef.current = null;
+            // 4. Dial outbound call
+            await webPhoneRef.current.MakeCall(leadNumber, (status, response) => {
+                console.log("[Exotel Dial Callback]:", status, response);
+                if (status === "success") {
+                    setCallStatus("ringing");
+                    setCallMessage("Ringing lead's phone...");
+                } else {
+                    setCallStatus("error");
+                    setCallMessage("Failed to initiate call on Exotel platform.");
+                    toast.error("Call failed to initiate.");
                 }
             });
 
@@ -166,8 +155,8 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     };
 
     const handleHangUp = () => {
-        if (connectionRef.current) {
-            connectionRef.current.disconnect();
+        if (webPhoneRef.current) {
+            webPhoneRef.current.HangupCall();
         }
         if (timerRef.current) {
             clearInterval(timerRef.current);
@@ -180,7 +169,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
     const getAudioUrl = (url) => {
         if (!url) return "";
-        if (url.includes("twilio.com")) {
+        if (url.includes("twilio.com") || url.includes("exotel.com") || url.includes("exotel.in")) {
             const token = localStorage.getItem("token");
             return `${import.meta.env.VITE_API_URL}/lead-management/call/recording-proxy?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
         }
