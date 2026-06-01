@@ -22,7 +22,8 @@ import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentr
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
-import { initiateTwilioCall, getCallTwiML, handleRecordingCallback, proxyRecording, getVoiceToken, getVoiceTwiML } from "../../controllers/leadManagement/twilioVoice.js";
+import { initiateTwilioCall, getCallTwiML, getVoiceTwiML } from "../../controllers/leadManagement/twilioVoice.js";
+import { getVoiceToken, handleRecordingCallback, proxyRecording } from "../../controllers/leadManagement/exotelVoice.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -54,13 +55,10 @@ router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);
 router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
 router.post("/bulk-update", requireAuth, bulkUpdateLeads);
 
-// Twilio Call routes
-router.post("/call/initiate", requireAuth, initiateTwilioCall);
-router.all("/call/twiml", getCallTwiML);
+// Exotel Call routes
 router.all("/call/recording-callback", handleRecordingCallback);
 router.get("/call/recording-proxy", proxyRecording);
 router.get("/call/token", requireAuth, getVoiceToken);
-router.all("/call/voice-twiml", getVoiceTwiML);
 
 // Generic ID route must come AFTER specific routes
 router.get("/:id", requireAuth, getLeadById);
