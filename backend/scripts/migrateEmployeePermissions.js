@@ -29,6 +29,7 @@ const ALL_MODULES = {
     masterData: ["class", "examTag", "department", "designation", "board", "subject", "centre", "subjects", "batch", "source", "session", "script", "category", "subcategory", "expenditureType", "account", "zone", "followUpFeedback"],
     courseManagement: ["courses", "curriculum", "materials"],
     userManagement: ["users", "roles", "permissions"],
+    dailyTrackingLog: ["myDailyLog", "logTracking"],
     leadManagement: ["leads", "dashboard"],
     pettyCashManagement: ["pettyCashCentre", "addExpenditure", "expenditureApproval", "addPettyCash", "pettyCashRequestApproval"]
 };

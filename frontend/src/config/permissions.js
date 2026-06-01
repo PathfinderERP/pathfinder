@@ -477,13 +477,26 @@ export const PERMISSION_MODULES = {
             // }
         }
     },
+    dailyTrackingLog: {
+        label: "Daily Tracking Log",
+        sections: {
+            myDailyLog: {
+                label: "My Daily Log",
+                operations: ["create", "edit", "delete"]
+            },
+            logTracking: {
+                label: "Log Tracking",
+                operations: ["create", "edit", "delete"]
+            }
+        }
+    },
     userManagement: {
         label: "User Management",
         sections: {
             users: {
                 label: "Users",
                 operations: ["create", "edit", "delete"]
-            },
+            }
             // roles: {
             //     label: "Roles",
             //     operations: ["create", "edit", "delete"]

@@ -86,6 +86,10 @@ const userSchema = new mongoose.Schema({
             },
             "userManagement": {
                 "users": { "create": true, "edit": true, "delete": false }
+            },
+            "dailyTrackingLog": {
+                "myDailyLog": { "create": true, "edit": true, "delete": true },
+                "logTracking": { "create": true, "edit": true, "delete": true }
             }
         }
         */

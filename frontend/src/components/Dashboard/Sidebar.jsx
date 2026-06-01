@@ -76,9 +76,22 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         {
             name: "Daily Tracking Log",
             icon: <FaHistory />,
+            permissionModule: "dailyTrackingLog",
             subItems: [
-                { name: "My Daily Log", path: "/daily-tracking-log?tab=myLog", icon: <FaTasks /> },
-                { name: "Log Tracking", path: "/daily-tracking-log?tab=deptBoard", icon: <FaBuilding /> }
+                { 
+                    name: "My Daily Log", 
+                    path: "/daily-tracking-log?tab=myLog", 
+                    icon: <FaTasks />,
+                    permissionModule: "dailyTrackingLog",
+                    permissionSection: "myDailyLog"
+                },
+                { 
+                    name: "Log Tracking", 
+                    path: "/daily-tracking-log?tab=deptBoard", 
+                    icon: <FaBuilding />,
+                    permissionModule: "dailyTrackingLog",
+                    permissionSection: "logTracking"
+                }
             ]
         },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
@@ -362,7 +375,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Daily Tracking Log" || item.name === "Tracking & Flagging") return true;
+        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Tracking & Flagging") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
