@@ -19,6 +19,7 @@ import CentreCallBarChart from "./CentreCallBarChart";
 import FollowUpActivityModal from "./FollowUpActivityModal";
 import BulkUpdateLeadModal from "./BulkUpdateLeadModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
+
 const LeadManagementContent = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();

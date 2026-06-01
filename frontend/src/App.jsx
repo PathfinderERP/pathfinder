@@ -318,24 +318,24 @@ function App() {
         {/* <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} /> */}
         <Route path="/academics/teacher-routine" element={<ProtectedRoute><TeacherRoutineSchedule /></ProtectedRoute>} />
 
-        <Route path="/master-data" element={<ProtectedRoute><MasterData /></ProtectedRoute>} />
-        <Route path="/master-data/class" element={<ProtectedRoute><MasterDataClass /></ProtectedRoute>} />
-        <Route path="/master-data/exam-tag" element={<ProtectedRoute><MasterDataExamTag /></ProtectedRoute>} />
-        <Route path="/master-data/department" element={<ProtectedRoute><MasterDataDepartment /></ProtectedRoute>} />
-        <Route path="/master-data/centre" element={<ProtectedRoute><MasterDataCentre /></ProtectedRoute>} />
-        <Route path="/master-data/batch" element={<ProtectedRoute><MasterDataBatch /></ProtectedRoute>} />
-        <Route path="/master-data/source" element={<ProtectedRoute><MasterDataSource /></ProtectedRoute>} />
-        <Route path="/master-data/session" element={<ProtectedRoute><MasterDataSession /></ProtectedRoute>} />
-        <Route path="/master-data/script" element={<ProtectedRoute><MasterDataScript /></ProtectedRoute>} />
-        <Route path="/master-data/expense-category" element={<ProtectedRoute><MasterDataExpenseCategory /></ProtectedRoute>} />
-        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute><FinanceExpenseCategory /></ProtectedRoute>} />
-        <Route path="/master-data/expense-subcategory" element={<ProtectedRoute><MasterDataExpenseSubCategory /></ProtectedRoute>} />
-        <Route path="/master-data/expenditure-type" element={<ProtectedRoute><MasterDataExpenditureType /></ProtectedRoute>} />
-        <Route path="/master-data/account" element={<ProtectedRoute><MasterDataAccount /></ProtectedRoute>} />
-        <Route path="/master-data/board" element={<ProtectedRoute><MasterDataBoard /></ProtectedRoute>} />
-        <Route path="/master-data/board-course-subject" element={<ProtectedRoute><MasterDataBoardCourseSubject /></ProtectedRoute>} />
-        <Route path="/master-data/subject" element={<ProtectedRoute><MasterDataSubject /></ProtectedRoute>} />
-        <Route path="/master-data/zone" element={<ProtectedRoute><ZoneManagement /></ProtectedRoute>} />
+        <Route path="/master-data" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterData /></ProtectedRoute>} />
+        <Route path="/master-data/class" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataClass /></ProtectedRoute>} />
+        <Route path="/master-data/exam-tag" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExamTag /></ProtectedRoute>} />
+        <Route path="/master-data/department" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataDepartment /></ProtectedRoute>} />
+        <Route path="/master-data/centre" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataCentre /></ProtectedRoute>} />
+        <Route path="/master-data/batch" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataBatch /></ProtectedRoute>} />
+        <Route path="/master-data/source" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSource /></ProtectedRoute>} />
+        <Route path="/master-data/session" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSession /></ProtectedRoute>} />
+        <Route path="/master-data/script" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataScript /></ProtectedRoute>} />
+        <Route path="/master-data/expense-category" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute allowedRoles={['superadmin']}><FinanceExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/expense-subcategory" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenseSubCategory /></ProtectedRoute>} />
+        <Route path="/master-data/expenditure-type" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenditureType /></ProtectedRoute>} />
+        <Route path="/master-data/account" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataAccount /></ProtectedRoute>} />
+        <Route path="/master-data/board" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataBoard /></ProtectedRoute>} />
+        <Route path="/master-data/board-course-subject" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataBoardCourseSubject /></ProtectedRoute>} />
+        <Route path="/master-data/subject" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSubject /></ProtectedRoute>} />
+        <Route path="/master-data/zone" element={<ProtectedRoute allowedRoles={['superadmin']}><ZoneManagement /></ProtectedRoute>} />
 
         {/* Petty Cash Routes */}
         <Route path="/petty-cash/centre" element={<ProtectedRoute><PettyCashCentre /></ProtectedRoute>} />
@@ -344,11 +344,11 @@ function App() {
         <Route path="/petty-cash/add-expenditure" element={<ProtectedRoute><AddPettyCashExpenditure /></ProtectedRoute>} />
         <Route path="/petty-cash/approval" element={<ProtectedRoute><PettyCashApproval /></ProtectedRoute>} />
 
-        <Route path="/master-data/designation" element={<ProtectedRoute><MasterDataDesignation /></ProtectedRoute>} />
-        <Route path="/master-data/follow-up-feedback" element={<ProtectedRoute><MasterDataFollowUpFeedback /></ProtectedRoute>} />
-        <Route path="/course-management" element={<ProtectedRoute><MasterDataCourse /></ProtectedRoute>} />
-        <Route path="/course-management/carry-forward" element={<ProtectedRoute><CarryForward /></ProtectedRoute>} />
-        <Route path="/course-management/course-transfer" element={<ProtectedRoute><CourseTransfer /></ProtectedRoute>} />
+        <Route path="/master-data/designation" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataDesignation /></ProtectedRoute>} />
+        <Route path="/master-data/follow-up-feedback" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataFollowUpFeedback /></ProtectedRoute>} />
+        <Route path="/course-management" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataCourse /></ProtectedRoute>} />
+        <Route path="/course-management/carry-forward" element={<ProtectedRoute ><CarryForward /></ProtectedRoute>} />
+        <Route path="/course-management/course-transfer" element={<ProtectedRoute ><CourseTransfer /></ProtectedRoute>} />
         <Route path="/enrolled-students" element={<ProtectedRoute><EnrolledStudents /></ProtectedRoute>} />
         <Route path="/admissions/batch-allocation" element={<ProtectedRoute><BatchAllocation /></ProtectedRoute>} />
         <Route path="/edit-board-subjects/:admissionId" element={<ProtectedRoute><EditBoardSubjects /></ProtectedRoute>} />
