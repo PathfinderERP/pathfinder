@@ -57,7 +57,41 @@ const DailyTrackingLog = () => {
     
     // Board filters
     const [selectedDept, setSelectedDept] = useState("All");
+    const [selectedCentre, setSelectedCentre] = useState("All");
     const [searchEmployee, setSearchEmployee] = useState("");
+
+    // Get current user's centres
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = Array.isArray(currentUser.role) 
+        ? currentUser.role.includes('superAdmin') || currentUser.role.includes('superadmin')
+        : currentUser.role === 'superAdmin' || currentUser.role === 'superadmin';
+    const [availableCentres, setAvailableCentres] = useState([]);
+
+    useEffect(() => {
+        const fetchAllCentres = async () => {
+            try {
+                const res = await fetch(`${apiUrl}/master-data/centres?status=active`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    setAvailableCentres(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch all centres:", err);
+            }
+        };
+
+        if (isSuperAdmin) {
+            fetchAllCentres();
+        } else {
+            const userCentres = currentUser.centres || [];
+            if (currentUser.centre && !userCentres.some(c => c._id === (currentUser.centre._id || currentUser.centre))) {
+                userCentres.push(typeof currentUser.centre === 'object' ? currentUser.centre : { _id: currentUser.centre, centreName: 'Primary Centre' });
+            }
+            setAvailableCentres(userCentres);
+        }
+    }, [apiUrl, token, isSuperAdmin]);
 
     // Editing states
     const [editingActivityId, setEditingActivityId] = useState(null);
@@ -124,12 +158,13 @@ const DailyTrackingLog = () => {
     };
 
     // Fetch board logs
-    const fetchBoardLogs = async (date, role, name) => {
+    const fetchBoardLogs = async (date, role, name, centreId) => {
         setLoading(true);
         try {
             let url = `${apiUrl}/daily-tracking-logs/board?date=${date}`;
             if (role && role !== "All") url += `&role=${role}`;
             if (name) url += `&employeeName=${encodeURIComponent(name)}`;
+            if (centreId && centreId !== "All") url += `&centreId=${centreId}`;
 
             const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -152,9 +187,9 @@ const DailyTrackingLog = () => {
         if (activeTab === "myLog") {
             fetchMyLog(selectedDate);
         } else {
-            fetchBoardLogs(selectedDate, selectedDept, searchEmployee);
+            fetchBoardLogs(selectedDate, selectedDept, searchEmployee, selectedCentre);
         }
-    }, [activeTab, selectedDate, selectedDept, searchEmployee]);
+    }, [activeTab, selectedDate, selectedDept, searchEmployee, selectedCentre]);
 
     // Handle Form Submit
     const handleAddActivity = async (e) => {
@@ -714,8 +749,28 @@ const DailyTrackingLog = () => {
                     <div className={`p-5 rounded-2xl border mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between ${
                         isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
                     }`}>
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Filter:</span>
+                            
+                            {/* Centre Filter */}
+                            {(availableCentres.length > 0 || currentUser.role === "superAdmin") && (
+                                <select
+                                    value={selectedCentre}
+                                    onChange={(e) => setSelectedCentre(e.target.value)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 outline-none cursor-pointer ${
+                                        isDarkMode 
+                                            ? "bg-gray-800 text-gray-200 border-gray-700 hover:border-indigo-500" 
+                                            : "bg-slate-100 text-slate-700 border-slate-200 hover:border-indigo-400"
+                                    } border`}
+                                >
+                                    <option value="All">All Centres</option>
+                                    {availableCentres.map(c => (
+                                        <option key={c._id} value={c._id}>{c.centreName || 'Unknown Centre'}</option>
+                                    ))}
+                                </select>
+                            )}
+
+                            {/* Role Filters */}
                             <div className="flex flex-wrap gap-1">
                                 {roles.map(roleKey => (
                                     <button
@@ -736,7 +791,7 @@ const DailyTrackingLog = () => {
                         </div>
 
                         {/* Search field */}
-                        <div className="relative flex-1 md:max-w-xs">
+                        <div className="relative flex-1 w-full md:max-w-xs mt-3 md:mt-0">
                             <FaSearch className="absolute left-3.5 top-3.5 text-gray-500 text-sm" />
                             <input
                                 type="text"

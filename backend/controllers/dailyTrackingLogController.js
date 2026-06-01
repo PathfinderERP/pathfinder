@@ -114,7 +114,7 @@ export const getMyLog = async (req, res) => {
 // Get department/board logs (grouped or filtered)
 export const getDepartmentLogs = async (req, res) => {
     try {
-        const { date, role, employeeName } = req.query;
+        const { date, role, employeeName, centreId } = req.query;
         const targetDate = getMidnightIST(date);
         const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
         const endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
@@ -151,7 +151,46 @@ export const getDepartmentLogs = async (req, res) => {
             userQuery.name = { $regex: employeeName, $options: "i" };
         }
 
-        const users = await User.find(userQuery).select("name role designation profileImage");
+        const isSuperAdmin = Array.isArray(req.user.role) 
+            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
+            : req.user.role === "superAdmin" || req.user.role === "superadmin";
+
+        if (!isSuperAdmin) {
+            const userCentres = req.user.centres || [];
+            const centreIds = userCentres.map(c => c._id ? c._id.toString() : c.toString());
+            if (req.user.centre) {
+                centreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
+            }
+
+            if (centreIds.length > 0) {
+                if (centreId && centreId !== "All") {
+                    if (centreIds.includes(centreId)) {
+                        userQuery.$or = [
+                            { centres: centreId },
+                            { centre: centreId }
+                        ];
+                    } else {
+                        return res.status(200).json({ logs: [] });
+                    }
+                } else {
+                    userQuery.$or = [
+                        { centres: { $in: centreIds } },
+                        { centre: { $in: centreIds } }
+                    ];
+                }
+            } else {
+                return res.status(200).json({ logs: [] });
+            }
+        } else {
+            if (centreId && centreId !== "All") {
+                userQuery.$or = [
+                    { centres: centreId },
+                    { centre: centreId }
+                ];
+            }
+        }
+
+        const users = await User.find(userQuery).select("name role designation profileImage centres centre");
 
         // Find existing logs for the day
         const logQuery = { 
