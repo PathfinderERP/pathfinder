@@ -16,6 +16,14 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  optimizeDeps: {
+    include: ['@exotel-npm-dev/exotel-ip-calling-crm-websdk']
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true
+    }
   }
 })
 
