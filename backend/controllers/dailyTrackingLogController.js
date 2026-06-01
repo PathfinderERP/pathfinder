@@ -134,15 +134,29 @@ export const getDepartmentLogs = async (req, res) => {
             teacher: ["teacher"]
         };
 
-        if (role && role !== "All") {
-            const dbRoles = roleDBMapping[role.toLowerCase()];
-            if (dbRoles) {
-                userQuery.role = { $in: dbRoles };
-            } else {
-                userQuery.role = role;
+        // Handle multi-select roles
+        let rolesFilter = [];
+        if (role) {
+            if (Array.isArray(role)) {
+                rolesFilter = role;
+            } else if (typeof role === "string") {
+                rolesFilter = role.split(",").map(r => r.trim()).filter(Boolean);
             }
+        }
+
+        if (rolesFilter.length > 0 && !rolesFilter.includes("All")) {
+            let mappedRoles = [];
+            for (const r of rolesFilter) {
+                const dbRoles = roleDBMapping[r.toLowerCase()];
+                if (dbRoles) {
+                    mappedRoles.push(...dbRoles);
+                } else {
+                    mappedRoles.push(r);
+                }
+            }
+            userQuery.role = { $in: mappedRoles };
         } else {
-            // If "All", limit to users with any of the supported roles
+            // If empty or "All", limit to users with any of the supported roles
             const allSupportedRoles = Object.values(roleDBMapping).flat();
             userQuery.role = { $in: allSupportedRoles };
         }
@@ -155,37 +169,46 @@ export const getDepartmentLogs = async (req, res) => {
             ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
             : req.user.role === "superAdmin" || req.user.role === "superadmin";
 
+        // Handle multi-select centres
+        let centresFilter = [];
+        if (centreId) {
+            if (Array.isArray(centreId)) {
+                centresFilter = centreId;
+            } else if (typeof centreId === "string") {
+                centresFilter = centreId.split(",").map(c => c.trim()).filter(Boolean);
+            }
+        }
+
         if (!isSuperAdmin) {
             const userCentres = req.user.centres || [];
-            const centreIds = userCentres.map(c => c._id ? c._id.toString() : c.toString());
+            const userCentreIds = userCentres.map(c => c._id ? c._id.toString() : c.toString());
             if (req.user.centre) {
-                centreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
+                userCentreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
             }
 
-            if (centreIds.length > 0) {
-                if (centreId && centreId !== "All") {
-                    if (centreIds.includes(centreId)) {
-                        userQuery.$or = [
-                            { centres: centreId },
-                            { centre: centreId }
-                        ];
-                    } else {
-                        return res.status(200).json({ logs: [] });
-                    }
-                } else {
+            if (userCentreIds.length > 0) {
+                let allowedCentres = userCentreIds;
+                if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+                    allowedCentres = userCentreIds.filter(c => centresFilter.includes(c));
+                }
+
+                if (allowedCentres.length > 0) {
                     userQuery.$or = [
-                        { centres: { $in: centreIds } },
-                        { centre: { $in: centreIds } }
+                        { centres: { $in: allowedCentres } },
+                        { centre: { $in: allowedCentres } }
                     ];
+                } else {
+                    return res.status(200).json({ logs: [] });
                 }
             } else {
                 return res.status(200).json({ logs: [] });
             }
         } else {
-            if (centreId && centreId !== "All") {
+            // SuperAdmin
+            if (centresFilter.length > 0 && !centresFilter.includes("All")) {
                 userQuery.$or = [
-                    { centres: centreId },
-                    { centre: centreId }
+                    { centres: { $in: centresFilter } },
+                    { centre: { $in: centresFilter } }
                 ];
             }
         }

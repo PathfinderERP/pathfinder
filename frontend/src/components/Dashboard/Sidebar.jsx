@@ -78,7 +78,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaHistory />,
             subItems: [
                 { name: "My Daily Log", path: "/daily-tracking-log?tab=myLog", icon: <FaTasks /> },
-                { name: "Department Board", path: "/daily-tracking-log?tab=deptBoard", icon: <FaBuilding /> }
+                { name: "Log Tracking", path: "/daily-tracking-log?tab=deptBoard", icon: <FaBuilding /> }
             ]
         },
         // { name: "Community", icon: <FaUsers />, path: "/community" },

@@ -18,6 +18,7 @@ import {
 } from "react-icons/fa";
 import { useTheme } from "../context/ThemeContext";
 import Layout from "../components/Layout";
+import CustomMultiSelect from "../components/common/CustomMultiSelect";
 
 
 const DailyTrackingLog = () => {
@@ -56,8 +57,8 @@ const DailyTrackingLog = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Board filters
-    const [selectedDept, setSelectedDept] = useState("All");
-    const [selectedCentre, setSelectedCentre] = useState("All");
+    const [selectedDept, setSelectedDept] = useState([]);
+    const [selectedCentre, setSelectedCentre] = useState([]);
     const [searchEmployee, setSearchEmployee] = useState("");
 
     // Get current user's centres
@@ -162,9 +163,30 @@ const DailyTrackingLog = () => {
         setLoading(true);
         try {
             let url = `${apiUrl}/daily-tracking-logs/board?date=${date}`;
-            if (role && role !== "All") url += `&role=${role}`;
+            
+            // Handle multi-select roles
+            let rolesParam = "";
+            if (role) {
+                if (Array.isArray(role)) {
+                    rolesParam = role.map(r => r.value).join(",");
+                } else if (role !== "All") {
+                    rolesParam = role;
+                }
+            }
+            if (rolesParam) url += `&role=${rolesParam}`;
+
             if (name) url += `&employeeName=${encodeURIComponent(name)}`;
-            if (centreId && centreId !== "All") url += `&centreId=${centreId}`;
+
+            // Handle multi-select centres
+            let centresParam = "";
+            if (centreId) {
+                if (Array.isArray(centreId)) {
+                    centresParam = centreId.map(c => c.value).join(",");
+                } else if (centreId !== "All") {
+                    centresParam = centreId;
+                }
+            }
+            if (centresParam) url += `&centreId=${centresParam}`;
 
             const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -380,10 +402,17 @@ const DailyTrackingLog = () => {
         }
     };
 
-    // Board filtration handlers
-    const handleFilterChange = (role) => {
-        setSelectedDept(role);
-    };
+    const centreOptions = availableCentres.map(c => ({
+        value: c._id,
+        label: c.centreName || 'Unknown Centre'
+    }));
+
+    const rolesOptions = Object.keys(rolesMap)
+        .filter(key => key !== "All")
+        .map(key => ({
+            value: key,
+            label: rolesMap[key]
+        }));
 
     const handleSearchChange = (val) => {
         setSearchEmployee(val);
@@ -407,9 +436,13 @@ const DailyTrackingLog = () => {
                         <FaHistory className="text-xl" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold tracking-tight">Daily Tracking Log</h2>
+                        <h2 className="text-2xl font-bold tracking-tight">
+                            {activeTab === "deptBoard" ? "Log Tracking" : "Daily Tracking Log"}
+                        </h2>
                         <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                            Input and track employee daily working activity log department-wise
+                            {activeTab === "deptBoard" 
+                                ? "Track employee daily working activity logs" 
+                                : "Input and track employee daily working activity log department-wise"}
                         </p>
                     </div>
                 </div>
@@ -432,30 +465,32 @@ const DailyTrackingLog = () => {
             </div>
 
             {/* Dropdown Navigation */}
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
-                <label className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Select Log View:
-                </label>
-                <div className="relative w-full sm:w-64">
-                    <select
-                        value={activeTab}
-                        onChange={(e) => navigate(`/daily-tracking-log?tab=${e.target.value}`)}
-                        className={`w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl border font-semibold text-sm outline-none transition-all duration-200 cursor-pointer shadow-sm ${
-                            isDarkMode
-                                ? 'bg-[#1a1f24] border-gray-800 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                                : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                        }`}
-                    >
-                        <option value="myLog">📋 My Daily Log</option>
-                        <option value="deptBoard">🏢 Department Board</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                        </svg>
+            {activeTab !== "deptBoard" && (
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Select Log View:
+                    </label>
+                    <div className="relative w-full sm:w-64">
+                        <select
+                            value={activeTab}
+                            onChange={(e) => navigate(`/daily-tracking-log?tab=${e.target.value}`)}
+                            className={`w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl border font-semibold text-sm outline-none transition-all duration-200 cursor-pointer shadow-sm ${
+                                isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-800 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                                    : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                            }`}
+                        >
+                            <option value="myLog">📋 My Daily Log</option>
+                            <option value="deptBoard">🏢 Log Tracking</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                            </svg>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Loading Indicator */}
             {loading && (
@@ -749,44 +784,29 @@ const DailyTrackingLog = () => {
                     <div className={`p-5 rounded-2xl border mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between ${
                         isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
                     }`}>
-                        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Filter:</span>
+                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4 w-full lg:w-auto">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest self-center">Filter:</span>
                             
                             {/* Centre Filter */}
                             {(availableCentres.length > 0 || currentUser.role === "superAdmin") && (
-                                <select
-                                    value={selectedCentre}
-                                    onChange={(e) => setSelectedCentre(e.target.value)}
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 outline-none cursor-pointer ${
-                                        isDarkMode 
-                                            ? "bg-gray-800 text-gray-200 border-gray-700 hover:border-indigo-500" 
-                                            : "bg-slate-100 text-slate-700 border-slate-200 hover:border-indigo-400"
-                                    } border`}
-                                >
-                                    <option value="All">All Centres</option>
-                                    {availableCentres.map(c => (
-                                        <option key={c._id} value={c._id}>{c.centreName || 'Unknown Centre'}</option>
-                                    ))}
-                                </select>
+                                <div className="w-full sm:w-64">
+                                    <CustomMultiSelect
+                                        placeholder="ALL CENTRES"
+                                        options={centreOptions}
+                                        value={selectedCentre}
+                                        onChange={(val) => setSelectedCentre(val || [])}
+                                    />
+                                </div>
                             )}
 
                             {/* Role Filters */}
-                            <div className="flex flex-wrap gap-1">
-                                {roles.map(roleKey => (
-                                    <button
-                                        key={roleKey}
-                                        onClick={() => handleFilterChange(roleKey)}
-                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
-                                            selectedDept === roleKey
-                                                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
-                                                : (isDarkMode 
-                                                    ? "bg-gray-800 text-gray-400 hover:text-white" 
-                                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200")
-                                        }`}
-                                    >
-                                        {rolesMap[roleKey]}
-                                    </button>
-                                ))}
+                            <div className="w-full sm:w-64">
+                                <CustomMultiSelect
+                                    placeholder="ALL ROLES"
+                                    options={rolesOptions}
+                                    value={selectedDept}
+                                    onChange={(val) => setSelectedDept(val || [])}
+                                />
                             </div>
                         </div>
 
