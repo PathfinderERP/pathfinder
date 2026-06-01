@@ -279,8 +279,23 @@ const TransactionList = () => {
         .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"));
 
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
-    const dynamicSelectionTotalWithGst = filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const dynamicSelectionTotalBase = filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0);
+    const hasActiveFilters = 
+        selectedCentres.length > 0 ||
+        selectedCourses.length > 0 ||
+        selectedExamTag !== "" ||
+        selectedDepartments.length > 0 ||
+        selectedPaymentMode.length > 0 ||
+        selectedTransactionType.length > 0 ||
+        minAmount !== "" ||
+        maxAmount !== "" ||
+        searchTerm !== "" ||
+        selectedStatus.length > 0 ||
+        billFilter !== "all" ||
+        selectedBilledBy.length > 0 ||
+        (timePeriod === "Custom" && startDate !== "" && endDate !== "");
+
+    const dynamicSelectionTotalWithGst = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
+    const dynamicSelectionTotalBase = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0) : 0;
 
     const handleDownloadExcel = () => {
         if (!filteredReport.length) {
@@ -432,7 +447,7 @@ const TransactionList = () => {
                         </div>
                     </div>
 
-                    <div className={`${cardBg} p-6 rounded-xl shadow-sm ${cardBorder} flex items-center justify-between`}>
+                    {/* <div className={`${cardBg} p-6 rounded-xl shadow-sm ${cardBorder} flex items-center justify-between`}>
                         <div>
                             <div className={`${iconBoxGreen} p-3 rounded-lg`}>
                                 <FaChartBar size={24} />
@@ -468,7 +483,7 @@ const TransactionList = () => {
                             </div>
                             <p className={`text-[9px] ${subText} uppercase font-black tracking-[0.2em] mt-3 ${pillBg} px-2 py-0.5 rounded-full inline-block`}>{stats.previousMonthLabel}</p>
                         </div>
-                    </div>
+                    </div> */}
 
                     <div className={`${cardBg} p-6 rounded-xl shadow-sm ${cardBorder} flex items-center justify-between`}>
                         <div>

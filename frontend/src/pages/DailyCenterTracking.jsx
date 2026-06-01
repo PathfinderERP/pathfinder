@@ -52,6 +52,8 @@ const DailyCenterTracking = () => {
         }
     };
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
     useEffect(() => {
         const fetchCenters = async () => {
             try {
@@ -65,7 +67,13 @@ const DailyCenterTracking = () => {
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    setCenters(data);
+                    const filteredData = Array.isArray(data) 
+                        ? data.filter(c => 
+                            user.role === 'superAdmin' || user.role === 'superadmin' ||
+                            (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name))
+                        )
+                        : [];
+                    setCenters(filteredData);
                 } else {
                     toast.error("Failed to fetch centers");
                 }
