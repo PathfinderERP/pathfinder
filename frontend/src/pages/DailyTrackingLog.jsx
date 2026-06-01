@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { 
@@ -25,8 +26,21 @@ const DailyTrackingLog = () => {
     const apiUrl = import.meta.env.VITE_API_URL;
     const token = localStorage.getItem("token");
 
+    const navigate = useNavigate();
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const tabParam = queryParams.get("tab");
+
     // State management
     const [activeTab, setActiveTab] = useState("myLog"); // "myLog" | "deptBoard"
+
+    useEffect(() => {
+        if (tabParam === "myLog" || tabParam === "deptBoard") {
+            setActiveTab(tabParam);
+        } else {
+            setActiveTab("myLog");
+        }
+    }, [tabParam]);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
     const [myActivities, setMyActivities] = useState([]);
     const [myLogId, setMyLogId] = useState(null);
@@ -382,30 +396,30 @@ const DailyTrackingLog = () => {
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex border-b border-gray-800/20 mb-6 gap-2">
-                <button
-                    onClick={() => setActiveTab("myLog")}
-                    className={`px-5 py-3 font-semibold text-sm transition-all duration-200 border-b-2 flex items-center gap-2 ${
-                        activeTab === "myLog"
-                            ? "border-indigo-500 text-indigo-500 font-bold"
-                            : "border-transparent text-gray-500 hover:text-gray-400"
-                    }`}
-                >
-                    <FaTasks className="text-sm" />
-                    My Daily Log
-                </button>
-                <button
-                    onClick={() => setActiveTab("deptBoard")}
-                    className={`px-5 py-3 font-semibold text-sm transition-all duration-200 border-b-2 flex items-center gap-2 ${
-                        activeTab === "deptBoard"
-                            ? "border-indigo-500 text-indigo-500 font-bold"
-                            : "border-transparent text-gray-500 hover:text-gray-400"
-                    }`}
-                >
-                    <FaBuilding className="text-sm" />
-                    Department Board
-                </button>
+            {/* Dropdown Navigation */}
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
+                <label className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Select Log View:
+                </label>
+                <div className="relative w-full sm:w-64">
+                    <select
+                        value={activeTab}
+                        onChange={(e) => navigate(`/daily-tracking-log?tab=${e.target.value}`)}
+                        className={`w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl border font-semibold text-sm outline-none transition-all duration-200 cursor-pointer shadow-sm ${
+                            isDarkMode
+                                ? 'bg-[#1a1f24] border-gray-800 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                                : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                        }`}
+                    >
+                        <option value="myLog">📋 My Daily Log</option>
+                        <option value="deptBoard">🏢 Department Board</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                    </div>
+                </div>
             </div>
 
             {/* Loading Indicator */}

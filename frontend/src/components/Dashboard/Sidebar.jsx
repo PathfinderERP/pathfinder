@@ -73,7 +73,14 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Red Flag Desk", path: "/red-flag-desk" }
             ]
         },
-        { name: "Daily Tracking Log", icon: <FaHistory />, path: "/daily-tracking-log" },
+        {
+            name: "Daily Tracking Log",
+            icon: <FaHistory />,
+            subItems: [
+                { name: "My Daily Log", path: "/daily-tracking-log?tab=myLog", icon: <FaTasks /> },
+                { name: "Department Board", path: "/daily-tracking-log?tab=deptBoard", icon: <FaBuilding /> }
+            ]
+        },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
         { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
@@ -333,6 +340,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     if (item.subItems) {
                         const isInside = item.subItems.some(sub =>
                             sub.path === currentPath ||
+                            (sub.path === "/daily-tracking-log?tab=myLog" && currentPath === "/daily-tracking-log") ||
                             (sub.subItems && sub.subItems.some(nested => nested.path === currentPath))
                         );
                         if (isInside && !newOpenMenus[item.name]) {
@@ -523,7 +531,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                         ) : (
                                             <div
                                                 onClick={() => navigate(sub.path)}
-                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${(location.pathname + location.search) === sub.path
+                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${(location.pathname + location.search) === sub.path || (sub.path === "/daily-tracking-log?tab=myLog" && (location.pathname + location.search) === "/daily-tracking-log")
                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                     : "hover:text-white hover:bg-gray-800/50"
                                                     }`}
