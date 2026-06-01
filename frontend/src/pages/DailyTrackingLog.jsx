@@ -70,7 +70,7 @@ const DailyTrackingLog = () => {
     useEffect(() => {
         const fetchAllCentres = async () => {
             try {
-                const res = await fetch(`${apiUrl}/master-data/centres?status=active`, {
+                const res = await fetch(`${apiUrl}/centre?status=active&fetchAll=true`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const data = await res.json();
