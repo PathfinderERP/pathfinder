@@ -123,29 +123,9 @@ export const getVoiceToken = async (req, res) => {
             }
         }
 
-        const userId = `agent_${req.user._id}`;
+        const userId = req.user.email;
 
-        // 3. Register/Map the agent user inside the Exotel application using Customer Token
-        const registerUserUrl = `https://integrationscore.mum1.exotel.com/v2/integrations/${customerId}/apps/${appId}/users`;
-        console.log(`[Exotel Voice] Registering user ${userId} for App: ${appId}`);
-
-        try {
-            const registerResponse = await fetch(registerUserUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': customerToken
-                },
-                body: JSON.stringify({
-                    AppUserId: userId
-                })
-            });
-
-            const registerData = await registerResponse.json();
-            console.log('[Exotel Voice] Registration Response:', registerData);
-        } catch (regError) {
-            console.warn('[Exotel Voice] User registration warning:', regError.message);
-        }
+        // Note: Individual agent user registration is handled automatically when they are mapped via the User Mapping API below.
 
         // 4. Fetch App Token (needed by the frontend CRM WebSDK to load app settings & initialize)
         console.log(`[Exotel Voice] Requesting App Token from ${tokenUrl} for App: ${appId}`);
@@ -206,6 +186,22 @@ export const getVoiceToken = async (req, res) => {
         console.log(`[Exotel Voice] Creating/Updating User Mapping for user: ${userId}`);
         const userMappingUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/usermapping?entity=app';
         try {
+            try {
+                const oldUserId = `agent_${req.user._id}`;
+                const newUserId = req.user.email;
+                console.log(`[Exotel Voice] Cleaning stale mappings for: ${oldUserId}, ${newUserId}`);
+                await fetch(`https://integrationscore.mum1.exotel.com/v2/integrations/users/${oldUserId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': appToken }
+                });
+                await fetch(`https://integrationscore.mum1.exotel.com/v2/integrations/users/${newUserId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': appToken }
+                });
+            } catch (delErr) {
+                console.warn('[Exotel Voice] Warning during user mapping cleanup:', delErr.message);
+            }
+
             const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '08047190000';
             const mappingResponse = await fetch(userMappingUrl, {
                 method: 'POST',
