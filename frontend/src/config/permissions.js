@@ -544,6 +544,19 @@ export const PERMISSION_MODULES = {
                 operations: ["create", "edit", "delete"]
             }
         }
+    },
+    trackingFlagging: {
+        label: "Tracking & Flagging",
+        sections: {
+            dailyCenterTracking: {
+                label: "Daily Center Tracking",
+                operations: ["create", "edit", "delete"]
+            },
+            redFlagDesk: {
+                label: "Red Flag Desk",
+                operations: ["create", "edit", "delete"]
+            }
+        }
     }
 };
 

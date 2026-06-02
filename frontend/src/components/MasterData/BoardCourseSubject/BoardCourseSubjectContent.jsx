@@ -155,6 +155,49 @@ const BoardCourseSubjectContent = () => {
         }
     };
 
+    const handleDirectAmountUpdate = async (entry, subjectIndex, newAmount) => {
+        if (newAmount < 0) {
+            toast.error("Amount cannot be negative");
+            return;
+        }
+
+        const token = localStorage.getItem("token");
+        const updatedSubjects = entry.subjects.map((sub, idx) => {
+            const sId = sub.subjectId?._id || sub.subjectId;
+            return {
+                subjectId: sId,
+                amount: idx === subjectIndex ? newAmount : sub.amount
+            };
+        });
+
+        const updatePayload = {
+            boardId: entry.boardId?._id || entry.boardId,
+            classId: entry.classId?._id || entry.classId,
+            subjects: updatedSubjects
+        };
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board-course-subject/${entry._id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(updatePayload)
+            });
+
+            if (response.ok) {
+                toast.success("Subject amount updated successfully");
+                fetchData();
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to update amount");
+            }
+        } catch (err) {
+            toast.error("Server error updating amount");
+        }
+    };
+
     const toggleBoard = (boardName) => {
         setExpandedBoards(prev => ({ ...prev, [boardName]: !prev[boardName] }));
     };
@@ -219,9 +262,25 @@ const BoardCourseSubjectContent = () => {
                                                     <h4 className="text-md font-semibold text-gray-300 group-hover:text-white transition-colors">{entry.classId?.name || "Unknown Class"}</h4>
                                                     <span className="text-xs text-gray-500">{entry.subjects.length} Subjects</span>
                                                 </div>
-                                                <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    {canEdit && <button onClick={(e) => { e.stopPropagation(); openModal(entry); }} className="text-blue-400 hover:text-blue-300"><FaEdit /></button>}
-                                                    {canDelete && <button onClick={(e) => { e.stopPropagation(); handleDelete(entry._id); }} className="text-red-400 hover:text-red-300"><FaTrash /></button>}
+                                                <div className="flex gap-3 items-center ml-auto pr-4">
+                                                    {canEdit && (
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); openModal(entry); }} 
+                                                            className="text-blue-400 hover:text-blue-300 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-650 p-2 rounded-lg transition-all"
+                                                            title="Edit Config"
+                                                        >
+                                                            <FaEdit size={16} />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDelete(entry._id); }} 
+                                                            className="text-red-400 hover:text-red-300 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-650 p-2 rounded-lg transition-all"
+                                                            title="Delete Config"
+                                                        >
+                                                            <FaTrash size={16} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -229,9 +288,32 @@ const BoardCourseSubjectContent = () => {
                                                 <div className="mt-3 ml-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                                     {entry.subjects.map((sub, idx) => (
                                                         <div key={idx} className="bg-gray-800/40 border border-gray-700 p-3 rounded-lg flex justify-between items-center group/item hover:bg-gray-800/60 transition-all hover:border-cyan-500/50">
-                                                            <div>
-                                                                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{sub.subjectId?.subName || "Unknown"}</p>
-                                                                <p className="text-lg font-black text-cyan-400">₹{sub.amount}</p>
+                                                            <div className="w-full">
+                                                                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">{sub.subjectId?.subName || "Unknown"}</p>
+                                                                {canEdit ? (
+                                                                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                                        <span className="text-cyan-400 font-black text-sm">₹</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            defaultValue={sub.amount}
+                                                                            onBlur={async (e) => {
+                                                                                const val = Number(e.target.value);
+                                                                                if (val === sub.amount) return;
+                                                                                await handleDirectAmountUpdate(entry, idx, val);
+                                                                            }}
+                                                                            onKeyDown={async (e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    e.target.blur();
+                                                                                }
+                                                                            }}
+                                                                            className="w-full bg-[#111] border border-gray-700 hover:border-gray-600 focus:border-cyan-500 rounded-md px-2 py-1 text-sm text-cyan-400 font-bold focus:outline-none transition-colors"
+                                                                            min="0"
+                                                                            required
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-lg font-black text-cyan-400">₹{sub.amount}</p>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -327,10 +409,25 @@ const BoardCourseSubjectContent = () => {
                                         <div className="grid grid-cols-1 gap-2 mt-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                             {formData.subjects.map((sub, idx) => (
                                                 <div key={idx} className="flex justify-between items-center bg-gray-900/50 border border-gray-800 p-2 px-4 rounded-lg group">
-                                                    <div className="flex items-center gap-4">
-                                                        <span className="text-cyan-400 font-bold text-sm tracking-wide">{sub.subName}</span>
+                                                    <div className="flex items-center gap-4 flex-1">
+                                                        <span className="text-cyan-400 font-bold text-sm tracking-wide flex-1">{sub.subName}</span>
                                                         <span className="text-gray-500 text-xs">|</span>
-                                                        <span className="text-white font-black text-sm">₹{sub.amount}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-gray-400 text-xs">₹</span>
+                                                            <input
+                                                                type="number"
+                                                                value={sub.amount}
+                                                                onChange={(e) => {
+                                                                    const val = Number(e.target.value);
+                                                                    const newSubjects = [...formData.subjects];
+                                                                    newSubjects[idx].amount = val;
+                                                                    setFormData({ ...formData, subjects: newSubjects });
+                                                                }}
+                                                                className="w-24 bg-gray-850 border border-gray-700 rounded-lg px-2 py-1 text-sm text-white focus:border-cyan-500 focus:outline-none font-bold"
+                                                                min="0"
+                                                                required
+                                                            />
+                                                        </div>
                                                     </div>
                                                     <button
                                                         type="button"

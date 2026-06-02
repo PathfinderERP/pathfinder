@@ -5,6 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign } from 'react-icons/fa';
 import { toast } from "react-toastify";
 import DailyTrackingDetailsModal from '../components/Dashboard/DailyTrackingDetailsModal';
+import { hasPermission } from '../config/permissions';
 
 const DailyCenterTracking = () => {
     const { theme } = useTheme();
@@ -53,8 +54,17 @@ const DailyCenterTracking = () => {
     };
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canView = hasPermission(user, 'trackingFlagging', 'dailyCenterTracking', 'view');
 
     useEffect(() => {
+        if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') {
+            toast.error("Access Denied");
+            navigate("/");
+        }
+    }, [canView, user.role, navigate]);
+
+    useEffect(() => {
+        if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
         const fetchCenters = async () => {
             try {
                 setLoading(true);
@@ -86,11 +96,15 @@ const DailyCenterTracking = () => {
         };
 
         fetchCenters();
-    }, [selectedDate]);
+    }, [selectedDate, canView]);
 
     const filteredCenters = centers.filter(center => 
         center.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') {
+        return null;
+    }
 
     return (
         <Layout activePage="Tracking & Flagging">

@@ -186,43 +186,66 @@ export const getVoiceToken = async (req, res) => {
         console.log(`[Exotel Voice] Creating/Updating User Mapping for user: ${userId}`);
         const userMappingUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/usermapping?entity=app';
         try {
-            try {
-                const oldUserId = `agent_${req.user._id}`;
-                const newUserId = req.user.email;
-                console.log(`[Exotel Voice] Cleaning stale mappings for: ${oldUserId}, ${newUserId}`);
-                await fetch(`https://integrationscore.mum1.exotel.com/v2/integrations/users/${oldUserId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': appToken }
-                });
-                await fetch(`https://integrationscore.mum1.exotel.com/v2/integrations/users/${newUserId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': appToken }
-                });
-            } catch (delErr) {
-                console.warn('[Exotel Voice] Warning during user mapping cleanup:', delErr.message);
-            }
-
-            const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '08047190000';
-            const mappingResponse = await fetch(userMappingUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': appToken
-                },
-                body: JSON.stringify([
-                    {
-                        AppUserId: userId,
-                        AppUsername: req.user.name || 'Agent User',
-                        Email: req.user.email || 'agent@pathfinder.com',
-                        ExotelAccountSid: accountSid,
-                        ExotelUserName: req.user.name || 'Agent User',
-                        VirtualNumber: virtualNumber
-                    }
-                ])
+            // First check if user mapping already exists
+            const checkUrl = `https://integrationscore.mum1.exotel.com/v2/integrations/usermapping?user_id=${encodeURIComponent(userId)}`;
+            const checkRes = await fetch(checkUrl, {
+                method: 'GET',
+                headers: { 'Authorization': appToken }
             });
 
-            const mappingData = await mappingResponse.json();
-            console.log('[Exotel Voice] User Mapping Response:', mappingData);
+            let mappingExists = false;
+            if (checkRes.ok) {
+                const checkData = await checkRes.json();
+                if (checkData.Status === 'Success' && checkData.Data && checkData.Data.IsActive) {
+                    const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '08047190000';
+                    const cleanedVirtualNumber = virtualNumber.replace(/[^0-9]/g, '');
+                    const cleanedConfiguredNumber = (checkData.Data.VirtualNumber || '').replace(/[^0-9]/g, '');
+                    if (cleanedVirtualNumber === cleanedConfiguredNumber) {
+                        console.log('[Exotel Voice] Active user mapping already exists with correct virtual number. Skipping recreation.');
+                        mappingExists = true;
+                    }
+                }
+            }
+
+            if (!mappingExists) {
+                try {
+                    const oldUserId = `agent_${req.user._id}`;
+                    const newUserId = req.user.email;
+                    console.log(`[Exotel Voice] Cleaning stale mappings for: ${oldUserId}, ${newUserId}`);
+                    await fetch(`https://integrationscore.mum1.exotel.com/v2/integrations/users/${oldUserId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': appToken }
+                    });
+                    await fetch(`https://integrationscore.mum1.exotel.com/v2/integrations/users/${newUserId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': appToken }
+                    });
+                } catch (delErr) {
+                    console.warn('[Exotel Voice] Warning during user mapping cleanup:', delErr.message);
+                }
+
+                const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '08047190000';
+                const mappingResponse = await fetch(userMappingUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': appToken
+                    },
+                    body: JSON.stringify([
+                        {
+                            AppUserId: userId,
+                            AppUsername: req.user.name || 'Agent User',
+                            Email: req.user.email || 'agent@pathfinder.com',
+                            ExotelAccountSid: accountSid,
+                            ExotelUserName: req.user.name || 'Agent User',
+                            VirtualNumber: virtualNumber
+                        }
+                    ])
+                });
+
+                const mappingData = await mappingResponse.json();
+                console.log('[Exotel Voice] User Mapping Response:', mappingData);
+            }
         } catch (mapError) {
             console.warn('[Exotel Voice] User mapping warning:', mapError.message);
         }

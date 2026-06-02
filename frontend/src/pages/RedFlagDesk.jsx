@@ -5,11 +5,13 @@ import {
     FaFilter, FaInfoCircle, FaPaperPlane, FaCheck, FaBuilding, FaUser, FaWalking,
     FaArrowLeft, FaTimesCircle, FaSearch, FaFileExcel, FaList, FaThLarge, FaCalendarAlt
 } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { downloadExcel } from '../utils/exportUtils';
 import RedFlagDetailsModal from '../components/Dashboard/RedFlagDetailsModal';
 import { useTheme } from '../context/ThemeContext';
+import { hasPermission } from '../config/permissions';
 
 const getDatesInRange = (startStr, endStr) => {
     if (!startStr || !endStr) return [];
@@ -45,6 +47,19 @@ const matchRole = (flagRole, selectedTabRoleName) => {
 };
 
 const RedFlagDesk = () => {
+    const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canView = hasPermission(user, 'trackingFlagging', 'redFlagDesk', 'view');
+    const canEdit = hasPermission(user, 'trackingFlagging', 'redFlagDesk', 'edit');
+    const canCreate = hasPermission(user, 'trackingFlagging', 'redFlagDesk', 'create');
+
+    useEffect(() => {
+        if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') {
+            toast.error("Access Denied");
+            navigate("/");
+        }
+    }, [canView, user.role, navigate]);
+
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [flags, setFlags] = useState([]);
@@ -108,9 +123,10 @@ const RedFlagDesk = () => {
     };
 
     useEffect(() => {
+        if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
         fetchData();
         fetchCenters();
-    }, [selectedCentreId, filterSeverity, startDate, endDate]);
+    }, [selectedCentreId, filterSeverity, startDate, endDate, canView]);
 
     // Handle role tab switching select first user
     useEffect(() => {
@@ -184,6 +200,10 @@ const RedFlagDesk = () => {
     };
 
     const handleResolve = async (groupOrFlagId) => {
+        if (!canEdit && user.role !== 'superAdmin' && user.role !== 'superadmin') {
+            toast.error("You do not have permission to resolve red flags");
+            return;
+        }
         try {
             const token = localStorage.getItem('token');
             let issuesToResolve = [];
@@ -240,6 +260,10 @@ const RedFlagDesk = () => {
     };
 
     const triggerGenerate = async () => {
+        if (!canCreate && user.role !== 'superAdmin' && user.role !== 'superadmin') {
+            toast.error("You do not have permission to scan red flags");
+            return;
+        }
         try {
             const token = localStorage.getItem('token');
             await axios.post(`${import.meta.env.VITE_API_URL}/red-flags/generate`, {}, {
@@ -435,6 +459,10 @@ const RedFlagDesk = () => {
         });
         return Array.from(uniqueCoordinatorsMap.values());
     }, [flags, selectedCentreId]);
+
+    if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') {
+        return null;
+    }
 
     return (
         <Layout activePage="Tracking & Flagging">

@@ -68,9 +68,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         {
             name: "Tracking & Flagging",
             icon: <FaFlag />,
+            permissionModule: "trackingFlagging",
             subItems: [
-                { name: "Daily Center Tracking", path: "/daily-center-tracking", permissionModule: "dailyCenterTracking" },
-                { name: "Red Flag Desk", path: "/red-flag-desk" }
+                { name: "Daily Center Tracking", path: "/daily-center-tracking", permissionSection: "dailyCenterTracking" },
+                { name: "Red Flag Desk", path: "/red-flag-desk", permissionSection: "redFlagDesk" }
             ]
         },
         {
@@ -375,7 +376,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Tracking & Flagging") return true;
+        if (item.name === "Dashboard" || item.name === "Community") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override

@@ -31,7 +31,8 @@ const ALL_MODULES = {
     userManagement: ["users", "roles", "permissions"],
     dailyTrackingLog: ["myDailyLog", "logTracking"],
     leadManagement: ["leads", "dashboard"],
-    pettyCashManagement: ["pettyCashCentre", "addExpenditure", "expenditureApproval", "addPettyCash", "pettyCashRequestApproval"]
+    pettyCashManagement: ["pettyCashCentre", "addExpenditure", "expenditureApproval", "addPettyCash", "pettyCashRequestApproval"],
+    trackingFlagging: ["dailyCenterTracking", "redFlagDesk"]
 };
 
 async function migratePermissions() {

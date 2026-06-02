@@ -731,20 +731,32 @@ const DailyCollection = () => {
 
                 <div className={`${cardBgClass} ${cardBorderClass} rounded-[4px] p-4`}>
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-                        <div className="flex items-center gap-2 bg-gray-900/40 p-1 rounded-lg border border-gray-800">
+                        <div className={`flex items-center gap-2 p-1 rounded-lg border ${
+                            isDarkMode 
+                                ? "bg-gray-900/40 border-gray-800" 
+                                : "bg-slate-100 border-gray-200"
+                        }`}>
                             <button
                                 onClick={() => setActiveTab("centers")}
-                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "centers"
-                                    ? "bg-blue-600 text-white shadow-lg"
-                                    : "text-gray-400 hover:text-gray-200"}`}
+                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
+                                    activeTab === "centers"
+                                        ? "bg-blue-600 text-white shadow-lg"
+                                        : isDarkMode 
+                                            ? "text-gray-400 hover:text-gray-200" 
+                                            : "text-slate-600 hover:text-slate-950"
+                                }`}
                             >
                                 Centers Collection
                             </button>
                             <button
                                 onClick={() => setActiveTab("details")}
-                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "details"
-                                    ? "bg-blue-600 text-white shadow-lg"
-                                    : "text-gray-400 hover:text-gray-200"}`}
+                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
+                                    activeTab === "details"
+                                        ? "bg-blue-600 text-white shadow-lg"
+                                        : isDarkMode 
+                                            ? "text-gray-400 hover:text-gray-200" 
+                                            : "text-slate-600 hover:text-slate-950"
+                                }`}
                             >
                                 Details with Bill
                             </button>
