@@ -187,12 +187,107 @@ const MarketingCRM = () => {
         return `${yyyy}-${mm}-${dd}`;
     };
 
+    const getTomorrowDateString = () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const yyyy = tomorrow.getFullYear();
+        const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const dd = String(tomorrow.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const [planDate, setPlanDate] = useState(getTodayDateString());
     const [expectedLeadTarget, setExpectedLeadTarget] = useState("");
     const [expectedHotLeads, setExpectedHotLeads] = useState("");
     const [primaryCentreName, setPrimaryCentreName] = useState("");
     const [activitySources, setActivitySources] = useState([]);
+
+    // Tomorrow Planner States
+    const [tomorrowPlanDate, setTomorrowPlanDate] = useState(getTomorrowDateString());
+    const [tomorrowTasks, setTomorrowTasks] = useState([]);
+    const [tomorrowPlanId, setTomorrowPlanId] = useState(null);
+    const [newTaskForm, setNewTaskForm] = useState({
+        taskDetails: "",
+        priority: "Medium",
+        estimatedDuration: "",
+        notes: ""
+    });
+
+    const fetchTomorrowPlan = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/my-plan?date=${tomorrowPlanDate}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.plan && data.plan._id) {
+                    setTomorrowPlanId(data.plan._id);
+                    setTomorrowTasks(data.plan.tasks || []);
+                } else {
+                    setTomorrowPlanId(null);
+                    setTomorrowTasks([]);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching tomorrow plan:", error);
+        }
+    };
+
+    const handleAddTomorrowTask = async (e) => {
+        e.preventDefault();
+        if (!newTaskForm.taskDetails) {
+            toast.error("Task Details are required.");
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ...newTaskForm,
+                    planDate: tomorrowPlanDate
+                })
+            });
+
+            if (response.ok) {
+                toast.success("Task added successfully!");
+                setNewTaskForm({ taskDetails: "", priority: "Medium", estimatedDuration: "", notes: "" });
+                fetchTomorrowPlan();
+            } else {
+                toast.error("Failed to add task.");
+            }
+        } catch (error) {
+            console.error("Error adding task:", error);
+            toast.error("Error adding task.");
+        }
+    };
+
+    const handleDeleteTomorrowTask = async (taskId) => {
+        if (!tomorrowPlanId) return;
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/${tomorrowPlanId}/task/${taskId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                toast.success("Task deleted.");
+                fetchTomorrowPlan();
+            } else {
+                toast.error("Failed to delete task.");
+            }
+        } catch (error) {
+            console.error("Error deleting task:", error);
+        }
+    };
+
 
     // Fetch sources from Master Data
     useEffect(() => {
@@ -749,6 +844,14 @@ const MarketingCRM = () => {
         }
     }, [marketingPerformance, selectedStaff]);
 
+    // Fetch tomorrow plan when tab switches or date changes
+    useEffect(() => {
+        if (activeTab === "Tomorrow Planner") {
+            fetchTomorrowPlan();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, tomorrowPlanDate]);
+
     return (
         <Layout activePage="Marketing & CRM">
             <div className={`flex flex-col min-h-screen transition-all duration-300 ${isDarkMode ? 'bg-[#0f1215] text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
@@ -829,7 +932,7 @@ const MarketingCRM = () => {
                         {/* NAVIGATION */}
                         <div className="flex flex-wrap items-center gap-2">
                             {[
-                                "Command Centre", "Today Planner", "Activity Audit"
+                                "Command Centre", "Today Planner", "Tomorrow Planner", "Activity Audit"
                             ].map((tab, idx) => (
                                 <button
                                     key={idx}
@@ -1426,6 +1529,177 @@ const MarketingCRM = () => {
                                                 </button>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* TOMORROW PLANNER VIEW */}
+                        {activeTab === "Tomorrow Planner" && (
+                            <div className="space-y-6 animate-fadeIn">
+                                <div>
+                                    <h2 className="text-3xl font-black tracking-tighter">Tomorrow Planner</h2>
+                                    <p className="text-gray-500 text-[11px] font-bold mt-1">Pre-plan tomorrow's tasks and activities.</p>
+                                </div>
+                                
+                                <div className={`p-8 rounded-[24px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-black tracking-tight">Create Tomorrow's Field Plan</h3>
+                                        <div className="flex flex-col gap-1.5 w-48">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Target Date</label>
+                                            <input 
+                                                type="date" 
+                                                value={tomorrowPlanDate}
+                                                onChange={(e) => setTomorrowPlanDate(e.target.value)}
+                                                className={`w-full px-4 py-2 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <form onSubmit={handleAddTomorrowTask} className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 p-6 rounded-2xl border bg-[#05080c] border-gray-800 shadow-xl relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
+                                        <div className="col-span-1 md:col-span-12 z-10">
+                                            <h4 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 mb-4">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-blue-500">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Add New Task
+                                            </h4>
+                                        </div>
+                                        
+                                        <div className="col-span-1 md:col-span-5 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Task Details *</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="What needs to be done?"
+                                                value={newTaskForm.taskDetails}
+                                                onChange={(e) => setNewTaskForm({...newTaskForm, taskDetails: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
+                                            />
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Priority</label>
+                                            <select 
+                                                value={newTaskForm.priority}
+                                                onChange={(e) => setNewTaskForm({...newTaskForm, priority: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all"
+                                            >
+                                                <option value="High">High</option>
+                                                <option value="Medium">Medium</option>
+                                                <option value="Low">Low</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Est. Duration</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="e.g. 2 hours"
+                                                value={newTaskForm.estimatedDuration}
+                                                onChange={(e) => setNewTaskForm({...newTaskForm, estimatedDuration: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
+                                            />
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Notes (Optional)</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Any extra info"
+                                                value={newTaskForm.notes}
+                                                onChange={(e) => setNewTaskForm({...newTaskForm, notes: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
+                                            />
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-1 z-10 flex items-end">
+                                            <button 
+                                                type="submit"
+                                                className="w-full h-[42px] rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                                                title="Add Task"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    {/* Task List */}
+                                    <div className="space-y-4">
+                                        <h4 className="text-lg font-black tracking-tight flex items-center gap-2">
+                                            Planned Tasks
+                                            <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black">{tomorrowTasks.length}</span>
+                                        </h4>
+                                        
+                                        {tomorrowTasks.length === 0 ? (
+                                            <div className={`p-8 rounded-2xl border border-dashed flex flex-col items-center justify-center text-center gap-3 ${isDarkMode ? 'border-gray-800 bg-[#131619]/50' : 'border-gray-200 bg-gray-50/50'}`}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-gray-400">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                                                </svg>
+                                                <div>
+                                                    <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">No tasks planned yet</p>
+                                                    <p className="text-[10px] text-gray-400 font-bold mt-1">Use the form above to add tasks for tomorrow's field plan.</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {tomorrowTasks.map((task, idx) => (
+                                                    <div key={task._id || idx} className={`p-5 rounded-2xl border relative group transition-all hover:-translate-y-1 hover:shadow-xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                                task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                                                task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                                                                'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                                            }`}>
+                                                                {task.priority} Priority
+                                                            </span>
+                                                            
+                                                            <button 
+                                                                onClick={() => handleDeleteTomorrowTask(task._id)}
+                                                                className="w-7 h-7 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                                                                title="Delete Task"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                        <h5 className={`font-black text-sm mb-3 leading-snug ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{task.taskDetails}</h5>
+                                                        
+                                                        <div className="flex flex-col gap-2">
+                                                            {task.estimatedDuration && (
+                                                                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    {task.estimatedDuration}
+                                                                </div>
+                                                            )}
+                                                            {task.notes && (
+                                                                <div className="flex items-start gap-2 text-[10px] font-bold text-gray-500 bg-gray-500/5 p-2 rounded-lg">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                                                    </svg>
+                                                                    <span className="italic leading-relaxed">{task.notes}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        <div className="mt-4 pt-3 border-t border-gray-800/10 dark:border-gray-800/50 flex justify-between items-center">
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${
+                                                                task.status === 'Completed' ? 'text-green-500' :
+                                                                task.status === 'Skipped' ? 'text-gray-500' :
+                                                                'text-blue-500'
+                                                            }`}>
+                                                                • {task.status}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
