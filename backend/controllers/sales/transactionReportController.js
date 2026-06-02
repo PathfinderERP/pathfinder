@@ -13,7 +13,7 @@ export const getTransactionReport = async (req, res) => {
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
 
         // REDIS CACHING LOGIC START
-        const cacheKey = generateCacheKey("finance:transaction_report_v4", {
+        const cacheKey = generateCacheKey("finance:transaction_report_v5", {
             query: req.query,
             userId: req.user._id,
             role: req.user.role,
@@ -489,6 +489,14 @@ export const getTransactionReport = async (req, res) => {
         const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
+        const indiaTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+        const yyyy = indiaTime.getFullYear();
+        const mm = String(indiaTime.getMonth() + 1).padStart(2, '0');
+        const dd = String(indiaTime.getDate()).padStart(2, '0');
+
+        const todayStart = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`);
+        const todayEnd = new Date(`${yyyy}-${mm}-${dd}T23:59:59.999Z`);
+
         const statsPipeline = [
             { $match: baseAttributesMatch },
             { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] } } }
@@ -529,7 +537,9 @@ export const getTransactionReport = async (req, res) => {
                 currentMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, "$paidAmount", 0] } },
                 currentMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
                 previousMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, "$paidAmount", 0] } },
-                previousMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } }
+                previousMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                todayWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }] }, "$paidAmount", 0] } },
+                todayWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } }
             }
         });
 
@@ -539,7 +549,8 @@ export const getTransactionReport = async (req, res) => {
             currentYearWithGst: 0, currentYearWithoutGst: 0,
             previousYearWithGst: 0, previousYearWithoutGst: 0,
             currentMonthWithGst: 0, currentMonthWithoutGst: 0,
-            previousMonthWithGst: 0, previousMonthWithoutGst: 0
+            previousMonthWithGst: 0, previousMonthWithoutGst: 0,
+            todayWithGst: 0, todayWithoutGst: 0
         };
 
         const result = reportData.length > 0 ? reportData[0] : {
@@ -592,6 +603,8 @@ export const getTransactionReport = async (req, res) => {
                 currentMonthRevenue: stats.currentMonthWithoutGst,
                 previousMonth: stats.previousMonthWithGst,
                 previousMonthRevenue: stats.previousMonthWithoutGst,
+                todayCollection: stats.todayWithGst || 0,
+                todayRevenue: stats.todayWithoutGst || 0,
                 currentYearLabel: `${fyStartYear}-${(fyStartYear + 1).toString().slice(-2)}`,
                 previousYearLabel: `${fyStartYear - 1}-${fyStartYear.toString().slice(-2)}`,
                 currentMonthLabel: now.toLocaleString('default', { month: 'long' }),

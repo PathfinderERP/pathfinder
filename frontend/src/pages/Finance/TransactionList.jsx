@@ -503,6 +503,25 @@ const TransactionList = () => {
                             <p className={`text-[9px] ${subText} uppercase font-black tracking-[0.2em] mt-3 ${pillBg} px-2 py-0.5 rounded-full inline-block`}>{stats.currentMonthLabel}</p>
                         </div>
                     </div>
+
+                    <div className={`${cardBg} p-6 rounded-xl shadow-sm ${cardBorder} flex items-center justify-between`}>
+                        <div>
+                            <div className={`${iconBoxGreen} p-3 rounded-lg`}>
+                                <FaChartBar size={24} />
+                            </div>
+                        </div>
+                        <div className="text-right flex-1">
+                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
+                                <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
+                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.todayCollection ? stats.todayCollection.toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black ${isDark ? 'text-green-400' : 'text-green-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
+                                <h3 className={`text-lg font-black ${isDark ? 'text-green-400' : 'text-green-600'} leading-none`}>Rs.{stats.todayRevenue ? Math.round(stats.todayRevenue).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <p className={`text-[9px] text-green-500 bg-green-500/10 uppercase font-black tracking-[0.2em] mt-3 px-2 py-0.5 rounded-full inline-block`}>Daily Collections</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Filters Row */}
