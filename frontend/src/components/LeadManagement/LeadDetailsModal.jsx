@@ -1,5 +1,5 @@
 import React from "react";
-import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay } from "react-icons/fa";
+import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash } from "react-icons/fa";
 import { toast } from "react-toastify";
 import ExotelCRMWebSDK from "@exotel-npm-dev/exotel-ip-calling-crm-websdk";
 
@@ -9,9 +9,23 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     const [callStatus, setCallStatus] = React.useState("idle"); // idle, connecting, ringing, connected, error, disconnected
     const [callMessage, setCallMessage] = React.useState("");
     const [callDuration, setCallDuration] = React.useState(0);
+    const [isMuted, setIsMuted] = React.useState(false);
+    const [isOnHold, setIsOnHold] = React.useState(false);
+    const [isIncomingCall, setIsIncomingCall] = React.useState(false);
+    const [isKeypadOpen, setIsKeypadOpen] = React.useState(false);
+    const [isDeviceRegistered, setIsDeviceRegistered] = React.useState(false);
 
     const webPhoneRef = React.useRef(null);
     const timerRef = React.useRef(null);
+    const lastMuteClick = React.useRef(0);
+    const lastHoldClick = React.useRef(0);
+
+    const debounceClick = (ref, callback, delay = 500) => {
+        const now = Date.now();
+        if (now - ref.current < delay) return;
+        ref.current = now;
+        callback();
+    };
 
     const fetchUserProfile = async () => {
         try {
@@ -28,16 +42,101 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
         }
     };
 
+    const initWebRTC = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/token`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || "Failed to fetch voice token");
+            }
+
+            if (!webPhoneRef.current) {
+                const crmWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
+
+                const HandleCallEvents = (eventType, callObj) => {
+                    console.log("[Exotel Call Event]:", eventType, callObj);
+                    switch (eventType) {
+                        case "incoming":
+                            setCallStatus("ringing");
+                            setIsIncomingCall(true);
+                            setCallMessage("Incoming call...");
+                            break;
+                        case "connected":
+                            setCallStatus("connected");
+                            setIsIncomingCall(false);
+                            setCallMessage("Call connected! Talk now.");
+                            setIsMuted(false);
+                            setIsOnHold(false);
+                            
+                            // Start timer
+                            setCallDuration(0);
+                            if (timerRef.current) clearInterval(timerRef.current);
+                            timerRef.current = setInterval(() => {
+                                setCallDuration((prev) => prev + 1);
+                            }, 1000);
+                            break;
+                        case "callEnded":
+                            setCallStatus("disconnected");
+                            setIsIncomingCall(false);
+                            setIsMuted(false);
+                            setIsOnHold(false);
+                            setCallMessage("Call disconnected.");
+                            if (timerRef.current) {
+                                clearInterval(timerRef.current);
+                                timerRef.current = null;
+                            }
+                            setTimeout(() => setCallStatus("idle"), 3000);
+                            break;
+                        case "holdtoggle":
+                            setIsOnHold((prev) => !prev);
+                            break;
+                        case "mutetoggle":
+                            setIsMuted((prev) => !prev);
+                            break;
+                        default:
+                            break;
+                    }
+                };
+
+                const RegisterationEvent = (event) => {
+                    console.log("[Exotel Register Event]:", event);
+                    if (event === "registered") {
+                        setIsDeviceRegistered(true);
+                        console.log('Exotel WebRTC Device registered successfully.');
+                    } else if (event === "unregistered") {
+                        setIsDeviceRegistered(false);
+                    }
+                };
+
+                const crmWebPhone = await crmWebSDK.Initialize(HandleCallEvents, RegisterationEvent);
+                if (!crmWebPhone) {
+                    throw new Error("Exotel WebRTC device initialization failed.");
+                }
+                webPhoneRef.current = crmWebPhone;
+            }
+        } catch (error) {
+            console.error("WebRTC initialization error:", error);
+            setCallMessage("Calling capability offline.");
+        }
+    };
+
     React.useEffect(() => {
         if (lead) {
             setRecordings(lead.recordings || []);
         }
         fetchUserProfile();
+        initWebRTC();
 
         return () => {
             if (webPhoneRef.current) {
                 webPhoneRef.current.HangupCall();
                 webPhoneRef.current.UnRegisterDevice();
+                webPhoneRef.current = null;
             }
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -59,72 +158,15 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
         }
 
         setCallStatus("connecting");
-        setCallMessage("Requesting microphone permissions & fetching token...");
+        setCallMessage("Requesting microphone permissions...");
 
         try {
-            // 1. Request microphone permission
+            // Request microphone permission
             await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            // 2. Fetch Voice Token from Backend
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/token`, {
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || "Failed to fetch voice token");
-            }
-
-            // 3. Initialize Exotel CRM WebSDK if not already done
             if (!webPhoneRef.current) {
-                const crmWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
-
-                const HandleCallEvents = (eventType, callObj) => {
-                    console.log("[Exotel Call Event]:", eventType, callObj);
-                    switch (eventType) {
-                        case "incoming":
-                            setCallStatus("ringing");
-                            setCallMessage("Incoming call...");
-                            break;
-                        case "connected":
-                            setCallStatus("connected");
-                            setCallMessage("Call connected! Talk now.");
-                            
-                            // Start timer
-                            setCallDuration(0);
-                            if (timerRef.current) clearInterval(timerRef.current);
-                            timerRef.current = setInterval(() => {
-                                setCallDuration((prev) => prev + 1);
-                            }, 1000);
-                            break;
-                        case "callEnded":
-                            setCallStatus("disconnected");
-                            setCallMessage("Call disconnected.");
-                            if (timerRef.current) {
-                                clearInterval(timerRef.current);
-                                timerRef.current = null;
-                            }
-                            setTimeout(() => setCallStatus("idle"), 3000);
-                            break;
-                        default:
-                            break;
-                    }
-                };
-
-                const RegisterationEvent = (event) => {
-                    console.log("[Exotel Register Event]:", event);
-                    if (event === "registered") {
-                        console.log('Exotel WebRTC Device registered successfully.');
-                    }
-                };
-
-                const crmWebPhone = await crmWebSDK.Initialize(HandleCallEvents, RegisterationEvent);
-                if (!crmWebPhone) {
-                    throw new Error("Exotel WebRTC device initialization failed. Check your credentials and network.");
-                }
-                webPhoneRef.current = crmWebPhone;
+                setCallMessage("Initializing WebRTC device...");
+                await initWebRTC();
             }
 
             if (!webPhoneRef.current) {
@@ -133,7 +175,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
             setCallMessage("Connecting call...");
 
-            // 4. Dial outbound call
+            // Dial outbound call
             await webPhoneRef.current.MakeCall(leadNumber, (status, response) => {
                 console.log("[Exotel Dial Callback]:", status, response);
                 if (status === "success") {
@@ -143,6 +185,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     setCallStatus("error");
                     setCallMessage("Failed to initiate call on Exotel platform.");
                     toast.error("Call failed to initiate.");
+                    setTimeout(() => setCallStatus("idle"), 3000);
                 }
             });
 
@@ -151,6 +194,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             setCallStatus("error");
             setCallMessage(error.message || "Failed to initialize WebRTC call.");
             toast.error(error.message || "Microphone access denied or connection failed.");
+            setTimeout(() => setCallStatus("idle"), 3000);
         }
     };
 
@@ -163,8 +207,40 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             timerRef.current = null;
         }
         setCallStatus("disconnected");
+        setIsIncomingCall(false);
+        setIsMuted(false);
+        setIsOnHold(false);
         setCallMessage("Call hung up by agent.");
         setTimeout(() => setCallStatus("idle"), 3000);
+    };
+
+    const handleToggleMute = () => {
+        if (!webPhoneRef.current) return;
+        debounceClick(lastMuteClick, () => {
+            webPhoneRef.current.ToggleMute();
+        });
+    };
+
+    const handleToggleHold = () => {
+        if (!webPhoneRef.current) return;
+        debounceClick(lastHoldClick, () => {
+            webPhoneRef.current.ToggleHold();
+        });
+    };
+
+    const handleSendDTMF = (digit) => {
+        if (!webPhoneRef.current) return;
+        webPhoneRef.current.SendDTMF(digit.toString());
+        toast.info(`Sent tone: ${digit}`, { autoClose: 1000 });
+    };
+
+    const handleAcceptCall = () => {
+        if (!webPhoneRef.current) return;
+        webPhoneRef.current.AcceptCall();
+        setCallStatus("connected");
+        setIsIncomingCall(false);
+        setIsMuted(false);
+        setIsOnHold(false);
     };
 
     const getAudioUrl = (url) => {
@@ -210,6 +286,15 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end mt-4 sm:mt-0 z-10">
+                        {/* Device Registration Status Pill */}
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border text-[9px] font-black uppercase tracking-widest shrink-0 ${
+                            isDeviceRegistered 
+                                ? (isDarkMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-green-50 border-green-200 text-green-700')
+                                : (isDarkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700')
+                        }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isDeviceRegistered ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                            {isDeviceRegistered ? "Phone Online" : "Phone Offline"}
+                        </div>
                         <button
                             onClick={onClose}
                             className={`transition-all p-2 rounded-[4px] active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
@@ -340,27 +425,167 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                         </div>
                     )}
 
-                    {/* Call Status Bar */}
-                    {callStatus !== "idle" && (
-                        <div className={`p-4 rounded-[4px] border text-[11px] font-bold uppercase tracking-wider flex items-center gap-3 transition-all ${
-                            callStatus === "connecting" ? (isDarkMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700') :
-                            callStatus === "ringing" ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-700') :
-                            callStatus === "connected" ? (isDarkMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-green-50 border-green-200 text-green-700') :
-                            (isDarkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700')
+                    {/* Incoming Call Ringing Overlay */}
+                    {isIncomingCall && (
+                        <div className={`p-6 rounded-[4px] border border-green-500/30 mb-6 flex flex-col items-center justify-center space-y-4 animate-pulse ${
+                            isDarkMode ? 'bg-green-500/5' : 'bg-green-50/50'
                         }`}>
-                            <div className={`w-2 h-2 rounded-full ${
-                                callStatus === "connecting" ? 'bg-amber-500 animate-pulse' :
-                                callStatus === "ringing" ? 'bg-cyan-500 animate-ping' :
-                                callStatus === "connected" ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                            }`} />
-                            <span className="flex-1">
-                                {callMessage}
-                                {callStatus === "connected" && ` (${formatDuration(callDuration)})`}
-                            </span>
-                            {!["connecting", "ringing", "connected"].includes(callStatus) && (
-                                <button onClick={() => setCallStatus("idle")} className="text-gray-400 hover:text-white uppercase font-black text-[9px] tracking-widest ml-2">
-                                    Dismiss
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)] animate-bounce`}>
+                                <FaPhone size={24} className="animate-pulse" />
+                            </div>
+                            <div className="text-center">
+                                <h4 className={`text-base font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>INCOMING CALL</h4>
+                                <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Agent WebRTC softphone is ringing...</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleAcceptCall}
+                                    className="px-6 py-2.5 rounded-[4px] bg-green-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-green-500 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-green-600/20"
+                                >
+                                    <FaPhone size={10} /> Accept Call
                                 </button>
+                                <button
+                                    onClick={handleHangUp}
+                                    className="px-6 py-2.5 rounded-[4px] bg-red-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-500 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-red-600/20"
+                                >
+                                    <FaPhoneSlash size={10} /> Decline
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Call Status & Premium Active Call Console */}
+                    {callStatus !== "idle" && (
+                        <div className={`p-6 rounded-[4px] border mb-6 transition-all ${
+                            isDarkMode 
+                                ? 'bg-[#131619]/90 border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.05)]' 
+                                : 'bg-slate-50 border-gray-200 shadow-inner'
+                        }`}>
+                            {/* Device & Status Header */}
+                            <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${
+                                        callStatus === "connecting" ? 'bg-amber-500 animate-pulse' :
+                                        callStatus === "ringing" ? 'bg-cyan-500 animate-ping' :
+                                        callStatus === "connected" ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                                    }`} />
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {callMessage}
+                                    </span>
+                                </div>
+                                <div className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-[4px] border ${
+                                    isDeviceRegistered 
+                                        ? (isDarkMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-green-50 border-green-200 text-green-700')
+                                        : (isDarkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700')
+                                }`}>
+                                    {isDeviceRegistered ? "Device Online" : "Device Offline"}
+                                </div>
+                            </div>
+
+                            {/* Active call details */}
+                            <div className="flex flex-col items-center justify-center py-4 space-y-2 border-t border-b border-dashed border-gray-800/10">
+                                <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    {callStatus === "connected" ? "Ongoing Session" : "Outbound Ringing"}
+                                </span>
+                                <span className={`text-xl font-mono font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    {lead.phoneNumber || lead.secondPhoneNumber}
+                                </span>
+                                {callStatus === "connected" && (
+                                    <span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                        {formatDuration(callDuration)}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Call Action Panel (Mute, Hold, Keypad, Hangup) */}
+                            {["connecting", "ringing", "connected"].includes(callStatus) && (
+                                <div className="flex items-center justify-center gap-6 mt-6">
+                                    {/* Mute Button */}
+                                    <button
+                                        onClick={handleToggleMute}
+                                        disabled={callStatus !== "connected"}
+                                        title={isMuted ? "Unmute Call" : "Mute Call"}
+                                        className={`w-12 h-12 rounded-full border flex items-center justify-center text-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${
+                                            isMuted
+                                                ? (isDarkMode ? 'bg-red-500/20 border-red-500 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'bg-red-50 border-red-300 text-red-600')
+                                                : (isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500/50 hover:text-cyan-400' : 'bg-white border-gray-300 text-gray-600 hover:border-cyan-600 hover:text-cyan-600')
+                                        }`}
+                                    >
+                                        {isMuted ? <FaMicrophoneSlash size={16} /> : <FaMicrophone size={16} />}
+                                    </button>
+
+                                    {/* Hang Up (Decline) Button */}
+                                    <button
+                                        onClick={handleHangUp}
+                                        title="Hang Up"
+                                        className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-all shadow-lg shadow-red-600/30 active:scale-95"
+                                    >
+                                        <FaPhoneSlash size={20} />
+                                    </button>
+
+                                    {/* Hold Button */}
+                                    <button
+                                        onClick={handleToggleHold}
+                                        disabled={callStatus !== "connected"}
+                                        title={isOnHold ? "Resume Call" : "Hold Call"}
+                                        className={`w-12 h-12 rounded-full border flex items-center justify-center text-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${
+                                            isOnHold
+                                                ? (isDarkMode ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-amber-50 border-amber-300 text-amber-600')
+                                                : (isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500/50 hover:text-cyan-400' : 'bg-white border-gray-300 text-gray-600 hover:border-cyan-600 hover:text-cyan-600')
+                                        }`}
+                                    >
+                                        {isOnHold ? <FaPlay size={14} className="ml-0.5" /> : <FaPause size={14} />}
+                                    </button>
+
+                                    {/* Keypad Toggle Button */}
+                                    <button
+                                        onClick={() => setIsKeypadOpen((prev) => !prev)}
+                                        disabled={callStatus !== "connected"}
+                                        title="Show Keypad"
+                                        className={`w-12 h-12 rounded-full border flex items-center justify-center text-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${
+                                            isKeypadOpen
+                                                ? (isDarkMode ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'bg-cyan-50 border-cyan-300 text-cyan-600')
+                                                : (isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500/50 hover:text-cyan-400' : 'bg-white border-gray-300 text-gray-600 hover:border-cyan-600 hover:text-cyan-600')
+                                        }`}
+                                    >
+                                        <FaTh size={16} />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* DTMF Keypad Drawer */}
+                            {isKeypadOpen && callStatus === "connected" && (
+                                <div className="mt-6 border-t border-gray-800/10 pt-6 flex flex-col items-center">
+                                    <div className="grid grid-cols-3 gap-3 max-w-[200px]">
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "*", 0, "#"].map((digit) => (
+                                            <button
+                                                key={digit}
+                                                onClick={() => handleSendDTMF(digit)}
+                                                className={`w-12 h-12 rounded-full border flex items-center justify-center font-bold text-base transition-all active:scale-90 ${
+                                                    isDarkMode 
+                                                        ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700 hover:border-cyan-500/30' 
+                                                        : 'bg-white border-gray-200 text-gray-850 hover:bg-gray-100 hover:border-cyan-600'
+                                                }`}
+                                            >
+                                                {digit}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Dismiss button if call ended */}
+                            {!["connecting", "ringing", "connected"].includes(callStatus) && (
+                                <div className="flex justify-center mt-4">
+                                    <button 
+                                        onClick={() => setCallStatus("idle")} 
+                                        className={`px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${
+                                            isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                        }`}
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}
