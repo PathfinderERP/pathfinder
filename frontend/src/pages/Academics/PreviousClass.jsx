@@ -541,9 +541,9 @@ const PreviousClass = () => {
                                     <tr><td colSpan="17" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No previous classes found</td></tr>
                                 ) : (
                                     classes.map((cls, index) => (
-                                        <tr key={cls._id} className="hover:bg-[#252b32] transition-colors text-sm text-gray-300">
+                                        <tr key={cls._id} className={`transition-colors text-sm ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-100 text-gray-700'}`}>
                                             <td className="p-4 font-bold text-gray-500">{(page - 1) * limit + index + 1}</td>
-                                            <td className="p-4 font-semibold text-white">{cls.className}</td>
+                                            <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400">
                                                 {cls.centreNames || "-"}
                                             </td>
