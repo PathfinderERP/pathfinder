@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import DailyTrackingLog from "../models/DailyTrackingLog.js";
 import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
@@ -132,7 +133,8 @@ export const getDepartmentLogs = async (req, res) => {
             marketing: ["marketing"],
             telecaller: ["telecaller", "centralizedTelecaller"],
             counsellor: ["counsellor"],
-            teacher: ["teacher"]
+            teacher: ["teacher"],
+            zonalmanager: ["zonalManager", "zonalmanager"]
         };
 
         // Handle multi-select roles
@@ -241,21 +243,8 @@ export const getDepartmentLogs = async (req, res) => {
                 }
             }).filter(Boolean);
 
-            const isSpecificFilterApplied = centresFilter.length > 0 && !centresFilter.includes("All");
-            let empQuery = {};
-
-            if (isSpecificFilterApplied) {
-                // Filter strictly by the selected primary centre
-                empQuery = { primaryCentre: { $in: objectIdCentres } };
-            } else {
-                // If no specific centre filter is selected, match employees whose primaryCentre OR assigned centres match
-                empQuery = {
-                    $or: [
-                        { primaryCentre: { $in: objectIdCentres } },
-                        { centres: { $in: objectIdCentres } }
-                    ]
-                };
-            }
+            // Always filter by primaryCentre only (as requested)
+            const empQuery = { primaryCentre: { $in: objectIdCentres } };
 
             const employees = await Employee.find(empQuery).select("user");
             const allowedUserIds = employees.map(emp => emp.user).filter(Boolean);
