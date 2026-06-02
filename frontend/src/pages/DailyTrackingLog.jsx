@@ -247,22 +247,12 @@ const DailyTrackingLog = () => {
     // Handle Form Submit
     const handleAddActivity = async (e) => {
         e.preventDefault();
-        if (!startTime || !endTime || !workDetails.trim()) {
-            toast.warning("Please fill in the time range and work details.");
+        if (!workDetails.trim()) {
+            toast.warning("Please fill in the work details.");
             return;
         }
 
         setIsSubmitting(true);
-        const formatTime = (timeStr) => {
-            const [hours, minutes] = timeStr.split(":");
-            const hr = parseInt(hours);
-            const ampm = hr >= 12 ? "PM" : "AM";
-            const adjustedHr = hr % 12 || 12;
-            const pad = (num) => String(num).padStart(2, "0");
-            return `${pad(adjustedHr)}:${pad(minutes)} ${ampm}`;
-        };
-
-        const timeRange = `${formatTime(startTime)} - ${formatTime(endTime)}`;
 
         try {
             const res = await fetch(`${apiUrl}/daily-tracking-logs`, {
@@ -272,7 +262,6 @@ const DailyTrackingLog = () => {
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    time: timeRange,
                     workDetails,
                     completedWork,
                     status
@@ -284,15 +273,6 @@ const DailyTrackingLog = () => {
                 toast.success("Activity logged successfully!");
                 setWorkDetails("");
                 setCompletedWork("");
-                // Set start time of next block to end time of this one
-                setStartTime(endTime);
-
-                // Adjust end time to +1 hour later helper
-                try {
-                    const [h, m] = endTime.split(":");
-                    const nextH = (parseInt(h) + 1) % 24;
-                    setEndTime(`${String(nextH).padStart(2, "0")}:${m}`);
-                } catch (_) { }
 
                 fetchMyLog(selectedDate);
             } else {
@@ -363,21 +343,10 @@ const DailyTrackingLog = () => {
 
     // Save Edit
     const handleUpdateActivity = async (activityId) => {
-        if (!editStartTime || !editEndTime || !editWorkDetails.trim()) {
+        if (!editWorkDetails.trim()) {
             toast.warning("Please fill in all required fields.");
             return;
         }
-
-        const formatTime = (timeStr) => {
-            const [hours, minutes] = timeStr.split(":");
-            const hr = parseInt(hours);
-            const ampm = hr >= 12 ? "PM" : "AM";
-            const adjustedHr = hr % 12 || 12;
-            const pad = (num) => String(num).padStart(2, "0");
-            return `${pad(adjustedHr)}:${pad(minutes)} ${ampm}`;
-        };
-
-        const timeRange = `${formatTime(editStartTime)} - ${formatTime(editEndTime)}`;
 
         try {
             const res = await fetch(`${apiUrl}/daily-tracking-logs/${myLogId}/activity/${activityId}`, {
@@ -387,7 +356,6 @@ const DailyTrackingLog = () => {
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    time: timeRange,
                     workDetails: editWorkDetails,
                     completedWork: editCompletedWork,
                     status: editStatus
@@ -457,8 +425,8 @@ const DailyTrackingLog = () => {
 
                 {/* Header section with glass effect */}
                 <div className={`p-6 rounded-2xl border mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${isDarkMode
-                        ? "bg-[#1a1f24]/80 border-gray-800/80 backdrop-blur-md"
-                        : "bg-white/80 border-slate-200/80 backdrop-blur-md shadow-sm"
+                    ? "bg-[#1a1f24]/80 border-gray-800/80 backdrop-blur-md"
+                    : "bg-white/80 border-slate-200/80 backdrop-blur-md shadow-sm"
                     }`}>
                     <div className="flex items-center gap-3">
                         <div className="p-3 bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-xl text-white shadow-lg shadow-indigo-500/20">
@@ -596,15 +564,15 @@ const DailyTrackingLog = () => {
                                             <div key={act._id} className="relative group">
                                                 {/* Timeline marker */}
                                                 <div className={`absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-2 transition-all ${act.status === "Completed"
-                                                        ? "bg-emerald-500 border-emerald-500 group-hover:scale-125"
-                                                        : "bg-amber-500 border-amber-500 group-hover:scale-125"
+                                                    ? "bg-emerald-500 border-emerald-500 group-hover:scale-125"
+                                                    : "bg-amber-500 border-amber-500 group-hover:scale-125"
                                                     }`} />
 
                                                 {editingActivityId === act._id ? (
                                                     /* Edit mode card */
                                                     <div className={`p-4 rounded-xl border space-y-3 ${isDarkMode ? "bg-gray-800/80 border-indigo-500/30" : "bg-slate-50 border-indigo-500/20"
                                                         }`}>
-                                                        <div className="grid grid-cols-2 gap-2">
+                                                        {/* <div className="grid grid-cols-2 gap-2">
                                                             <div>
                                                                 <span className="text-[10px] text-gray-400 block mb-1">Start Time</span>
                                                                 <input
@@ -625,7 +593,7 @@ const DailyTrackingLog = () => {
                                                                         }`}
                                                                 />
                                                             </div>
-                                                        </div>
+                                                        </div> */}
 
                                                         <div>
                                                             <span className="text-[10px] text-gray-400 block mb-1">Work Details</span>
@@ -682,23 +650,18 @@ const DailyTrackingLog = () => {
                                                 ) : (
                                                     /* View mode activity card */
                                                     <div className={`p-4 rounded-2xl border transition duration-200 group-hover:shadow-md ${isDarkMode
-                                                            ? "bg-[#1f252d]/40 border-gray-800/80 group-hover:border-gray-700"
-                                                            : "bg-slate-50/50 border-slate-200 group-hover:border-slate-300"
+                                                        ? "bg-[#1f252d]/40 border-gray-800/80 group-hover:border-gray-700"
+                                                        : "bg-slate-50/50 border-slate-200 group-hover:border-slate-300"
                                                         }`}>
                                                         <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`text-xs font-extrabold tracking-wide uppercase px-2 py-0.5 rounded-md ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"
-                                                                    }`}>
-                                                                    {act.time}
-                                                                </span>
-
                                                                 {/* Status badge toggler */}
                                                                 <button
                                                                     onClick={() => toggleActivityStatus(act, act.status === "Completed" ? "In Progress" : "Completed")}
                                                                     title="Click to toggle status"
                                                                     className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 transition ${act.status === "Completed"
-                                                                            ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                                                                            : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                                                                        ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                                                                        : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                                                                         }`}
                                                                 >
                                                                     <span className={`w-1.5 h-1.5 rounded-full ${act.status === "Completed" ? "bg-emerald-500" : "bg-amber-500"}`} />
@@ -795,8 +758,8 @@ const DailyTrackingLog = () => {
                                     value={searchEmployee}
                                     onChange={(e) => handleSearchChange(e.target.value)}
                                     className={`w-full pl-9 pr-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode
-                                            ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500"
-                                            : "bg-slate-50 border-slate-200 text-slate-900 placeholder-gray-400"
+                                        ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500"
+                                        : "bg-slate-50 border-slate-200 text-slate-900 placeholder-gray-400"
                                         }`}
                                 />
                             </div>
@@ -819,8 +782,8 @@ const DailyTrackingLog = () => {
                                         <div
                                             key={log._id}
                                             className={`p-6 rounded-2xl border transition duration-200 hover:shadow-md ${isDarkMode
-                                                    ? "bg-[#1a1f24] border-gray-800/80 hover:border-gray-700"
-                                                    : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
+                                                ? "bg-[#1a1f24] border-gray-800/80 hover:border-gray-700"
+                                                : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
                                                 }`}
                                         >
                                             {/* Employee Header */}
@@ -872,8 +835,8 @@ const DailyTrackingLog = () => {
                                             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
                                                 {log.activities.length === 0 ? (
                                                     <div className={`p-4 rounded-xl border border-dashed text-center flex flex-col items-center justify-center ${isDarkMode
-                                                            ? "bg-[#1f252d]/30 border-gray-800 text-gray-500"
-                                                            : "bg-slate-50 border-slate-200 text-gray-400"
+                                                        ? "bg-[#1f252d]/30 border-gray-800 text-gray-500"
+                                                        : "bg-slate-50 border-slate-200 text-gray-400"
                                                         }`}>
                                                         <FaClock className="text-xl mb-1 text-gray-500/50" />
                                                         <p className="text-xs font-semibold">Pending Log Submission</p>
@@ -884,18 +847,14 @@ const DailyTrackingLog = () => {
                                                         <div
                                                             key={act._id}
                                                             className={`p-3 rounded-xl border ${isDarkMode
-                                                                    ? "bg-[#1f252d]/60 border-gray-800"
-                                                                    : "bg-slate-50 border-slate-100"
+                                                                ? "bg-[#1f252d]/60 border-gray-800"
+                                                                : "bg-slate-50 border-slate-100"
                                                                 }`}
                                                         >
                                                             <div className="flex justify-between items-center mb-1.5">
-                                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"
-                                                                    }`}>
-                                                                    {act.time}
-                                                                </span>
                                                                 <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${act.status === "Completed"
-                                                                        ? "bg-emerald-500/10 text-emerald-500"
-                                                                        : "bg-amber-500/10 text-amber-500"
+                                                                    ? "bg-emerald-500/10 text-emerald-500"
+                                                                    : "bg-amber-500/10 text-amber-500"
                                                                     }`}>
                                                                     {act.status}
                                                                 </span>
@@ -907,8 +866,8 @@ const DailyTrackingLog = () => {
 
                                                             {act.completedWork && (
                                                                 <div className={`mt-2 p-2 rounded border border-dashed text-[11px] ${isDarkMode
-                                                                        ? "bg-emerald-950/5 border-emerald-900/30 text-emerald-400"
-                                                                        : "bg-emerald-50/20 border-emerald-200 text-emerald-700"
+                                                                    ? "bg-emerald-950/5 border-emerald-900/30 text-emerald-400"
+                                                                    : "bg-emerald-50/20 border-emerald-200 text-emerald-700"
                                                                     }`}>
                                                                     <div className="font-extrabold flex items-center gap-1 mb-0.5 text-[9px] uppercase tracking-wider">
                                                                         <FaCheckCircle /> Completed Work

@@ -52,8 +52,8 @@ const mapRoleToDepartment = (role) => {
 export const addOrUpdateActivity = async (req, res) => {
     try {
         const { time, workDetails, completedWork, status } = req.body;
-        if (!time || !workDetails) {
-            return res.status(400).json({ message: "Time and Work Details are required." });
+        if (!workDetails) {
+            return res.status(400).json({ message: "Work Details are required." });
         }
 
         const todayUTC = getMidnightIST();

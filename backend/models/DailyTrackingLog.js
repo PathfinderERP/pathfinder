@@ -26,7 +26,7 @@ const dailyTrackingLogSchema = new mongoose.Schema({
     activities: [{
         time: {
             type: String,
-            required: true
+            required: false
         },
         workDetails: {
             type: String,
