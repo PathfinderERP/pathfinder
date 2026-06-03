@@ -22,6 +22,10 @@ const CourseTarget = () => {
     const [showTargetModal, setShowTargetModal] = useState(false);
     const [targetModalData, setTargetModalData] = useState(null);
 
+    // Student drill-down modal
+    const [showStudentModal, setShowStudentModal] = useState(false);
+    const [studentModalData, setStudentModalData] = useState({ centreName: "", deptName: "", tagName: "", students: [], loading: false });
+
     const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
         setTargetModalData({
             centreId: centre.centreId,
@@ -39,6 +43,71 @@ const CourseTarget = () => {
     const handleTargetSuccess = () => {
         setShowTargetModal(false);
         fetchData();
+    };
+
+    // Compute date range from current filter settings for the admissions API
+    const getDateRange = () => {
+        const mIdx = monthNames.indexOf(selectedMonth);
+        if (viewMode === "CUSTOM") {
+            return { startDate: customStartDate, endDate: customEndDate };
+        } else if (viewMode === "MONTHLY") {
+            const s = new Date(selectedYear, mIdx, 1).toISOString().split('T')[0];
+            const e = new Date(selectedYear, mIdx + 1, 0).toISOString().split('T')[0];
+            return { startDate: s, endDate: e };
+        } else if (viewMode === "WEEKLY") {
+            const daysInMonth = new Date(selectedYear, mIdx + 1, 0).getDate();
+            const startDay = (selectedWeek - 1) * 7 + 1;
+            const endDay = Math.min(selectedWeek * 7, daysInMonth);
+            const s = new Date(selectedYear, mIdx, startDay).toISOString().split('T')[0];
+            const e = new Date(selectedYear, mIdx, endDay).toISOString().split('T')[0];
+            return { startDate: s, endDate: e };
+        } else if (viewMode === "QUARTERLY") {
+            const qMap = {
+                Q1: { s: [selectedYear, 3, 1], e: [selectedYear, 5, 30] },
+                Q2: { s: [selectedYear, 6, 1], e: [selectedYear, 8, 30] },
+                Q3: { s: [selectedYear, 9, 1], e: [selectedYear, 11, 31] },
+                Q4: { s: [selectedYear + 1, 0, 1], e: [selectedYear + 1, 2, 31] }
+            };
+            const q = qMap[selectedQuarter];
+            return {
+                startDate: new Date(...q.s).toISOString().split('T')[0],
+                endDate: new Date(...q.e).toISOString().split('T')[0]
+            };
+        } else { // YEARLY
+            return {
+                startDate: new Date(selectedYear, 3, 1).toISOString().split('T')[0],
+                endDate: new Date(parseInt(selectedYear) + 1, 2, 31).toISOString().split('T')[0]
+            };
+        }
+    };
+
+    const fetchStudentAdmissions = async (centreName, deptId, deptName, tagName) => {
+        setShowStudentModal(true);
+        setStudentModalData({ centreName, deptName, tagName, students: [], loading: true });
+        try {
+            const token = localStorage.getItem("token");
+            const { startDate, endDate } = getDateRange();
+            const params = new URLSearchParams({ centreName, departmentId: deptId, startDate, endDate });
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-target/admissions?${params}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const json = await res.json();
+            if (res.ok) {
+                // Filter by tagName if provided (not "All")
+                let students = json.data || [];
+                if (tagName && tagName !== "All") {
+                    students = students.filter(s => (s.examTag || "").toLowerCase() === tagName.toLowerCase());
+                }
+                setStudentModalData({ centreName, deptName, tagName, students, loading: false });
+            } else {
+                toast.error(json.message || "Failed to load student details");
+                setStudentModalData(prev => ({ ...prev, loading: false }));
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Error loading student admissions");
+            setStudentModalData(prev => ({ ...prev, loading: false }));
+        }
     };
 
     // Filters
@@ -408,6 +477,7 @@ const CourseTarget = () => {
                                                                     setDetailData({
                                                                         centreName: centre.centreName,
                                                                         deptName: deptName,
+                                                                        deptId: deptId,
                                                                         achieved: achieved,
                                                                         breakdown: examTagAchieved
                                                                     });
@@ -491,14 +561,45 @@ const CourseTarget = () => {
                                     <h4 className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-[0.2em] mb-3`}>Exam Tag Wise Achieved</h4>
                                     {detailData.breakdown.length > 0 ? (
                                         <div className="grid gap-2">
+                                            {/* "All" row to see all students in this dept */}
+                                            <button
+                                                onClick={() => fetchStudentAdmissions(
+                                                    detailData.centreName,
+                                                    detailData.deptId,
+                                                    detailData.deptName,
+                                                    "All"
+                                                )}
+                                                className={`w-full flex justify-between items-center p-3 rounded-xl border cursor-pointer transition-all group text-left ${isDarkMode ? 'bg-blue-500/10 border-blue-500/30 hover:border-blue-400' : 'bg-blue-50 border-blue-200 hover:border-blue-400'}`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                                    <span className={`text-sm font-bold ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>All Students</span>
+                                                </div>
+                                                <span className={`text-sm font-black ${isDarkMode ? 'text-blue-300' : 'text-blue-600'} flex items-center gap-1`}>
+                                                    {detailData.achieved} Admissions
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                                </span>
+                                            </button>
                                             {detailData.breakdown.map((tag, idx) => (
-                                                <div key={idx} className={`flex justify-between items-center p-3 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-800 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-100 hover:border-cyan-500/50'} transition-all group`}>
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => fetchStudentAdmissions(
+                                                        detailData.centreName,
+                                                        detailData.deptId,
+                                                        detailData.deptName,
+                                                        tag.tagName
+                                                    )}
+                                                    className={`w-full flex justify-between items-center p-3 rounded-xl border cursor-pointer transition-all group text-left ${isDarkMode ? 'bg-black/20 border-gray-800 hover:border-cyan-500/50' : 'bg-gray-50 border-gray-100 hover:border-cyan-500/50'}`}
+                                                >
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 group-hover:animate-ping" />
                                                         <span className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{tag.tagName}</span>
                                                     </div>
-                                                    <span className="text-sm font-black text-cyan-500">{tag.count} Admissions</span>
-                                                </div>
+                                                    <span className="text-sm font-black text-cyan-500 flex items-center gap-1">
+                                                        {tag.count} Admissions
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                                    </span>
+                                                </button>
                                             ))}
                                         </div>
                                     ) : (
@@ -510,6 +611,92 @@ const CourseTarget = () => {
                                 <button
                                     onClick={() => setShowDetailModal(false)}
                                     className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Student Admissions Drill-Down Modal ─────────────────── */}
+                {showStudentModal && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                        <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]`}>
+                            {/* Header */}
+                            <div className={`px-6 py-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} flex justify-between items-start flex-shrink-0`}>
+                                <div>
+                                    <h3 className={`text-base font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Student Admissions</h3>
+                                    <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mt-0.5">
+                                        {studentModalData.centreName} · {studentModalData.deptName}
+                                        {studentModalData.tagName !== "All" && ` · ${studentModalData.tagName}`}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowStudentModal(false)}
+                                    className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded-full transition-colors"
+                                >
+                                    <FaPlus className="rotate-45" />
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div className="overflow-y-auto flex-1 p-4">
+                                {studentModalData.loading ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                        <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                                        <p className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Fetching student records...</p>
+                                    </div>
+                                ) : studentModalData.students.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-2 opacity-50">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        <p className={`text-sm font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>No student records found</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            {studentModalData.students.length} Student{studentModalData.students.length !== 1 ? 's' : ''} Found
+                                        </p>
+                                        {studentModalData.students.map((s, idx) => (
+                                            <div key={s._id || idx} className={`flex items-center gap-4 p-3 rounded-xl border transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 hover:border-cyan-500/30' : 'bg-gray-50 border-gray-100 hover:border-cyan-400/50'}`}>
+                                                {/* Index badge */}
+                                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
+                                                    {idx + 1}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-sm font-black truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{s.studentName}</p>
+                                                    <p className={`text-[10px] font-semibold truncate ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                        {s.course || "—"}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                    <p className={`text-[11px] font-black ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{s.admissionNumber || "—"}</p>
+                                                    <p className={`text-[9px] ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                        {s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ""}
+                                                    </p>
+                                                </div>
+                                                {s.examTag && s.examTag !== "NORMAL" && (
+                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0 ${isDarkMode ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                                                        {s.examTag}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className={`px-6 py-3 border-t ${isDarkMode ? 'border-gray-800 bg-black/20' : 'border-gray-100 bg-gray-50'} flex justify-between items-center flex-shrink-0`}>
+                                <button
+                                    onClick={() => { setShowStudentModal(false); }}
+                                    className={`text-xs font-bold px-4 py-1.5 rounded-lg border transition-all ${isDarkMode ? 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
+                                >
+                                    ← Back to Breakdown
+                                </button>
+                                <button
+                                    onClick={() => setShowStudentModal(false)}
+                                    className="px-5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
                                 >
                                     Close
                                 </button>
