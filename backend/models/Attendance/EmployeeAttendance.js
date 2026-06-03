@@ -52,6 +52,10 @@ const employeeAttendanceSchema = new mongoose.Schema({
     },
     remarks: {
         type: String
+    },
+    manuallyMarkedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
     }
 }, {
     timestamps: true
