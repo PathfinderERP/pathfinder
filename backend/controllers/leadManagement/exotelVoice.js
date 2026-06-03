@@ -338,41 +338,25 @@ export const proxyRecording = async (req, res) => {
             return res.status(401).send("Invalid or expired authentication token");
         }
 
-        // Ensure we only proxy to Exotel or Twilio domains
+        // Ensure we only proxy to Exotel domains
         const parsedUrl = new URL(url);
-        const isTwilio = parsedUrl.hostname.endsWith("twilio.com");
         const isExotel = parsedUrl.hostname.endsWith("exotel.com") || parsedUrl.hostname.endsWith("exotel.in");
 
-        if (!isTwilio && !isExotel) {
+        if (!isExotel) {
             return res.status(400).send("Invalid recording source");
         }
 
-        let response;
-        if (isTwilio) {
-            const accountSid = process.env.TWILIO_ACCOUNT_SID;
-            const authToken = process.env.TWILIO_AUTH_TOKEN;
-            if (!accountSid || !authToken) {
-                return res.status(500).send("Twilio credentials not configured on the server");
-            }
-            const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-            response = await fetch(url, {
-                headers: {
-                    Authorization: `Basic ${auth}`
-                }
-            });
-        } else {
-            const apiKey = process.env.EXOTEL_API_KEY;
-            const apiToken = process.env.EXOTEL_API_TOKEN;
-            if (!apiKey || !apiToken) {
-                return res.status(500).send("Exotel credentials not configured on the server");
-            }
-            const auth = Buffer.from(`${apiKey}:${apiToken}`).toString("base64");
-            response = await fetch(url, {
-                headers: {
-                    Authorization: `Basic ${auth}`
-                }
-            });
+        const apiKey = process.env.EXOTEL_API_KEY;
+        const apiToken = process.env.EXOTEL_API_TOKEN;
+        if (!apiKey || !apiToken) {
+            return res.status(500).send("Exotel credentials not configured on the server");
         }
+        const auth = Buffer.from(`${apiKey}:${apiToken}`).toString("base64");
+        const response = await fetch(url, {
+            headers: {
+                Authorization: `Basic ${auth}`
+            }
+        });
 
         if (!response.ok) {
             return res.status(response.status).send("Failed to retrieve recording file");

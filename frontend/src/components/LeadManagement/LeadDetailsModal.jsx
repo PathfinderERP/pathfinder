@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import ExotelCRMWebSDK from "@exotel-npm-dev/exotel-ip-calling-crm-websdk";
 
 const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, canEdit, canDelete, isDarkMode }) => {
-    const [recordings, setRecordings] = React.useState(lead?.recordings || []);
+    const [recordings, setRecordings] = React.useState((lead?.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.includes("twilio.com")));
     const [userProfile, setUserProfile] = React.useState(null);
     const [callStatus, setCallStatus] = React.useState("idle"); // idle, connecting, ringing, connected, error, disconnected
     const [callMessage, setCallMessage] = React.useState("");
@@ -19,6 +19,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     const timerRef = React.useRef(null);
     const lastMuteClick = React.useRef(0);
     const lastHoldClick = React.useRef(0);
+    const isOutboundCallRef = React.useRef(false);
 
     const debounceClick = (ref, callback, delay = 500) => {
         const now = Date.now();
@@ -63,8 +64,20 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     switch (eventType) {
                         case "incoming":
                             setCallStatus("ringing");
-                            setIsIncomingCall(true);
-                            setCallMessage("Incoming call...");
+                            if (isOutboundCallRef.current) {
+                                setCallMessage("Connecting agent leg...");
+                                setTimeout(() => {
+                                    if (webPhoneRef.current) {
+                                        console.log("[Exotel WebRTC]: Auto-answering outbound call leg.");
+                                        webPhoneRef.current.AcceptCall();
+                                        setCallStatus("connected");
+                                        setIsIncomingCall(false);
+                                    }
+                                }, 500);
+                            } else {
+                                setIsIncomingCall(true);
+                                setCallMessage("Incoming call...");
+                            }
                             break;
                         case "connected":
                             setCallStatus("connected");
@@ -81,6 +94,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                             }, 1000);
                             break;
                         case "callEnded":
+                            isOutboundCallRef.current = false;
                             setCallStatus("disconnected");
                             setIsIncomingCall(false);
                             setIsMuted(false);
@@ -127,7 +141,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
     React.useEffect(() => {
         if (lead) {
-            setRecordings(lead.recordings || []);
+            setRecordings((lead.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.includes("twilio.com")));
         }
         fetchUserProfile();
         initWebRTC();
@@ -151,11 +165,14 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     };
 
     const handleCallNow = async () => {
-        const leadNumber = lead.phoneNumber || lead.secondPhoneNumber;
+        let leadNumber = lead.phoneNumber || lead.secondPhoneNumber;
         if (!leadNumber) {
             toast.error("Lead does not have any phone number configured.");
             return;
         }
+
+        // Clean phone number: remove all spaces, dashes, brackets, and other non-digit/non-plus characters
+        leadNumber = leadNumber.replace(/[^\d+]/g, "");
 
         setCallStatus("connecting");
         setCallMessage("Requesting microphone permissions...");
@@ -174,6 +191,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             }
 
             setCallMessage("Connecting call...");
+            isOutboundCallRef.current = true;
 
             // Dial outbound call
             await webPhoneRef.current.MakeCall(leadNumber, (status, response) => {
@@ -182,6 +200,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     setCallStatus("ringing");
                     setCallMessage("Ringing lead's phone...");
                 } else {
+                    isOutboundCallRef.current = false;
                     setCallStatus("error");
                     setCallMessage("Failed to initiate call on Exotel platform.");
                     toast.error("Call failed to initiate.");
@@ -190,6 +209,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             });
 
         } catch (error) {
+            isOutboundCallRef.current = false;
             console.error("Outbound WebRTC call error:", error);
             setCallStatus("error");
             setCallMessage(error.message || "Failed to initialize WebRTC call.");
@@ -199,6 +219,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     };
 
     const handleHangUp = () => {
+        isOutboundCallRef.current = false;
         if (webPhoneRef.current) {
             webPhoneRef.current.HangupCall();
         }
@@ -245,7 +266,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
     const getAudioUrl = (url) => {
         if (!url) return "";
-        if (url.includes("twilio.com") || url.includes("exotel.com") || url.includes("exotel.in")) {
+        if (url.includes("exotel.com") || url.includes("exotel.in")) {
             const token = localStorage.getItem("token");
             return `${import.meta.env.VITE_API_URL}/lead-management/call/recording-proxy?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
         }
