@@ -64,20 +64,8 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     switch (eventType) {
                         case "incoming":
                             setCallStatus("ringing");
-                            if (isOutboundCallRef.current) {
-                                setCallMessage("Connecting agent leg...");
-                                setTimeout(() => {
-                                    if (webPhoneRef.current) {
-                                        console.log("[Exotel WebRTC]: Auto-answering outbound call leg.");
-                                        webPhoneRef.current.AcceptCall();
-                                        setCallStatus("connected");
-                                        setIsIncomingCall(false);
-                                    }
-                                }, 500);
-                            } else {
-                                setIsIncomingCall(true);
-                                setCallMessage("Incoming call...");
-                            }
+                            setIsIncomingCall(true);
+                            setCallMessage(isOutboundCallRef.current ? "Agent leg ringing (outbound)..." : "Incoming call...");
                             break;
                         case "connected":
                             setCallStatus("connected");

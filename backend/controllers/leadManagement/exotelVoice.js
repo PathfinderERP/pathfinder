@@ -490,13 +490,24 @@ export const initiateExotelCall = async (req, res) => {
             return res.status(400).json({ message: "SIP identifier (SipId) is missing from your user mapping." });
         }
 
+        // Ensure SIP ID is fully qualified with the VoIP domain name for Exotel Connect API
+        let agentFrom = sipId;
+        if (agentFrom) {
+            if (!agentFrom.startsWith('sip:')) {
+                agentFrom = `sip:${agentFrom}`;
+            }
+            if (!agentFrom.includes('@')) {
+                agentFrom = `${agentFrom}@${accountSid}.voip.exotel.com`;
+            }
+        }
+
         // 4. Initiate Call via Exotel Outbound Call API (v1 Calls/connect)
         const formattedTo = formatPhoneNumber(to);
         const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '03344069212';
         
         // Exotel expects x-www-form-urlencoded parameters
         const params = new URLSearchParams();
-        params.append("From", sipId); // The Agent's WebRTC SIP URI
+        params.append("From", agentFrom); // The Agent's WebRTC SIP URI
         params.append("To", formattedTo); // The Customer's Phone Number
         params.append("CallerId", virtualNumber.replace(/[^0-9]/g, '')); // Clean virtual number (digits only)
         params.append("Record", "true");
@@ -509,7 +520,7 @@ export const initiateExotelCall = async (req, res) => {
         const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect.json`;
         
         console.log(`[Exotel Voice] Initiating outbound call via v1 connect:`);
-        console.log(`From (Agent): ${sipId}`);
+        console.log(`From (Agent): ${agentFrom}`);
         console.log(`To (Customer): ${formattedTo}`);
         console.log(`CallerId: ${virtualNumber}`);
         console.log(`StatusCallback: ${statusCallbackUrl}`);
