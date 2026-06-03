@@ -348,13 +348,17 @@ const FinalWeekendTarget = () => {
                     </div>
 
                     <div className="overflow-auto max-h-[65vh]">
-                        <table className="text-left border-collapse" style={{ minWidth: `${200 + weekList.length * 12 * 110 + 340}px` }}>
+                        <table className="text-left border-collapse" style={{ minWidth: `${200 + 140 + weekList.length * 12 * 110 + 340}px` }}>
                             <thead className="sticky top-0 z-30 shadow-md">
                                 {/* ── Row 1: Week group headers ─────────────────── */}
                                 <tr className={isDarkMode ? "bg-[#0d1015]" : "bg-gray-100"}>
                                     {/* Centre column */}
                                     <th rowSpan={2} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest border-r-2 sticky left-0 z-40 ${isDarkMode ? "bg-[#0d1015] text-gray-400 border-gray-700" : "bg-gray-100 text-gray-500 border-gray-300"}`}>
                                         Centre
+                                    </th>
+                                    {/* Total Monthly Target column */}
+                                    <th rowSpan={2} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r-2 sticky left-[200px] z-40 whitespace-nowrap ${isDarkMode ? "bg-[#0d1015] text-blue-300 border-blue-500/30 bg-blue-500/10" : "bg-blue-50 text-blue-700 border-blue-300"}`}>
+                                        Total Monthly<br/>Target
                                     </th>
                                     {/* Week group spans */}
                                     {weekList.map(w => (
@@ -401,12 +405,12 @@ const FinalWeekendTarget = () => {
                                 {loading ? (
                                     [1, 2, 3].map(i => (
                                         <tr key={i}>
-                                            <td colSpan={1 + weekList.length * 12 + 3} className="h-14 animate-pulse bg-gray-500/5" />
+                                            <td colSpan={2 + weekList.length * 12 + 3} className="h-14 animate-pulse bg-gray-500/5" />
                                         </tr>
                                     ))
                                 ) : activeCentres.length === 0 ? (
                                     <tr>
-                                        <td colSpan={1 + weekList.length * 12 + 3} className={`px-6 py-16 text-center text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                                        <td colSpan={2 + weekList.length * 12 + 3} className={`px-6 py-16 text-center text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                                             No data available for the selected filters.
                                         </td>
                                     </tr>
@@ -438,11 +442,12 @@ const FinalWeekendTarget = () => {
                                                         <div className={`text-xs font-black uppercase tracking-wide ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                                                             {c.centreName}
                                                         </div>
-                                                        <div className={`text-[10px] font-semibold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                                                            {fmt(c.monthlyTargetExclGST)}
-                                                        </div>
                                                     </div>
                                                 </div>
+                                            </td>
+                                            {/* Total Monthly Target cell — sticky */}
+                                            <td className={`px-4 py-4 text-center border-r-2 sticky left-[200px] z-10 whitespace-nowrap text-xs font-black ${isDarkMode ? "border-blue-500/20 text-blue-300 bg-blue-500/5" : "border-blue-200 text-blue-700 bg-blue-50/60"} ${rowBg}`}>
+                                                {fmt(c.monthlyTargetExclGST)}
                                             </td>
 
                                             {/* Week data cells */}
@@ -499,6 +504,10 @@ const FinalWeekendTarget = () => {
                                     <tr className={`sticky bottom-0 z-20 ${isDarkMode ? "bg-gray-800 border-t-2 border-gray-600 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]" : "bg-gray-200 border-t-2 border-gray-400 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]"}`}>
                                         <td className={`px-4 py-3 text-xs font-black uppercase tracking-widest sticky left-0 z-30 border-r-2 ${isDarkMode ? "bg-gray-800 text-white border-gray-700" : "bg-gray-200 text-gray-900 border-gray-400"}`}>
                                             ALL CENTRES
+                                        </td>
+                                        {/* Total Monthly Target footer */}
+                                        <td className={`px-4 py-3 text-center text-xs font-black sticky left-[200px] z-30 border-r-2 whitespace-nowrap ${isDarkMode ? "bg-gray-800 border-blue-500/30 text-blue-300" : "bg-gray-200 border-blue-300 text-blue-700"}`}>
+                                            {fmt(totalTarget)}
                                         </td>
                                         {weekList.map((w, wi) => {
                                             // Sum each metric across centres for this week
