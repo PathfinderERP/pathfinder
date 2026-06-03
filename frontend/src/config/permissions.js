@@ -550,11 +550,11 @@ export const PERMISSION_MODULES = {
         sections: {
             dailyCenterTracking: {
                 label: "Daily Center Tracking",
-                operations: ["create", "edit", "delete"]
+                operations: ["view", "create", "edit", "delete"]
             },
             redFlagDesk: {
                 label: "Red Flag Desk",
-                operations: ["create", "edit", "delete"]
+                operations: ["view", "create", "edit", "delete"]
             }
         }
     }

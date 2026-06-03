@@ -62,7 +62,8 @@ const DailyCenterTrackingDetails = () => {
         try {
             const token = localStorage.getItem("token");
             const apiUrl = import.meta.env.VITE_API_URL;
-            const response = await fetch(`${apiUrl}/operations/daily-tracking/export/${centerId}?fromDate=${fromDate}&toDate=${toDate}`, {
+            const roleParam = activeRole ? `&role=${encodeURIComponent(activeRole)}` : '';
+            const response = await fetch(`${apiUrl}/operations/daily-tracking/export/${centerId}?fromDate=${fromDate}&toDate=${toDate}${roleParam}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -73,7 +74,8 @@ const DailyCenterTrackingDetails = () => {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `Performance_Report_${data.centerName}_${fromDate}_to_${toDate}.xlsx`;
+                const roleSuffix = activeRole ? `_${activeRole.toUpperCase()}` : '';
+                a.download = `Performance_Report_${data.centerName}${roleSuffix}_${fromDate}_to_${toDate}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();

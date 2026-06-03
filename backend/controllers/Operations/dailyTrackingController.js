@@ -848,7 +848,7 @@ export const getDailyUserActivity = async (req, res) => {
 export const exportCenterPerformanceExcel = async (req, res) => {
     try {
         const { centerId } = req.params;
-        const { fromDate, toDate } = req.query;
+        const { fromDate, toDate, role } = req.query;
         
         let startDate = new Date();
         let endDate = new Date();
@@ -865,11 +865,19 @@ export const exportCenterPerformanceExcel = async (req, res) => {
         if (!center) return res.status(404).json({ message: "Center not found" });
 
         const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'admin', 'superAdmin'];
-        const users = await User.find({ 
-            centres: centerId, 
-            isActive: true,
-            role: { $in: operationalRoles }
-        }).lean();
+        
+        const userQuery = {
+            centres: centerId,
+            isActive: true
+        };
+
+        if (role) {
+            userQuery.role = { $regex: new RegExp(`^${role}$`, 'i') };
+        } else {
+            userQuery.role = { $in: operationalRoles };
+        }
+
+        const users = await User.find(userQuery).lean();
 
         const performanceData = await Promise.all(users.map(async (user) => {
             const userId = user._id;
@@ -932,6 +940,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             const collectionsAmount = collections.length > 0 ? collections[0].total : 0;
 
             return {
+                "Centre": center.centreName,
                 "Staff Name": user.name,
                 "Employee ID": user.employeeId || "N/A",
                 "Role": user.role.toUpperCase(),
@@ -957,8 +966,9 @@ export const exportCenterPerformanceExcel = async (req, res) => {
 
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
+        const roleSuffix = role ? `_${role.toUpperCase()}` : '';
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Performance_Report_${center.centreName}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename=Performance_Report_${center.centreName}${roleSuffix}.xlsx`);
         res.send(buffer);
 
     } catch (error) {
