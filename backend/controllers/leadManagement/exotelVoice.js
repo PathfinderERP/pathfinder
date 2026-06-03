@@ -196,12 +196,12 @@ export const getVoiceToken = async (req, res) => {
             let mappingExists = false;
             if (checkRes.ok) {
                 const checkData = await checkRes.json();
-                if (checkData.Status === 'Success' && checkData.Data && checkData.Data.IsActive) {
+                if (checkData.Status === 'Success' && checkData.Data && checkData.Data.IsActive && checkData.Data.SipId) {
                     const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '08047190000';
                     const cleanedVirtualNumber = virtualNumber.replace(/[^0-9]/g, '');
                     const cleanedConfiguredNumber = (checkData.Data.VirtualNumber || '').replace(/[^0-9]/g, '');
                     if (cleanedVirtualNumber === cleanedConfiguredNumber) {
-                        console.log('[Exotel Voice] Active user mapping already exists with correct virtual number. Skipping recreation.');
+                        console.log('[Exotel Voice] Active user mapping already exists with correct virtual number and SIP ID. Skipping recreation.');
                         mappingExists = true;
                     }
                 }
@@ -225,26 +225,77 @@ export const getVoiceToken = async (req, res) => {
                 }
 
                 const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '08047190000';
-                const mappingResponse = await fetch(userMappingUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': appToken
-                    },
-                    body: JSON.stringify([
-                        {
-                            AppUserId: userId,
-                            AppUsername: req.user.name || 'Agent User',
-                            Email: req.user.email || 'agent@pathfinder.com',
-                            ExotelAccountSid: accountSid,
-                            ExotelUserName: req.user.name || 'Agent User',
-                            VirtualNumber: virtualNumber
-                        }
-                    ])
-                });
+                
+                // Helper to perform the POST request
+                const postMapping = async (agentNumber) => {
+                    const payload = {
+                        AppUserId: userId,
+                        AppUsername: req.user.name || 'Agent User',
+                        Email: req.user.email || 'agent@pathfinder.com',
+                        ExotelAccountSid: accountSid,
+                        ExotelUserName: req.user.name || 'Agent User',
+                        VirtualNumber: virtualNumber
+                    };
+                    if (agentNumber) {
+                        payload.AgentNumber = agentNumber.replace(/[^0-9]/g, '');
+                    }
 
-                const mappingData = await mappingResponse.json();
-                console.log('[Exotel Voice] User Mapping Response:', mappingData);
+                    return await fetch(userMappingUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': appToken
+                        },
+                        body: JSON.stringify([payload])
+                    });
+                };
+
+                let mappingResponse;
+                let mappingData;
+
+                // Attempt 1: Try with user's mobile number from DB (if configured)
+                const userMobNum = req.user.mobNum;
+                if (userMobNum) {
+                    console.log(`[Exotel Voice] Attempting mapping with user mobile number: ${userMobNum}`);
+                    try {
+                        mappingResponse = await postMapping(userMobNum);
+                        mappingData = await mappingResponse.json();
+                        console.log(`[Exotel Voice] Mapping Attempt 1 Status: ${mappingResponse.status}, Error: ${mappingData?.Error || 'none'}`);
+                    } catch (e) {
+                        console.warn(`[Exotel Voice] Mapping Attempt 1 Exception:`, e.message);
+                    }
+                }
+
+                // Attempt 2: If Attempt 1 failed with 409 conflict, or if no mobile number, try mapping without AgentNumber
+                if (!mappingResponse || mappingResponse.status === 409) {
+                    console.log('[Exotel Voice] Attempting mapping without AgentNumber...');
+                    try {
+                        mappingResponse = await postMapping(null);
+                        mappingData = await mappingResponse.json();
+                        console.log(`[Exotel Voice] Mapping Attempt 2 Status: ${mappingResponse.status}, Error: ${mappingData?.Error || 'none'}`);
+                    } catch (e) {
+                        console.warn(`[Exotel Voice] Mapping Attempt 2 Exception:`, e.message);
+                    }
+                }
+
+                // Attempt 3: If Attempt 2 failed with 400 (mandatory DeviceContactUri constraint), try mapping with a unique dummy number
+                if (mappingResponse && mappingResponse.status === 400 && mappingData?.Error?.includes('DeviceContactUri')) {
+                    const dummyNum = '91' + Math.floor(10000000 + Math.random() * 90000000);
+                    console.log(`[Exotel Voice] Attempting mapping with dummy number: ${dummyNum}`);
+                    try {
+                        mappingResponse = await postMapping(dummyNum);
+                        mappingData = await mappingResponse.json();
+                        console.log(`[Exotel Voice] Mapping Attempt 3 Status: ${mappingResponse.status}, Error: ${mappingData?.Error || 'none'}`);
+                    } catch (e) {
+                        console.warn(`[Exotel Voice] Mapping Attempt 3 Exception:`, e.message);
+                    }
+                }
+
+                if (!mappingResponse || !mappingResponse.ok) {
+                    console.error('[Exotel Voice] User Mapping failed after all fallback attempts:', mappingData);
+                } else {
+                    console.log('[Exotel Voice] User Mapping successfully established:', mappingData);
+                }
             }
         } catch (mapError) {
             console.warn('[Exotel Voice] User mapping warning:', mapError.message);
