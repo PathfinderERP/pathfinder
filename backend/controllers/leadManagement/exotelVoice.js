@@ -25,18 +25,18 @@ export const getVoiceToken = async (req, res) => {
         const accountSid = process.env.EXOTEL_ACCOUNT_SID;
         const apiKey = process.env.EXOTEL_API_KEY;
         const apiToken = process.env.EXOTEL_API_TOKEN;
-        
+
         const customerId = process.env.EXOTEL_CUSTOMER_ID || accountSid;
         const customerSecret = process.env.EXOTEL_CUSTOMER_SECRET || apiToken;
 
         if (!customerId || !customerSecret) {
-            return res.status(400).json({ 
-                message: "Exotel voice configurations are missing on the server (Customer ID or Customer Secret)" 
+            return res.status(400).json({
+                message: "Exotel voice configurations are missing on the server (Customer ID or Customer Secret)"
             });
         }
 
         const tokenUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/token';
-        
+
         // 1. Fetch Customer Token (needed for user registration admin API)
         console.log(`[Exotel Voice] Requesting Customer Token from ${tokenUrl} for customer: ${customerId}`);
         const customerTokenResponse = await fetch(tokenUrl, {
@@ -55,9 +55,9 @@ export const getVoiceToken = async (req, res) => {
 
         if (!customerTokenResponse.ok || customerTokenData.Status === 'Failed') {
             console.error('[Exotel Voice] Customer Token generation failed:', customerTokenData);
-            return res.status(500).json({ 
-                message: "Failed to generate Exotel customer token", 
-                error: customerTokenData.Error || 'Unknown error' 
+            return res.status(500).json({
+                message: "Failed to generate Exotel customer token",
+                error: customerTokenData.Error || 'Unknown error'
             });
         }
 
@@ -80,7 +80,7 @@ export const getVoiceToken = async (req, res) => {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             const appsData = await appsRes.json();
             let foundApp = null;
             if (appsData.Data && Array.isArray(appsData.Data)) {
@@ -145,9 +145,9 @@ export const getVoiceToken = async (req, res) => {
 
         if (!appTokenResponse.ok || appTokenData.Status === 'Failed') {
             console.error('[Exotel Voice] App Token generation failed:', appTokenData);
-            return res.status(500).json({ 
-                message: "Failed to generate Exotel App Token for the frontend WebSDK", 
-                error: appTokenData.Error || 'Unknown error' 
+            return res.status(500).json({
+                message: "Failed to generate Exotel App Token for the frontend WebSDK",
+                error: appTokenData.Error || 'Unknown error'
             });
         }
 
@@ -251,15 +251,15 @@ export const getVoiceToken = async (req, res) => {
         }
 
         // Return App Token (needed by SDK to call /v2/integrations/app) and userId to client
-        res.status(200).json({ 
+        res.status(200).json({
             token: appToken,
             userId: userId
         });
     } catch (error) {
         console.error("Exotel Voice Token Error:", error);
-        res.status(500).json({ 
-            message: "Failed to generate voice access token", 
-            error: error.message 
+        res.status(500).json({
+            message: "Failed to generate voice access token",
+            error: error.message
         });
     }
 };
@@ -364,7 +364,7 @@ export const proxyRecording = async (req, res) => {
 
         const contentType = response.headers.get("content-type") || "audio/mpeg";
         res.setHeader("Content-Type", contentType);
-        
+
         const arrayBuffer = await response.arrayBuffer();
         res.send(Buffer.from(arrayBuffer));
     } catch (error) {
@@ -384,18 +384,18 @@ export const initiateExotelCall = async (req, res) => {
         const accountSid = process.env.EXOTEL_ACCOUNT_SID;
         const apiKey = process.env.EXOTEL_API_KEY;
         const apiToken = process.env.EXOTEL_API_TOKEN;
-        
+
         const customerId = process.env.EXOTEL_CUSTOMER_ID || accountSid;
         const customerSecret = process.env.EXOTEL_CUSTOMER_SECRET || apiToken;
 
         if (!accountSid || !apiKey || !apiToken) {
-            return res.status(400).json({ 
-                message: "Exotel voice configurations are missing on the server (Account SID, API Key, or API Token)" 
+            return res.status(400).json({
+                message: "Exotel voice configurations are missing on the server (Account SID, API Key, or API Token)"
             });
         }
 
         const userId = req.user.email;
-        
+
         // 1. Generate/Fetch App Token to retrieve user's SIP URI mapping
         const tokenUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/token';
         const customerTokenResponse = await fetch(tokenUrl, {
@@ -411,9 +411,9 @@ export const initiateExotelCall = async (req, res) => {
         const customerTokenData = await customerTokenResponse.json();
         if (!customerTokenResponse.ok || customerTokenData.Status === 'Failed') {
             console.error('[Exotel Voice] Customer Token generation failed:', customerTokenData);
-            return res.status(500).json({ 
-                message: "Failed to generate Exotel customer token", 
-                error: customerTokenData.Error || 'Unknown error' 
+            return res.status(500).json({
+                message: "Failed to generate Exotel customer token",
+                error: customerTokenData.Error || 'Unknown error'
             });
         }
         const customerToken = customerTokenData.Data;
@@ -504,21 +504,21 @@ export const initiateExotelCall = async (req, res) => {
         // 4. Initiate Call via Exotel Outbound Call API (v1 Calls/connect)
         const formattedTo = formatPhoneNumber(to);
         const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '03344069212';
-        
+
         // Exotel expects x-www-form-urlencoded parameters
         const params = new URLSearchParams();
         params.append("From", agentFrom); // The Agent's WebRTC SIP URI
         params.append("To", formattedTo); // The Customer's Phone Number
         params.append("CallerId", virtualNumber.replace(/[^0-9]/g, '')); // Clean virtual number (digits only)
         params.append("Record", "true");
-        
+
         // Define status callback URL for recording hook
         const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.headers.host}`;
         const statusCallbackUrl = `${backendUrl}/api/lead-management/call/recording-callback`;
         params.append("StatusCallback", statusCallbackUrl);
 
-        const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect.json`;
-        
+        const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect`;
+
         console.log(`[Exotel Voice] Initiating outbound call via v1 connect:`);
         console.log(`From (Agent): ${agentFrom}`);
         console.log(`To (Customer): ${formattedTo}`);
@@ -535,28 +535,40 @@ export const initiateExotelCall = async (req, res) => {
             body: params.toString()
         });
 
-        const connectData = await connectResponse.json();
+        const responseText = await connectResponse.text();
+
+        // Helper to extract values from XML response safely without external dependencies
+        const parseXMLTag = (xmlStr, tag) => {
+            const regex = new RegExp(`<${tag}>([^<]*)<\/${tag}>`, 'i');
+            const match = xmlStr.match(regex);
+            return match ? match[1].trim() : null;
+        };
 
         if (!connectResponse.ok) {
-            console.error('[Exotel Voice] Outbound call initiation failed:', connectData);
-            return res.status(500).json({ 
-                message: "Failed to place call via Exotel API", 
-                error: connectData.RestResponse?.Errors || 'Unknown API error' 
+            console.error('[Exotel Voice] Outbound call initiation failed:', responseText);
+            const errCode = parseXMLTag(responseText, 'Code');
+            const errMsg = parseXMLTag(responseText, 'Message');
+            return res.status(500).json({
+                message: "Failed to place call via Exotel API",
+                error: errMsg ? `${errCode}: ${errMsg}` : 'Unknown API error'
             });
         }
 
-        console.log('[Exotel Voice] Outbound call placed successfully:', connectData);
+        const sid = parseXMLTag(responseText, 'Sid');
+        const status = parseXMLTag(responseText, 'Status');
+
+        console.log('[Exotel Voice] Outbound call placed successfully:', { sid, status });
         res.status(200).json({
             message: "Call queued successfully",
-            callSid: connectData.RestResponse?.Call?.Sid || null,
-            data: connectData.RestResponse?.Call || connectData
+            callSid: sid,
+            data: { Sid: sid, Status: status }
         });
 
     } catch (error) {
         console.error("Exotel Outbound Call Error:", error);
-        res.status(500).json({ 
-            message: "Internal server error during outbound call placement", 
-            error: error.message 
+        res.status(500).json({
+            message: "Internal server error during outbound call placement",
+            error: error.message
         });
     }
 };
