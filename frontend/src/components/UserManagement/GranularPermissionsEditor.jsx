@@ -34,12 +34,13 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
             newPermissions[moduleKey] = {};
             const moduleData = PERMISSION_MODULES[moduleKey];
             if (moduleData && moduleData.sections) {
-                Object.keys(moduleData.sections).forEach(sectionKey => {
-                    newPermissions[moduleKey][sectionKey] = {
-                        create: false,
-                        edit: false,
-                        delete: false
-                    };
+                Object.entries(moduleData.sections).forEach(([sectionKey, sectionData]) => {
+                    const ops = {};
+                    const operations = sectionData.operations || ['create', 'edit', 'delete'];
+                    operations.forEach(op => {
+                        ops[op] = false;
+                    });
+                    newPermissions[moduleKey][sectionKey] = ops;
                 });
             }
             setExpandedModules(prev => ({ ...prev, [moduleKey]: true }));
@@ -51,6 +52,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
     const handleSectionToggle = (moduleKey, sectionKey) => {
         const newPermissions = { ...granularPermissions };
         const sectionExpandKey = `${moduleKey}-${sectionKey}`;
+        const moduleData = PERMISSION_MODULES[moduleKey];
 
         if (!newPermissions[moduleKey]) {
             newPermissions[moduleKey] = {};
@@ -60,11 +62,12 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
             delete newPermissions[moduleKey][sectionKey];
             setExpandedSections(prev => ({ ...prev, [sectionExpandKey]: false }));
         } else {
-            newPermissions[moduleKey][sectionKey] = {
-                create: false,
-                edit: false,
-                delete: false
-            };
+            const ops = {};
+            const operations = moduleData?.sections?.[sectionKey]?.operations || ['create', 'edit', 'delete'];
+            operations.forEach(op => {
+                ops[op] = false;
+            });
+            newPermissions[moduleKey][sectionKey] = ops;
             setExpandedSections(prev => ({ ...prev, [sectionExpandKey]: true }));
         }
 
@@ -73,17 +76,19 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
 
     const handleOperationToggle = (moduleKey, sectionKey, operation) => {
         const newPermissions = JSON.parse(JSON.stringify(granularPermissions));
+        const moduleData = PERMISSION_MODULES[moduleKey];
 
         if (!newPermissions[moduleKey]) {
             newPermissions[moduleKey] = {};
         }
 
         if (!newPermissions[moduleKey][sectionKey]) {
-            newPermissions[moduleKey][sectionKey] = {
-                create: false,
-                edit: false,
-                delete: false
-            };
+            const ops = {};
+            const operations = moduleData?.sections?.[sectionKey]?.operations || ['create', 'edit', 'delete'];
+            operations.forEach(op => {
+                ops[op] = false;
+            });
+            newPermissions[moduleKey][sectionKey] = ops;
         }
 
         newPermissions[moduleKey][sectionKey][operation] =
@@ -105,13 +110,14 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
         let allEnabled = true;
         let supportedAtLeastOnce = false;
 
-        sections.forEach(([sectionKey]) => {
+        sections.forEach(([sectionKey, sectionData]) => {
+            const ops = sectionData.operations || ['create', 'edit', 'delete'];
             if (operation === 'all') {
-                supportedAtLeastOnce = true;
-                ['create', 'edit', 'delete'].forEach(op => {
+                ops.forEach(op => {
+                    supportedAtLeastOnce = true;
                     if (!newPermissions[moduleKey][sectionKey]?.[op]) allEnabled = false;
                 });
-            } else {
+            } else if (ops.includes(operation)) {
                 supportedAtLeastOnce = true;
                 if (!newPermissions[moduleKey][sectionKey]?.[operation]) allEnabled = false;
             }
@@ -121,16 +127,20 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
 
         const targetValue = !allEnabled;
 
-        sections.forEach(([sectionKey]) => {
+        sections.forEach(([sectionKey, sectionData]) => {
+            const ops = sectionData.operations || ['create', 'edit', 'delete'];
             if (!newPermissions[moduleKey][sectionKey]) {
-                newPermissions[moduleKey][sectionKey] = { create: false, edit: false, delete: false };
+                newPermissions[moduleKey][sectionKey] = {};
+                ops.forEach(op => {
+                    newPermissions[moduleKey][sectionKey][op] = false;
+                });
             }
 
             if (operation === 'all') {
-                ['create', 'edit', 'delete'].forEach(op => {
+                ops.forEach(op => {
                     newPermissions[moduleKey][sectionKey][op] = targetValue;
                 });
-            } else {
+            } else if (ops.includes(operation)) {
                 newPermissions[moduleKey][sectionKey][operation] = targetValue;
             }
         });
@@ -251,14 +261,19 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
 
                                             {/* Operations (only if section is expanded and enabled) */}
                                             {isSectionEnabled && isSectionExpanded && (
-                                                <div className={`p-3 grid grid-cols-3 gap-3 border-t ${isDarkMode ? 'border-gray-800/50 bg-[#131619]/50' : 'border-gray-100 bg-gray-50/50'}`}>
-                                                    {['create', 'edit', 'delete'].map(op => {
-                                                        const isOpEnabled = granularPermissions[moduleKey][sectionKey][op];
+                                                <div className={`p-3 flex flex-wrap gap-4 border-t ${isDarkMode ? 'border-gray-800/50 bg-[#131619]/50' : 'border-gray-100 bg-gray-50/50'}`}>
+                                                    {(sectionData.operations || ['create', 'edit', 'delete']).map(op => {
+                                                        const isOpEnabled = !!granularPermissions[moduleKey]?.[sectionKey]?.[op];
                                                         const opColors = {
                                                             create: isDarkMode ? 'text-green-400' : 'text-green-600',
                                                             edit: isDarkMode ? 'text-orange-400' : 'text-orange-600',
-                                                            delete: isDarkMode ? 'text-red-400' : 'text-red-600'
+                                                            delete: isDarkMode ? 'text-red-400' : 'text-red-600',
+                                                            approve: isDarkMode ? 'text-cyan-400' : 'text-cyan-600',
+                                                            deactivate: isDarkMode ? 'text-rose-400' : 'text-rose-600',
+                                                            view: isDarkMode ? 'text-blue-400' : 'text-blue-600'
                                                         };
+                                                        const defaultColor = isDarkMode ? 'text-cyan-400' : 'text-cyan-600';
+                                                        const colorClass = opColors[op] || defaultColor;
 
                                                         return (
                                                             <label key={op} className="flex items-center gap-2.5 cursor-pointer group">
@@ -268,7 +283,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                                                     onChange={() => handleOperationToggle(moduleKey, sectionKey, op)}
                                                                     className={`w-4 h-4 rounded border transition-all ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-white'} text-cyan-500 focus:ring-cyan-500`}
                                                                 />
-                                                                <span className={`text-[10px] uppercase font-black tracking-widest transition-colors ${isOpEnabled ? opColors[op] : isDarkMode ? 'text-gray-600 group-hover:text-gray-500' : 'text-gray-400 group-hover:text-gray-500'}`}>
+                                                                <span className={`text-[10px] uppercase font-black tracking-widest transition-colors ${isOpEnabled ? colorClass : isDarkMode ? 'text-gray-600 group-hover:text-gray-500' : 'text-gray-400 group-hover:text-gray-500'}`}>
                                                                     {op}
                                                                 </span>
                                                             </label>

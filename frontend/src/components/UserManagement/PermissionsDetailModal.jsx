@@ -70,7 +70,7 @@ const PermissionsDetailModal = ({ user, onClose }) => {
                                                         {sectionConfig.label}
                                                     </h5>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {['create', 'edit', 'delete'].map(op => (
+                                                        {(sectionConfig.operations || ['create', 'edit', 'delete']).map(op => (
                                                             <span key={op} className={`text-[9px] px-2 py-1 rounded border font-black uppercase tracking-tighter flex items-center gap-1.5 transition-all ${operations[op]
                                                                 ? 'bg-green-500/10 text-green-500 border-green-500/30'
                                                                 : isDarkMode ? 'bg-gray-800/50 text-gray-600 border-gray-700/50' : 'bg-gray-100 text-gray-400 border-gray-200'

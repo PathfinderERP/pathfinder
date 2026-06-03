@@ -533,7 +533,7 @@ export const PERMISSION_MODULES = {
             },
             expenditureApproval: {
                 label: "Expenditure Approval",
-                operations: ["create", "edit", "delete"]
+                operations: ["approve", "create", "edit", "delete"]
             },
             addPettyCash: {
                 label: "Add Petty Cash (Requests)",
@@ -541,7 +541,7 @@ export const PERMISSION_MODULES = {
             },
             pettyCashRequestApproval: {
                 label: "Petty Cash Request Approval",
-                operations: ["create", "edit", "delete"]
+                operations: ["approve", "create", "edit", "delete"]
             }
         }
     },

@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import ExotelCRMWebSDK from "@exotel-npm-dev/exotel-ip-calling-crm-websdk";
 
 const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, canEdit, canDelete, isDarkMode }) => {
-    const [recordings, setRecordings] = React.useState((lead?.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.includes("twilio.com")));
+    const [recordings, setRecordings] = React.useState((lead?.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
     const [userProfile, setUserProfile] = React.useState(null);
     const [callStatus, setCallStatus] = React.useState("idle"); // idle, connecting, ringing, connected, error, disconnected
     const [callMessage, setCallMessage] = React.useState("");
@@ -141,7 +141,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
     React.useEffect(() => {
         if (lead) {
-            setRecordings((lead.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.includes("twilio.com")));
+            setRecordings((lead.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
         }
         fetchUserProfile();
         initWebRTC();
@@ -193,20 +193,26 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             setCallMessage("Connecting call...");
             isOutboundCallRef.current = true;
 
-            // Dial outbound call
-            await webPhoneRef.current.MakeCall(leadNumber, (status, response) => {
-                console.log("[Exotel Dial Callback]:", status, response);
-                if (status === "success") {
-                    setCallStatus("ringing");
-                    setCallMessage("Ringing lead's phone...");
-                } else {
-                    isOutboundCallRef.current = false;
-                    setCallStatus("error");
-                    setCallMessage("Failed to initiate call on Exotel platform.");
-                    toast.error("Call failed to initiate.");
-                    setTimeout(() => setCallStatus("idle"), 3000);
-                }
+            // Trigger outbound call via secure backend endpoint using basic auth
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/outbound-call`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ to: leadNumber })
             });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || "Failed to initiate outbound call on server.");
+            }
+
+            const callData = await response.json();
+            console.log("[Exotel Outbound Call Success]:", callData);
+            setCallStatus("ringing");
+            setCallMessage("Ringing lead's phone...");
 
         } catch (error) {
             isOutboundCallRef.current = false;
@@ -266,6 +272,9 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
     const getAudioUrl = (url) => {
         if (!url) return "";
+        if (url.toLowerCase().includes("twilio")) {
+            return "";
+        }
         if (url.includes("exotel.com") || url.includes("exotel.in")) {
             const token = localStorage.getItem("token");
             return `${import.meta.env.VITE_API_URL}/lead-management/call/recording-proxy?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;

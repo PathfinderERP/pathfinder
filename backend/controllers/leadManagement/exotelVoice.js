@@ -372,3 +372,180 @@ export const proxyRecording = async (req, res) => {
         res.status(500).send("Error proxying recording");
     }
 };
+
+// Initiates outbound call by calling Exotel's Connect API v1 using basic auth
+export const initiateExotelCall = async (req, res) => {
+    try {
+        const { to } = req.body;
+        if (!to) {
+            return res.status(400).json({ message: "Recipient number (to) is required" });
+        }
+
+        const accountSid = process.env.EXOTEL_ACCOUNT_SID;
+        const apiKey = process.env.EXOTEL_API_KEY;
+        const apiToken = process.env.EXOTEL_API_TOKEN;
+        
+        const customerId = process.env.EXOTEL_CUSTOMER_ID || accountSid;
+        const customerSecret = process.env.EXOTEL_CUSTOMER_SECRET || apiToken;
+
+        if (!accountSid || !apiKey || !apiToken) {
+            return res.status(400).json({ 
+                message: "Exotel voice configurations are missing on the server (Account SID, API Key, or API Token)" 
+            });
+        }
+
+        const userId = req.user.email;
+        
+        // 1. Generate/Fetch App Token to retrieve user's SIP URI mapping
+        const tokenUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/token';
+        const customerTokenResponse = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                Id: customerId,
+                Secret: customerSecret,
+                Entity: 'customer'
+            })
+        });
+
+        const customerTokenData = await customerTokenResponse.json();
+        if (!customerTokenResponse.ok || customerTokenData.Status === 'Failed') {
+            console.error('[Exotel Voice] Customer Token generation failed:', customerTokenData);
+            return res.status(500).json({ 
+                message: "Failed to generate Exotel customer token", 
+                error: customerTokenData.Error || 'Unknown error' 
+            });
+        }
+        const customerToken = customerTokenData.Data;
+
+        // Resolve App ID
+        let appId = process.env.EXOTEL_APP_ID;
+        const isUuid = (val) => val && val.length === 36 && val.includes('-');
+        if (!isUuid(appId)) {
+            const appsUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/app';
+            const appsRes = await fetch(appsUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': customerToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+            const appsData = await appsRes.json();
+            let foundApp = null;
+            if (appsData.Data && Array.isArray(appsData.Data)) {
+                foundApp = appsData.Data.find(a => a.AppName === 'Pathfinder CRM Calling');
+            }
+            if (foundApp) {
+                appId = foundApp.AppID;
+            } else {
+                return res.status(500).json({ message: "Exotel App not configured and auto-creation was bypassed." });
+            }
+        }
+
+        // Fetch App Secret and generate App Token
+        let appSecret = process.env.EXOTEL_APP_SECRET;
+        if (!appSecret && appId) {
+            const appsUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/app';
+            const appsRes = await fetch(appsUrl, {
+                method: 'GET',
+                headers: { 'Authorization': customerToken }
+            });
+            const appsData = await appsRes.json();
+            const foundApp = appsData.Data && appsData.Data.find(a => a.AppID === appId);
+            if (foundApp) {
+                appSecret = foundApp.AppSecret;
+            }
+        }
+
+        const appTokenResponse = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                Id: appId,
+                Secret: appSecret,
+                Entity: 'app'
+            })
+        });
+        const appTokenData = await appTokenResponse.json();
+        const appToken = appTokenData.Data;
+
+        // 3. Get User Mapping to fetch user's SipId
+        const checkUrl = `https://integrationscore.mum1.exotel.com/v2/integrations/usermapping?user_id=${encodeURIComponent(userId)}`;
+        const checkRes = await fetch(checkUrl, {
+            method: 'GET',
+            headers: { 'Authorization': appToken }
+        });
+
+        if (!checkRes.ok) {
+            return res.status(400).json({ message: `Active calling mapping not found for user: ${userId}. Please login/register your WebRTC device first.` });
+        }
+
+        const checkData = await checkRes.json();
+        if (checkData.Status !== 'Success' || !checkData.Data || !checkData.Data.IsActive) {
+            return res.status(400).json({ message: "Your WebRTC calling extension is currently inactive or unmapped." });
+        }
+
+        const sipId = checkData.Data.SipId;
+        if (!sipId) {
+            return res.status(400).json({ message: "SIP identifier (SipId) is missing from your user mapping." });
+        }
+
+        // 4. Initiate Call via Exotel Outbound Call API (v1 Calls/connect)
+        const formattedTo = formatPhoneNumber(to);
+        const virtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER || '03344069212';
+        
+        // Exotel expects x-www-form-urlencoded parameters
+        const params = new URLSearchParams();
+        params.append("From", sipId); // The Agent's WebRTC SIP URI
+        params.append("To", formattedTo); // The Customer's Phone Number
+        params.append("CallerId", virtualNumber.replace(/[^0-9]/g, '')); // Clean virtual number (digits only)
+        params.append("Record", "true");
+        
+        // Define status callback URL for recording hook
+        const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.headers.host}`;
+        const statusCallbackUrl = `${backendUrl}/api/lead-management/call/recording-callback`;
+        params.append("StatusCallback", statusCallbackUrl);
+
+        const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect.json`;
+        
+        console.log(`[Exotel Voice] Initiating outbound call via v1 connect:`);
+        console.log(`From (Agent): ${sipId}`);
+        console.log(`To (Customer): ${formattedTo}`);
+        console.log(`CallerId: ${virtualNumber}`);
+        console.log(`StatusCallback: ${statusCallbackUrl}`);
+
+        const authString = Buffer.from(`${apiKey}:${apiToken}`).toString('base64');
+        const connectResponse = await fetch(connectUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${authString}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString()
+        });
+
+        const connectData = await connectResponse.json();
+
+        if (!connectResponse.ok) {
+            console.error('[Exotel Voice] Outbound call initiation failed:', connectData);
+            return res.status(500).json({ 
+                message: "Failed to place call via Exotel API", 
+                error: connectData.RestResponse?.Errors || 'Unknown API error' 
+            });
+        }
+
+        console.log('[Exotel Voice] Outbound call placed successfully:', connectData);
+        res.status(200).json({
+            message: "Call queued successfully",
+            callSid: connectData.RestResponse?.Call?.Sid || null,
+            data: connectData.RestResponse?.Call || connectData
+        });
+
+    } catch (error) {
+        console.error("Exotel Outbound Call Error:", error);
+        res.status(500).json({ 
+            message: "Internal server error during outbound call placement", 
+            error: error.message 
+        });
+    }
+};
