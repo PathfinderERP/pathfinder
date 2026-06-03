@@ -4,7 +4,8 @@ import {
     getMyPlan,
     getBoardPlans,
     updateTask,
-    deleteTask
+    deleteTask,
+    savePlan
 } from "../controllers/tomorrowPlannerController.js";
 import protect from "../middleware/authMiddleware.js";
 import { requireGranularPermission } from "../middleware/permissionMiddleware.js";
@@ -17,6 +18,13 @@ router.post(
     protect,
     requireGranularPermission("dailyTrackingLog", "myDailyLog", "create"),
     addTask
+);
+
+router.post(
+    "/save-plan",
+    protect,
+    requireGranularPermission("dailyTrackingLog", "myDailyLog", "create"),
+    savePlan
 );
 
 router.get(

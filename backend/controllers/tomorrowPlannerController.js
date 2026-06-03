@@ -326,3 +326,50 @@ export const deleteTask = async (req, res) => {
         res.status(500).json({ message: "Failed to delete task.", error: error.message });
     }
 };
+
+export const savePlan = async (req, res) => {
+    try {
+        const { tasks, planDate } = req.body;
+        if (!Array.isArray(tasks)) {
+            return res.status(400).json({ message: "Tasks must be an array." });
+        }
+
+        const targetDate = planDate ? getMidnightUTC(planDate) : getTomorrowMidnightUTC();
+        const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+        const endRange   = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
+
+        const department = mapRoleToDepartment(req.user.role);
+
+        let plan = await TomorrowPlanner.findOne({
+            user: req.user._id,
+            planDate: { $gte: startRange, $lt: endRange }
+        });
+
+        // Filter and map tasks to clean up temporary client-side IDs
+        const mappedTasks = tasks.map(t => ({
+            taskDetails: t.taskDetails,
+            priority: t.priority || "Medium",
+            estimatedDuration: t.estimatedDuration || "",
+            notes: t.notes || "",
+            status: t.status || "Planned"
+        }));
+
+        if (!plan) {
+            plan = new TomorrowPlanner({
+                user: req.user._id,
+                userName: req.user.name,
+                department,
+                planDate: targetDate,
+                tasks: mappedTasks
+            });
+        } else {
+            plan.tasks = mappedTasks;
+        }
+
+        await plan.save();
+        res.status(200).json({ message: "Tomorrow's plan saved successfully.", plan });
+    } catch (error) {
+        console.error("Error saving tomorrow plan:", error);
+        res.status(500).json({ message: "Failed to save plan.", error: error.message });
+    }
+};

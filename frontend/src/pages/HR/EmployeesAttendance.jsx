@@ -637,7 +637,8 @@ const EmployeesAttendance = () => {
             'Regularization Status': d.regularization ? d.regularization.status : 'N/A',
             'Regularized By': d.regularization && d.regularization.status === 'Approved' ? (d.regularization.reviewedBy?.name || 'Manager') : 'N/A',
             'Regularization Type': d.regularization ? d.regularization.type : 'N/A',
-            'Regularization Reason': d.regularization ? d.regularization.reason : 'N/A'
+            'Regularization Reason': d.regularization ? d.regularization.reason : 'N/A',
+            'Manually Marked By': d.manuallyMarkedBy?.name || 'N/A'
         }));
 
         // 3. Employee Info Metadata (to be prepended or handled via separate sheet)
@@ -725,6 +726,7 @@ const EmployeesAttendance = () => {
             'Regularized By': att.regularization && att.regularization.status === 'Approved' ? (att.regularization.reviewedBy?.name || 'Manager') : 'N/A',
             'Regularization Type': att.regularization ? att.regularization.type : 'N/A',
             'Regularization Reason': att.regularization ? att.regularization.reason : 'N/A',
+            'Manually Marked By': att.manuallyMarkedBy?.name || 'N/A',
             'Remarks': att.remarks || ''
         }));
 

@@ -207,6 +207,7 @@ const MarketingCRM = () => {
     const [tomorrowPlanDate, setTomorrowPlanDate] = useState(getTomorrowDateString());
     const [tomorrowTasks, setTomorrowTasks] = useState([]);
     const [tomorrowPlanId, setTomorrowPlanId] = useState(null);
+    const [savingTomorrowPlan, setSavingTomorrowPlan] = useState(false);
     const [newTaskForm, setNewTaskForm] = useState({
         taskDetails: "",
         priority: "Medium",
@@ -235,56 +236,64 @@ const MarketingCRM = () => {
         }
     };
 
-    const handleAddTomorrowTask = async (e) => {
+    const handleAddTomorrowTask = (e) => {
         e.preventDefault();
         if (!newTaskForm.taskDetails) {
             toast.error("Task Details are required.");
             return;
         }
 
+        const newTask = {
+            _id: `temp_${Date.now()}_${Math.random()}`,
+            taskDetails: newTaskForm.taskDetails,
+            priority: newTaskForm.priority,
+            estimatedDuration: newTaskForm.estimatedDuration,
+            notes: newTaskForm.notes,
+            status: "Planned"
+        };
+
+        setTomorrowTasks(prev => [...prev, newTask]);
+        setNewTaskForm({ taskDetails: "", priority: "Medium", estimatedDuration: "", notes: "" });
+        toast.info("Task added locally. Remember to save your plan!");
+    };
+
+    const handleDeleteTomorrowTask = (taskId) => {
+        setTomorrowTasks(prev => prev.filter(t => t._id !== taskId));
+        toast.success("Task removed from list.");
+    };
+
+    const handleSaveTomorrowPlan = async () => {
+        setSavingTomorrowPlan(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/save-plan`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    ...newTaskForm,
+                    tasks: tomorrowTasks,
                     planDate: tomorrowPlanDate
                 })
             });
 
             if (response.ok) {
-                toast.success("Task added successfully!");
-                setNewTaskForm({ taskDetails: "", priority: "Medium", estimatedDuration: "", notes: "" });
-                fetchTomorrowPlan();
+                const data = await response.json();
+                toast.success("Tomorrow's field plan saved successfully!");
+                if (data.plan && data.plan._id) {
+                    setTomorrowPlanId(data.plan._id);
+                    setTomorrowTasks(data.plan.tasks || []);
+                }
             } else {
-                toast.error("Failed to add task.");
+                const errData = await response.json();
+                toast.error(errData.message || "Failed to save tomorrow's plan.");
             }
         } catch (error) {
-            console.error("Error adding task:", error);
-            toast.error("Error adding task.");
-        }
-    };
-
-    const handleDeleteTomorrowTask = async (taskId) => {
-        if (!tomorrowPlanId) return;
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/${tomorrowPlanId}/task/${taskId}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.ok) {
-                toast.success("Task deleted.");
-                fetchTomorrowPlan();
-            } else {
-                toast.error("Failed to delete task.");
-            }
-        } catch (error) {
-            console.error("Error deleting task:", error);
+            console.error("Error saving tomorrow plan:", error);
+            toast.error("Error saving tomorrow's plan.");
+        } finally {
+            setSavingTomorrowPlan(false);
         }
     };
 
@@ -1698,6 +1707,33 @@ const MarketingCRM = () => {
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        )}
+
+                                        {tomorrowTasks.length > 0 && (
+                                            <div className="flex justify-end pt-6 border-t border-gray-800/10 dark:border-gray-800/50 mt-6">
+                                                <button
+                                                    onClick={handleSaveTomorrowPlan}
+                                                    disabled={savingTomorrowPlan}
+                                                    className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-blue-500/20 hover:-translate-y-0.5 transition-all active:scale-[0.99] disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                                                >
+                                                    {savingTomorrowPlan ? (
+                                                        <>
+                                                            <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                            Saving Field Plan...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            Save Tomorrow's Field Plan
+                                                        </>
+                                                    )}
+                                                </button>
                                             </div>
                                         )}
                                     </div>

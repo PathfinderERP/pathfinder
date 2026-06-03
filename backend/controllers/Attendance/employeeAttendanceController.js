@@ -497,6 +497,7 @@ export const getAllAttendance = async (req, res) => {
             .populate("user", "role")
             .populate("checkIn.centreId", "centreName")
             .populate("checkOut.centreId", "centreName")
+            .populate("manuallyMarkedBy", "name")
             .sort({ date: -1 });
 
         const todayStart = startOfDay(new Date());
@@ -603,7 +604,12 @@ export const getAttendanceAnalysis = async (req, res) => {
         const yearAttendances = await EmployeeAttendance.find({
             user: targetUserId,
             date: { $gte: yearStart, $lte: yearEnd }
-        }).populate("centreId", "centreName").populate("checkIn.centreId", "centreName").populate("checkOut.centreId", "centreName").sort({ date: 1 });
+        })
+        .populate("centreId", "centreName")
+        .populate("checkIn.centreId", "centreName")
+        .populate("checkOut.centreId", "centreName")
+        .populate("manuallyMarkedBy", "name")
+        .sort({ date: 1 });
 
         // 1. Monthly Breakdown over the year
         const monthlyStats = Array.from({ length: 12 }, (_, i) => ({
@@ -729,7 +735,8 @@ export const getAttendanceAnalysis = async (req, res) => {
                     status: status,
                     checkIn: att.checkIn?.time || '-',
                     checkOut: (att.checkOut?.time && status !== 'Absent') ? att.checkOut.time : '-',
-                    regularization: reg
+                    regularization: reg,
+                    manuallyMarkedBy: att.manuallyMarkedBy
                 };
             } else {
                 const isWeekendDay = day.getDay() === 0; // Sunday
@@ -1004,7 +1011,8 @@ export const manualMarkAttendance = async (req, res) => {
             centreId: employee.primaryCentre._id,
             date: markDate,
             status: status || "Present",
-            remarks: (remarks || "Manually marked by HR").toUpperCase()
+            remarks: (remarks || "Manually marked by HR").toUpperCase(),
+            manuallyMarkedBy: req.user._id
         };
 
         if (checkIn) {
@@ -1113,7 +1121,8 @@ export const bulkImportAttendance = async (req, res) => {
                     centreId: targetCentreId,
                     date: markDate,
                     status: status || "Present",
-                    remarks: (remarks || "Bulk Import").toUpperCase()
+                    remarks: (remarks || "Bulk Import").toUpperCase(),
+                    manuallyMarkedBy: req.user._id
                 };
 
                 // 4. Handle Times
