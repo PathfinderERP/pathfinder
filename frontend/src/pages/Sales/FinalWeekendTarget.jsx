@@ -357,8 +357,8 @@ const FinalWeekendTarget = () => {
                                         Centre
                                     </th>
                                     {/* Total Monthly Target column */}
-                                    <th rowSpan={2} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r-2 sticky left-[200px] z-40 whitespace-nowrap ${isDarkMode ? "bg-[#0d1015] text-blue-300 border-blue-500/30 bg-blue-500/10" : "bg-blue-50 text-blue-700 border-blue-300"}`}>
-                                        Total Monthly<br/>Target
+                                    <th rowSpan={2} className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r-2 sticky left-[200px] z-40 whitespace-nowrap ${isDarkMode ? "bg-[#0f172a] text-blue-300 border-blue-500/30" : "bg-blue-50 text-blue-700 border-blue-300"}`}>
+                                        Total Monthly<br />Target
                                     </th>
                                     {/* Week group spans */}
                                     {weekList.map(w => (
@@ -433,8 +433,8 @@ const FinalWeekendTarget = () => {
                                         : (isDarkMode ? "bg-[#16191e]" : "bg-gray-50");
 
                                     const targetBg = ri % 2 === 0
-                                        ? (isDarkMode ? "bg-[#1d283a]" : "bg-blue-50")
-                                        : (isDarkMode ? "bg-[#182232]" : "bg-[#eef5fc]");
+                                        ? (isDarkMode ? "bg-[#1d283a]" : "bg-[#f0f7ff]")
+                                        : (isDarkMode ? "bg-[#182232]" : "bg-[#e8f1fa]");
 
                                     return (
                                         <tr key={c.centreId} className={`${rowBg} hover:brightness-110 transition-all`}>
