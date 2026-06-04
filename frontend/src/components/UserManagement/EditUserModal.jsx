@@ -82,7 +82,14 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 userCentres = [user.centre._id || user.centre];
             }
 
-            let granularPermissions = user.granularPermissions || {};
+            let granularPermissions = JSON.parse(JSON.stringify(user.granularPermissions || {}));
+
+            // Backward compatibility for upload permission
+            if (granularPermissions.leadManagement && granularPermissions.leadManagement.leads) {
+                if (!granularPermissions.leadManagement.leads.hasOwnProperty('upload')) {
+                    granularPermissions.leadManagement.leads.upload = granularPermissions.leadManagement.leads.create === true;
+                }
+            }
 
             // If user is superAdmin, force all permissions to true if config is loaded
             if (user.role === "superAdmin" && permissionsConfig) {
@@ -205,7 +212,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                             view: true,
                             create: true,
                             edit: true,
-                            delete: true
+                            delete: true,
+                            upload: true
                         };
                     });
                 }
