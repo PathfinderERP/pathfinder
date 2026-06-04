@@ -663,18 +663,28 @@ const CourseTarget = () => {
                                                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
                                                     {idx + 1}
                                                 </div>
+                                                {/* Name & Course */}
                                                 <div className="flex-1 min-w-0">
                                                     <p className={`text-sm font-black truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{s.studentName}</p>
                                                     <p className={`text-[10px] font-semibold truncate ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
                                                         {s.course || "—"}
                                                     </p>
                                                 </div>
+                                                {/* Down Payment */}
+                                                <div className="text-center flex-shrink-0">
+                                                    <p className={`text-[9px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>D. Pay</p>
+                                                    <p className={`text-[12px] font-black ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                                        ₹{(s.downPayment || 0).toLocaleString('en-IN')}
+                                                    </p>
+                                                </div>
+                                                {/* Admission Number & Date */}
                                                 <div className="text-right flex-shrink-0">
                                                     <p className={`text-[11px] font-black ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{s.admissionNumber || "—"}</p>
                                                     <p className={`text-[9px] ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
                                                         {s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ""}
                                                     </p>
                                                 </div>
+                                                {/* Exam Tag badge */}
                                                 {s.examTag && s.examTag !== "NORMAL" && (
                                                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0 ${isDarkMode ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
                                                         {s.examTag}

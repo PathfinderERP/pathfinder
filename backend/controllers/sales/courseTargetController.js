@@ -296,7 +296,9 @@ export const getAdmissionDetails = async (req, res) => {
             phone: a.student?.studentsDetails?.[0]?.mobileNum || a.student?.mobileNum || "N/A",
             admissionDate: a.admissionDate,
             examTag: a.examTag?.name || a.examTag?.tagName || "NORMAL",
-            course: a.course?.courseName || "N/A"
+            course: a.course?.courseName || "N/A",
+            downPayment: a.downPayment || 0,
+            totalFees: a.totalFees || 0
         }));
 
         res.status(200).json({ success: true, data: results });
