@@ -285,14 +285,15 @@ export const getAdmissionDetails = async (req, res) => {
         })
             .populate('course', 'courseName')
             .populate('examTag', 'name tagName')
+            .populate('student', 'studentsDetails mobileNum')
             .lean();
 
         // Standardize output
         const results = admissions.map(a => ({
             _id: a._id,
             admissionNumber: a.admissionNumber,
-            studentName: a.studentName || "N/A",
-            phone: a.mobileNum || "N/A",
+            studentName: a.student?.studentsDetails?.[0]?.studentName || "N/A",
+            phone: a.student?.studentsDetails?.[0]?.mobileNum || a.student?.mobileNum || "N/A",
             admissionDate: a.admissionDate,
             examTag: a.examTag?.name || a.examTag?.tagName || "NORMAL",
             course: a.course?.courseName || "N/A"
