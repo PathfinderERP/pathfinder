@@ -11,11 +11,21 @@ export const addFollowUp = async (req, res) => {
             return res.status(404).json({ message: "Lead not found" });
         }
 
+        if (!feedback) {
+            return res.status(400).json({ message: "Feedback is required" });
+        }
+        if (!leadType) {
+            return res.status(400).json({ message: "Lead status is required" });
+        }
+        if (leadType !== "COLD LEAD" && !nextFollowUpDate) {
+            return res.status(400).json({ message: "Next follow-up date is required" });
+        }
+
         const newFollowUp = {
             date: date || new Date(),
             feedback,
             remarks,
-            nextFollowUpDate,
+            nextFollowUpDate: leadType === "COLD LEAD" ? undefined : nextFollowUpDate,
             updatedBy: updatedBy || (req.user ? req.user.name : 'Unknown'),
             status: leadType, // Save the status at time of follow-up
         };
@@ -24,7 +34,9 @@ export const addFollowUp = async (req, res) => {
 
         // Update root fields
         lead.lastFollowUpDate = newFollowUp.date;
-        if (nextFollowUpDate) {
+        if (leadType === "COLD LEAD") {
+            lead.nextFollowUpDate = undefined;
+        } else if (nextFollowUpDate) {
             lead.nextFollowUpDate = nextFollowUpDate;
         }
 

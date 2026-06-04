@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
-import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaArrowLeft, FaPhoneAlt, FaEnvelope, FaIdCard, FaUserTie, FaUserGraduate, FaMoneyBillWave } from 'react-icons/fa';
+import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaArrowLeft, FaPhoneAlt, FaEnvelope, FaIdCard, FaUserTie, FaUserGraduate, FaMoneyBillWave, FaFileExcel } from 'react-icons/fa';
 import { toast } from "react-toastify";
 
 const DailyCenterTrackingDetails = () => {
@@ -84,6 +84,34 @@ const DailyCenterTrackingDetails = () => {
             }
         } catch (error) {
             console.error("Export error:", error);
+            toast.error("Error during export");
+        }
+    };
+
+    const handleExportUserCalling = async (userId, userName) => {
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const response = await fetch(`${apiUrl}/operations/daily-tracking/user/export/${userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${centerId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Calling_Report_${userName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } else {
+                toast.error("Failed to export calling report");
+            }
+        } catch (error) {
+            console.error("Export calling report error:", error);
             toast.error("Error during export");
         }
     };
@@ -312,15 +340,28 @@ const DailyCenterTrackingDetails = () => {
                                     </div>
                                 )}
 
-                                <button 
-                                    onClick={() => navigate(`/daily-center-tracking/user/${user.userId}?fromDate=${fromDate}&toDate=${toDate}`)}
-                                    className={`mt-6 w-full py-2.5 rounded-[2px] text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
-                                    isDarkMode 
-                                        ? 'bg-gray-800 text-gray-400 hover:bg-cyan-500 hover:text-white' 
-                                        : 'bg-gray-50 text-gray-600 hover:bg-cyan-500 hover:text-white'
-                                }`}>
-                                    View Activity Log
-                                </button>
+                                <div className="mt-6 flex gap-2">
+                                    <button 
+                                        onClick={() => navigate(`/daily-center-tracking/user/${user.userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${centerId}`)}
+                                        className={`flex-1 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-wider transition-all text-center ${
+                                            isDarkMode 
+                                                ? 'bg-gray-800 text-gray-400 hover:bg-cyan-500 hover:text-white' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-cyan-500 hover:text-white border border-gray-200'
+                                        }`}
+                                    >
+                                        Activity Log
+                                    </button>
+                                    <button 
+                                        onClick={() => handleExportUserCalling(user.userId, user.name)}
+                                        className={`flex-1 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-wider transition-all text-center flex items-center justify-center gap-1 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-800 text-gray-400 hover:bg-green-600 hover:text-white' 
+                                                : 'bg-gray-100 text-gray-600 hover:bg-green-600 hover:text-white border border-gray-200'
+                                        }`}
+                                    >
+                                        <FaFileExcel className="text-[10px] text-green-500" /> Export
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>

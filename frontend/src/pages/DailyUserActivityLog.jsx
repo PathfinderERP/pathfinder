@@ -5,7 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import {
     FaUserTie, FaArrowLeft, FaPhoneAlt, FaUsers, FaUserGraduate,
     FaMoneyBillWave, FaCalendarAlt, FaIdCard, FaReceipt, FaCloudUploadAlt,
-    FaFire, FaSnowflake, FaThermometerHalf, FaCheckCircle, FaSearch
+    FaFire, FaSnowflake, FaThermometerHalf, FaCheckCircle, FaSearch, FaFileExcel
 } from 'react-icons/fa';
 import { toast } from "react-toastify";
 import { BarChart, Bar, Cell, AreaChart, Area, PieChart, Pie, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -34,6 +34,7 @@ const DailyUserActivityLog = () => {
 
     const queryParams = new URLSearchParams(location.search);
     const initialDate = new Date().toISOString().split('T')[0];
+    const centerId = queryParams.get('centerId');
 
     const [fromDate, setFromDate] = useState(queryParams.get('fromDate') || queryParams.get('date') || initialDate);
     const [toDate, setToDate] = useState(queryParams.get('toDate') || queryParams.get('date') || initialDate);
@@ -51,8 +52,9 @@ const DailyUserActivityLog = () => {
                 setLoading(true);
                 const token = localStorage.getItem("token");
                 const apiUrl = import.meta.env.VITE_API_URL;
+                const centerParam = centerId ? `&centerId=${centerId}` : '';
                 const response = await fetch(
-                    `${apiUrl}/operations/daily-tracking/user/${userId}?fromDate=${fromDate}&toDate=${toDate}`,
+                    `${apiUrl}/operations/daily-tracking/user/${userId}?fromDate=${fromDate}&toDate=${toDate}${centerParam}`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 const result = await response.json();
@@ -66,7 +68,36 @@ const DailyUserActivityLog = () => {
             }
         };
         fetchActivity();
-    }, [userId, fromDate, toDate]);
+    }, [userId, fromDate, toDate, centerId]);
+
+    const handleExportExcel = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const centerParam = centerId ? `&centerId=${centerId}` : '';
+            const response = await fetch(`${apiUrl}/operations/daily-tracking/user/export/${userId}?fromDate=${fromDate}&toDate=${toDate}${centerParam}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Calling_Report_${data.userName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } else {
+                toast.error("Failed to export calling report");
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.error("Error during export");
+        }
+    };
 
     const card = isDark ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm';
     const subText = isDark ? 'text-gray-400' : 'text-gray-500';
@@ -479,6 +510,13 @@ const DailyUserActivityLog = () => {
                                     Reset Filter
                                 </button>
                             )}
+                            {/* Export Button */}
+                            <button
+                                onClick={handleExportExcel}
+                                className="px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer bg-gradient-to-r from-green-600 to-emerald-600 text-white border-green-500/20 hover:scale-105 shadow-md shadow-green-950/20"
+                            >
+                                <FaFileExcel className="text-[11px]" /> Export Calling Report
+                            </button>
                         </div>
                     </div>
 

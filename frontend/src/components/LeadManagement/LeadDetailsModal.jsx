@@ -3,23 +3,68 @@ import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook,
 import { toast } from "react-toastify";
 import ExotelCRMWebSDK from "@exotel-npm-dev/exotel-ip-calling-crm-websdk";
 
+// Module-level persistent state for Exotel WebRTC (preserves registration across modal open/close)
+let globalWebPhone = null;
+let globalWebSDK = null;
+let globalIsDeviceRegistered = false;
+let globalCallStatus = "idle";
+let globalCallMessage = "";
+let globalIsIncomingCall = false;
+let globalIsMuted = false;
+let globalIsOnHold = false;
+let globalCallDuration = 0;
+let globalActiveCallObj = null;
+let globalTimerId = null;
+
+// Subscribers for state updates
+const subscribers = new Set();
+const notifySubscribers = () => {
+    subscribers.forEach(sub => sub({
+        isDeviceRegistered: globalIsDeviceRegistered,
+        callStatus: globalCallStatus,
+        callMessage: globalCallMessage,
+        isIncomingCall: globalIsIncomingCall,
+        isMuted: globalIsMuted,
+        isOnHold: globalIsOnHold,
+        callDuration: globalCallDuration
+    }));
+};
+
 const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, canEdit, canDelete, isDarkMode }) => {
     const [recordings, setRecordings] = React.useState((lead?.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
     const [userProfile, setUserProfile] = React.useState(null);
-    const [callStatus, setCallStatus] = React.useState("idle"); // idle, connecting, ringing, connected, error, disconnected
-    const [callMessage, setCallMessage] = React.useState("");
-    const [callDuration, setCallDuration] = React.useState(0);
-    const [isMuted, setIsMuted] = React.useState(false);
-    const [isOnHold, setIsOnHold] = React.useState(false);
-    const [isIncomingCall, setIsIncomingCall] = React.useState(false);
+    
+    // Local state variables bound to persistent global state
+    const [callStatus, setCallStatus] = React.useState(globalCallStatus); 
+    const [callMessage, setCallMessage] = React.useState(globalCallMessage);
+    const [callDuration, setCallDuration] = React.useState(globalCallDuration);
+    const [isMuted, setIsMuted] = React.useState(globalIsMuted);
+    const [isOnHold, setIsOnHold] = React.useState(globalIsOnHold);
+    const [isIncomingCall, setIsIncomingCall] = React.useState(globalIsIncomingCall);
+    const [isDeviceRegistered, setIsDeviceRegistered] = React.useState(globalIsDeviceRegistered);
     const [isKeypadOpen, setIsKeypadOpen] = React.useState(false);
-    const [isDeviceRegistered, setIsDeviceRegistered] = React.useState(false);
 
-    const webPhoneRef = React.useRef(null);
-    const timerRef = React.useRef(null);
     const lastMuteClick = React.useRef(0);
     const lastHoldClick = React.useRef(0);
     const isOutboundCallRef = React.useRef(false);
+
+    // Sync local state with global state on mount and when changed
+    React.useEffect(() => {
+        const updateState = (state) => {
+            setIsDeviceRegistered(state.isDeviceRegistered);
+            setCallStatus(state.callStatus);
+            setCallMessage(state.callMessage);
+            setIsIncomingCall(state.isIncomingCall);
+            setIsMuted(state.isMuted);
+            setIsOnHold(state.isOnHold);
+            setCallDuration(state.callDuration);
+        };
+        
+        subscribers.add(updateState);
+        return () => {
+            subscribers.delete(updateState);
+        };
+    }, []);
 
     const debounceClick = (ref, callback, delay = 500) => {
         const now = Date.now();
@@ -44,6 +89,11 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     };
 
     const initWebRTC = async () => {
+        if (globalWebPhone) {
+            console.log("[Exotel WebRTC]: Using existing registered device.");
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/token`, {
@@ -56,48 +106,59 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                 throw new Error(data.message || "Failed to fetch voice token");
             }
 
-            if (!webPhoneRef.current) {
-                const crmWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
+            if (!globalWebPhone) {
+                globalWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
 
                 const HandleCallEvents = (eventType, callObj) => {
+                    console.log("[Exotel Call Event]:", eventType, callObj);
+                    globalActiveCallObj = callObj;
                     switch (eventType) {
                         case "incoming":
-                            setCallStatus("ringing");
-                            setIsIncomingCall(true);
-                            setCallMessage(isOutboundCallRef.current ? "Agent leg ringing (outbound)..." : "Incoming call...");
+                            globalCallStatus = "ringing";
+                            globalIsIncomingCall = true;
+                            globalCallMessage = isOutboundCallRef.current ? "Agent leg ringing (outbound)..." : "Incoming call...";
+                            notifySubscribers();
                             break;
                         case "connected":
-                            setCallStatus("connected");
-                            setIsIncomingCall(false);
-                            setCallMessage("Call connected! Talk now.");
-                            setIsMuted(false);
-                            setIsOnHold(false);
+                            globalCallStatus = "connected";
+                            globalIsIncomingCall = false;
+                            globalCallMessage = "Call connected! Talk now.";
+                            globalIsMuted = false;
+                            globalIsOnHold = false;
+                            notifySubscribers();
                             
                             // Start timer
-                            setCallDuration(0);
-                            if (timerRef.current) clearInterval(timerRef.current);
-                            timerRef.current = setInterval(() => {
-                                setCallDuration((prev) => prev + 1);
+                            globalCallDuration = 0;
+                            if (globalTimerId) clearInterval(globalTimerId);
+                            globalTimerId = setInterval(() => {
+                                globalCallDuration += 1;
+                                notifySubscribers();
                             }, 1000);
                             break;
                         case "callEnded":
                             isOutboundCallRef.current = false;
-                            setCallStatus("disconnected");
-                            setIsIncomingCall(false);
-                            setIsMuted(false);
-                            setIsOnHold(false);
-                            setCallMessage("Call disconnected.");
-                            if (timerRef.current) {
-                                clearInterval(timerRef.current);
-                                timerRef.current = null;
+                            globalCallStatus = "disconnected";
+                            globalIsIncomingCall = false;
+                            globalIsMuted = false;
+                            globalIsOnHold = false;
+                            globalCallMessage = "Call disconnected.";
+                            notifySubscribers();
+                            if (globalTimerId) {
+                                clearInterval(globalTimerId);
+                                globalTimerId = null;
                             }
-                            setTimeout(() => setCallStatus("idle"), 3000);
+                            setTimeout(() => {
+                                globalCallStatus = "idle";
+                                notifySubscribers();
+                            }, 3000);
                             break;
                         case "holdtoggle":
-                            setIsOnHold((prev) => !prev);
+                            globalIsOnHold = !globalIsOnHold;
+                            notifySubscribers();
                             break;
                         case "mutetoggle":
-                            setIsMuted((prev) => !prev);
+                            globalIsMuted = !globalIsMuted;
+                            notifySubscribers();
                             break;
                         default:
                             break;
@@ -107,22 +168,26 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                 const RegisterationEvent = (event) => {
                     console.log("[Exotel Register Event]:", event);
                     if (event === "registered") {
-                        setIsDeviceRegistered(true);
+                        globalIsDeviceRegistered = true;
+                        globalCallMessage = "Exotel softphone is online.";
                         console.log('Exotel WebRTC Device registered successfully.');
+                        notifySubscribers();
                     } else if (event === "unregistered") {
-                        setIsDeviceRegistered(false);
+                        globalIsDeviceRegistered = false;
+                        notifySubscribers();
                     }
                 };
 
-                const crmWebPhone = await crmWebSDK.Initialize(HandleCallEvents, RegisterationEvent);
+                const crmWebPhone = await globalWebSDK.Initialize(HandleCallEvents, RegisterationEvent);
                 if (!crmWebPhone) {
                     throw new Error("Exotel WebRTC device initialization failed.");
                 }
-                webPhoneRef.current = crmWebPhone;
+                globalWebPhone = crmWebPhone;
             }
         } catch (error) {
             console.error("WebRTC initialization error:", error);
-            setCallMessage("Calling capability offline.");
+            globalCallMessage = "Calling capability offline.";
+            notifySubscribers();
         }
     };
 
@@ -134,14 +199,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
         initWebRTC();
 
         return () => {
-            if (webPhoneRef.current) {
-                webPhoneRef.current.HangupCall();
-                webPhoneRef.current.UnRegisterDevice();
-                webPhoneRef.current = null;
-            }
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-            }
+            // Keep WebRTC online. Do not unregister globalWebPhone.
         };
     }, [lead]);
 
@@ -158,29 +216,29 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             return;
         }
 
-        // Clean phone number: remove all spaces, dashes, brackets, and other non-digit/non-plus characters
         leadNumber = leadNumber.replace(/[^\d+]/g, "");
 
-        setCallStatus("connecting");
-        setCallMessage("Requesting microphone permissions...");
+        globalCallStatus = "connecting";
+        globalCallMessage = "Requesting microphone permissions...";
+        notifySubscribers();
 
         try {
-            // Request microphone permission
             await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            if (!webPhoneRef.current) {
-                setCallMessage("Initializing WebRTC device...");
+            if (!globalWebPhone) {
+                globalCallMessage = "Initializing WebRTC device...";
+                notifySubscribers();
                 await initWebRTC();
             }
 
-            if (!webPhoneRef.current) {
+            if (!globalWebPhone) {
                 throw new Error("Exotel softphone is not initialized.");
             }
 
-            setCallMessage("Connecting call...");
+            globalCallMessage = "Connecting call...";
+            notifySubscribers();
             isOutboundCallRef.current = true;
 
-            // Trigger outbound call via secure backend endpoint using basic auth
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/outbound-call`, {
                 method: "POST",
@@ -198,64 +256,74 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
             const callData = await response.json();
             console.log("[Exotel Outbound Call Success]:", callData);
-            setCallStatus("ringing");
-            setIsIncomingCall(true);
-            setCallMessage("Agent WebSDK softphone is ringing...");
+            globalCallStatus = "ringing";
+            globalIsIncomingCall = true;
+            globalCallMessage = "Agent WebSDK softphone is ringing...";
+            notifySubscribers();
 
         } catch (error) {
             isOutboundCallRef.current = false;
             console.error("Outbound WebRTC call error:", error);
-            setCallStatus("error");
-            setCallMessage(error.message || "Failed to initialize WebRTC call.");
+            globalCallStatus = "error";
+            globalCallMessage = error.message || "Failed to initialize WebRTC call.";
+            notifySubscribers();
             toast.error(error.message || "Microphone access denied or connection failed.");
-            setTimeout(() => setCallStatus("idle"), 3000);
+            setTimeout(() => {
+                globalCallStatus = "idle";
+                notifySubscribers();
+            }, 3000);
         }
     };
 
     const handleHangUp = () => {
         isOutboundCallRef.current = false;
-        if (webPhoneRef.current) {
-            webPhoneRef.current.HangupCall();
+        if (globalWebPhone) {
+            globalWebPhone.HangupCall();
         }
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
+        if (globalTimerId) {
+            clearInterval(globalTimerId);
+            globalTimerId = null;
         }
-        setCallStatus("disconnected");
-        setIsIncomingCall(false);
-        setIsMuted(false);
-        setIsOnHold(false);
-        setCallMessage("Call hung up by agent.");
-        setTimeout(() => setCallStatus("idle"), 3000);
+        globalCallStatus = "disconnected";
+        globalIsIncomingCall = false;
+        globalIsMuted = false;
+        globalIsOnHold = false;
+        globalCallMessage = "Call hung up by agent.";
+        notifySubscribers();
+        setTimeout(() => {
+            globalCallStatus = "idle";
+            notifySubscribers();
+        }, 3000);
     };
 
     const handleToggleMute = () => {
-        if (!webPhoneRef.current) return;
+        if (!globalWebPhone) return;
         debounceClick(lastMuteClick, () => {
-            webPhoneRef.current.ToggleMute();
+            globalWebPhone.ToggleMute();
         });
     };
 
     const handleToggleHold = () => {
-        if (!webPhoneRef.current) return;
+        if (!globalWebPhone) return;
         debounceClick(lastHoldClick, () => {
-            webPhoneRef.current.ToggleHold();
+            globalWebPhone.ToggleHold();
         });
     };
 
     const handleSendDTMF = (digit) => {
-        if (!webPhoneRef.current) return;
-        webPhoneRef.current.SendDTMF(digit.toString());
+        if (!globalWebPhone) return;
+        globalWebPhone.SendDTMF(digit.toString());
         toast.info(`Sent tone: ${digit}`, { autoClose: 1000 });
     };
 
     const handleAcceptCall = () => {
-        if (!webPhoneRef.current) return;
-        webPhoneRef.current.AcceptCall();
-        setCallStatus("connected");
-        setIsIncomingCall(false);
-        setIsMuted(false);
-        setIsOnHold(false);
+        if (!globalWebPhone) return;
+        globalWebPhone.AcceptCall();
+        globalCallStatus = "connected";
+        globalIsIncomingCall = false;
+        globalIsMuted = false;
+        globalIsOnHold = false;
+        notifySubscribers();
     };
 
     const getAudioUrl = (url) => {
