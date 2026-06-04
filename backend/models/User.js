@@ -132,6 +132,10 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: null
     },
+    exotelSipId: {
+        type: String,
+        default: null
+    },
     // Audit Fields
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,

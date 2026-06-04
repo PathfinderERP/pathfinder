@@ -60,7 +60,6 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                 const crmWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
 
                 const HandleCallEvents = (eventType, callObj) => {
-                    console.log("[Exotel Call Event]:", eventType, callObj);
                     switch (eventType) {
                         case "incoming":
                             setCallStatus("ringing");
@@ -200,7 +199,8 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             const callData = await response.json();
             console.log("[Exotel Outbound Call Success]:", callData);
             setCallStatus("ringing");
-            setCallMessage("Ringing lead's phone...");
+            setIsIncomingCall(true);
+            setCallMessage("Agent WebSDK softphone is ringing...");
 
         } catch (error) {
             isOutboundCallRef.current = false;
@@ -453,7 +453,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                             </div>
                             <div className="text-center">
                                 <h4 className={`text-base font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>INCOMING CALL</h4>
-                                <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Agent WebRTC softphone is ringing...</p>
+                                <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Agent WebSDK softphone is ringing...</p>
                             </div>
                             <div className="flex items-center gap-4">
                                 <button
@@ -473,7 +473,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     )}
 
                     {/* Call Status & Premium Active Call Console */}
-                    {callStatus !== "idle" && (
+                    {callStatus !== "idle" && !isIncomingCall && (
                         <div className={`p-6 rounded-[4px] border mb-6 transition-all ${
                             isDarkMode 
                                 ? 'bg-[#131619]/90 border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.05)]' 
@@ -484,7 +484,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                 <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${
                                         callStatus === "connecting" ? 'bg-amber-500 animate-pulse' :
-                                        callStatus === "ringing" ? 'bg-cyan-500 animate-ping' :
+                                        callStatus === "ringing" ? (isIncomingCall ? 'bg-green-500 animate-bounce' : 'bg-cyan-500 animate-ping') :
                                         callStatus === "connected" ? 'bg-green-500 animate-pulse' : 'bg-red-500'
                                     }`} />
                                     <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -502,8 +502,8 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
                             {/* Active call details */}
                             <div className="flex flex-col items-center justify-center py-4 space-y-2 border-t border-b border-dashed border-gray-800/10">
-                                <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    {callStatus === "connected" ? "Ongoing Session" : "Outbound Ringing"}
+                                <span className={`text-xs font-bold uppercase tracking-widest ${isIncomingCall ? 'text-green-500 animate-pulse' : isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    {isIncomingCall ? "INCOMING CALL (AGENT DEVICE)" : callStatus === "connected" ? "Ongoing Session" : "Outbound Ringing"}
                                 </span>
                                 <span className={`text-xl font-mono font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     {lead.phoneNumber || lead.secondPhoneNumber}

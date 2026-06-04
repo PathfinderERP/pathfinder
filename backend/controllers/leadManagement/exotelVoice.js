@@ -520,23 +520,32 @@ export const initiateExotelCall = async (req, res) => {
         const appTokenData = await appTokenResponse.json();
         const appToken = appTokenData.Data;
 
-        // 3. Get User Mapping to fetch user's SipId
-        const checkUrl = `https://integrationscore.mum1.exotel.com/v2/integrations/usermapping?user_id=${encodeURIComponent(userId)}`;
-        const checkRes = await fetch(checkUrl, {
-            method: 'GET',
-            headers: { 'Authorization': appToken }
-        });
+        // Check for manual database override first
+        let sipId = null;
+        const dbUser = await User.findById(req.user._id);
+        if (dbUser && dbUser.exotelSipId) {
+            sipId = dbUser.exotelSipId;
+            console.log(`[Exotel Voice] Using database SipId override for ${userId}: ${sipId}`);
+        } else {
+            // 3. Get User Mapping to fetch user's SipId
+            const checkUrl = `https://integrationscore.mum1.exotel.com/v2/integrations/usermapping?user_id=${encodeURIComponent(userId)}`;
+            const checkRes = await fetch(checkUrl, {
+                method: 'GET',
+                headers: { 'Authorization': appToken }
+            });
 
-        if (!checkRes.ok) {
-            return res.status(400).json({ message: `Active calling mapping not found for user: ${userId}. Please login/register your WebRTC device first.` });
+            if (!checkRes.ok) {
+                return res.status(400).json({ message: `Active calling mapping not found for user: ${userId}. Please login/register your WebRTC device first.` });
+            }
+
+            const checkData = await checkRes.json();
+            if (checkData.Status !== 'Success' || !checkData.Data || !checkData.Data.IsActive) {
+                return res.status(400).json({ message: "Your WebRTC calling extension is currently inactive or unmapped." });
+            }
+
+            sipId = checkData.Data.SipId;
         }
 
-        const checkData = await checkRes.json();
-        if (checkData.Status !== 'Success' || !checkData.Data || !checkData.Data.IsActive) {
-            return res.status(400).json({ message: "Your WebRTC calling extension is currently inactive or unmapped." });
-        }
-
-        const sipId = checkData.Data.SipId;
         if (!sipId) {
             return res.status(400).json({ message: "SIP identifier (SipId) is missing from your user mapping." });
         }
@@ -568,9 +577,9 @@ export const initiateExotelCall = async (req, res) => {
         const statusCallbackUrl = `${backendUrl}/api/lead-management/call/recording-callback`;
         params.append("StatusCallback", statusCallbackUrl);
 
-        const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect`;
+        const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect.json`;
 
-        console.log(`[Exotel Voice] Initiating outbound call via v1 connect:`);
+        console.log(`[Exotel Voice] Initiating outbound call via v1 connect.json:`);
         console.log(`From (Agent): ${agentFrom}`);
         console.log(`To (Customer): ${formattedTo}`);
         console.log(`CallerId: ${virtualNumber}`);
@@ -581,39 +590,34 @@ export const initiateExotelCall = async (req, res) => {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${authString}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
             },
             body: params.toString()
         });
 
-        const responseText = await connectResponse.text();
-
-        // Helper to extract values from XML response safely without external dependencies
-        const parseXMLTag = (xmlStr, tag) => {
-            const regex = new RegExp(`<${tag}>([^<]*)<\/${tag}>`, 'i');
-            const match = xmlStr.match(regex);
-            return match ? match[1].trim() : null;
-        };
+        const responseData = await connectResponse.json();
 
         if (!connectResponse.ok) {
-            console.error('[Exotel Voice] Outbound call initiation failed:', responseText);
-            const errCode = parseXMLTag(responseText, 'Code');
-            const errMsg = parseXMLTag(responseText, 'Message');
-            return res.status(500).json({
+            console.error('[Exotel Voice] Outbound call initiation failed:', responseData);
+            const errCode = responseData.RestException ? responseData.RestException.Code : 'Unknown';
+            const errMsg = responseData.RestException ? responseData.RestException.Message : 'API Error';
+            return res.status(connectResponse.status || 500).json({
                 message: "Failed to place call via Exotel API",
-                error: errMsg ? `${errCode}: ${errMsg}` : 'Unknown API error'
+                error: `${errCode}: ${errMsg}`
             });
         }
 
-        const sid = parseXMLTag(responseText, 'Sid');
-        const status = parseXMLTag(responseText, 'Status');
+        // Clean up the From field to return only the SIP ID if it's a SIP URI
+        if (responseData && responseData.Call && responseData.Call.From) {
+            const fromVal = responseData.Call.From;
+            if (fromVal.startsWith('sip:')) {
+                responseData.Call.From = fromVal.replace('sip:', '').split('@')[0];
+            }
+        }
 
-        console.log('[Exotel Voice] Outbound call placed successfully:', { sid, status });
-        res.status(200).json({
-            message: "Call queued successfully",
-            callSid: sid,
-            data: { Sid: sid, Status: status }
-        });
+        console.log('[Exotel Voice] Outbound call placed successfully:', responseData);
+        res.status(200).json(responseData);
 
     } catch (error) {
         console.error("Exotel Outbound Call Error:", error);
