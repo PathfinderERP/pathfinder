@@ -437,7 +437,7 @@ const MarketingCRM = () => {
 
     const handleSubmitFieldPlan = async (e) => {
         e.preventDefault();
-        
+
         if (!planDate) {
             toast.error("Please select a date for the field plan.");
             return;
@@ -528,20 +528,20 @@ const MarketingCRM = () => {
 
         // Switch to Activity Audit tab
         setActiveTab("Activity Audit");
-        
+
         setExpectedLeadTarget("");
         setExpectedHotLeads("");
-        setTodayActivities([{ 
-            type: activitySources[0] || "", 
-            place: "", 
-            time: "", 
-            expectedLeads: "", 
-            isSaved: false, 
-            geoTagged: false, 
-            latitude: null, 
+        setTodayActivities([{
+            type: activitySources[0] || "",
+            place: "",
+            time: "",
+            expectedLeads: "",
+            isSaved: false,
+            geoTagged: false,
+            latitude: null,
             longitude: null,
             locationName: "",
-            photo: null 
+            photo: null
         }]);
     };
 
@@ -588,7 +588,7 @@ const MarketingCRM = () => {
             const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             setStream(mediaStream);
             setIsCameraActive(true);
-            
+
             setTimeout(() => {
                 const video = document.getElementById("webcam-video");
                 if (video) {
@@ -797,16 +797,16 @@ const MarketingCRM = () => {
 
     const handleDeleteActivity = (idx) => {
         if (todayActivities.length === 1) {
-            setTodayActivities([{ 
-                type: "School Visit", 
-                place: "", 
-                time: "", 
-                expectedLeads: "", 
-                isSaved: false, 
-                geoTagged: false, 
-                latitude: null, 
-                longitude: null, 
-                photo: null 
+            setTodayActivities([{
+                type: "School Visit",
+                place: "",
+                time: "",
+                expectedLeads: "",
+                isSaved: false,
+                geoTagged: false,
+                latitude: null,
+                longitude: null,
+                photo: null
             }]);
             toast.info("First row reset.");
         } else {
@@ -818,32 +818,32 @@ const MarketingCRM = () => {
     const [selectedStaff, setSelectedStaff] = useState(marketingPerformance[0] || null);
     const [activeTab, setActiveTab] = useState("Command Centre");
     const [todayActivities, setTodayActivities] = useState([
-        { 
-            type: "", 
-            place: "", 
-            time: "", 
-            expectedLeads: "", 
-            isSaved: false, 
-            geoTagged: false, 
-            latitude: null, 
+        {
+            type: "",
+            place: "",
+            time: "",
+            expectedLeads: "",
+            isSaved: false,
+            geoTagged: false,
+            latitude: null,
             longitude: null,
             locationName: "",
-            photo: null 
+            photo: null
         }
     ]);
 
     const handleAddActivity = () => {
-        setTodayActivities([...todayActivities, { 
-            type: activitySources[0] || "", 
-            place: "", 
-            time: "", 
-            expectedLeads: "", 
-            isSaved: false, 
-            geoTagged: false, 
-            latitude: null, 
+        setTodayActivities([...todayActivities, {
+            type: activitySources[0] || "",
+            place: "",
+            time: "",
+            expectedLeads: "",
+            isSaved: false,
+            geoTagged: false,
+            latitude: null,
             longitude: null,
             locationName: "",
-            photo: null 
+            photo: null
         }]);
     };
 
@@ -941,7 +941,7 @@ const MarketingCRM = () => {
                         {/* NAVIGATION */}
                         <div className="flex flex-wrap items-center gap-2">
                             {[
-                                "Command Centre", "Today Planner", "Tomorrow Planner", "Activity Audit"
+                                "Tomorrow Planner", "Command Centre", "Today Planner", "Activity Audit"
                             ].map((tab, idx) => (
                                 <button
                                     key={idx}
@@ -964,9 +964,9 @@ const MarketingCRM = () => {
                                     border border-emerald-500/30"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                    <polyline points="17 8 12 3 7 8"/>
-                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
                                 </svg>
                                 Upload Leads
                             </button>
@@ -975,134 +975,133 @@ const MarketingCRM = () => {
                         {/* MAIN CONTENT SPLIT */}
                         {activeTab === "Command Centre" && (
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fadeIn">
-                            {/* STAFF BOARD (Left) */}
-                            <div className="lg:col-span-4 space-y-6">
-                                <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                    <h2 className={`text-xl font-black tracking-tight mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Staff Board</h2>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Filter by role and status</p>
-                                    
-                                    <div className="grid grid-cols-2 gap-4 mb-8">
-                                        <select className={`px-4 py-2.5 rounded-xl border text-[11px] font-bold outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}>
-                                            <option>All Roles</option>
-                                        </select>
-                                        <select className={`px-4 py-2.5 rounded-xl border text-[11px] font-bold outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}>
-                                            <option>All Status</option>
-                                        </select>
-                                    </div>
+                                {/* STAFF BOARD (Left) */}
+                                <div className="lg:col-span-4 space-y-6">
+                                    <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                        <h2 className={`text-xl font-black tracking-tight mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Staff Board</h2>
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Filter by role and status</p>
 
-                                    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {marketingPerformance.map((staff, idx) => (
-                                            <div
-                                                key={idx}
-                                                onClick={() => setSelectedStaff(staff)}
-                                                className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedStaff?._id === staff._id
-                                                    ? 'border-orange-500 bg-orange-500/5'
-                                                    : 'border-transparent hover:bg-gray-50'
-                                                    } ${isDarkMode && !(selectedStaff?._id === staff._id) ? 'hover:bg-gray-800/50' : ''}`}
-                                            >
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <div>
-                                                        <h4 className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{staff.name}</h4>
-                                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">ZM • Zone Control</p>
-                                                    </div>
-                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-                                                        isDarkMode 
-                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                                                            : 'bg-emerald-100 text-emerald-600 border-emerald-200'
-                                                    }`}>Verified</span>
-                                                </div>
-                                                <div className="grid grid-cols-4 gap-2">
-                                                    {[
-                                                        { label: "Leads", value: staff.currentCalls || 0 },
-                                                        { label: "Hot", value: staff.hotLeads || 0 },
-                                                        { label: "Proof", value: "31" },
-                                                        { label: "Score", value: "97%" }
-                                                    ].map((m, i) => (
-                                                        <div key={i} className={`text-center p-2 rounded-xl transition-all ${isDarkMode ? 'bg-white/5' : 'bg-gray-50/50'}`}>
-                                                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{m.value}</p>
-                                                            <p className={`text-[7px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase`}>{m.label}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* DETAIL PANEL (Right) */}
-                            <div className="lg:col-span-8">
-                                {selectedStaff ? (
-                                    <div className={`p-8 rounded-3xl border min-h-full ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <div className="flex justify-between items-start mb-8">
-                                            <div>
-                                                <h1 className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStaff.name}</h1>
-                                                <p className="text-gray-500 text-sm font-bold mt-1 uppercase tracking-widest">ZM • South Kolkata Zone • Zone Control</p>
-                                            </div>
-                                            <span className="px-4 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">Risk: Low</span>
+                                        <div className="grid grid-cols-2 gap-4 mb-8">
+                                            <select className={`px-4 py-2.5 rounded-xl border text-[11px] font-bold outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}>
+                                                <option>All Roles</option>
+                                            </select>
+                                            <select className={`px-4 py-2.5 rounded-xl border text-[11px] font-bold outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}>
+                                                <option>All Status</option>
+                                            </select>
                                         </div>
 
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                                            {[
-                                                { label: "Lead Target", value: `${selectedStaff.currentCalls || 0}/40`, status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
-                                                { label: "Duties Done", value: "9/9", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
-                                                { label: "Proof Files", value: "31", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
-                                                { label: "Score", value: "97%", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" }
-                                            ].map((m, idx) => (
-                                                <div key={idx} className={`p-6 rounded-2xl ${m.bg} border border-emerald-500/10`}>
-                                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{m.label}</p>
-                                                    <h3 className={`text-2xl font-black tracking-tighter my-2 ${m.color}`}>{m.value}</h3>
-                                                    <p className={`text-[9px] font-black uppercase ${m.color}`}>{m.status}</p>
+                                        <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {marketingPerformance.map((staff, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => setSelectedStaff(staff)}
+                                                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedStaff?._id === staff._id
+                                                        ? 'border-orange-500 bg-orange-500/5'
+                                                        : 'border-transparent hover:bg-gray-50'
+                                                        } ${isDarkMode && !(selectedStaff?._id === staff._id) ? 'hover:bg-gray-800/50' : ''}`}
+                                                >
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div>
+                                                            <h4 className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{staff.name}</h4>
+                                                            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">ZM • Zone Control</p>
+                                                        </div>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${isDarkMode
+                                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                                : 'bg-emerald-100 text-emerald-600 border-emerald-200'
+                                                            }`}>Verified</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-4 gap-2">
+                                                        {[
+                                                            { label: "Leads", value: staff.currentCalls || 0 },
+                                                            { label: "Hot", value: staff.hotLeads || 0 },
+                                                            { label: "Proof", value: "31" },
+                                                            { label: "Score", value: "97%" }
+                                                        ].map((m, i) => (
+                                                            <div key={i} className={`text-center p-2 rounded-xl transition-all ${isDarkMode ? 'bg-white/5' : 'bg-gray-50/50'}`}>
+                                                                <p className={`text-[10px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{m.value}</p>
+                                                                <p className={`text-[7px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase`}>{m.label}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
+                                    </div>
+                                </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                            {/* Source Split */}
-                                            <div className="space-y-6">
-                                                <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Source Split</h4>
-                                                <div className="space-y-5">
-                                                    {[
-                                                        { label: "School Visits", value: 100 },
-                                                        { label: "Tuition Visits", value: 67 },
-                                                        { label: "Shikkha Bondhu", value: 100 },
-                                                        { label: "Referrals", value: 87 }
-                                                    ].map((s, idx) => (
-                                                        <div key={idx} className="space-y-1.5">
-                                                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                                                                <span>{s.label}</span>
-                                                                <span>{s.value}%</span>
-                                                            </div>
-                                                            <div className={`h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                                                <div className={`h-full rounded-full ${isDarkMode ? 'bg-white' : 'bg-black'}`} style={{ width: `${s.value}%` }} />
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                {/* DETAIL PANEL (Right) */}
+                                <div className="lg:col-span-8">
+                                    {selectedStaff ? (
+                                        <div className={`p-8 rounded-3xl border min-h-full ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                            <div className="flex justify-between items-start mb-8">
+                                                <div>
+                                                    <h1 className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStaff.name}</h1>
+                                                    <p className="text-gray-500 text-sm font-bold mt-1 uppercase tracking-widest">ZM • South Kolkata Zone • Zone Control</p>
                                                 </div>
+                                                <span className="px-4 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">Risk: Low</span>
                                             </div>
 
-                                            {/* Manager Decision */}
-                                            <div className="space-y-6">
-                                                <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <button className="px-4 py-3 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Approve Work</button>
-                                                    <button className="px-4 py-3 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Ask Clarification</button>
-                                                    <button className="px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Raise Red Flag</button>
-                                                    <button className={`px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-black'}`}>Assign Follow-up</button>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                                                {[
+                                                    { label: "Lead Target", value: `${selectedStaff.currentCalls || 0}/40`, status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
+                                                    { label: "Duties Done", value: "9/9", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
+                                                    { label: "Proof Files", value: "31", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
+                                                    { label: "Score", value: "97%", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" }
+                                                ].map((m, idx) => (
+                                                    <div key={idx} className={`p-6 rounded-2xl ${m.bg} border border-emerald-500/10`}>
+                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{m.label}</p>
+                                                        <h3 className={`text-2xl font-black tracking-tighter my-2 ${m.color}`}>{m.value}</h3>
+                                                        <p className={`text-[9px] font-black uppercase ${m.color}`}>{m.status}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                                {/* Source Split */}
+                                                <div className="space-y-6">
+                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Source Split</h4>
+                                                    <div className="space-y-5">
+                                                        {[
+                                                            { label: "School Visits", value: 100 },
+                                                            { label: "Tuition Visits", value: 67 },
+                                                            { label: "Shikkha Bondhu", value: 100 },
+                                                            { label: "Referrals", value: 87 }
+                                                        ].map((s, idx) => (
+                                                            <div key={idx} className="space-y-1.5">
+                                                                <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+                                                                    <span>{s.label}</span>
+                                                                    <span>{s.value}%</span>
+                                                                </div>
+                                                                <div className={`h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                                                    <div className={`h-full rounded-full ${isDarkMode ? 'bg-white' : 'bg-black'}`} style={{ width: `${s.value}%` }} />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                                <div className="pt-4 border-t border-dashed">
-                                                    <p className="text-[10px] text-gray-400 font-medium">Last submitted at <span className={`font-black ${isDarkMode ? 'text-white' : 'text-black'}`}>8:46 PM</span>. Final count is locked only after proof and approval.</p>
+
+                                                {/* Manager Decision */}
+                                                <div className="space-y-6">
+                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <button className="px-4 py-3 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Approve Work</button>
+                                                        <button className="px-4 py-3 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Ask Clarification</button>
+                                                        <button className="px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Raise Red Flag</button>
+                                                        <button className={`px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-black'}`}>Assign Follow-up</button>
+                                                    </div>
+                                                    <div className="pt-4 border-t border-dashed">
+                                                        <p className="text-[10px] text-gray-400 font-medium">Last submitted at <span className={`font-black ${isDarkMode ? 'text-white' : 'text-black'}`}>8:46 PM</span>. Final count is locked only after proof and approval.</p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-gray-400 uppercase font-black text-xs tracking-widest">
-                                        Select a staff member to view details
-                                    </div>
-                                )}
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full text-gray-400 uppercase font-black text-xs tracking-widest">
+                                            Select a staff member to view details
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
                         )}
 
                         {/* TODAY PLANNER VIEW */}
@@ -1112,17 +1111,17 @@ const MarketingCRM = () => {
                                     <h2 className="text-3xl font-black tracking-tighter">Today Planner</h2>
                                     <p className="text-gray-500 text-[11px] font-bold mt-1">Staff must submit today's exact duty plan. The ERP should lock vague or weak plans.</p>
                                 </div>
-                                
+
                                 <div className={`p-8 rounded-[24px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                     <h3 className="text-xl font-black tracking-tight mb-6">Create Today's Field Plan</h3>
-                                    
+
                                     {/* Form Grid */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                                         {/* Date Field */}
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Date *</label>
-                                            <input 
-                                                type="date" 
+                                            <input
+                                                type="date"
                                                 value={planDate}
                                                 onChange={(e) => setPlanDate(e.target.value)}
                                                 className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
@@ -1132,8 +1131,8 @@ const MarketingCRM = () => {
                                         {/* Staff Name Field (Auto-filled) */}
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Staff Name (Auto)</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 value={currentUser.name || ""}
                                                 readOnly
                                                 disabled
@@ -1145,8 +1144,8 @@ const MarketingCRM = () => {
                                         {/* Role Field (Auto-filled) */}
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Role (Auto)</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 value={currentUser.role || ""}
                                                 readOnly
                                                 disabled
@@ -1158,8 +1157,8 @@ const MarketingCRM = () => {
                                         {/* Center Field (Auto-filled) */}
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Primary Center (Auto)</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 value={primaryCentreName || "Loading..."}
                                                 readOnly
                                                 disabled
@@ -1171,8 +1170,8 @@ const MarketingCRM = () => {
                                         {/* Expected Lead Target Field */}
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Expected Lead Target *</label>
-                                            <input 
-                                                type="number" 
+                                            <input
+                                                type="number"
                                                 value={expectedLeadTarget}
                                                 onChange={(e) => setExpectedLeadTarget(e.target.value)}
                                                 placeholder="Expected Lead Target"
@@ -1183,8 +1182,8 @@ const MarketingCRM = () => {
                                         {/* Expected Hot Leads Field */}
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Expected Hot Leads *</label>
-                                            <input 
-                                                type="number" 
+                                            <input
+                                                type="number"
                                                 value={expectedHotLeads}
                                                 onChange={(e) => setExpectedHotLeads(e.target.value)}
                                                 placeholder="Expected Hot Leads"
@@ -1218,7 +1217,7 @@ const MarketingCRM = () => {
                                                     {/* Activity Type select — sourced from Master Data /source */}
                                                     <div className="col-span-1 md:col-span-3">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
-                                                        <select 
+                                                        <select
                                                             disabled={activity.isSaved}
                                                             className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                             value={activity.type}
@@ -1234,7 +1233,7 @@ const MarketingCRM = () => {
                                                                 ))
                                                             ) : (
                                                                 // Fallback options when API not loaded
-                                                                ["School Visit","Tuition Visit","Shikkha Bondhu","Referral Drive","Market Activity"].map((s, sIdx) => (
+                                                                ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity"].map((s, sIdx) => (
                                                                     <option key={sIdx} value={s}>{s}</option>
                                                                 ))
                                                             )}
@@ -1244,8 +1243,8 @@ const MarketingCRM = () => {
                                                     {/* Place / Institution input */}
                                                     <div className="col-span-1 md:col-span-3">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution</label>
-                                                        <input 
-                                                            type="text" 
+                                                        <input
+                                                            type="text"
                                                             disabled={activity.isSaved}
                                                             placeholder="Place / Institution"
                                                             value={activity.place}
@@ -1261,8 +1260,8 @@ const MarketingCRM = () => {
                                                     {/* Time picker */}
                                                     <div className="col-span-1 md:col-span-2">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Time</label>
-                                                        <input 
-                                                            type="time" 
+                                                        <input
+                                                            type="time"
                                                             disabled={activity.isSaved}
                                                             value={activity.time}
                                                             onChange={(e) => {
@@ -1277,8 +1276,8 @@ const MarketingCRM = () => {
                                                     {/* Expected Leads input */}
                                                     <div className="col-span-1 md:col-span-1">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Leads</label>
-                                                        <input 
-                                                            type="text" 
+                                                        <input
+                                                            type="text"
                                                             disabled={activity.isSaved}
                                                             placeholder="Leads"
                                                             value={activity.expectedLeads}
@@ -1295,14 +1294,14 @@ const MarketingCRM = () => {
                                                     <div className="col-span-1 md:col-span-2">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Geo-Tag Status</label>
                                                         {activity.geoTagged ? (
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleOpenVerifyModal(idx)}
                                                                 className="w-full py-2.5 px-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-green-500/20 transition-all"
                                                             >
                                                                 📍 Verified
                                                             </button>
                                                         ) : (
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleOpenVerifyModal(idx)}
                                                                 className="w-full py-2.5 px-3 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-orange-500/20 transition-all"
                                                             >
@@ -1314,9 +1313,9 @@ const MarketingCRM = () => {
                                                     {/* Actions (Edit and Delete) */}
                                                     <div className="col-span-1 md:col-span-1 flex justify-center items-center gap-2 pt-2 md:pt-0">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Actions</label>
-                                                        
+
                                                         {/* Edit/Save Toggle button */}
-                                                        <button 
+                                                        <button
                                                             onClick={() => toggleSaveActivity(idx)}
                                                             title={activity.isSaved ? "Edit Row" : "Save Row"}
                                                             className={`p-2 rounded-lg border transition-all ${activity.isSaved ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20' : 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'}`}
@@ -1333,7 +1332,7 @@ const MarketingCRM = () => {
                                                         </button>
 
                                                         {/* Delete Row button */}
-                                                        <button 
+                                                        <button
                                                             onClick={() => handleDeleteActivity(idx)}
                                                             title="Delete Row"
                                                             className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-all"
@@ -1348,7 +1347,7 @@ const MarketingCRM = () => {
                                         </div>
                                     </div>
 
-                                    <button 
+                                    <button
                                         onClick={handleSubmitFieldPlan}
                                         className="w-full py-4 rounded-xl bg-[#05080c] text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
                                     >
@@ -1388,20 +1387,20 @@ const MarketingCRM = () => {
                                             {/* Live Camera View */}
                                             {isCameraActive && (
                                                 <div className="flex flex-col gap-3">
-                                                    <video 
-                                                        id="webcam-video" 
-                                                        autoPlay 
-                                                        playsInline 
+                                                    <video
+                                                        id="webcam-video"
+                                                        autoPlay
+                                                        playsInline
                                                         className="w-full rounded-xl border border-gray-700 bg-black aspect-video object-cover"
                                                     />
                                                     <div className="flex gap-2">
-                                                        <button 
+                                                        <button
                                                             onClick={captureSnapshot}
                                                             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-1.5"
                                                         >
                                                             📸 Capture
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={stopCamera}
                                                             className="px-4 py-2.5 bg-gray-600/50 hover:bg-gray-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95"
                                                         >
@@ -1419,7 +1418,7 @@ const MarketingCRM = () => {
                                                             {tempPhotos.map((ph, pIdx) => (
                                                                 <div key={pIdx} className="relative group rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 aspect-square bg-black">
                                                                     <img src={ph} alt={`Capture ${pIdx + 1}`} className="w-full h-full object-cover" />
-                                                                    <button 
+                                                                    <button
                                                                         onClick={() => setTempPhotos(prev => prev.filter((_, i) => i !== pIdx))}
                                                                         className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                                                         title="Remove"
@@ -1443,7 +1442,7 @@ const MarketingCRM = () => {
                                                     )}
 
                                                     <div className="flex gap-2 mt-auto pt-2">
-                                                        <button 
+                                                        <button
                                                             onClick={startCamera}
                                                             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
                                                         >
@@ -1506,16 +1505,16 @@ const MarketingCRM = () => {
 
                                                 {/* Upload Button — multiple files */}
                                                 <div>
-                                                    <input 
-                                                        type="file" 
+                                                    <input
+                                                        type="file"
                                                         accept="image/*"
                                                         multiple
-                                                        onChange={handlePhotoUpload} 
-                                                        className="hidden" 
-                                                        id="photo-upload-input" 
+                                                        onChange={handlePhotoUpload}
+                                                        className="hidden"
+                                                        id="photo-upload-input"
                                                     />
-                                                    <label 
-                                                        htmlFor="photo-upload-input" 
+                                                    <label
+                                                        htmlFor="photo-upload-input"
                                                         className="w-full py-2.5 border-2 border-dashed border-blue-500/40 rounded-xl hover:bg-blue-500/5 text-blue-500 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99]"
                                                     >
                                                         + Upload Photo(s)
@@ -1524,13 +1523,13 @@ const MarketingCRM = () => {
                                             </div>
 
                                             <div className="pt-6 border-t border-gray-800/10 dark:border-gray-800/50 flex gap-4 mt-6">
-                                                <button 
+                                                <button
                                                     onClick={closeVerifyModal}
                                                     className="flex-1 py-2.5 border border-gray-300 dark:border-gray-800 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-gray-800 transition-all active:scale-95"
                                                 >
                                                     Cancel
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={saveVerification}
                                                     className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-blue-500/10 transition-all active:scale-95"
                                                 >
@@ -1550,21 +1549,21 @@ const MarketingCRM = () => {
                                     <h2 className="text-3xl font-black tracking-tighter">Tomorrow Planner</h2>
                                     <p className="text-gray-500 text-[11px] font-bold mt-1">Pre-plan tomorrow's tasks and activities.</p>
                                 </div>
-                                
+
                                 <div className={`p-8 rounded-[24px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                     <div className="flex justify-between items-center mb-6">
                                         <h3 className="text-xl font-black tracking-tight">Create Tomorrow's Field Plan</h3>
                                         <div className="flex flex-col gap-1.5 w-48">
                                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Target Date</label>
-                                            <input 
-                                                type="date" 
+                                            <input
+                                                type="date"
                                                 value={tomorrowPlanDate}
                                                 onChange={(e) => setTomorrowPlanDate(e.target.value)}
                                                 className={`w-full px-4 py-2 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
                                             />
                                         </div>
                                     </div>
-                                    
+
                                     <form onSubmit={handleAddTomorrowTask} className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 p-6 rounded-2xl border bg-[#05080c] border-gray-800 shadow-xl relative overflow-hidden">
                                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
                                         <div className="col-span-1 md:col-span-12 z-10">
@@ -1575,23 +1574,23 @@ const MarketingCRM = () => {
                                                 Add New Task
                                             </h4>
                                         </div>
-                                        
+
                                         <div className="col-span-1 md:col-span-5 z-10 flex flex-col gap-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Task Details *</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 placeholder="What needs to be done?"
                                                 value={newTaskForm.taskDetails}
-                                                onChange={(e) => setNewTaskForm({...newTaskForm, taskDetails: e.target.value})}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, taskDetails: e.target.value })}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
                                             />
                                         </div>
 
                                         <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Priority</label>
-                                            <select 
+                                            <select
                                                 value={newTaskForm.priority}
-                                                onChange={(e) => setNewTaskForm({...newTaskForm, priority: e.target.value})}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, priority: e.target.value })}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all"
                                             >
                                                 <option value="High">High</option>
@@ -1602,28 +1601,28 @@ const MarketingCRM = () => {
 
                                         <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Est. Duration</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 placeholder="e.g. 2 hours"
                                                 value={newTaskForm.estimatedDuration}
-                                                onChange={(e) => setNewTaskForm({...newTaskForm, estimatedDuration: e.target.value})}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, estimatedDuration: e.target.value })}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
                                             />
                                         </div>
 
                                         <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Notes (Optional)</label>
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 placeholder="Any extra info"
                                                 value={newTaskForm.notes}
-                                                onChange={(e) => setNewTaskForm({...newTaskForm, notes: e.target.value})}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, notes: e.target.value })}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
                                             />
                                         </div>
 
                                         <div className="col-span-1 md:col-span-1 z-10 flex items-end">
-                                            <button 
+                                            <button
                                                 type="submit"
                                                 className="w-full h-[42px] rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/20 active:scale-95"
                                                 title="Add Task"
@@ -1641,7 +1640,7 @@ const MarketingCRM = () => {
                                             Planned Tasks
                                             <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black">{tomorrowTasks.length}</span>
                                         </h4>
-                                        
+
                                         {tomorrowTasks.length === 0 ? (
                                             <div className={`p-8 rounded-2xl border border-dashed flex flex-col items-center justify-center text-center gap-3 ${isDarkMode ? 'border-gray-800 bg-[#131619]/50' : 'border-gray-200 bg-gray-50/50'}`}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-gray-400">
@@ -1657,15 +1656,14 @@ const MarketingCRM = () => {
                                                 {tomorrowTasks.map((task, idx) => (
                                                     <div key={task._id || idx} className={`p-5 rounded-2xl border relative group transition-all hover:-translate-y-1 hover:shadow-xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                                         <div className="flex justify-between items-start mb-3">
-                                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                                                                task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                                                task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
-                                                                'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                                                            }`}>
+                                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                                                    task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                                                                        'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                                                }`}>
                                                                 {task.priority} Priority
                                                             </span>
-                                                            
-                                                            <button 
+
+                                                            <button
                                                                 onClick={() => handleDeleteTomorrowTask(task._id)}
                                                                 className="w-7 h-7 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
                                                                 title="Delete Task"
@@ -1676,7 +1674,7 @@ const MarketingCRM = () => {
                                                             </button>
                                                         </div>
                                                         <h5 className={`font-black text-sm mb-3 leading-snug ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{task.taskDetails}</h5>
-                                                        
+
                                                         <div className="flex flex-col gap-2">
                                                             {task.estimatedDuration && (
                                                                 <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500">
@@ -1695,13 +1693,12 @@ const MarketingCRM = () => {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        
+
                                                         <div className="mt-4 pt-3 border-t border-gray-800/10 dark:border-gray-800/50 flex justify-between items-center">
-                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${
-                                                                task.status === 'Completed' ? 'text-green-500' :
-                                                                task.status === 'Skipped' ? 'text-gray-500' :
-                                                                'text-blue-500'
-                                                            }`}>
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${task.status === 'Completed' ? 'text-green-500' :
+                                                                    task.status === 'Skipped' ? 'text-gray-500' :
+                                                                        'text-blue-500'
+                                                                }`}>
                                                                 • {task.status}
                                                             </span>
                                                         </div>
@@ -1753,268 +1750,260 @@ const MarketingCRM = () => {
                             const filteredAuditRecords = auditRecords.filter(row => {
                                 const approval = approvalState[row.id] || { status: "Pending" };
                                 const matchesSearch = !q || row.institution?.toLowerCase().includes(q) || row.owner?.toLowerCase().includes(q);
-                                const matchesType   = auditFilterType   === "All" || row.type  === auditFilterType;
-                                const matchesOwner  = auditFilterOwner  === "All" || row.owner === auditFilterOwner;
+                                const matchesType = auditFilterType === "All" || row.type === auditFilterType;
+                                const matchesOwner = auditFilterOwner === "All" || row.owner === auditFilterOwner;
                                 const matchesStatus = auditFilterStatus === "All" || approval.status === auditFilterStatus;
                                 return matchesSearch && matchesType && matchesOwner && matchesStatus;
                             });
 
                             const filtersActive = auditSearch || auditFilterType !== "All" || auditFilterOwner !== "All" || auditFilterStatus !== "All";
 
-                            const selectCls = `px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${
-                                isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'
-                            }`;
+                            const selectCls = `px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'
+                                }`;
 
                             return (
-                            <div className="space-y-5 animate-fadeIn">
-                                {/* Header row */}
-                                <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
-                                    <div>
-                                        <h2 className="text-3xl font-black tracking-tighter">Activity Audit</h2>
-                                        <p className="text-gray-500 text-[11px] font-bold mt-1">Every submitted field plan is audited here — plan time vs actual time, proof photos, leads and CI/ZM approval.</p>
+                                <div className="space-y-5 animate-fadeIn">
+                                    {/* Header row */}
+                                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+                                        <div>
+                                            <h2 className="text-3xl font-black tracking-tighter">Activity Audit</h2>
+                                            <p className="text-gray-500 text-[11px] font-bold mt-1">Every submitted field plan is audited here — plan time vs actual time, proof photos, leads and CI/ZM approval.</p>
+                                        </div>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full self-start md:self-auto ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                                            {filteredAuditRecords.length} / {auditRecords.length} Record{auditRecords.length !== 1 ? 's' : ''}
+                                        </span>
                                     </div>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full self-start md:self-auto ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
-                                        {filteredAuditRecords.length} / {auditRecords.length} Record{auditRecords.length !== 1 ? 's' : ''}
-                                    </span>
-                                </div>
 
-                                {/* Search + Filter bar */}
-                                {auditRecords.length > 0 && (
-                                    <div className={`p-4 rounded-2xl border flex flex-wrap gap-3 items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                                        {/* Search */}
-                                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border flex-1 min-w-[200px] transition-all ${
-                                            isDarkMode ? 'bg-[#131619] border-gray-700 focus-within:border-blue-500' : 'bg-white border-gray-200 focus-within:border-black'
-                                        }`}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-gray-400 flex-shrink-0">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
-                                            </svg>
-                                            <input
-                                                type="text"
-                                                value={auditSearch}
-                                                onChange={e => setAuditSearch(e.target.value)}
-                                                placeholder="Search by institution or owner…"
-                                                className={`flex-1 bg-transparent outline-none text-[10px] font-bold ${
-                                                    isDarkMode ? 'text-white placeholder-gray-600' : 'text-gray-700 placeholder-gray-400'
-                                                }`}
-                                            />
-                                            {auditSearch && (
-                                                <button onClick={() => setAuditSearch("")} className="text-gray-400 hover:text-gray-600 transition-colors text-xs leading-none">
-                                                    ✕
+                                    {/* Search + Filter bar */}
+                                    {auditRecords.length > 0 && (
+                                        <div className={`p-4 rounded-2xl border flex flex-wrap gap-3 items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                            {/* Search */}
+                                            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border flex-1 min-w-[200px] transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 focus-within:border-blue-500' : 'bg-white border-gray-200 focus-within:border-black'
+                                                }`}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-gray-400 flex-shrink-0">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+                                                </svg>
+                                                <input
+                                                    type="text"
+                                                    value={auditSearch}
+                                                    onChange={e => setAuditSearch(e.target.value)}
+                                                    placeholder="Search by institution or owner…"
+                                                    className={`flex-1 bg-transparent outline-none text-[10px] font-bold ${isDarkMode ? 'text-white placeholder-gray-600' : 'text-gray-700 placeholder-gray-400'
+                                                        }`}
+                                                />
+                                                {auditSearch && (
+                                                    <button onClick={() => setAuditSearch("")} className="text-gray-400 hover:text-gray-600 transition-colors text-xs leading-none">
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Type filter */}
+                                            <div className="relative">
+                                                <select value={auditFilterType} onChange={e => setAuditFilterType(e.target.value)} className={selectCls}>
+                                                    {auditTypes.map(t => <option key={t}>{t}</option>)}
+                                                </select>
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
+                                                    }`}>Type</span>
+                                            </div>
+
+                                            {/* Owner filter */}
+                                            <div className="relative">
+                                                <select value={auditFilterOwner} onChange={e => setAuditFilterOwner(e.target.value)} className={selectCls}>
+                                                    {auditOwners.map(o => <option key={o}>{o}</option>)}
+                                                </select>
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
+                                                    }`}>Owner</span>
+                                            </div>
+
+                                            {/* Status filter */}
+                                            <div className="relative">
+                                                <select value={auditFilterStatus} onChange={e => setAuditFilterStatus(e.target.value)} className={selectCls}>
+                                                    {auditStatuses.map(s => <option key={s}>{s}</option>)}
+                                                </select>
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
+                                                    }`}>Status</span>
+                                            </div>
+
+                                            {/* Clear filters */}
+                                            {filtersActive && (
+                                                <button
+                                                    onClick={() => { setAuditSearch(""); setAuditFilterType("All"); setAuditFilterOwner("All"); setAuditFilterStatus("All"); }}
+                                                    className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-all active:scale-95"
+                                                >
+                                                    Clear Filters
                                                 </button>
                                             )}
                                         </div>
+                                    )}
 
-                                        {/* Type filter */}
-                                        <div className="relative">
-                                            <select value={auditFilterType} onChange={e => setAuditFilterType(e.target.value)} className={selectCls}>
-                                                {auditTypes.map(t => <option key={t}>{t}</option>)}
-                                            </select>
-                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${
-                                                isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
-                                            }`}>Type</span>
-                                        </div>
-
-                                        {/* Owner filter */}
-                                        <div className="relative">
-                                            <select value={auditFilterOwner} onChange={e => setAuditFilterOwner(e.target.value)} className={selectCls}>
-                                                {auditOwners.map(o => <option key={o}>{o}</option>)}
-                                            </select>
-                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${
-                                                isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
-                                            }`}>Owner</span>
-                                        </div>
-
-                                        {/* Status filter */}
-                                        <div className="relative">
-                                            <select value={auditFilterStatus} onChange={e => setAuditFilterStatus(e.target.value)} className={selectCls}>
-                                                {auditStatuses.map(s => <option key={s}>{s}</option>)}
-                                            </select>
-                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${
-                                                isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
-                                            }`}>Status</span>
-                                        </div>
-
-                                        {/* Clear filters */}
-                                        {filtersActive && (
-                                            <button
-                                                onClick={() => { setAuditSearch(""); setAuditFilterType("All"); setAuditFilterOwner("All"); setAuditFilterStatus("All"); }}
-                                                className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-all active:scale-95"
-                                            >
-                                                Clear Filters
+                                    {auditRecords.length === 0 ? (
+                                        <div className={`p-16 rounded-[24px] border flex flex-col items-center justify-center gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                            <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 text-gray-400">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                                </svg>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">No Audit Records Yet</p>
+                                                <p className="text-[10px] text-gray-400 mt-1">Submit a field plan from Today Planner to populate this table.</p>
+                                            </div>
+                                            <button onClick={() => setActiveTab("Today Planner")} className="px-6 py-2.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95">
+                                                Go to Today Planner
                                             </button>
-                                        )}
-                                    </div>
-                                )}
-
-                                {auditRecords.length === 0 ? (
-                                    <div className={`p-16 rounded-[24px] border flex flex-col items-center justify-center gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 text-gray-400">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                                            </svg>
                                         </div>
-                                        <div className="text-center">
-                                            <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">No Audit Records Yet</p>
-                                            <p className="text-[10px] text-gray-400 mt-1">Submit a field plan from Today Planner to populate this table.</p>
-                                        </div>
-                                        <button onClick={() => setActiveTab("Today Planner")} className="px-6 py-2.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95">
-                                            Go to Today Planner
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className={`rounded-[24px] border overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse min-w-[1100px]">
-                                                <thead>
-                                                    <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
-                                                        <th className="px-5 py-4 whitespace-nowrap">Type</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap">Institution</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap">Owner</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap">Plan Time</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap">Actual Time</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap">Leads</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap min-w-[140px]">Proof</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap">Status</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap min-w-[180px]">Remarks</th>
-                                                        <th className="px-5 py-4 whitespace-nowrap min-w-[180px]">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
-                                                    {filteredAuditRecords.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={10} className="px-5 py-12 text-center">
-                                                                <div className="flex flex-col items-center gap-2 text-gray-400">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
-                                                                    </svg>
-                                                                    <p className="text-[10px] font-black uppercase tracking-widest">No records match your filters</p>
-                                                                    <button onClick={() => { setAuditSearch(""); setAuditFilterType("All"); setAuditFilterOwner("All"); setAuditFilterStatus("All"); }} className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-500 hover:underline">
-                                                                        Clear all filters
-                                                                    </button>
-                                                                </div>
-                                                            </td>
+                                    ) : (
+                                        <div className={`rounded-[24px] border overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left border-collapse min-w-[1100px]">
+                                                    <thead>
+                                                        <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
+                                                            <th className="px-5 py-4 whitespace-nowrap">Type</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Institution</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Owner</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Plan Time</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Actual Time</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Leads</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap min-w-[140px]">Proof</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Status</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap min-w-[180px]">Remarks</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap min-w-[180px]">Action</th>
                                                         </tr>
-                                                    ) : filteredAuditRecords.map((row, idx) => {
-                                                        const approval = approvalState[row.id] || { status: "Pending", remarks: "" };
-                                                        const statusColors = {
-                                                            Pending: "text-orange-500 bg-orange-500/10 border-orange-500/20",
-                                                            Approved: "text-green-500 bg-green-500/10 border-green-500/20",
-                                                            Rejected: "text-red-500 bg-red-500/10 border-red-500/20"
-                                                        };
-                                                        // Collect all photos for this row
-                                                        const allPhotos = row.photos?.length > 0 ? row.photos : (row.photo ? [row.photo] : []);
-                                                        return (
-                                                            <tr key={row.id} className={`${isDarkMode ? 'text-gray-300 hover:bg-gray-800/20' : 'text-gray-700 hover:bg-gray-50/70'} transition-colors align-top`}>
-                                                                {/* Type */}
-                                                                <td className="px-5 py-4 whitespace-nowrap">
-                                                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
-                                                                        {row.type || '—'}
-                                                                    </span>
-                                                                </td>
-                                                                {/* Institution */}
-                                                                <td className="px-5 py-4 whitespace-nowrap max-w-[160px] truncate" title={row.institution}>{row.institution}</td>
-                                                                {/* Owner */}
-                                                                <td className="px-5 py-4 whitespace-nowrap">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[8px] font-black flex-shrink-0">
-                                                                            {row.owner?.charAt(0).toUpperCase()}
-                                                                        </div>
-                                                                        <span>{row.owner}</span>
-                                                                    </div>
-                                                                </td>
-                                                                {/* Plan Time */}
-                                                                <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px]">{row.plan}</td>
-                                                                {/* Actual Time */}
-                                                                <td className="px-5 py-4 whitespace-nowrap">
-                                                                    <span className="font-mono text-[10px] text-blue-500 font-black">{row.actual}</span>
-                                                                </td>
-                                                                {/* Leads */}
-                                                                <td className="px-5 py-4 whitespace-nowrap">
-                                                                    <span className="font-black">{row.leads}</span>
-                                                                </td>
-                                                                {/* Proof — all photos as thumbnails */}
-                                                                <td className="px-5 py-4">
-                                                                    {allPhotos.length > 0 ? (
-                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                            {allPhotos.map((ph, pIdx) => (
-                                                                                <div
-                                                                                    key={pIdx}
-                                                                                    className="group relative w-11 h-11 rounded-lg overflow-hidden border-2 border-green-400/40 cursor-pointer flex-shrink-0"
-                                                                                    onClick={() => setPreviewImage(ph)}
-                                                                                    title={`Photo ${pIdx + 1}`}
-                                                                                >
-                                                                                    <img src={ph} alt={`Proof ${pIdx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                                                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                                                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
-                                                                                        </svg>
-                                                                                    </div>
-                                                                                    {allPhotos.length > 1 && (
-                                                                                        <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[7px] font-black px-1 rounded-sm leading-tight">
-                                                                                            {pIdx + 1}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-[9px] text-gray-400 font-bold uppercase">No photo</span>
-                                                                    )}
-                                                                </td>
-                                                                {/* Status — badge only */}
-                                                                <td className="px-5 py-4 whitespace-nowrap">
-                                                                    <span className={`px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusColors[approval.status]}`}>
-                                                                        {approval.status}
-                                                                    </span>
-                                                                </td>
-                                                                {/* Remarks — separate column */}
-                                                                <td className="px-5 py-4 min-w-[180px]">
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="Add remarks…"
-                                                                        value={approval.remarks}
-                                                                        onChange={(e) => setApprovalState(prev => ({
-                                                                            ...prev,
-                                                                            [row.id]: { ...prev[row.id], remarks: e.target.value }
-                                                                        }))}
-                                                                        onBlur={(e) => handleSaveRemarks(row.id, e.target.value)}
-                                                                        className={`w-full px-3 py-2 rounded-lg border text-[10px] outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-black placeholder-gray-400'}`}
-                                                                    />
-                                                                </td>
-                                                                {/* Action — Approve + Reject buttons */}
-                                                                <td className="px-5 py-4 min-w-[180px]">
-                                                                    <div className="flex gap-2">
-                                                                        <button
-                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
-                                                                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${
-                                                                                approval.status === "Approved"
-                                                                                    ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
-                                                                                    : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
-                                                                            }`}
-                                                                        >
-                                                                            ✓ Approve
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
-                                                                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${
-                                                                                approval.status === "Rejected"
-                                                                                    ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
-                                                                                    : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
-                                                                            }`}
-                                                                        >
-                                                                            ✕ Reject
+                                                    </thead>
+                                                    <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
+                                                        {filteredAuditRecords.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={10} className="px-5 py-12 text-center">
+                                                                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+                                                                        </svg>
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest">No records match your filters</p>
+                                                                        <button onClick={() => { setAuditSearch(""); setAuditFilterType("All"); setAuditFilterOwner("All"); setAuditFilterStatus("All"); }} className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-500 hover:underline">
+                                                                            Clear all filters
                                                                         </button>
                                                                     </div>
                                                                 </td>
                                                             </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
+                                                        ) : filteredAuditRecords.map((row, idx) => {
+                                                            const approval = approvalState[row.id] || { status: "Pending", remarks: "" };
+                                                            const statusColors = {
+                                                                Pending: "text-orange-500 bg-orange-500/10 border-orange-500/20",
+                                                                Approved: "text-green-500 bg-green-500/10 border-green-500/20",
+                                                                Rejected: "text-red-500 bg-red-500/10 border-red-500/20"
+                                                            };
+                                                            // Collect all photos for this row
+                                                            const allPhotos = row.photos?.length > 0 ? row.photos : (row.photo ? [row.photo] : []);
+                                                            return (
+                                                                <tr key={row.id} className={`${isDarkMode ? 'text-gray-300 hover:bg-gray-800/20' : 'text-gray-700 hover:bg-gray-50/70'} transition-colors align-top`}>
+                                                                    {/* Type */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap">
+                                                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                                                            {row.type || '—'}
+                                                                        </span>
+                                                                    </td>
+                                                                    {/* Institution */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap max-w-[160px] truncate" title={row.institution}>{row.institution}</td>
+                                                                    {/* Owner */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[8px] font-black flex-shrink-0">
+                                                                                {row.owner?.charAt(0).toUpperCase()}
+                                                                            </div>
+                                                                            <span>{row.owner}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    {/* Plan Time */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px]">{row.plan}</td>
+                                                                    {/* Actual Time */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap">
+                                                                        <span className="font-mono text-[10px] text-blue-500 font-black">{row.actual}</span>
+                                                                    </td>
+                                                                    {/* Leads */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap">
+                                                                        <span className="font-black">{row.leads}</span>
+                                                                    </td>
+                                                                    {/* Proof — all photos as thumbnails */}
+                                                                    <td className="px-5 py-4">
+                                                                        {allPhotos.length > 0 ? (
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {allPhotos.map((ph, pIdx) => (
+                                                                                    <div
+                                                                                        key={pIdx}
+                                                                                        className="group relative w-11 h-11 rounded-lg overflow-hidden border-2 border-green-400/40 cursor-pointer flex-shrink-0"
+                                                                                        onClick={() => setPreviewImage(ph)}
+                                                                                        title={`Photo ${pIdx + 1}`}
+                                                                                    >
+                                                                                        <img src={ph} alt={`Proof ${pIdx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                                                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+                                                                                            </svg>
+                                                                                        </div>
+                                                                                        {allPhotos.length > 1 && (
+                                                                                            <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[7px] font-black px-1 rounded-sm leading-tight">
+                                                                                                {pIdx + 1}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-[9px] text-gray-400 font-bold uppercase">No photo</span>
+                                                                        )}
+                                                                    </td>
+                                                                    {/* Status — badge only */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap">
+                                                                        <span className={`px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusColors[approval.status]}`}>
+                                                                            {approval.status}
+                                                                        </span>
+                                                                    </td>
+                                                                    {/* Remarks — separate column */}
+                                                                    <td className="px-5 py-4 min-w-[180px]">
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Add remarks…"
+                                                                            value={approval.remarks}
+                                                                            onChange={(e) => setApprovalState(prev => ({
+                                                                                ...prev,
+                                                                                [row.id]: { ...prev[row.id], remarks: e.target.value }
+                                                                            }))}
+                                                                            onBlur={(e) => handleSaveRemarks(row.id, e.target.value)}
+                                                                            className={`w-full px-3 py-2 rounded-lg border text-[10px] outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-black placeholder-gray-400'}`}
+                                                                        />
+                                                                    </td>
+                                                                    {/* Action — Approve + Reject buttons */}
+                                                                    <td className="px-5 py-4 min-w-[180px]">
+                                                                        <div className="flex gap-2">
+                                                                            <button
+                                                                                onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
+                                                                                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Approved"
+                                                                                        ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
+                                                                                        : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
+                                                                                    }`}
+                                                                            >
+                                                                                ✓ Approve
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
+                                                                                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Rejected"
+                                                                                        ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
+                                                                                        : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
+                                                                                    }`}
+                                                                            >
+                                                                                ✕ Reject
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                             </div>
+                                    )}
+                                </div>
                             );
                         })()}
                     </div>
@@ -2022,20 +2011,20 @@ const MarketingCRM = () => {
 
                 {/* Full-Screen Image Preview Modal */}
                 {previewImage && (
-                    <div 
+                    <div
                         className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm transition-opacity duration-300"
                         onClick={() => setPreviewImage(null)}
                     >
                         <div className="relative max-w-[90%] max-h-[90%] flex flex-col items-center">
-                            <button 
+                            <button
                                 className="absolute -top-12 right-0 text-white hover:text-cyan-400 text-3xl font-black focus:outline-none transition-colors"
                                 onClick={() => setPreviewImage(null)}
                             >
                                 &times;
                             </button>
-                            <img 
-                                src={previewImage} 
-                                alt="Proof Preview" 
+                            <img
+                                src={previewImage}
+                                alt="Proof Preview"
                                 className="max-w-full max-h-[80vh] rounded-lg border border-cyan-500/20 object-contain shadow-[0_0_50px_rgba(6,182,212,0.2)]"
                                 onClick={(e) => e.stopPropagation()}
                             />
