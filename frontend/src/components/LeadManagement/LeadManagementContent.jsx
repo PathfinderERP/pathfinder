@@ -842,7 +842,7 @@ const LeadManagementContent = () => {
                 {/* Localized Analytics Filters */}
                 <div className={`p-4 rounded-[2px] border flex flex-col md:flex-row items-center justify-between gap-6 transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
                     <div className="flex flex-wrap items-center justify-center gap-2">
-                        <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Quick View</span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Follo</span>
                         <button
                             onClick={() => setDatePreset('today')}
                             className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date().toISOString().split('T')[0] && dashboardFilters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
@@ -877,7 +877,7 @@ const LeadManagementContent = () => {
 
                     <div className="flex flex-wrap items-center justify-center gap-4">
                         <div className={`h-8 w-[1px] mx-2 hidden sm:block ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
-                        <div className="flex flex-col sm:flex-row items-center gap-2">
+                        {/* <div className="flex flex-col sm:flex-row items-center gap-2">
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Scheduled Call Date</span>
                             <input
                                 type="date"
@@ -885,7 +885,7 @@ const LeadManagementContent = () => {
                                 onChange={(e) => handleDashboardFilterChange('scheduledDate', e.target.value)}
                                 className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-black outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 focus:border-cyan-500' : 'bg-cyan-50 border-cyan-100 text-cyan-700 focus:border-cyan-500'}`}
                             />
-                        </div>
+                        </div> */}
                         <div className={`h-8 w-[1px] mx-2 hidden sm:block ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
                         <div className="flex flex-col sm:flex-row items-center gap-2">
                             <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>From</span>
@@ -935,7 +935,7 @@ const LeadManagementContent = () => {
                                             <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 {analysisLoading ? "..." : centreAnalysis.length}
                                             </h3>
-                                            <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest text-nowrap">Active Centres analyzed</p>
+                                            {/* <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest text-nowrap">Active Centres analyzed</p> */}
                                         </div>
                                         <div className={`p-2.5 rounded-[2px] transition-all bg-emerald-500/10 text-emerald-500 border border-emerald-500/20`}>
                                             <FaChartLine size={16} />
@@ -962,9 +962,11 @@ const LeadManagementContent = () => {
                                 >
                                     <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                         <div>
-                                            <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Tasks</p>
+                                            <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Followups</p>
+                                            {/* <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                {followUpStats.totalFollowUps} / {followUpStats.totalScheduled + followUpStats.totalFollowUps}
+                                            </h3> */}
                                             <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalScheduled}</h3>
-                                            <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Scheduled Follow-ups</p>
                                         </div>
                                         <div className={`p-2.5 rounded-[20px] transition-all bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]`}>
                                             <FaCalendarAlt size={16} />
@@ -983,10 +985,10 @@ const LeadManagementContent = () => {
                                     <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                         <div>
                                             <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Filtered Activity" : "Today's Activity"}
+                                                {filters.fromDate || filters.toDate ? "Filtered Followups" : "Today's Followups"}
                                             </p>
                                             <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
-                                            <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p>
+                                            {/* <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p> */}
                                         </div>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); fetchFollowUpStats(); }}
@@ -1008,10 +1010,10 @@ const LeadManagementContent = () => {
                                     <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                         <div>
                                             <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Filtered Interests" : "Hot Interests"}
+                                                {filters.fromDate || filters.toDate ? "Hot Leads" : "Hot Leads"}
                                             </p>
                                             <h3 className="text-3xl font-black italic tracking-tighter text-red-500">{followUpStats.hotLeads}</h3>
-                                            <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p>
+                                            {/* <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p> */}
                                         </div>
                                         <div className="p-3 bg-red-500/10 text-red-500 rounded-[2px]">
                                             <FaChartLine size={20} />
@@ -1030,10 +1032,10 @@ const LeadManagementContent = () => {
                                     <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                         <div>
                                             <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                Warm Interests
+                                                Warm Leads
                                             </p>
                                             <h3 className="text-3xl font-black italic tracking-tighter text-orange-500">{followUpStats.warmLeads}</h3>
-                                            <p className="text-[9px] font-bold text-orange-500/80 mt-1 uppercase tracking-widest">Growing Interest</p>
+                                            {/* <p className="text-[9px] font-bold text-orange-500/80 mt-1 uppercase tracking-widest">Growing Interest</p> */}
                                         </div>
                                         <div className="p-3 bg-orange-500/10 text-orange-500 rounded-[2px]">
                                             <FaStar size={20} />
@@ -1052,10 +1054,10 @@ const LeadManagementContent = () => {
                                     <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                         <div>
                                             <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Filtered Leads" : "Cold Leads"}
+                                                {filters.fromDate || filters.toDate ? "Cold Leads" : "Cold Leads"}
                                             </p>
                                             <h3 className="text-3xl font-black italic tracking-tighter text-blue-500">{followUpStats.coldLeads}</h3>
-                                            <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Ongoing Discussions</p>
+                                            {/* <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Cold Leads</p> */}
                                         </div>
                                         <div className="p-3 bg-blue-500/10 text-blue-500 rounded-[2px]">
                                             <FaSearch size={20} />
@@ -1072,7 +1074,7 @@ const LeadManagementContent = () => {
                     </div>
 
                     {/* Activity Feed */}
-                    <div className={`rounded-[2px] border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    {/* <div className={`rounded-[2px] border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <div className={`px-4 py-3 border-b flex items-center gap-2 ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
                             <h4 className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1104,7 +1106,7 @@ const LeadManagementContent = () => {
                                 ))
                             )}
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 {/* Daily Goal Progress Bars – Telecaller only */}
@@ -1743,6 +1745,11 @@ const LeadManagementContent = () => {
                 title={activityModal.title}
                 data={activityModal.data}
                 isDarkMode={isDarkMode}
+                onAddFollowUp={(leadObj) => {
+                    setActivityModal({ ...activityModal, isOpen: false });
+                    setSelectedLead(leadObj);
+                    setShowFollowUpModal(true);
+                }}
             />
 
             {

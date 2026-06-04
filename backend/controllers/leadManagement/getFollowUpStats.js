@@ -168,6 +168,7 @@ export const getFollowUpStats = async (req, res) => {
                                 coldLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] }, 1, 0] } },
                                 recentActivity: {
                                     $push: {
+                                        leadId: "$_id",
                                         leadName: "$name",
                                         phoneNumber: "$phoneNumber",
                                         status: { $ifNull: ["$followUp.status", "$leadType"] },
@@ -187,6 +188,7 @@ export const getFollowUpStats = async (req, res) => {
                                 totalScheduled: { $sum: 1 },
                                 scheduledList: {
                                     $push: {
+                                        leadId: "$_id",
                                         leadName: "$name",
                                         phoneNumber: "$phoneNumber",
                                         status: "$leadType",
