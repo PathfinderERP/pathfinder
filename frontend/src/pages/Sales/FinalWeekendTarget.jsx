@@ -430,7 +430,11 @@ const FinalWeekendTarget = () => {
 
                                     const rowBg = ri % 2 === 0
                                         ? (isDarkMode ? "bg-[#1a1f24]" : "bg-white")
-                                        : (isDarkMode ? "bg-[#16191e]" : "bg-gray-50/60");
+                                        : (isDarkMode ? "bg-[#16191e]" : "bg-gray-50");
+
+                                    const targetBg = ri % 2 === 0
+                                        ? (isDarkMode ? "bg-[#1d283a]" : "bg-blue-50")
+                                        : (isDarkMode ? "bg-[#182232]" : "bg-[#eef5fc]");
 
                                     return (
                                         <tr key={c.centreId} className={`${rowBg} hover:brightness-110 transition-all`}>
@@ -446,7 +450,7 @@ const FinalWeekendTarget = () => {
                                                 </div>
                                             </td>
                                             {/* Total Monthly Target cell — sticky */}
-                                            <td className={`px-4 py-4 text-center border-r-2 sticky left-[200px] z-10 whitespace-nowrap text-xs font-black ${isDarkMode ? "border-blue-500/20 text-blue-300 bg-blue-500/5" : "border-blue-200 text-blue-700 bg-blue-50/60"} ${rowBg}`}>
+                                            <td className={`px-4 py-4 text-center border-r-2 sticky left-[200px] z-10 whitespace-nowrap text-xs font-black ${isDarkMode ? "border-blue-500/20 text-blue-300" : "border-blue-200 text-blue-700"} ${targetBg}`}>
                                                 {fmt(c.monthlyTargetExclGST)}
                                             </td>
 
