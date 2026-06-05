@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import DailyTrackingLog from "../models/DailyTrackingLog.js";
 import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
+import XLSX from "xlsx";
 
 // Helper to get midnight in India Standard Time as a standardized UTC Date object
 const getMidnightIST = (dateInput) => {
@@ -113,214 +114,293 @@ export const getMyLog = async (req, res) => {
     }
 };
 
+// Helper to query and construct board logs data shared by get and export
+const getLogsDataHelper = async (req) => {
+    const { date, role, employeeName, centreId } = req.query;
+    const targetDate = getMidnightIST(date);
+    const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+    const endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
+
+    const userQuery = { isActive: true };
+    
+    const roleDBMapping = {
+        admin: ["admin"],
+        superadmin: ["superAdmin"],
+        coordinator: ["coordinator", "Class_Coordinator"],
+        accounts: ["accounts"],
+        hr: ["hr"],
+        digital: ["digital"],
+        marketing: ["marketing"],
+        telecaller: ["telecaller", "centralizedTelecaller"],
+        counsellor: ["counsellor"],
+        teacher: ["teacher"],
+        zonalmanager: ["zonalManager", "zonalmanager"]
+    };
+
+    // Handle multi-select roles
+    let rolesFilter = [];
+    if (role) {
+        if (Array.isArray(role)) {
+            rolesFilter = role;
+        } else if (typeof role === "string") {
+            rolesFilter = role.split(",").map(r => r.trim()).filter(Boolean);
+        }
+    }
+
+    if (rolesFilter.length > 0 && !rolesFilter.includes("All")) {
+        let mappedRoles = [];
+        for (const r of rolesFilter) {
+            const dbRoles = roleDBMapping[r.toLowerCase()];
+            if (dbRoles) {
+                mappedRoles.push(...dbRoles);
+            } else {
+                mappedRoles.push(r);
+            }
+        }
+        userQuery.role = { $in: mappedRoles };
+    } else {
+        // If empty or "All", limit to users with any of the supported roles
+        const allSupportedRoles = Object.values(roleDBMapping).flat();
+        userQuery.role = { $in: allSupportedRoles };
+    }
+
+    if (employeeName) {
+        userQuery.name = { $regex: employeeName, $options: "i" };
+    }
+
+    const isSuperAdmin = Array.isArray(req.user.role) 
+        ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
+        : req.user.role === "superAdmin" || req.user.role === "superadmin";
+
+    // Handle multi-select centres
+    let centresFilter = [];
+    if (centreId) {
+        if (Array.isArray(centreId)) {
+            centresFilter = centreId;
+        } else if (typeof centreId === "string") {
+            centresFilter = centreId.split(",").map(c => c.trim()).filter(Boolean);
+        }
+    }
+
+    // Determine the allowed centre IDs for filtering by employee primaryCentre
+    let allowedCentreIds = [];
+    let shouldFilterCentres = false;
+
+    if (!isSuperAdmin) {
+        // Find logged-in user's Employee document to get their primaryCentre and assigned centres
+        const loggedInEmployee = await Employee.findOne({ user: req.user._id });
+        const userCentreIds = [];
+
+        if (loggedInEmployee) {
+            if (loggedInEmployee.primaryCentre) {
+                userCentreIds.push(loggedInEmployee.primaryCentre.toString());
+            }
+            if (Array.isArray(loggedInEmployee.centres)) {
+                loggedInEmployee.centres.forEach(c => {
+                    userCentreIds.push(c.toString());
+                });
+            }
+        }
+
+        // Fallback/Legacy User model centres
+        const userCentres = req.user.centres || [];
+        userCentres.forEach(c => {
+            userCentreIds.push(c._id ? c._id.toString() : c.toString());
+        });
+        if (req.user.centre) {
+            userCentreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
+        }
+        
+        const uniqueUserCentreIds = [...new Set(userCentreIds)].filter(Boolean);
+
+        if (uniqueUserCentreIds.length > 0) {
+            shouldFilterCentres = true;
+            if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+                allowedCentreIds = uniqueUserCentreIds.filter(c => centresFilter.includes(c));
+                if (allowedCentreIds.length === 0) {
+                    return { combinedLogs: [], targetDate };
+                }
+            } else {
+                allowedCentreIds = uniqueUserCentreIds;
+            }
+        } else {
+            return { combinedLogs: [], targetDate };
+        }
+    } else {
+        // SuperAdmin
+        if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+            shouldFilterCentres = true;
+            allowedCentreIds = centresFilter;
+        }
+    }
+
+    if (shouldFilterCentres) {
+        const objectIdCentres = allowedCentreIds.map(id => {
+            try {
+                return new mongoose.Types.ObjectId(id);
+            } catch (e) {
+                return null;
+            }
+        }).filter(Boolean);
+
+        // Always filter by primaryCentre only (as requested)
+        const empQuery = { primaryCentre: { $in: objectIdCentres } };
+
+        const employees = await Employee.find(empQuery).select("user");
+        const allowedUserIds = employees.map(emp => emp.user).filter(Boolean);
+        userQuery._id = { $in: allowedUserIds };
+    }
+
+    const users = await User.find(userQuery).select("name role designation profileImage centres centre");
+
+    // Fetch Employee details to get their primaryCentre name for display
+    const employeesForUsers = await Employee.find({
+        user: { $in: users.map(u => u._id) }
+    }).populate("primaryCentre", "centreName");
+
+    const employeeMap = new Map();
+    for (const emp of employeesForUsers) {
+        if (emp.user) {
+            employeeMap.set(emp.user.toString(), emp.primaryCentre);
+        }
+    }
+
+    // Find existing logs for the day
+    const logQuery = { 
+        date: { $gte: startRange, $lt: endRange },
+        user: { $in: users.map(u => u._id) }
+    };
+
+    const logs = await DailyTrackingLog.find(logQuery)
+        .populate("user", "name role designation profileImage");
+
+    // Map logs by user ID string
+    const logMap = new Map();
+    for (const log of logs) {
+        if (log.user) {
+            logMap.set(log.user._id.toString(), log);
+        }
+    }
+
+    // Merge users with their logs (or create empty logs)
+    const combinedLogs = users.map(user => {
+        const existingLog = logMap.get(user._id.toString());
+        const primaryCentre = employeeMap.get(user._id.toString());
+
+        const formattedUser = {
+            _id: user._id,
+            name: user.name,
+            role: user.role,
+            designation: user.designation,
+            profileImage: user.profileImage,
+            primaryCentre: primaryCentre
+        };
+
+        if (existingLog) {
+            // Ensure user in existingLog is populated with primaryCentre info
+            const logObj = existingLog.toObject ? existingLog.toObject() : existingLog;
+            logObj.user = formattedUser;
+            return logObj;
+        }
+
+        return {
+            _id: `temp_${user._id}`,
+            user: formattedUser,
+            userName: user.name,
+            department: user.role,
+            date: targetDate,
+            activities: [],
+            noEntry: true
+        };
+    });
+
+    // Sort combined list by userName
+    combinedLogs.sort((a, b) => a.userName.localeCompare(b.userName));
+
+    return { combinedLogs, targetDate };
+};
+
+const getDisplayRoleName = (role) => {
+    if (!role) return "Employee";
+    const rStr = Array.isArray(role) ? role.join(", ") : role;
+    const normalized = rStr.toLowerCase();
+    if (normalized.includes("admin")) {
+        if (normalized.includes("super")) return "Superadmin";
+        return "Admin";
+    }
+    if (normalized.includes("coordinator")) return "Coordinator";
+    if (normalized.includes("telecaller")) return "Telecaller";
+    if (normalized.includes("accounts")) return "Accounts";
+    if (normalized.includes("hr")) return "HR";
+    if (normalized.includes("digital")) return "Digital";
+    if (normalized.includes("marketing")) return "Marketing";
+    if (normalized.includes("counsellor")) return "Counsellor";
+    if (normalized.includes("teacher")) return "Teacher";
+    if (normalized.includes("zonal") && normalized.includes("manager")) return "Zonal Manager";
+    if (normalized === "zonalmanager") return "Zonal Manager";
+    return rStr.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+};
+
 // Get department/board logs (grouped or filtered)
 export const getDepartmentLogs = async (req, res) => {
     try {
-        const { date, role, employeeName, centreId } = req.query;
-        const targetDate = getMidnightIST(date);
-        const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
-        const endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
-
-        const userQuery = { isActive: true };
-        
-        const roleDBMapping = {
-            admin: ["admin"],
-            superadmin: ["superAdmin"],
-            coordinator: ["coordinator", "Class_Coordinator"],
-            accounts: ["accounts"],
-            hr: ["hr"],
-            digital: ["digital"],
-            marketing: ["marketing"],
-            telecaller: ["telecaller", "centralizedTelecaller"],
-            counsellor: ["counsellor"],
-            teacher: ["teacher"],
-            zonalmanager: ["zonalManager", "zonalmanager"]
-        };
-
-        // Handle multi-select roles
-        let rolesFilter = [];
-        if (role) {
-            if (Array.isArray(role)) {
-                rolesFilter = role;
-            } else if (typeof role === "string") {
-                rolesFilter = role.split(",").map(r => r.trim()).filter(Boolean);
-            }
-        }
-
-        if (rolesFilter.length > 0 && !rolesFilter.includes("All")) {
-            let mappedRoles = [];
-            for (const r of rolesFilter) {
-                const dbRoles = roleDBMapping[r.toLowerCase()];
-                if (dbRoles) {
-                    mappedRoles.push(...dbRoles);
-                } else {
-                    mappedRoles.push(r);
-                }
-            }
-            userQuery.role = { $in: mappedRoles };
-        } else {
-            // If empty or "All", limit to users with any of the supported roles
-            const allSupportedRoles = Object.values(roleDBMapping).flat();
-            userQuery.role = { $in: allSupportedRoles };
-        }
-
-        if (employeeName) {
-            userQuery.name = { $regex: employeeName, $options: "i" };
-        }
-
-        const isSuperAdmin = Array.isArray(req.user.role) 
-            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
-            : req.user.role === "superAdmin" || req.user.role === "superadmin";
-
-        // Handle multi-select centres
-        let centresFilter = [];
-        if (centreId) {
-            if (Array.isArray(centreId)) {
-                centresFilter = centreId;
-            } else if (typeof centreId === "string") {
-                centresFilter = centreId.split(",").map(c => c.trim()).filter(Boolean);
-            }
-        }
-
-        // Determine the allowed centre IDs for filtering by employee primaryCentre
-        let allowedCentreIds = [];
-        let shouldFilterCentres = false;
-
-        if (!isSuperAdmin) {
-            // Find logged-in user's Employee document to get their primaryCentre and assigned centres
-            const loggedInEmployee = await Employee.findOne({ user: req.user._id });
-            const userCentreIds = [];
-
-            if (loggedInEmployee) {
-                if (loggedInEmployee.primaryCentre) {
-                    userCentreIds.push(loggedInEmployee.primaryCentre.toString());
-                }
-                if (Array.isArray(loggedInEmployee.centres)) {
-                    loggedInEmployee.centres.forEach(c => {
-                        userCentreIds.push(c.toString());
-                    });
-                }
-            }
-
-            // Fallback/Legacy User model centres
-            const userCentres = req.user.centres || [];
-            userCentres.forEach(c => {
-                userCentreIds.push(c._id ? c._id.toString() : c.toString());
-            });
-            if (req.user.centre) {
-                userCentreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
-            }
-            
-            const uniqueUserCentreIds = [...new Set(userCentreIds)].filter(Boolean);
-
-            if (uniqueUserCentreIds.length > 0) {
-                shouldFilterCentres = true;
-                if (centresFilter.length > 0 && !centresFilter.includes("All")) {
-                    allowedCentreIds = uniqueUserCentreIds.filter(c => centresFilter.includes(c));
-                    if (allowedCentreIds.length === 0) {
-                        return res.status(200).json({ logs: [] });
-                    }
-                } else {
-                    allowedCentreIds = uniqueUserCentreIds;
-                }
-            } else {
-                return res.status(200).json({ logs: [] });
-            }
-        } else {
-            // SuperAdmin
-            if (centresFilter.length > 0 && !centresFilter.includes("All")) {
-                shouldFilterCentres = true;
-                allowedCentreIds = centresFilter;
-            }
-        }
-
-        if (shouldFilterCentres) {
-            const objectIdCentres = allowedCentreIds.map(id => {
-                try {
-                    return new mongoose.Types.ObjectId(id);
-                } catch (e) {
-                    return null;
-                }
-            }).filter(Boolean);
-
-            // Always filter by primaryCentre only (as requested)
-            const empQuery = { primaryCentre: { $in: objectIdCentres } };
-
-            const employees = await Employee.find(empQuery).select("user");
-            const allowedUserIds = employees.map(emp => emp.user).filter(Boolean);
-            userQuery._id = { $in: allowedUserIds };
-        }
-
-        const users = await User.find(userQuery).select("name role designation profileImage centres centre");
-
-        // Fetch Employee details to get their primaryCentre name for display
-        const employeesForUsers = await Employee.find({
-            user: { $in: users.map(u => u._id) }
-        }).populate("primaryCentre", "centreName");
-
-        const employeeMap = new Map();
-        for (const emp of employeesForUsers) {
-            if (emp.user) {
-                employeeMap.set(emp.user.toString(), emp.primaryCentre);
-            }
-        }
-
-        // Find existing logs for the day
-        const logQuery = { 
-            date: { $gte: startRange, $lt: endRange },
-            user: { $in: users.map(u => u._id) }
-        };
-
-        const logs = await DailyTrackingLog.find(logQuery)
-            .populate("user", "name role designation profileImage");
-
-        // Map logs by user ID string
-        const logMap = new Map();
-        for (const log of logs) {
-            if (log.user) {
-                logMap.set(log.user._id.toString(), log);
-            }
-        }
-
-        // Merge users with their logs (or create empty logs)
-        const combinedLogs = users.map(user => {
-            const existingLog = logMap.get(user._id.toString());
-            const primaryCentre = employeeMap.get(user._id.toString());
-
-            const formattedUser = {
-                _id: user._id,
-                name: user.name,
-                role: user.role,
-                designation: user.designation,
-                profileImage: user.profileImage,
-                primaryCentre: primaryCentre
-            };
-
-            if (existingLog) {
-                // Ensure user in existingLog is populated with primaryCentre info
-                const logObj = existingLog.toObject ? existingLog.toObject() : existingLog;
-                logObj.user = formattedUser;
-                return logObj;
-            }
-
-            return {
-                _id: `temp_${user._id}`,
-                user: formattedUser,
-                userName: user.name,
-                department: user.role,
-                date: targetDate,
-                activities: [],
-                noEntry: true
-            };
-        });
-
-        // Sort combined list by userName
-        combinedLogs.sort((a, b) => a.userName.localeCompare(b.userName));
-
+        const { combinedLogs } = await getLogsDataHelper(req);
         res.status(200).json({ logs: combinedLogs });
     } catch (error) {
         console.error("Error fetching board logs:", error);
         res.status(500).json({ message: "Failed to fetch board logs.", error: error.message });
+    }
+};
+
+// Export department/board logs to Excel format
+export const exportDepartmentLogs = async (req, res) => {
+    try {
+        const { combinedLogs, targetDate } = await getLogsDataHelper(req);
+
+        const reportData = [];
+        for (const log of combinedLogs) {
+            const displayRole = getDisplayRoleName(log.user?.role || log.department);
+            const rowBase = {
+                Date: new Date(log.date).toLocaleDateString('en-GB'),
+                "Employee Name": log.userName || log.user?.name || "Unknown",
+                "Role / Department": displayRole,
+                "Designation": log.user?.designation || "Employee",
+                "Primary Centre": log.user?.primaryCentre?.centreName || "N/A"
+            };
+
+            if (log.activities && log.activities.length > 0) {
+                for (const act of log.activities) {
+                    reportData.push({
+                        ...rowBase,
+                        "Status": act.status || "Completed",
+                        "Work Details": act.workDetails || "N/A",
+                        "Completed Work / Deliverables": act.completedWork || "N/A"
+                    });
+                }
+            } else {
+                reportData.push({
+                    ...rowBase,
+                    "Status": "No Entry",
+                    "Work Details": "No activities logged today.",
+                    "Completed Work / Deliverables": "N/A"
+                });
+            }
+        }
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(reportData);
+        XLSX.utils.book_append_sheet(wb, ws, "Daily Tracking Logs");
+
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        
+        const formattedDate = new Date(targetDate).toLocaleDateString('en-GB').replace(/\//g, '-');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Daily_Tracking_Logs_${formattedDate}.xlsx`);
+        res.send(buffer);
+
+    } catch (error) {
+        console.error("Error exporting board logs:", error);
+        res.status(500).json({ message: "Failed to export logs to Excel.", error: error.message });
     }
 };
 

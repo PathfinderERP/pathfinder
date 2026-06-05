@@ -14,7 +14,8 @@ import {
     FaCheckCircle,
     FaSpinner,
     FaCheck,
-    FaTasks
+    FaTasks,
+    FaFileExcel
 } from "react-icons/fa";
 import { useTheme } from "../context/ThemeContext";
 import Layout from "../components/Layout";
@@ -233,6 +234,62 @@ const DailyTrackingLog = () => {
             toast.error("Error connecting to server.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExportExcel = async () => {
+        try {
+            let url = `${apiUrl}/daily-tracking-logs/board/export?date=${selectedDate}`;
+
+            // Handle multi-select roles
+            let rolesParam = "";
+            if (selectedDept) {
+                if (Array.isArray(selectedDept)) {
+                    rolesParam = selectedDept.map(r => r.value).join(",");
+                } else if (selectedDept !== "All") {
+                    rolesParam = selectedDept;
+                }
+            }
+            if (rolesParam) url += `&role=${rolesParam}`;
+
+            if (searchEmployee) url += `&employeeName=${encodeURIComponent(searchEmployee)}`;
+
+            // Handle multi-select centres
+            let centresParam = "";
+            if (selectedCentre) {
+                if (Array.isArray(selectedCentre)) {
+                    centresParam = selectedCentre.map(c => c.value).join(",");
+                } else if (selectedCentre !== "All") {
+                    centresParam = selectedCentre;
+                }
+            }
+            if (centresParam) url += `&centreId=${centresParam}`;
+
+            toast.info("Preparing Excel download...");
+            
+            const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.message || "Failed to download Excel report.");
+            }
+
+            const blob = await res.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            
+            const formattedDate = selectedDate.replace(/\//g, '-');
+            link.setAttribute("download", `Daily_Tracking_Logs_${formattedDate}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            toast.success("Excel report downloaded successfully!");
+        } catch (error) {
+            console.error("Error exporting Excel:", error);
+            toast.error(error.message || "Failed to export Excel report.");
         }
     };
 
@@ -749,19 +806,29 @@ const DailyTrackingLog = () => {
                                 </div>
                             </div>
 
-                            {/* Search field */}
-                            <div className="relative flex-1 w-full md:max-w-xs mt-3 md:mt-0">
-                                <FaSearch className="absolute left-3.5 top-3.5 text-gray-500 text-sm" />
-                                <input
-                                    type="text"
-                                    placeholder="Search employee by name..."
-                                    value={searchEmployee}
-                                    onChange={(e) => handleSearchChange(e.target.value)}
-                                    className={`w-full pl-9 pr-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode
-                                        ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500"
-                                        : "bg-slate-50 border-slate-200 text-slate-900 placeholder-gray-400"
-                                        }`}
-                                />
+                            {/* Search field and Export Excel */}
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:max-w-md justify-end mt-3 md:mt-0">
+                                <div className="relative flex-1">
+                                    <FaSearch className="absolute left-3.5 top-3.5 text-gray-500 text-sm" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search employee by name..."
+                                        value={searchEmployee}
+                                        onChange={(e) => handleSearchChange(e.target.value)}
+                                        className={`w-full pl-9 pr-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode
+                                            ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500"
+                                            : "bg-slate-50 border-slate-200 text-slate-900 placeholder-gray-400"
+                                            }`}
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleExportExcel}
+                                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition duration-200 shrink-0 active:scale-95"
+                                    title="Export logs to Excel"
+                                >
+                                    <FaFileExcel className="text-sm" />
+                                    Export Excel
+                                </button>
                             </div>
                         </div>
 
