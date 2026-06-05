@@ -73,6 +73,7 @@ const LeadManagementContent = () => {
     const [canCreate, setCanCreate] = useState(false);
     const [canEdit, setCanEdit] = useState(false);
     const [canDelete, setCanDelete] = useState(false);
+    const [canUpload, setCanUpload] = useState(false);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -404,6 +405,11 @@ const LeadManagementContent = () => {
             setCanCreate(true); // Everyone can create leads as requested
             setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
             setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
+
+            const hasCreatePerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'create');
+            const hasUploadPerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'upload');
+            const uploadPermDefined = parsedUser?.granularPermissions?.leadManagement?.leads?.hasOwnProperty('upload');
+            setCanUpload(uploadPermDefined ? hasUploadPerm : hasCreatePerm);
         }
         fetchAllowedCentres();
         fetchFilterData();
@@ -792,7 +798,7 @@ const LeadManagementContent = () => {
                                 <FaChartLine /> Dashboard
                             </button>
                         )}
-                        {canCreate && (
+                        {canUpload && (
                             <button
                                 onClick={() => setShowBulkModal(true)}
                                 className="px-6 py-3 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white rounded-[2px] border border-indigo-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"

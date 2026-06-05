@@ -148,7 +148,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                             view: true,
                             create: true,
                             edit: true,
-                            delete: true
+                            delete: true,
+                            upload: true
                         };
                     });
                 }

@@ -270,7 +270,8 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                                                             delete: isDarkMode ? 'text-red-400' : 'text-red-600',
                                                             approve: isDarkMode ? 'text-cyan-400' : 'text-cyan-600',
                                                             deactivate: isDarkMode ? 'text-rose-400' : 'text-rose-600',
-                                                            view: isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                                                            view: isDarkMode ? 'text-blue-400' : 'text-blue-600',
+                                                            upload: isDarkMode ? 'text-indigo-400' : 'text-indigo-600'
                                                         };
                                                         const defaultColor = isDarkMode ? 'text-cyan-400' : 'text-cyan-600';
                                                         const colorClass = opColors[op] || defaultColor;
