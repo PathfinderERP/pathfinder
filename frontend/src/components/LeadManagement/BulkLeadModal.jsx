@@ -545,6 +545,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         <FaUserPlus size={11} />
                         Fresh Leads
                     </button>
+                    {/* CONTACTED LEADS TAB - commented out
                     <button
                         onClick={() => setMode("contacted")}
                         className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${mode === "contacted"
@@ -555,6 +556,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         <FaPhoneAlt size={11} />
                         Contacted Leads
                     </button>
+                    */}
                 </div>
 
                 <div className={`p-8 space-y-6 max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
@@ -570,7 +572,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         }
                     </div>
 
-                    {/* Feedback master data hint (contacted mode only) */}
+                    {/* Feedback master data hint (contacted mode only) - COMMENTED OUT
                     {mode === "contacted" && feedbackOptions.length > 0 && (
                         <div className={`px-4 py-3 rounded-[4px] border space-y-1 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                             <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Valid Feedback Options (must match exactly)</p>
@@ -583,6 +585,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                             </div>
                         </div>
                     )}
+                    */}
 
                     {/* Download Template */}
                     <div className="flex justify-center">
@@ -647,14 +650,13 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         </div>
                     )}
 
-                    {/* Results (contacted mode) */}
+                    {/* Results (contacted mode) - COMMENTED OUT
                     {importResults && mode === "contacted" && (
                         <div className={`rounded-[4px] border overflow-hidden ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                             <div className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                                 Import Results
                             </div>
                             <div className="divide-y divide-gray-800/20">
-                                {/* Success summary */}
                                 <div className="px-4 py-2 flex items-center gap-3">
                                     <FaCheckCircle className="text-emerald-500 flex-shrink-0" size={12} />
                                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">
@@ -662,7 +664,6 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                         {importResults.success.filter(s => !s.contacted).length} Pending (no remarks)
                                     </span>
                                 </div>
-                                {/* Failed rows */}
                                 {importResults.failed.length > 0 && (
                                     <div className="px-4 py-2 space-y-1">
                                         <p className="text-[9px] font-black uppercase tracking-widest text-red-500 mb-1">Failed ({importResults.failed.length})</p>
@@ -676,6 +677,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                             </div>
                         </div>
                     )}
+                    */}
 
                     {/* Actions */}
                     <div className={`flex justify-end gap-4 pt-4 border-t transition-all ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
