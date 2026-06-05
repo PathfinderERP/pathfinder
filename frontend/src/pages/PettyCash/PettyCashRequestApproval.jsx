@@ -18,6 +18,20 @@ const PettyCashRequestApproval = () => {
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [approvedAmount, setApprovedAmount] = useState("");
     const [remarks, setRemarks] = useState("");
+    const [employees, setEmployees] = useState([]);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        id: "",
+        centreId: "",
+        requestedAmount: "",
+        approvedAmount: "",
+        status: "",
+        remarks: "",
+        createdAt: "",
+        requestedById: "",
+        approvedById: "",
+        approvalDate: ""
+    });
     
     // Filters & Pagination
     const [filters, setFilters] = useState({
@@ -45,6 +59,18 @@ const PettyCashRequestApproval = () => {
             setAllCentres(response.data || []);
         } catch (error) {
             console.error("Failed to fetch centres", error);
+        }
+    };
+
+    const fetchEmployees = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/hr/employee/dropdown`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setEmployees(response.data || []);
+        } catch (error) {
+            console.error("Failed to fetch employees", error);
         }
     };
 
@@ -110,6 +136,49 @@ const PettyCashRequestApproval = () => {
         }
     };
 
+    const handleOpenEditModal = (request) => {
+        const dateStr = request.createdAt ? new Date(request.createdAt).toISOString().split('T')[0] : "";
+        const approvalDateStr = request.approvalDate ? new Date(request.approvalDate).toISOString().split('T')[0] : "";
+        setEditFormData({
+            id: request._id,
+            centreId: request.centre?._id || request.centre,
+            requestedAmount: request.requestedAmount || "",
+            approvedAmount: request.approvedAmount || 0,
+            status: request.status || "pending",
+            remarks: request.remarks || "",
+            createdAt: dateStr,
+            requestedById: request.requestedBy?._id || request.requestedBy,
+            approvedById: request.approvedBy?._id || request.approvedBy || "",
+            approvalDate: approvalDateStr
+        });
+        setShowEditModal(true);
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem("token");
+            await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/request-update/${editFormData.id}`, {
+                centre: editFormData.centreId,
+                requestedAmount: Number(editFormData.requestedAmount),
+                approvedAmount: Number(editFormData.approvedAmount),
+                status: editFormData.status,
+                remarks: editFormData.remarks,
+                createdAt: editFormData.createdAt,
+                requestedBy: editFormData.requestedById,
+                approvedBy: editFormData.approvedById || null,
+                approvalDate: editFormData.approvalDate || null
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success("Request updated successfully");
+            setShowEditModal(false);
+            fetchRequests();
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Failed to update request");
+        }
+    };
+
     const exportToExcel = async () => {
         setLoading(true);
         try {
@@ -158,6 +227,7 @@ const PettyCashRequestApproval = () => {
 
     useEffect(() => {
         fetchCentres();
+        fetchEmployees();
     }, []);
 
     useEffect(() => {
@@ -276,8 +346,8 @@ const PettyCashRequestApproval = () => {
                                             <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.requestedBy?.name || "N/A"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.approvedBy?.name || "-"}</td>
                                             <td className="p-4">
-                                                <div className="flex justify-center gap-3">
-                                                    {item.status === 'pending' && canApprove ? (
+                                                <div className="flex justify-center items-center gap-3">
+                                                    {item.status === 'pending' && canApprove && (
                                                         <>
                                                             <button
                                                                 onClick={() => { setSelectedRequest(item); setApprovedAmount(item.requestedAmount); setShowApprovalModal(true); }}
@@ -292,8 +362,17 @@ const PettyCashRequestApproval = () => {
                                                                 Reject
                                                             </button>
                                                         </>
-                                                    ) : (
+                                                    )}
+                                                    {item.status !== 'pending' && (
                                                         <span className="text-gray-600 text-xs">Processed</span>
+                                                    )}
+                                                    {canApprove && (
+                                                        <button
+                                                            onClick={() => handleOpenEditModal(item)}
+                                                            className="text-blue-500 hover:text-blue-400 text-xs font-black uppercase tracking-tighter"
+                                                        >
+                                                            Edit
+                                                        </button>
                                                     )}
                                                 </div>
                                             </td>
@@ -429,6 +508,142 @@ const PettyCashRequestApproval = () => {
                                         className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold"
                                     >
                                         Reject Request
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {showEditModal && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                        <div className="bg-[#1a1f24] w-full max-w-lg rounded-xl border border-gray-700 shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold">Edit Petty Cash Request</h3>
+                                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-white"><FaTimes /></button>
+                            </div>
+                            <form onSubmit={handleUpdate} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Centre <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={editFormData.centreId}
+                                            onChange={(e) => setEditFormData({ ...editFormData, centreId: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm cursor-pointer"
+                                            required
+                                        >
+                                            <option value="">Select Centre</option>
+                                            {allCentres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Status <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={editFormData.status}
+                                            onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm cursor-pointer"
+                                            required
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Requested Amount (₹) <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="number"
+                                            value={editFormData.requestedAmount}
+                                            onChange={(e) => setEditFormData({ ...editFormData, requestedAmount: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Approved Amount (₹)</label>
+                                        <input
+                                            type="number"
+                                            value={editFormData.approvedAmount}
+                                            onChange={(e) => setEditFormData({ ...editFormData, approvedAmount: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Requested By <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={editFormData.requestedById}
+                                            onChange={(e) => setEditFormData({ ...editFormData, requestedById: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm cursor-pointer"
+                                            required
+                                        >
+                                            <option value="">Select Employee</option>
+                                            {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Approved By</label>
+                                        <select
+                                            value={editFormData.approvedById}
+                                            onChange={(e) => setEditFormData({ ...editFormData, approvedById: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm cursor-pointer"
+                                        >
+                                            <option value="">Select Employee (Approved By)</option>
+                                            {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Requested Date <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="date"
+                                            value={editFormData.createdAt}
+                                            onChange={(e) => setEditFormData({ ...editFormData, createdAt: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm [color-scheme:dark]"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Approval Date</label>
+                                        <input
+                                            type="date"
+                                            value={editFormData.approvalDate}
+                                            onChange={(e) => setEditFormData({ ...editFormData, approvalDate: e.target.value })}
+                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm [color-scheme:dark]"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Remarks</label>
+                                    <textarea
+                                        value={editFormData.remarks}
+                                        onChange={(e) => setEditFormData({ ...editFormData, remarks: e.target.value })}
+                                        className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none text-sm"
+                                        rows="3"
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEditModal(false)}
+                                        className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-bold"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold shadow-lg shadow-blue-900/20"
+                                    >
+                                        Save Changes
                                     </button>
                                 </div>
                             </form>

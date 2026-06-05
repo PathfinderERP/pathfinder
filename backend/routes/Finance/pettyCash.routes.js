@@ -3,7 +3,7 @@ import {
     getPettyCashCentres, syncPettyCashCentres, addExpenditure,
     getExpenditures, approveExpenditure, rejectExpenditure,
     addPettyCashDeposit, requestPettyCash, getPettyCashRequests,
-    approvePettyCashRequest, rejectPettyCashRequest, upload
+    approvePettyCashRequest, rejectPettyCashRequest, updatePettyCashRequest, upload
 } from "../../controllers/Finance/pettyCashController.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 
@@ -33,5 +33,6 @@ router.post("/requests", requireGranularPermission("pettyCashManagement", "addPe
 router.get("/request-approval", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "view"), getPettyCashRequests);
 router.put("/request-approve/:id", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "approve"), approvePettyCashRequest);
 router.put("/request-reject/:id", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "approve"), rejectPettyCashRequest);
+router.put("/request-update/:id", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "approve"), updatePettyCashRequest);
 
 export default router;

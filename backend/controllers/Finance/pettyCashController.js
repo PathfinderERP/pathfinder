@@ -511,3 +511,84 @@ export const rejectPettyCashRequest = async (req, res) => {
     }
 };
 
+// Update petty cash request (SuperAdmin/Admin edit everything)
+export const updatePettyCashRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = { ...req.body };
+
+        const request = await PettyCashRequest.findById(id);
+        if (!request) return res.status(404).json({ message: "Request not found" });
+
+        // Center Visibility Restriction for non-superAdmins
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            const userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+            if (!userCentres.includes(request.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: You cannot edit request for this centre" });
+            }
+            if (updates.centre && !userCentres.includes(updates.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: You cannot move request to this centre" });
+            }
+        }
+
+        const oldStatus = request.status;
+        const oldApprovedAmount = request.approvedAmount || 0;
+        const oldCentre = request.centre;
+
+        // Apply updates to request document
+        if (updates.centre) request.centre = updates.centre;
+        if (updates.requestedAmount !== undefined) request.requestedAmount = Number(updates.requestedAmount);
+        if (updates.approvedAmount !== undefined) request.approvedAmount = Number(updates.approvedAmount);
+        if (updates.status) request.status = updates.status;
+        if (updates.remarks !== undefined) request.remarks = updates.remarks;
+        if (updates.createdAt) request.createdAt = new Date(updates.createdAt);
+        if (updates.requestedBy) request.requestedBy = updates.requestedBy;
+        if (updates.approvedBy) request.approvedBy = updates.approvedBy || null;
+        if (updates.approvalDate) {
+            request.approvalDate = new Date(updates.approvalDate);
+        } else if (updates.approvalDate === null) {
+            request.approvalDate = undefined;
+        }
+
+        await request.save();
+
+        // Adjust PettyCashCentre balance
+        const newStatus = request.status;
+        const newApprovedAmount = request.approvedAmount || 0;
+        const newCentre = request.centre;
+
+        // First, reverse the old approval from the old centre (if it was approved)
+        if (oldStatus === 'approved') {
+            const pCentreOld = await PettyCashCentre.findOne({ centre: oldCentre });
+            if (pCentreOld) {
+                pCentreOld.totalDeposit -= oldApprovedAmount;
+                pCentreOld.remainingBalance = pCentreOld.totalDeposit - pCentreOld.totalExpenditure;
+                await pCentreOld.save();
+            }
+        }
+
+        // Second, apply the new approval to the new centre (if it is now approved)
+        if (newStatus === 'approved') {
+            let pCentreNew = await PettyCashCentre.findOne({ centre: newCentre });
+            if (!pCentreNew) {
+                await PettyCashCentre.create({
+                    centre: newCentre,
+                    totalDeposit: newApprovedAmount,
+                    remainingBalance: newApprovedAmount
+                });
+            } else {
+                pCentreNew.totalDeposit += newApprovedAmount;
+                pCentreNew.remainingBalance = pCentreNew.totalDeposit - pCentreNew.totalExpenditure;
+                await pCentreNew.save();
+            }
+        }
+
+        res.status(200).json({ message: "Petty cash request updated successfully", data: request });
+    } catch (err) {
+        console.error("Update Petty Cash Request Error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+
