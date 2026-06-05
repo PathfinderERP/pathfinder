@@ -39,7 +39,7 @@ const PettyCashRequestApproval = () => {
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/centres?status=active`, {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setAllCentres(response.data || []);

@@ -112,7 +112,7 @@ const BoardAnalysis = () => {
     const fetchCentres = async (allowedOverride) => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/centre`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
