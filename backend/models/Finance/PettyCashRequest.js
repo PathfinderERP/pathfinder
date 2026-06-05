@@ -34,6 +34,10 @@ const pettyCashRequestSchema = new mongoose.Schema({
     remarks: {
         type: String,
         trim: true
+    },
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Employee"
     }
 }, { timestamps: true });
 

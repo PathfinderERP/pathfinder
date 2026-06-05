@@ -208,7 +208,8 @@ const PettyCashRequestApproval = () => {
                 "Approved Amount": item.approvedAmount || 0,
                 "Status": item.status?.toUpperCase(),
                 "Created By": item.requestedBy?.name || "N/A",
-                "Approved By": item.approvedBy?.name || "-"
+                "Approved By": item.approvedBy?.name || "-",
+                "Edited By": item.updatedBy?.name || "-"
             }));
 
             const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -343,7 +344,14 @@ const PettyCashRequestApproval = () => {
                                                     {item.status}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.requestedBy?.name || "N/A"}</td>
+                                            <td className="p-4">
+                                                <div className="text-xs font-bold text-gray-400 uppercase">{item.requestedBy?.name || "N/A"}</div>
+                                                {item.updatedBy?.name && (
+                                                    <div className="text-[9px] text-cyan-500/80 font-black uppercase mt-0.5 tracking-wider">
+                                                        Edited by: {item.updatedBy.name}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.approvedBy?.name || "-"}</td>
                                             <td className="p-4">
                                                 <div className="flex justify-center items-center gap-3">

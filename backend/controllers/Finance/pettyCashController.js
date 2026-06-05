@@ -399,6 +399,7 @@ export const getPettyCashRequests = async (req, res) => {
                 .populate("centre", "centreName")
                 .populate("requestedBy", "name")
                 .populate("approvedBy", "name")
+                .populate("updatedBy", "name")
                 .sort({ createdAt: -1 });
             return res.status(200).json(requests);
         }
@@ -410,6 +411,7 @@ export const getPettyCashRequests = async (req, res) => {
             .populate("centre", "centreName")
             .populate("requestedBy", "name")
             .populate("approvedBy", "name")
+            .populate("updatedBy", "name")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit));
@@ -549,6 +551,10 @@ export const updatePettyCashRequest = async (req, res) => {
             request.approvalDate = new Date(updates.approvalDate);
         } else if (updates.approvalDate === null) {
             request.approvalDate = undefined;
+        }
+        const updaterEmployee = await Employee.findOne({ user: req.user.id || req.user._id });
+        if (updaterEmployee) {
+            request.updatedBy = updaterEmployee._id;
         }
 
         await request.save();
