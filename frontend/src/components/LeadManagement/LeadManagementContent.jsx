@@ -1416,7 +1416,7 @@ const LeadManagementContent = () => {
                         >
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
-                                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>Pending Leads</p>
+                                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>UnContacted Leads</p>
                                     <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.remainingCount}</h3>
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.3)]`}>
