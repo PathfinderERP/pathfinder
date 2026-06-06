@@ -818,6 +818,67 @@ const EmployeeList = () => {
                                     </div>
                                 </div>
 
+                                {/* Centre Distribution Bar Chart */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl overflow-hidden relative group">
+                                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <FaMapMarkerAlt className="text-6xl text-amber-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
+                                        Center Distribution
+                                    </h3>
+                                    <div className="h-72 w-full overflow-x-auto custom-scrollbar">
+                                        <div
+                                            className="h-full"
+                                            style={{ width: `${Math.max(analytics.centreDistribution.length * 60, 400)}px` }}
+                                        >
+                                            <BarChart
+                                                width={Math.max(analytics.centreDistribution.length * 60, 400)}
+                                                height={260}
+                                                data={analytics.centreDistribution.map(c => ({
+                                                    name: c._id || "Unassigned",
+                                                    count: c.count
+                                                }))}
+                                                barSize={20}
+                                                margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                                                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={true}
+                                                    axisLine={true}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    interval={0}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <YAxis
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <Tooltip
+                                                    content={<CustomTooltip />}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                                />
+                                                <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Monthly Joining Trend Area Chart */}
                                 {/* <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -848,67 +909,6 @@ const EmployeeList = () => {
                                         </ResponsiveContainer>
                                     </div>
                                 </div> */}
-
-                                {/* Centre Distribution Bar Chart - Left Side */}
-                                <div className=" w-full bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
-                                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                                        <FaMapMarkerAlt className="text-6xl text-amber-500" />
-                                    </div>
-                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
-                                        Center Distribution
-                                    </h3>
-                                    <div className="h-80 w-full overflow-x-auto custom-scrollbar">
-                                        <div
-                                            className="h-full"
-                                            style={{ width: `${Math.max(analytics.centreDistribution.length * 80, 600)}px` }}
-                                        >
-                                            <BarChart
-                                                width={Math.max(analytics.centreDistribution.length * 80, 600)}
-                                                height={300}
-                                                data={analytics.centreDistribution.map(c => ({
-                                                    name: c._id || "Unassigned",
-                                                    count: c.count
-                                                }))}
-                                                barSize={32}
-                                                margin={{ top: 20, right: 30, left: 10, bottom: 80 }}
-                                            >
-                                                <defs>
-                                                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
-                                                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
-                                                <XAxis
-                                                    dataKey="name"
-                                                    stroke="#9ca3af"
-                                                    fontSize={10}
-                                                    fontWeight="bold"
-                                                    tickLine={true}
-                                                    axisLine={true}
-                                                    angle={-45}
-                                                    textAnchor="end"
-                                                    interval={0}
-                                                    strokeOpacity={0.4}
-                                                />
-                                                <YAxis
-                                                    stroke="#9ca3af"
-                                                    fontSize={10}
-                                                    fontWeight="bold"
-                                                    tickLine={false}
-                                                    axisLine={false}
-                                                    strokeOpacity={0.4}
-                                                />
-                                                <Tooltip
-                                                    content={<CustomTooltip />}
-                                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                                                />
-                                                <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
-                                            </BarChart>
-                                        </div>
-                                    </div>
-                                </div>
 
                                 {/* Detailed Employment Breakdown */}
                                 {/* <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
