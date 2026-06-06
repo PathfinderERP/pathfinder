@@ -1089,17 +1089,23 @@ const EmployeesAttendance = () => {
 
                     {/* Dashboard Stats & Behavioral Highlights */}
                     <div className="space-y-6">
-                        {/* High Level Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                            <StatCard
-                                title="Total Employees"
-                                value={stats?.totalEmployees || 0}
-                                subValue="Active Workforce"
-                                icon={<FaUsers />}
-                                color="blue"
-                                isDarkMode={isDarkMode}
-                            />
-                            <div onClick={() => setShowPresentModal(true)} className="cursor-pointer transition-transform hover:scale-[1.02]">
+                        {/* All Stat Cards — unified flex-wrap row */}
+                        <div className="flex flex-wrap gap-4">
+
+                            {/* Stat Card: Total Employees */}
+                            <div className="flex-1 min-w-[160px]">
+                                <StatCard
+                                    title="Total Employees"
+                                    value={stats?.totalEmployees || 0}
+                                    subValue="Active Workforce"
+                                    icon={<FaUsers />}
+                                    color="blue"
+                                    isDarkMode={isDarkMode}
+                                />
+                            </div>
+
+                            {/* Stat Card: Attendance */}
+                            <div className="flex-1 min-w-[160px] cursor-pointer transition-transform hover:scale-[1.02]" onClick={() => setShowPresentModal(true)}>
                                 <StatCard
                                     title="Attendance"
                                     value={periodPresentList.length}
@@ -1109,26 +1115,8 @@ const EmployeesAttendance = () => {
                                     isDarkMode={isDarkMode}
                                 />
                             </div>
-                            {/* <StatCard
-                                title="Avg Working Hrs"
-                                value={(stats?.avgHours || 0) + "h"}
-                                subValue={`Min: ${stats?.minHours || 0}h • Max: ${stats?.maxHours || 0}h`}
-                                icon={<FaClock />}
-                                color="purple"
-                                isDarkMode={isDarkMode}
-                            /> */}
-                            {/* <StatCard
-                                title="Efficiency"
-                                value={stats?.efficiency ? (String(stats.efficiency).endsWith('%') ? stats.efficiency : `${stats.efficiency}%`) : "0%"}
-                                subValue="Based on Shift Comp."
-                                icon={<FaChartLine />}
-                                color="amber"
-                                isDarkMode={isDarkMode}
-                            /> */}
-                        </div>
 
-                        {/* Interactive Behavioral Cautions */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            {/* Interactive Behavioral Caution Cards */}
                             {[
                                 { id: 'Overtime', label: 'Overtime Track', count: stats?.statusSummary?.overtime || 0, color: 'violet', icon: <FaStar /> },
                                 { id: 'Early Leave', label: 'Early Leavers', count: stats?.statusSummary?.earlyLeave || 0, color: 'pink', icon: <FaClock /> },
@@ -1142,8 +1130,9 @@ const EmployeesAttendance = () => {
                                         setActiveCaution(c.id);
                                         setShowCautionModal(true);
                                     }}
+                                    style={{ minWidth: '160px' }}
                                     className={`
-                                    border p-6 rounded-[2px] relative overflow-hidden group cursor-pointer transition-all hover:scale-[1.02]
+                                    flex-1 border p-6 rounded-[2px] relative overflow-hidden group cursor-pointer transition-all hover:scale-[1.02]
                                     ${isDarkMode ? 'bg-[#131619]' : 'bg-white shadow-sm'}
                                     ${activeCaution === c.id
                                             ? `border-${c.color}-500 shadow-lg shadow-${c.color}-500/10`
