@@ -399,6 +399,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
 // Premium Multi-Select Dropdown Component (Updated for 2px radius)
 const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, valKey, labelKey, isDarkMode }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -411,6 +412,12 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        if (!isOpen) {
+            setSearchTerm("");
+        }
+    }, [isOpen]);
+
     const toggleSelection = (id) => {
         let newSelection;
         if (selectedValues.includes(id)) {
@@ -420,6 +427,11 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
         }
         onToggle(newSelection);
     };
+
+    const filteredOptions = options.filter(opt => {
+        const val = opt[labelKey] || "";
+        return val.toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
     return (
         <div className="relative group" ref={dropdownRef}>
@@ -443,8 +455,18 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
 
             {isOpen && (
                 <div className={`absolute top-full left-0 right-0 mt-1 border rounded-[2px] shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className={`p-2 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                        <input
+                            type="text"
+                            placeholder={`Search ${label}...`}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`w-full border rounded-[2px] px-2 py-1.5 text-[9px] font-black uppercase tracking-widest outline-none focus:border-cyan-500/50 ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                        />
+                    </div>
                     <div className="max-h-60 overflow-y-auto custom-scrollbar p-1 space-y-0.5">
-                        {options.map((opt) => (
+                        {filteredOptions.map((opt) => (
                             <div
                                 key={opt[valKey]}
                                 onClick={() => toggleSelection(opt[valKey])}
@@ -457,6 +479,11 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
                                 {selectedValues.includes(opt[valKey]) && <FaCheck size={8} className="text-cyan-500" />}
                             </div>
                         ))}
+                        {filteredOptions.length === 0 && (
+                            <div className="p-2 text-center text-[9px] font-bold text-gray-500 uppercase">
+                                No Options Found
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
