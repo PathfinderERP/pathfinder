@@ -107,6 +107,117 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             }
 
             if (!globalWebPhone) {
+                if (data.isMock) {
+                    console.log("[Exotel WebRTC]: Initializing Mock WebRTC Phone for local development.");
+                    
+                    const HandleCallEvents = (eventType, callObj) => {
+                        console.log("[Mock Exotel Call Event]:", eventType, callObj);
+                        globalActiveCallObj = callObj;
+                        switch (eventType) {
+                            case "incoming":
+                                globalCallStatus = "ringing";
+                                globalIsIncomingCall = true;
+                                globalCallMessage = isOutboundCallRef.current ? "Agent leg ringing (outbound)..." : "Incoming call...";
+                                notifySubscribers();
+                                break;
+                            case "connected":
+                                globalCallStatus = "connected";
+                                globalIsIncomingCall = false;
+                                globalCallMessage = "Call connected! Talk now. (Mock)";
+                                globalIsMuted = false;
+                                globalIsOnHold = false;
+                                notifySubscribers();
+                                
+                                // Start timer
+                                globalCallDuration = 0;
+                                if (globalTimerId) clearInterval(globalTimerId);
+                                globalTimerId = setInterval(() => {
+                                    globalCallDuration += 1;
+                                    notifySubscribers();
+                                }, 1000);
+                                break;
+                            case "callEnded":
+                                isOutboundCallRef.current = false;
+                                globalCallStatus = "disconnected";
+                                globalIsIncomingCall = false;
+                                globalIsMuted = false;
+                                globalIsOnHold = false;
+                                globalCallMessage = "Call disconnected.";
+                                notifySubscribers();
+                                if (globalTimerId) {
+                                    clearInterval(globalTimerId);
+                                    globalTimerId = null;
+                                }
+                                setTimeout(() => {
+                                    globalCallStatus = "idle";
+                                    notifySubscribers();
+                                }, 3000);
+                                break;
+                            case "holdtoggle":
+                                globalIsOnHold = !globalIsOnHold;
+                                notifySubscribers();
+                                break;
+                            case "mutetoggle":
+                                globalIsMuted = !globalIsMuted;
+                                notifySubscribers();
+                                break;
+                            default:
+                                break;
+                        }
+                    };
+
+                    setTimeout(() => {
+                        globalIsDeviceRegistered = true;
+                        globalCallMessage = "Exotel softphone is online (Mock Mode).";
+                        console.log('Exotel WebRTC Device registered successfully (Mock).');
+                        notifySubscribers();
+                    }, 500);
+
+                    globalWebPhone = {
+                        AcceptCall: () => {
+                            console.log("[Mock Exotel] AcceptCall called");
+                            HandleCallEvents("connected", {});
+                        },
+                        HangupCall: async () => {
+                            console.log("[Mock Exotel] HangupCall called");
+                            HandleCallEvents("callEnded", {});
+
+                            // Attempt to POST to webhook for local recording testing
+                            try {
+                                const leadNumber = lead.phoneNumber || lead.secondPhoneNumber;
+                                await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/recording-callback`, {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json"
+                                    },
+                                    body: JSON.stringify({
+                                        To: leadNumber,
+                                        RecordingUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                                        ConversationDuration: globalCallDuration || 15,
+                                        CallSid: "mock_call_sid_" + Date.now(),
+                                        Status: "completed"
+                                    })
+                                });
+                                console.log("[Mock Exotel] Mock recording callback sent successfully.");
+                            } catch (err) {
+                                console.error("[Mock Exotel] Failed to trigger mock recording callback:", err);
+                            }
+                        },
+                        ToggleMute: () => {
+                            console.log("[Mock Exotel] ToggleMute called");
+                            HandleCallEvents("mutetoggle", {});
+                        },
+                        ToggleHold: () => {
+                            console.log("[Mock Exotel] ToggleHold called");
+                            HandleCallEvents("holdtoggle", {});
+                        },
+                        SendDTMF: (digit) => {
+                            console.log("[Mock Exotel] SendDTMF called with:", digit);
+                        }
+                    };
+                    return;
+                }
+
                 globalWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
 
                 const HandleCallEvents = (eventType, callObj) => {
@@ -256,6 +367,15 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
             const callData = await response.json();
             console.log("[Exotel Outbound Call Success]:", callData);
+
+            if (callData.isMock) {
+                globalCallStatus = "ringing";
+                globalIsIncomingCall = true;
+                globalCallMessage = "Agent WebSDK softphone is ringing (Mock Mode)...";
+                notifySubscribers();
+                return;
+            }
+
             globalCallStatus = "ringing";
             globalIsIncomingCall = true;
             globalCallMessage = "Agent WebSDK softphone is ringing...";

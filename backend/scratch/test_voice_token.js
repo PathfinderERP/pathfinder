@@ -8,7 +8,7 @@ const test = async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 email: 'rohan@pathfinder.edu.in',
-                password: 'admin123'
+                password: 'SA002'
             })
         });
 

@@ -5,7 +5,7 @@ import {
     addPettyCashDeposit, requestPettyCash, getPettyCashRequests,
     approvePettyCashRequest, rejectPettyCashRequest, updatePettyCashRequest, upload
 } from "../../controllers/Finance/pettyCashController.js";
-import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
+import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
@@ -33,6 +33,10 @@ router.post("/requests", requireGranularPermission("pettyCashManagement", "addPe
 router.get("/request-approval", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "view"), getPettyCashRequests);
 router.put("/request-approve/:id", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "approve"), approvePettyCashRequest);
 router.put("/request-reject/:id", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "approve"), rejectPettyCashRequest);
-router.put("/request-update/:id", requireGranularPermission("pettyCashManagement", "pettyCashRequestApproval", "approve"), updatePettyCashRequest);
+router.put("/request-update/:id", requireAnyGranularPermission([
+    { module: "pettyCashManagement", section: "pettyCashRequestApproval", action: "create" },
+    { module: "pettyCashManagement", section: "pettyCashRequestApproval", action: "edit" },
+    { module: "pettyCashManagement", section: "pettyCashRequestApproval", action: "delete" }
+]), updatePettyCashRequest);
 
 export default router;

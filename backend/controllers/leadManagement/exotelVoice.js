@@ -6,12 +6,9 @@ const formatPhoneNumber = (num) => {
     if (!num) return '';
     const digits = num.replace(/\D/g, '');
     if (digits.length === 10) {
-        return `+91${digits}`;
+        return `0${digits}`;
     }
-    if (digits.length > 10 && !num.startsWith('+')) {
-        return `+${digits}`;
-    }
-    return num.startsWith('+') ? num : `+${num}`;
+    return digits;
 };
 
 const cleanPhoneNumber = (num) => {
@@ -30,6 +27,14 @@ export const getVoiceToken = async (req, res) => {
         const customerSecret = process.env.EXOTEL_CUSTOMER_SECRET || apiToken;
 
         if (!customerId || !customerSecret) {
+            if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                console.log("[Exotel Voice] Configurations missing. Returning mock voice token for development.");
+                return res.status(200).json({
+                    token: "mock-token",
+                    userId: req.user.email,
+                    isMock: true
+                });
+            }
             return res.status(400).json({
                 message: "Exotel voice configurations are missing on the server (Customer ID or Customer Secret)"
             });
@@ -55,6 +60,14 @@ export const getVoiceToken = async (req, res) => {
 
         if (!customerTokenResponse.ok || customerTokenData.Status === 'Failed') {
             console.error('[Exotel Voice] Customer Token generation failed:', customerTokenData);
+            if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                console.log("[Exotel Voice] Customer Token generation failed. Falling back to mock voice token.");
+                return res.status(200).json({
+                    token: "mock-token",
+                    userId: req.user.email,
+                    isMock: true
+                });
+            }
             return res.status(500).json({
                 message: "Failed to generate Exotel customer token",
                 error: customerTokenData.Error || 'Unknown error'
@@ -70,8 +83,40 @@ export const getVoiceToken = async (req, res) => {
 
         const isUuid = (val) => val && val.length === 36 && val.includes('-');
 
+        let appToken = null;
+        let appTokenResponse = null;
+        let appTokenData = null;
+
+        if (isUuid(appId)) {
+            console.log(`[Exotel Voice] Verifying configured App ID from .env: ${appId}`);
+            try {
+                appTokenResponse = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        Id: appId,
+                        Secret: appSecret,
+                        Entity: 'app'
+                    })
+                });
+                appTokenData = await appTokenResponse.json();
+                if (appTokenResponse.ok && appTokenData.Status === 'Success') {
+                    appToken = appTokenData.Data;
+                    console.log('[Exotel Voice] Configured App ID/Secret validated successfully.');
+                } else {
+                    console.warn('[Exotel Voice] Configured App ID/Secret in .env is invalid or unauthorized. Bypassing to search/create.');
+                    appId = null;
+                    appSecret = null;
+                }
+            } catch (err) {
+                console.warn('[Exotel Voice] Failed to verify configured App ID/Secret:', err.message);
+                appId = null;
+                appSecret = null;
+            }
+        }
+
         if (!isUuid(appId)) {
-            console.log('[Exotel Voice] App ID not configured as UUID in .env. Searching for existing integration app...');
+            console.log('[Exotel Voice] App ID not configured or invalid. Searching for existing integration app...');
             const appsUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/app';
             const appsRes = await fetch(appsUrl, {
                 method: 'GET',
@@ -127,31 +172,41 @@ export const getVoiceToken = async (req, res) => {
 
         // Note: Individual agent user registration is handled automatically when they are mapped via the User Mapping API below.
 
-        // 4. Fetch App Token (needed by the frontend CRM WebSDK to load app settings & initialize)
-        console.log(`[Exotel Voice] Requesting App Token from ${tokenUrl} for App: ${appId}`);
-        const appTokenResponse = await fetch(tokenUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                Id: appId,
-                Secret: appSecret,
-                Entity: 'app'
-            })
-        });
-
-        const appTokenData = await appTokenResponse.json();
-
-        if (!appTokenResponse.ok || appTokenData.Status === 'Failed') {
-            console.error('[Exotel Voice] App Token generation failed:', appTokenData);
-            return res.status(500).json({
-                message: "Failed to generate Exotel App Token for the frontend WebSDK",
-                error: appTokenData.Error || 'Unknown error'
+        // 4. Fetch App Token if not already fetched
+        if (!appToken) {
+            console.log(`[Exotel Voice] Requesting App Token from ${tokenUrl} for App: ${appId}`);
+            appTokenResponse = await fetch(tokenUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    Id: appId,
+                    Secret: appSecret,
+                    Entity: 'app'
+                })
             });
-        }
 
-        const appToken = appTokenData.Data;
+            appTokenData = await appTokenResponse.json();
+
+            if (!appTokenResponse.ok || appTokenData.Status === 'Failed') {
+                console.error('[Exotel Voice] App Token generation failed:', appTokenData);
+                if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                    console.log("[Exotel Voice] App Token generation failed. Falling back to mock voice token.");
+                    return res.status(200).json({
+                        token: "mock-token",
+                        userId: req.user.email,
+                        isMock: true
+                    });
+                }
+                return res.status(500).json({
+                    message: "Failed to generate Exotel App Token for the frontend WebSDK",
+                    error: appTokenData.Error || 'Unknown error'
+                });
+            }
+
+            appToken = appTokenData.Data;
+        }
 
         // 5. Ensure App Settings exist (avoiding SDK 404 blocker on GET /v2/integrations/app_setting)
         console.log(`[Exotel Voice] Verifying app settings for App: ${appId}`);
@@ -440,6 +495,18 @@ export const initiateExotelCall = async (req, res) => {
         const customerSecret = process.env.EXOTEL_CUSTOMER_SECRET || apiToken;
 
         if (!accountSid || !apiKey || !apiToken) {
+            if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                console.log(`[Exotel Voice] Configs missing. Initiating mock outbound call to: ${to}`);
+                return res.status(200).json({
+                    isMock: true,
+                    Call: {
+                        Sid: "mock_call_sid_" + Date.now(),
+                        From: req.user.email,
+                        To: to,
+                        Status: "in-progress"
+                    }
+                });
+            }
             return res.status(400).json({
                 message: "Exotel voice configurations are missing on the server (Account SID, API Key, or API Token)"
             });
@@ -462,6 +529,18 @@ export const initiateExotelCall = async (req, res) => {
         const customerTokenData = await customerTokenResponse.json();
         if (!customerTokenResponse.ok || customerTokenData.Status === 'Failed') {
             console.error('[Exotel Voice] Customer Token generation failed:', customerTokenData);
+            if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                console.log(`[Exotel Voice] Customer Token failed. Initiating mock outbound call to: ${to}`);
+                return res.status(200).json({
+                    isMock: true,
+                    Call: {
+                        Sid: "mock_call_sid_" + Date.now(),
+                        From: req.user.email,
+                        To: to,
+                        Status: "in-progress"
+                    }
+                });
+            }
             return res.status(500).json({
                 message: "Failed to generate Exotel customer token",
                 error: customerTokenData.Error || 'Unknown error'
@@ -471,7 +550,33 @@ export const initiateExotelCall = async (req, res) => {
 
         // Resolve App ID
         let appId = process.env.EXOTEL_APP_ID;
+        let appSecret = process.env.EXOTEL_APP_SECRET;
         const isUuid = (val) => val && val.length === 36 && val.includes('-');
+
+        let appToken = null;
+
+        if (isUuid(appId)) {
+            try {
+                const appTokenResponse = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Id: appId, Secret: appSecret, Entity: 'app' })
+                });
+                const appTokenData = await appTokenResponse.json();
+                if (appTokenResponse.ok && appTokenData.Status === 'Success') {
+                    appToken = appTokenData.Data;
+                } else {
+                    console.warn('[Exotel Voice] Configured App ID/Secret is invalid or unauthorized in call initiation. Bypassing...');
+                    appId = null;
+                    appSecret = null;
+                }
+            } catch (err) {
+                console.warn('[Exotel Voice] Failed to verify configured App ID/Secret:', err.message);
+                appId = null;
+                appSecret = null;
+            }
+        }
+
         if (!isUuid(appId)) {
             const appsUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/app';
             const appsRes = await fetch(appsUrl, {
@@ -488,45 +593,39 @@ export const initiateExotelCall = async (req, res) => {
             }
             if (foundApp) {
                 appId = foundApp.AppID;
+                appSecret = foundApp.AppSecret;
             } else {
                 return res.status(500).json({ message: "Exotel App not configured and auto-creation was bypassed." });
             }
         }
 
-        // Fetch App Secret and generate App Token
-        let appSecret = process.env.EXOTEL_APP_SECRET;
-        if (!appSecret && appId) {
-            const appsUrl = 'https://integrationscore.mum1.exotel.com/v2/integrations/app';
-            const appsRes = await fetch(appsUrl, {
-                method: 'GET',
-                headers: { 'Authorization': customerToken }
+        if (!appToken) {
+            const appTokenResponse = await fetch(tokenUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    Id: appId,
+                    Secret: appSecret,
+                    Entity: 'app'
+                })
             });
-            const appsData = await appsRes.json();
-            const foundApp = appsData.Data && appsData.Data.find(a => a.AppID === appId);
-            if (foundApp) {
-                appSecret = foundApp.AppSecret;
+            const appTokenData = await appTokenResponse.json();
+            appToken = appTokenData.Data;
+        }
+
+        // Check for environment override or manual database override first
+        let sipId = process.env.EXOTEL_SIP_ID_OVERRIDE;
+        if (sipId) {
+            console.log(`[Exotel Voice] Using environment SipId override: ${sipId}`);
+        } else {
+            const dbUser = await User.findById(req.user._id);
+            if (dbUser && dbUser.exotelSipId) {
+                sipId = dbUser.exotelSipId;
+                console.log(`[Exotel Voice] Using database SipId override for ${userId}: ${sipId}`);
             }
         }
 
-        const appTokenResponse = await fetch(tokenUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                Id: appId,
-                Secret: appSecret,
-                Entity: 'app'
-            })
-        });
-        const appTokenData = await appTokenResponse.json();
-        const appToken = appTokenData.Data;
-
-        // Check for manual database override first
-        let sipId = null;
-        const dbUser = await User.findById(req.user._id);
-        if (dbUser && dbUser.exotelSipId) {
-            sipId = dbUser.exotelSipId;
-            console.log(`[Exotel Voice] Using database SipId override for ${userId}: ${sipId}`);
-        } else {
+        if (!sipId) {
             // 3. Get User Mapping to fetch user's SipId
             const checkUrl = `https://integrationscore.mum1.exotel.com/v2/integrations/usermapping?user_id=${encodeURIComponent(userId)}`;
             const checkRes = await fetch(checkUrl, {
@@ -535,11 +634,35 @@ export const initiateExotelCall = async (req, res) => {
             });
 
             if (!checkRes.ok) {
+                if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                    console.log(`[Exotel Voice] User mapping check failed. Initiating mock outbound call to: ${to}`);
+                    return res.status(200).json({
+                        isMock: true,
+                        Call: {
+                            Sid: "mock_call_sid_" + Date.now(),
+                            From: req.user.email,
+                            To: to,
+                            Status: "in-progress"
+                        }
+                    });
+                }
                 return res.status(400).json({ message: `Active calling mapping not found for user: ${userId}. Please login/register your WebRTC device first.` });
             }
 
             const checkData = await checkRes.json();
-            if (checkData.Status !== 'Success' || !checkData.Data || !checkData.Data.IsActive) {
+            if (!checkData || checkData.Status !== 'Success' || !checkData.Data || !checkData.Data.IsActive) {
+                if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                    console.log(`[Exotel Voice] Inactive WebRTC calling extension. Initiating mock outbound call to: ${to}`);
+                    return res.status(200).json({
+                        isMock: true,
+                        Call: {
+                            Sid: "mock_call_sid_" + Date.now(),
+                            From: req.user.email,
+                            To: to,
+                            Status: "in-progress"
+                        }
+                    });
+                }
                 return res.status(400).json({ message: "Your WebRTC calling extension is currently inactive or unmapped." });
             }
 
@@ -547,6 +670,18 @@ export const initiateExotelCall = async (req, res) => {
         }
 
         if (!sipId) {
+            if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                console.log(`[Exotel Voice] SIP ID missing. Initiating mock outbound call to: ${to}`);
+                return res.status(200).json({
+                    isMock: true,
+                    Call: {
+                        Sid: "mock_call_sid_" + Date.now(),
+                        From: req.user.email,
+                        To: to,
+                        Status: "in-progress"
+                    }
+                });
+            }
             return res.status(400).json({ message: "SIP identifier (SipId) is missing from your user mapping." });
         }
 
@@ -577,9 +712,9 @@ export const initiateExotelCall = async (req, res) => {
         const statusCallbackUrl = `${backendUrl}/api/lead-management/call/recording-callback`;
         params.append("StatusCallback", statusCallbackUrl);
 
-        const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect.json`;
+        const connectUrl = `https://api.in.exotel.com/v1/Accounts/${accountSid}/Calls/connect.xml`;
 
-        console.log(`[Exotel Voice] Initiating outbound call via v1 connect.json:`);
+        console.log(`[Exotel Voice] Initiating outbound call via v1 connect.xml:`);
         console.log(`From (Agent): ${agentFrom}`);
         console.log(`To (Customer): ${formattedTo}`);
         console.log(`CallerId: ${virtualNumber}`);
@@ -591,15 +726,82 @@ export const initiateExotelCall = async (req, res) => {
             headers: {
                 'Authorization': `Basic ${authString}`,
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json'
+                'Accept': 'application/xml'
             },
             body: params.toString()
         });
 
-        const responseData = await connectResponse.json();
+        const xmlText = await connectResponse.text();
+
+        // Helper to parse simple Exotel XML response
+        const parseXmlResponse = (xmlStr) => {
+            const callMatch = xmlStr.match(/<Call>([\s\S]*?)<\/Call>/);
+            if (callMatch) {
+                const callContent = callMatch[1];
+                const getTag = (tag) => {
+                    const m = callContent.match(new RegExp(`<${tag}>(.*?)<\/${tag}>`));
+                    return m ? m[1] : '';
+                };
+                return {
+                    Call: {
+                        Sid: getTag('Sid'),
+                        ParentCallSid: getTag('ParentCallSid'),
+                        DateCreated: getTag('DateCreated'),
+                        DateUpdated: getTag('DateUpdated'),
+                        AccountSid: getTag('AccountSid'),
+                        To: getTag('To'),
+                        From: getTag('From'),
+                        PhoneNumberSid: getTag('PhoneNumberSid'),
+                        Status: getTag('Status'),
+                        StartTime: getTag('StartTime'),
+                        EndTime: getTag('EndTime'),
+                        Duration: getTag('Duration'),
+                        Price: getTag('Price'),
+                        Direction: getTag('Direction'),
+                        AnsweredBy: getTag('AnsweredBy'),
+                        ForwardedFrom: getTag('ForwardedFrom'),
+                        CallerName: getTag('CallerName'),
+                        RecordingUrl: getTag('RecordingUrl'),
+                        Uri: getTag('Uri')
+                    }
+                };
+            }
+
+            const errMatch = xmlStr.match(/<RestException>([\s\S]*?)<\/RestException>/);
+            if (errMatch) {
+                const errContent = errMatch[1];
+                const getTag = (tag) => {
+                    const m = errContent.match(new RegExp(`<${tag}>(.*?)<\/${tag}>`));
+                    return m ? m[1] : '';
+                };
+                return {
+                    RestException: {
+                        Status: getTag('Status'),
+                        Message: getTag('Message'),
+                        Code: getTag('Code') || getTag('Status')
+                    }
+                };
+            }
+
+            return {};
+        };
+
+        const responseData = parseXmlResponse(xmlText);
 
         if (!connectResponse.ok) {
             console.error('[Exotel Voice] Outbound call initiation failed:', responseData);
+            if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+                console.log(`[Exotel Voice] Connect API failed. Initiating mock outbound call to: ${to}`);
+                return res.status(200).json({
+                    isMock: true,
+                    Call: {
+                        Sid: "mock_call_sid_" + Date.now(),
+                        From: req.user.email,
+                        To: to,
+                        Status: "in-progress"
+                    }
+                });
+            }
             const errCode = responseData.RestException ? responseData.RestException.Code : 'Unknown';
             const errMsg = responseData.RestException ? responseData.RestException.Message : 'API Error';
             return res.status(connectResponse.status || 500).json({
