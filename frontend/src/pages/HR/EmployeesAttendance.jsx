@@ -244,7 +244,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                             <span className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[2px]">
                                 <FaUserClock />
                             </span>
-                            Attendance Correction Hub
+                            Attendance Override (24 hour format)
                         </h2>
                     </div>
                     <button onClick={onClose} className={`p-2 rounded-[2px] transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-200 text-gray-400 hover:text-gray-900'}`}>
@@ -399,6 +399,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
 // Premium Multi-Select Dropdown Component (Updated for 2px radius)
 const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, valKey, labelKey, isDarkMode }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -411,6 +412,12 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        if (!isOpen) {
+            setSearchTerm("");
+        }
+    }, [isOpen]);
+
     const toggleSelection = (id) => {
         let newSelection;
         if (selectedValues.includes(id)) {
@@ -420,6 +427,11 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
         }
         onToggle(newSelection);
     };
+
+    const filteredOptions = options.filter(opt => {
+        const val = opt[labelKey] || "";
+        return val.toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
     return (
         <div className="relative group" ref={dropdownRef}>
@@ -443,8 +455,18 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
 
             {isOpen && (
                 <div className={`absolute top-full left-0 right-0 mt-1 border rounded-[2px] shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className={`p-2 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                        <input
+                            type="text"
+                            placeholder={`Search ${label}...`}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`w-full border rounded-[2px] px-2 py-1.5 text-[9px] font-black uppercase tracking-widest outline-none focus:border-cyan-500/50 ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                        />
+                    </div>
                     <div className="max-h-60 overflow-y-auto custom-scrollbar p-1 space-y-0.5">
-                        {options.map((opt) => (
+                        {filteredOptions.map((opt) => (
                             <div
                                 key={opt[valKey]}
                                 onClick={() => toggleSelection(opt[valKey])}
@@ -457,6 +479,11 @@ const MultiSelectDropdown = ({ icon, label, options, selectedValues, onToggle, v
                                 {selectedValues.includes(opt[valKey]) && <FaCheck size={8} className="text-cyan-500" />}
                             </div>
                         ))}
+                        {filteredOptions.length === 0 && (
+                            <div className="p-2 text-center text-[9px] font-bold text-gray-500 uppercase">
+                                No Options Found
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -502,6 +529,7 @@ const EmployeesAttendance = () => {
     // Individual User Analysis State
     const [selectedUser, setSelectedUser] = useState(null);
     const [userAnalysisData, setUserAnalysisData] = useState(null);
+    const [selectedUserTab, setSelectedUserTab] = useState('table'); // 'table' | 'analysis'
 
     // Filters State
     const [viewMode, setViewMode] = useState('month'); // 'day', 'week', 'month'
@@ -672,6 +700,7 @@ const EmployeesAttendance = () => {
         // If clicking on a new user, set SelectedUser immediately
         if (!selectedUser || selectedUser.employeeId?._id !== user.employeeId?._id) {
             setSelectedUser(user);
+            setSelectedUserTab('table'); // default to table view
             setUserAnalysisData(null); // Clear previous data while loading
         }
 
@@ -1062,17 +1091,23 @@ const EmployeesAttendance = () => {
 
                     {/* Dashboard Stats & Behavioral Highlights */}
                     <div className="space-y-6">
-                        {/* High Level Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                            <StatCard
-                                title="Total Employees"
-                                value={stats?.totalEmployees || 0}
-                                subValue="Active Workforce"
-                                icon={<FaUsers />}
-                                color="blue"
-                                isDarkMode={isDarkMode}
-                            />
-                            <div onClick={() => setShowPresentModal(true)} className="cursor-pointer transition-transform hover:scale-[1.02]">
+                        {/* All Stat Cards — unified flex-wrap row */}
+                        <div className="flex flex-wrap gap-4">
+
+                            {/* Stat Card: Total Employees */}
+                            <div className="flex-1 min-w-[160px]">
+                                <StatCard
+                                    title="Total Employees"
+                                    value={stats?.totalEmployees || 0}
+                                    subValue="Active Workforce"
+                                    icon={<FaUsers />}
+                                    color="blue"
+                                    isDarkMode={isDarkMode}
+                                />
+                            </div>
+
+                            {/* Stat Card: Attendance */}
+                            <div className="flex-1 min-w-[160px] cursor-pointer transition-transform hover:scale-[1.02]" onClick={() => setShowPresentModal(true)}>
                                 <StatCard
                                     title="Attendance"
                                     value={periodPresentList.length}
@@ -1082,26 +1117,8 @@ const EmployeesAttendance = () => {
                                     isDarkMode={isDarkMode}
                                 />
                             </div>
-                            <StatCard
-                                title="Avg Working Hrs"
-                                value={(stats?.avgHours || 0) + "h"}
-                                subValue={`Min: ${stats?.minHours || 0}h • Max: ${stats?.maxHours || 0}h`}
-                                icon={<FaClock />}
-                                color="purple"
-                                isDarkMode={isDarkMode}
-                            />
-                            <StatCard
-                                title="Efficiency"
-                                value={stats?.efficiency ? (String(stats.efficiency).endsWith('%') ? stats.efficiency : `${stats.efficiency}%`) : "0%"}
-                                subValue="Based on Shift Comp."
-                                icon={<FaChartLine />}
-                                color="amber"
-                                isDarkMode={isDarkMode}
-                            />
-                        </div>
 
-                        {/* Interactive Behavioral Cautions */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            {/* Interactive Behavioral Caution Cards */}
                             {[
                                 { id: 'Overtime', label: 'Overtime Track', count: stats?.statusSummary?.overtime || 0, color: 'violet', icon: <FaStar /> },
                                 { id: 'Early Leave', label: 'Early Leavers', count: stats?.statusSummary?.earlyLeave || 0, color: 'pink', icon: <FaClock /> },
@@ -1115,8 +1132,9 @@ const EmployeesAttendance = () => {
                                         setActiveCaution(c.id);
                                         setShowCautionModal(true);
                                     }}
+                                    style={{ minWidth: '160px' }}
                                     className={`
-                                    border p-6 rounded-[2px] relative overflow-hidden group cursor-pointer transition-all hover:scale-[1.02]
+                                    flex-1 border p-6 rounded-[2px] relative overflow-hidden group cursor-pointer transition-all hover:scale-[1.02]
                                     ${isDarkMode ? 'bg-[#131619]' : 'bg-white shadow-sm'}
                                     ${activeCaution === c.id
                                             ? `border-${c.color}-500 shadow-lg shadow-${c.color}-500/10`
@@ -1138,10 +1156,10 @@ const EmployeesAttendance = () => {
                             ))}
                         </div>
 
-                        {/* Analytical Visualizations Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-                            {/* 1. Behavioral Trend Chart (Left) - 70% */}
-                            <div className={`lg:col-span-7 border rounded-[2px] p-8 min-h-[400px] relative overflow-hidden group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                        {/* Analytical Visualizations Grid - Equal width side by side */}
+                        <div className="flex flex-col xl:flex-row gap-6">
+                            {/* 1. Behavioral Trend Chart (Left) - 50% */}
+                            <div className={`flex-1 border rounded-[2px] p-8 min-h-[400px] relative overflow-hidden group ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                                 <div className="flex justify-between items-center mb-8 relative z-10">
                                     <div>
                                         <h4 className={`text-[12px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Behavioral Cautions</h4>
@@ -1179,134 +1197,35 @@ const EmployeesAttendance = () => {
                                 </div>
                             </div>
 
-                            {/* 2. Forgot Checkout Analysis (Right) - 30% */}
-                            <div
-                                onClick={() => { setActiveCaution('Forgot Checkout'); setShowCautionModal(true); }}
-                                className={`lg:col-span-3 border rounded-[2px] p-8 min-h-[400px] relative overflow-hidden group cursor-pointer hover:border-red-500/40 transition-all flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
-                            >
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-red-500/10 transition-colors" />
-                                <div className="flex justify-between items-center mb-6 relative z-10">
-                                    <div>
-                                        <h4 className="text-[12px] font-black text-red-500 uppercase tracking-[0.2em] mb-1">Forgot Checkout</h4>
-                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest italic">Compliance Breakdown</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <LegendItem color="#ef4444" label="Alerts Today" isDarkMode={isDarkMode} />
-                                    </div>
+                            {/* 2. Attendance Trend (Daily) - 50% */}
+                            <div className={`flex-1 border rounded-[2px] p-6 flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Attendance Trend (Daily)</h3>
+                                    <button className="text-cyan-500 text-[10px] font-black uppercase hover:underline">View Report</button>
                                 </div>
-
-                                <div className="flex-1 min-h-0 flex flex-col gap-4 relative z-10">
-                                    {/* Personnel List (Small) */}
-                                    <div className={`max-h-[120px] overflow-y-auto custom-scrollbar space-y-2 mb-4 p-2 rounded-[2px] border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-100'}`}>
-                                        {forgotCheckoutList.map(emp => (
-                                            <div key={emp._id} className={`flex items-center justify-between group/emp hover:bg-white/5 p-1.5 rounded-[1px] transition-colors border-l border-transparent hover:border-red-500/50 ${isDarkMode ? '' : 'text-gray-900'}`}>
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black group-hover/emp:text-red-500 border ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-white text-gray-400 border-gray-200 shadow-sm'}`}>
-                                                        {emp.employeeId?.name?.charAt(0)}
-                                                    </div>
-                                                    <span className={`text-[10px] font-black uppercase tracking-tight truncate max-w-[120px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{emp.employeeId?.name}</span>
-                                                </div>
-                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-[1px] uppercase truncate ${isDarkMode ? 'text-gray-500 bg-gray-900' : 'text-gray-400 bg-gray-100'}`}>{emp.employeeId?.employeeId}</span>
-                                            </div>
-                                        ))}
-                                        {forgotCheckoutList.length === 0 && (
-                                            <div className="py-6 text-center text-[8px] font-black text-gray-600 uppercase tracking-[0.1em]">No Active Checkout Alerts</div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex-1 min-h-0">
-                                        <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={100}>
-                                            <AreaChart data={stats?.dailyCautionsTrend}>
-                                                <defs>
-                                                    <linearGradient id="multiForgot" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
-                                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 10, fontWeight: 700 }} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 10, fontWeight: 700 }} />
-                                                <Tooltip
-                                                    contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: '#ef444430', borderRadius: '4px', fontSize: '10px', color: isDarkMode ? '#fff' : '#111827' }}
-                                                    itemStyle={{ fontWeight: '900', textTransform: 'uppercase', color: '#ef4444' }}
-                                                    formatter={(value) => [`${value} Alerts`, 'Forgot Checkout']}
-                                                />
-                                                <Area type="monotone" dataKey="forgotCheckout" stroke="#ef4444" fillOpacity={1} fill="url(#multiForgot)" strokeWidth={3} activeDot={{ r: 4, stroke: '#ef4444', strokeWidth: 2, fill: isDarkMode ? '#111827' : '#fff' }} />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-                    {/* Charts Area */}
-                    {/* Charts Area */}
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-auto xl:h-[500px]">
-                        {/* Area Chart: Trend */}
-                        <div className={`xl:col-span-2 border rounded-[2px] p-6 flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Attendance Trend (Daily)</h3>
-                                <button className="text-cyan-500 text-[10px] font-black uppercase hover:underline">View Report</button>
-                            </div>
-                            <div className="flex-1 w-full min-h-0">
-                                <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
-                                    <AreaChart data={stats?.dailyTrend || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                            </linearGradient>
-                                            <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 10, fontWeight: 700 }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 10, fontWeight: 700 }} />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px' }}
-                                            itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                                        />
-                                        <Area type="monotone" dataKey="present" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorPresent)" />
-                                        <Area type="monotone" dataKey="absent" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorAbsent)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* Department Distribution: Vertically Scrollable & Vibrant */}
-                        <div className={`border rounded-[2px] p-6 flex flex-col relative overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className={`font-black text-[10px] uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Department Distribution</h3>
-                                <div className="text-[8px] font-black text-cyan-500 uppercase tracking-widest bg-cyan-500/10 px-2 py-0.5 rounded-[1px]">Scroll ↕</div>
-                            </div>
-                            <div className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
-                                <div style={{ height: `${Math.max(300, departmentData.length * 45)}px`, width: '100%' }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart layout="vertical" data={departmentData} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
-                                            <XAxis type="number" hide />
-                                            <YAxis
-                                                dataKey="name"
-                                                type="category"
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: isDarkMode ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: 900 }}
-                                                width={100}
-                                            />
+                                <div className="flex-1 w-full min-h-0">
+                                    <ResponsiveContainer width="100%" height="100%" minHeight={300} minWidth={100}>
+                                        <AreaChart data={stats?.dailyTrend || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                                </linearGradient>
+                                                <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} />
+                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 10, fontWeight: 700 }} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#6b7280' : '#9ca3af', fontSize: 10, fontWeight: 700 }} />
                                             <Tooltip
-                                                cursor={{ fill: isDarkMode ? '#1f2937' : '#f9fafb' }}
-                                                contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px', fontSize: '10px' }}
+                                                contentStyle={{ backgroundColor: isDarkMode ? '#111827' : '#fff', borderColor: isDarkMode ? '#374151' : '#e5e7eb', borderRadius: '4px' }}
+                                                itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
                                             />
-                                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                                                {departmentData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={VIBRANT_COLORS[index % VIBRANT_COLORS.length]} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
+                                            <Area type="monotone" dataKey="present" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorPresent)" />
+                                            <Area type="monotone" dataKey="absent" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorAbsent)" />
+                                        </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
@@ -1582,9 +1501,119 @@ const EmployeesAttendance = () => {
                                     </div>
 
 
-                                    {userAnalysisData ? (
-                                        <>
-                                            {/* Today's Live Status Card */}
+                                    {/* Tab Switcher */}
+                                    <div className={`flex gap-1 p-1 rounded-[2px] mb-6 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
+                                        <button
+                                            onClick={() => setSelectedUserTab('table')}
+                                            className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-[2px] transition-all ${
+                                                selectedUserTab === 'table'
+                                                    ? 'bg-cyan-500 text-black shadow'
+                                                    : (isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-700')
+                                            }`}
+                                        >
+                                            📋 Attendance Log
+                                        </button>
+                                        <button
+                                            onClick={() => { setSelectedUserTab('analysis'); if (!userAnalysisData) fetchUserAnalysis(selectedUser); }}
+                                            className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-[2px] transition-all ${
+                                                selectedUserTab === 'analysis'
+                                                    ? 'bg-cyan-500 text-black shadow'
+                                                    : (isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-700')
+                                            }`}
+                                        >
+                                            📊 Analysis
+                                        </button>
+                                    </div>
+
+                                    {/* ── TABLE TAB ── */}
+                                    {selectedUserTab === 'table' && (() => {
+                                        const empId = selectedUser.employeeId?._id;
+                                        const empLogs = attendanceList
+                                            .filter(r => r.employeeId?._id === empId)
+                                            .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                                        if (!empLogs.length) return (
+                                            <div className={`flex flex-col items-center justify-center py-16 text-center rounded-[2px] border ${isDarkMode ? 'bg-gray-900/30 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                <FaCalendarAlt size={28} className="text-gray-600 mb-3" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">No attendance records for selected period</p>
+                                            </div>
+                                        );
+
+                                        return (
+                                            <div className="space-y-2">
+                                                {/* Table Header */}
+                                                <div className={`grid grid-cols-5 gap-1 px-3 py-2 rounded-[2px] ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
+                                                    {['Date','In','Out','Hrs','Status'].map(h => (
+                                                        <span key={h} className="text-[8px] font-black uppercase tracking-widest text-gray-500 text-center">{h}</span>
+                                                    ))}
+                                                </div>
+
+                                                {/* Table Rows */}
+                                                <div className="space-y-1 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+                                                    {empLogs.map((r) => {
+                                                        const hours = r.workingHours || 0;
+                                                        const s = r.status;
+                                                        const recordDate = format(new Date(r.date), 'yyyy-MM-dd');
+                                                        const todayStr = format(new Date(), 'yyyy-MM-dd');
+                                                        const isPastDate = recordDate < todayStr;
+
+                                                        let badgeCls = 'bg-emerald-500/10 text-emerald-400';
+                                                        let label = s || 'Present';
+
+                                                        if (s === 'Absent' || (isPastDate && r.checkIn?.time && !r.checkOut?.time)) {
+                                                            badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                        } else if (hours < 4 && r.checkOut) {
+                                                            badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                        } else if (s === 'Half Day' || (hours < 4.5 && r.checkOut)) {
+                                                            badgeCls = 'bg-orange-500/10 text-orange-400'; label = 'Half Day';
+                                                        } else if (s === 'Early Leave' || (hours < 8.5 && r.checkOut)) {
+                                                            badgeCls = 'bg-pink-500/10 text-pink-400'; label = 'Early Leave';
+                                                        } else if (hours < 9 && r.checkOut) {
+                                                            badgeCls = 'bg-lime-500/10 text-lime-400'; label = 'Short';
+                                                        } else if (s === 'Overtime' || hours > 9.05) {
+                                                            badgeCls = 'bg-indigo-500/10 text-indigo-400'; label = 'Overtime ★';
+                                                        } else if (s === 'Week Off') {
+                                                            badgeCls = 'bg-gray-500/10 text-gray-500'; label = 'Day Off';
+                                                        } else if (!r.checkOut && !isPastDate) {
+                                                            badgeCls = 'bg-emerald-500/10 text-emerald-400'; label = 'Active';
+                                                        }
+
+                                                        return (
+                                                            <div
+                                                                key={r._id}
+                                                                className={`grid grid-cols-5 gap-1 items-center px-3 py-2.5 rounded-[2px] border transition-all ${
+                                                                    isDarkMode
+                                                                        ? 'bg-[#0e1012] border-gray-800/60 hover:border-cyan-500/20'
+                                                                        : 'bg-white border-gray-100 hover:border-cyan-300/40 hover:shadow-sm'
+                                                                }`}
+                                                            >
+                                                                <span className={`text-[8px] font-black uppercase tracking-wide text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                    {format(new Date(r.date), 'dd MMM')}
+                                                                </span>
+                                                                <span className="text-[9px] font-black text-emerald-500 text-center">
+                                                                    {r.checkIn?.time ? format(new Date(r.checkIn.time), 'HH:mm') : '--:--'}
+                                                                </span>
+                                                                <span className="text-[9px] font-black text-red-400 text-center">
+                                                                    {r.checkOut?.time ? format(new Date(r.checkOut.time), 'HH:mm') : '--:--'}
+                                                                </span>
+                                                                <span className={`text-[9px] font-black text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                    {hours > 0 ? `${hours.toFixed(1)}h` : '--'}
+                                                                </span>
+                                                                <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-[2px] text-center ${badgeCls}`}>
+                                                                    {label}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── ANALYSIS TAB ── */}
+                                    {selectedUserTab === 'analysis' && (
+                                        userAnalysisData ? (
+                                            <>
                                             <div className="mb-8 relative overflow-hidden rounded-[2px] p-[1px] bg-gradient-to-r from-cyan-500 to-purple-600">
                                                 <div className={`relative p-6 rounded-[1px] ${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
                                                     <div className="flex justify-between items-start mb-4">
@@ -1781,11 +1810,12 @@ const EmployeesAttendance = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex items-center justify-center h-[400px]">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-cyan-500"></div>
-                                        </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-[400px]">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-cyan-500"></div>
+                                            </div>
+                                        )
                                     )}
                                 </div>
                             )}

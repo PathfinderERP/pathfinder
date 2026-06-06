@@ -3,6 +3,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import Student from "../../models/Students.js";
 import Payment from "../../models/Payment/Payment.js";
 import User from "../../models/User.js";
+import Centre from "../../models/Master_data/Centre.js";
 
 // Search student by name, email, or admission number
 export const searchStudent = async (req, res) => {
@@ -483,7 +484,12 @@ export const getAllAdmissions = async (req, res) => {
         // Center Visibility Restriction
         if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
-            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
+            const userCentreNames = currentUser 
+                ? currentUser.centres
+                    .filter(c => c.status !== "deactive")
+                    .map(c => (c.centreName || "").trim())
+                    .filter(Boolean) 
+                : [];
             // Normalize centre names for case-insensitive comparison
             const normalizedUserCentres = userCentreNames.map(c => c.toLowerCase());
 
@@ -515,6 +521,13 @@ export const getAllAdmissions = async (req, res) => {
             // Use case-insensitive regex for MongoDB query - allow surrounding whitespace
             filter.centre = {
                 $in: requestedCentres.map(c => new RegExp(`^\\s*${(c || "").trim()}\\s*$`, 'i'))
+            };
+        } else {
+            // If superAdmin hasn't filtered by a specific centre, default to only showing active centres
+            const activeCentres = await Centre.find({ status: { $ne: "deactive" } }).lean();
+            const activeCentreNames = activeCentres.map(c => (c.centreName || "").trim()).filter(Boolean);
+            filter.centre = {
+                $in: activeCentreNames.map(c => new RegExp(`^\\s*${c}\\s*$`, 'i'))
             };
         }
 
