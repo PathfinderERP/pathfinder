@@ -529,6 +529,7 @@ const EmployeesAttendance = () => {
     // Individual User Analysis State
     const [selectedUser, setSelectedUser] = useState(null);
     const [userAnalysisData, setUserAnalysisData] = useState(null);
+    const [selectedUserTab, setSelectedUserTab] = useState('table'); // 'table' | 'analysis'
 
     // Filters State
     const [viewMode, setViewMode] = useState('month'); // 'day', 'week', 'month'
@@ -699,6 +700,7 @@ const EmployeesAttendance = () => {
         // If clicking on a new user, set SelectedUser immediately
         if (!selectedUser || selectedUser.employeeId?._id !== user.employeeId?._id) {
             setSelectedUser(user);
+            setSelectedUserTab('table'); // default to table view
             setUserAnalysisData(null); // Clear previous data while loading
         }
 
@@ -1499,9 +1501,119 @@ const EmployeesAttendance = () => {
                                     </div>
 
 
-                                    {userAnalysisData ? (
-                                        <>
-                                            {/* Today's Live Status Card */}
+                                    {/* Tab Switcher */}
+                                    <div className={`flex gap-1 p-1 rounded-[2px] mb-6 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
+                                        <button
+                                            onClick={() => setSelectedUserTab('table')}
+                                            className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-[2px] transition-all ${
+                                                selectedUserTab === 'table'
+                                                    ? 'bg-cyan-500 text-black shadow'
+                                                    : (isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-700')
+                                            }`}
+                                        >
+                                            📋 Attendance Log
+                                        </button>
+                                        <button
+                                            onClick={() => { setSelectedUserTab('analysis'); if (!userAnalysisData) fetchUserAnalysis(selectedUser); }}
+                                            className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-[2px] transition-all ${
+                                                selectedUserTab === 'analysis'
+                                                    ? 'bg-cyan-500 text-black shadow'
+                                                    : (isDarkMode ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-700')
+                                            }`}
+                                        >
+                                            📊 Analysis
+                                        </button>
+                                    </div>
+
+                                    {/* ── TABLE TAB ── */}
+                                    {selectedUserTab === 'table' && (() => {
+                                        const empId = selectedUser.employeeId?._id;
+                                        const empLogs = attendanceList
+                                            .filter(r => r.employeeId?._id === empId)
+                                            .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                                        if (!empLogs.length) return (
+                                            <div className={`flex flex-col items-center justify-center py-16 text-center rounded-[2px] border ${isDarkMode ? 'bg-gray-900/30 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                <FaCalendarAlt size={28} className="text-gray-600 mb-3" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">No attendance records for selected period</p>
+                                            </div>
+                                        );
+
+                                        return (
+                                            <div className="space-y-2">
+                                                {/* Table Header */}
+                                                <div className={`grid grid-cols-5 gap-1 px-3 py-2 rounded-[2px] ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
+                                                    {['Date','In','Out','Hrs','Status'].map(h => (
+                                                        <span key={h} className="text-[8px] font-black uppercase tracking-widest text-gray-500 text-center">{h}</span>
+                                                    ))}
+                                                </div>
+
+                                                {/* Table Rows */}
+                                                <div className="space-y-1 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+                                                    {empLogs.map((r) => {
+                                                        const hours = r.workingHours || 0;
+                                                        const s = r.status;
+                                                        const recordDate = format(new Date(r.date), 'yyyy-MM-dd');
+                                                        const todayStr = format(new Date(), 'yyyy-MM-dd');
+                                                        const isPastDate = recordDate < todayStr;
+
+                                                        let badgeCls = 'bg-emerald-500/10 text-emerald-400';
+                                                        let label = s || 'Present';
+
+                                                        if (s === 'Absent' || (isPastDate && r.checkIn?.time && !r.checkOut?.time)) {
+                                                            badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                        } else if (hours < 4 && r.checkOut) {
+                                                            badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                        } else if (s === 'Half Day' || (hours < 4.5 && r.checkOut)) {
+                                                            badgeCls = 'bg-orange-500/10 text-orange-400'; label = 'Half Day';
+                                                        } else if (s === 'Early Leave' || (hours < 8.5 && r.checkOut)) {
+                                                            badgeCls = 'bg-pink-500/10 text-pink-400'; label = 'Early Leave';
+                                                        } else if (hours < 9 && r.checkOut) {
+                                                            badgeCls = 'bg-lime-500/10 text-lime-400'; label = 'Short';
+                                                        } else if (s === 'Overtime' || hours > 9.05) {
+                                                            badgeCls = 'bg-indigo-500/10 text-indigo-400'; label = 'Overtime ★';
+                                                        } else if (s === 'Week Off') {
+                                                            badgeCls = 'bg-gray-500/10 text-gray-500'; label = 'Day Off';
+                                                        } else if (!r.checkOut && !isPastDate) {
+                                                            badgeCls = 'bg-emerald-500/10 text-emerald-400'; label = 'Active';
+                                                        }
+
+                                                        return (
+                                                            <div
+                                                                key={r._id}
+                                                                className={`grid grid-cols-5 gap-1 items-center px-3 py-2.5 rounded-[2px] border transition-all ${
+                                                                    isDarkMode
+                                                                        ? 'bg-[#0e1012] border-gray-800/60 hover:border-cyan-500/20'
+                                                                        : 'bg-white border-gray-100 hover:border-cyan-300/40 hover:shadow-sm'
+                                                                }`}
+                                                            >
+                                                                <span className={`text-[8px] font-black uppercase tracking-wide text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                    {format(new Date(r.date), 'dd MMM')}
+                                                                </span>
+                                                                <span className="text-[9px] font-black text-emerald-500 text-center">
+                                                                    {r.checkIn?.time ? format(new Date(r.checkIn.time), 'HH:mm') : '--:--'}
+                                                                </span>
+                                                                <span className="text-[9px] font-black text-red-400 text-center">
+                                                                    {r.checkOut?.time ? format(new Date(r.checkOut.time), 'HH:mm') : '--:--'}
+                                                                </span>
+                                                                <span className={`text-[9px] font-black text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                    {hours > 0 ? `${hours.toFixed(1)}h` : '--'}
+                                                                </span>
+                                                                <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-[2px] text-center ${badgeCls}`}>
+                                                                    {label}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── ANALYSIS TAB ── */}
+                                    {selectedUserTab === 'analysis' && (
+                                        userAnalysisData ? (
+                                            <>
                                             <div className="mb-8 relative overflow-hidden rounded-[2px] p-[1px] bg-gradient-to-r from-cyan-500 to-purple-600">
                                                 <div className={`relative p-6 rounded-[1px] ${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
                                                     <div className="flex justify-between items-start mb-4">
@@ -1698,11 +1810,12 @@ const EmployeesAttendance = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex items-center justify-center h-[400px]">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-cyan-500"></div>
-                                        </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center justify-center h-[400px]">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-cyan-500"></div>
+                                            </div>
+                                        )
                                     )}
                                 </div>
                             )}
