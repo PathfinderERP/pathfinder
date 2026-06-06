@@ -819,7 +819,7 @@ const EmployeeList = () => {
                                 </div>
 
                                 {/* Monthly Joining Trend Area Chart */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                {/* <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <FaUsers className="text-4xl text-blue-500" />
                                     </div>
@@ -847,16 +847,16 @@ const EmployeeList = () => {
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     </div>
-                                </div>
+                                </div> */}
 
                                 {/* Centre Distribution Bar Chart - Left Side */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
+                                <div className=" w-full bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
                                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                                         <FaMapMarkerAlt className="text-6xl text-amber-500" />
                                     </div>
                                     <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
                                         <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
-                                        Geographic Distribution
+                                        Center Distribution
                                     </h3>
                                     <div className="h-80 w-full overflow-x-auto custom-scrollbar">
                                         <div
@@ -911,7 +911,7 @@ const EmployeeList = () => {
                                 </div>
 
                                 {/* Detailed Employment Breakdown */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                {/* <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <FaUsers className="text-4xl text-cyan-500" />
                                     </div>
@@ -943,43 +943,11 @@ const EmployeeList = () => {
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
-                                </div>
+                                </div> */}
                             </div>
 
                             {/* Demographics Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {/* Gender Distribution Pie Chart */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <FaUsers className="text-4xl text-pink-500" />
-                                    </div>
-                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
-                                        Gender Stats
-                                    </h3>
-                                    <div className="h-64 w-full">
-                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={analytics.genderDistribution.map(d => ({ name: d._id || 'Not Specified', value: d.count }))}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    {analytics.genderDistribution.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#ec4899', '#3b82f6', '#9ca3af'][index % 3]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend verticalAlign="bottom" height={36} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-                            </div>
+
                         </div>
                     )}
 
