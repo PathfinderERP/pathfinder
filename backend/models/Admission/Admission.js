@@ -21,6 +21,10 @@ const paymentBreakdownSchema = new mongoose.Schema({
     bankName: { type: String },
     accountHolderName: { type: String },
     chequeDate: { type: Date },
+    bankAccount: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Account"
+    },
     remarks: { type: String }
 });
 
@@ -183,6 +187,10 @@ const admissionSchema = new mongoose.Schema({
     downPaymentBankName: { type: String },
     downPaymentAccountHolderName: { type: String },
     downPaymentChequeDate: { type: Date },
+    downPaymentBankAccount: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Account"
+    },
     remainingAmount: {
         type: Number,
         required: true

@@ -180,7 +180,6 @@ const CashTransfer = () => {
                 }
             });
 
-            setGeneratedPassword(response.data.password);
             setSerialNumber(response.data.transfer.serialNumber);
             setTransferStatus("success");
             toast.success("Cash transfer initiated!");
@@ -204,13 +203,7 @@ const CashTransfer = () => {
                             <p className="text-cyan-400 font-mono text-sm mt-1">Transaction ID: #{serialNumber}</p>
                         </div>
 
-                        <p className="text-gray-400 text-sm md:text-lg">Transfer request created. Securely share this password with the recipient.</p>
-
-                        <div className="bg-gray-800/80 border-2 border-dashed border-cyan-500/40 p-6 rounded-2xl relative group overflow-hidden">
-                            <div className="absolute inset-0 bg-cyan-500/5 group-hover:bg-cyan-500/10 transition-colors"></div>
-                            <p className="text-xs text-cyan-400 font-semibold uppercase tracking-widest relative">Unique Transfer Password</p>
-                            <h1 className="text-4xl md:text-5xl font-black text-white mt-2 tracking-widest relative">{generatedPassword}</h1>
-                        </div>
+                        <p className="text-gray-400 text-sm md:text-lg">Transfer request created successfully. The receiving centre can now verify and receive the cash.</p>
 
                         <div className="flex flex-col sm:flex-row gap-4 mt-8">
                             <button
@@ -263,7 +256,7 @@ const CashTransfer = () => {
                         </button>
                         <div>
                             <h1 className="text-2xl md:text-3xl font-bold text-white">Cash Transfer</h1>
-                            <p className="text-gray-400 text-sm mt-1">Securely move funds with unique password authentication</p>
+                            <p className="text-gray-400 text-sm mt-1">Securely move funds between centres</p>
                         </div>
                     </div>
                     {serialNumber && (
@@ -506,7 +499,7 @@ const CashTransfer = () => {
                                 ) : (
                                     <>
                                         <FaPaperPlane />
-                                        {canTransfer ? "Initiate Transfer & Get Password" : "Permission Denied"}
+                                        {canTransfer ? "Initiate Transfer" : "Permission Denied"}
                                     </>
                                 )}
                             </button>
@@ -611,15 +604,8 @@ const CashTransfer = () => {
                                 <div className="flex gap-4 group">
                                     <div className="w-8 h-8 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-cyan-400 font-bold shrink-0 group-hover:border-cyan-500 transition-colors">2</div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-300">Passcode</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">Share the generated 6-digit code with the receiving centre.</p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-4 group">
-                                    <div className="w-8 h-8 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-cyan-400 font-bold shrink-0 group-hover:border-cyan-500 transition-colors">3</div>
-                                    <div>
                                         <p className="text-sm font-bold text-gray-300">Complete</p>
-                                        <p className="text-xs text-gray-500 mt-0.5">Recieving centre verifies code to update transaction history.</p>
+                                        <p className="text-xs text-gray-500 mt-0.5">Receiving centre reviews and accepts or rejects the transfer to update transaction history.</p>
                                     </div>
                                 </div>
                             </div>

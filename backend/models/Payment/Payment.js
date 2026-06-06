@@ -73,6 +73,11 @@ const paymentSchema = new mongoose.Schema({
         type: Date
     },
 
+    bankAccount: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Account"
+    },
+
     remarks: {
         type: String
     },

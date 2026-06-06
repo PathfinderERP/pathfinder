@@ -25,8 +25,13 @@ export const updatePaymentInstallment = async (req, res) => {
             accountHolderName, 
             chequeDate, 
             carryForward, 
-            receivedDate 
+            receivedDate,
+            bankAccount
         } = req.body;
+
+        if (paymentMethod === "CHEQUE" && !bankAccount) {
+            return res.status(400).json({ message: "Bank Account is required for Cheque payments" });
+        }
 
         if (paymentMethod && ["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
             return res.status(400).json({ message: `Transaction ID/Reference is mandatory for ${paymentMethod} payments` });
@@ -82,6 +87,7 @@ export const updatePaymentInstallment = async (req, res) => {
         installment.transactionId = finalTransactionId;
         installment.accountHolderName = accountHolderName; // New
         installment.chequeDate = chequeDate; // New
+        installment.bankAccount = bankAccount;
         installment.remarks = remarks;
 
         // Check if this is the last installment
@@ -298,6 +304,7 @@ export const updatePaymentInstallment = async (req, res) => {
                     transactionId: finalTransactionId,
                     accountHolderName: accountHolderName, // New
                     chequeDate: chequeDate, // New
+                    bankAccount: bankAccount,
                     remarks: remarks,
                     recordedBy: req.user?._id,
                     cgst: parseFloat(cgst.toFixed(2)),
@@ -319,6 +326,7 @@ export const updatePaymentInstallment = async (req, res) => {
                 payment.transactionId = finalTransactionId;
                 payment.accountHolderName = accountHolderName; // New
                 payment.chequeDate = chequeDate; // New
+                payment.bankAccount = bankAccount;
                 payment.remarks = remarks;
                 payment.cgst = parseFloat(cgst.toFixed(2));
                 payment.sgst = parseFloat(sgst.toFixed(2));
@@ -340,7 +348,11 @@ export const updatePaymentInstallment = async (req, res) => {
             .populate('course')
             .populate('class')
             .populate('examTag')
-            .populate('department');
+            .populate('department')
+            .populate({
+                path: 'paymentBreakdown.bankAccount',
+                model: 'Account'
+            });
 
         // Invalidate transaction and daily collection caches
         await clearCachePattern("finance:transaction_report:*");

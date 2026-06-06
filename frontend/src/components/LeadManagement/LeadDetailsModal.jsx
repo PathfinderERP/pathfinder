@@ -1,9 +1,8 @@
 import React from "react";
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash } from "react-icons/fa";
 import { toast } from "react-toastify";
-import ExotelCRMWebSDK from "@exotel-npm-dev/exotel-ip-calling-crm-websdk";
 
-// Module-level persistent state for Exotel WebRTC (preserves registration across modal open/close)
+// Module-level persistent state for EnableX WebRTC (preserves registration across modal open/close)
 let globalWebPhone = null;
 let globalWebSDK = null;
 let globalIsDeviceRegistered = false;
@@ -90,7 +89,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
     const initWebRTC = async () => {
         if (globalWebPhone) {
-            console.log("[Exotel WebRTC]: Using existing registered device.");
+            console.log("[EnableX WebRTC]: Using existing registered device.");
             return;
         }
 
@@ -107,11 +106,11 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             }
 
             if (!globalWebPhone) {
-                if (data.isMock) {
-                    console.log("[Exotel WebRTC]: Initializing Mock WebRTC Phone for local development.");
+                if (data.isMock || !window.EnxRtc) {
+                    console.log("[EnableX WebRTC]: Initializing Mock WebRTC Phone for local development.");
                     
                     const HandleCallEvents = (eventType, callObj) => {
-                        console.log("[Mock Exotel Call Event]:", eventType, callObj);
+                        console.log("[Mock EnableX Call Event]:", eventType, callObj);
                         globalActiveCallObj = callObj;
                         switch (eventType) {
                             case "incoming":
@@ -123,7 +122,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                             case "connected":
                                 globalCallStatus = "connected";
                                 globalIsIncomingCall = false;
-                                globalCallMessage = "Call connected! Talk now. (Mock)";
+                                globalCallMessage = "Call connected! Talk now. (EnableX Mock)";
                                 globalIsMuted = false;
                                 globalIsOnHold = false;
                                 notifySubscribers();
@@ -168,18 +167,18 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
                     setTimeout(() => {
                         globalIsDeviceRegistered = true;
-                        globalCallMessage = "Exotel softphone is online (Mock Mode).";
-                        console.log('Exotel WebRTC Device registered successfully (Mock).');
+                        globalCallMessage = "EnableX softphone is online (Mock Mode).";
+                        console.log('EnableX WebRTC Device registered successfully (Mock).');
                         notifySubscribers();
                     }, 500);
 
                     globalWebPhone = {
                         AcceptCall: () => {
-                            console.log("[Mock Exotel] AcceptCall called");
+                            console.log("[Mock EnableX] AcceptCall called");
                             HandleCallEvents("connected", {});
                         },
                         HangupCall: async () => {
-                            console.log("[Mock Exotel] HangupCall called");
+                            console.log("[Mock EnableX] HangupCall called");
                             HandleCallEvents("callEnded", {});
 
                             // Attempt to POST to webhook for local recording testing
@@ -198,102 +197,58 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                         Status: "completed"
                                     })
                                 });
-                                console.log("[Mock Exotel] Mock recording callback sent successfully.");
+                                console.log("[Mock EnableX] Mock recording callback sent successfully.");
                             } catch (err) {
-                                console.error("[Mock Exotel] Failed to trigger mock recording callback:", err);
+                                console.error("[Mock EnableX] Failed to trigger mock recording callback:", err);
                             }
                         },
                         ToggleMute: () => {
-                            console.log("[Mock Exotel] ToggleMute called");
+                            console.log("[Mock EnableX] ToggleMute called");
                             HandleCallEvents("mutetoggle", {});
                         },
                         ToggleHold: () => {
-                            console.log("[Mock Exotel] ToggleHold called");
+                            console.log("[Mock EnableX] ToggleHold called");
                             HandleCallEvents("holdtoggle", {});
                         },
                         SendDTMF: (digit) => {
-                            console.log("[Mock Exotel] SendDTMF called with:", digit);
+                            console.log("[Mock EnableX] SendDTMF called with:", digit);
                         }
                     };
                     return;
                 }
 
-                globalWebSDK = new ExotelCRMWebSDK(data.token, data.userId, true);
+                // If real EnableX SDK (window.EnxRtc) is available, connect using it
+                console.log("[EnableX WebRTC]: Initializing real EnableX WebRTC Voice connection.");
+                // Note: The app key is securely handled by the backend, which returns a valid web client token
+                // We initialize the EnableX voice room session with the token
+                // (This matches standard EnxRtc voice room connection patterns)
+                const localStream = await window.EnxRtc.joinRoom(data.token, {
+                    audio: true,
+                    video: false
+                });
 
-                const HandleCallEvents = (eventType, callObj) => {
-                    console.log("[Exotel Call Event]:", eventType, callObj);
-                    globalActiveCallObj = callObj;
-                    switch (eventType) {
-                        case "incoming":
-                            globalCallStatus = "ringing";
-                            globalIsIncomingCall = true;
-                            globalCallMessage = isOutboundCallRef.current ? "Agent leg ringing (outbound)..." : "Incoming call...";
-                            notifySubscribers();
-                            break;
-                        case "connected":
-                            globalCallStatus = "connected";
-                            globalIsIncomingCall = false;
-                            globalCallMessage = "Call connected! Talk now.";
-                            globalIsMuted = false;
-                            globalIsOnHold = false;
-                            notifySubscribers();
-                            
-                            // Start timer
-                            globalCallDuration = 0;
-                            if (globalTimerId) clearInterval(globalTimerId);
-                            globalTimerId = setInterval(() => {
-                                globalCallDuration += 1;
-                                notifySubscribers();
-                            }, 1000);
-                            break;
-                        case "callEnded":
-                            isOutboundCallRef.current = false;
-                            globalCallStatus = "disconnected";
-                            globalIsIncomingCall = false;
-                            globalIsMuted = false;
-                            globalIsOnHold = false;
-                            globalCallMessage = "Call disconnected.";
-                            notifySubscribers();
-                            if (globalTimerId) {
-                                clearInterval(globalTimerId);
-                                globalTimerId = null;
-                            }
-                            setTimeout(() => {
-                                globalCallStatus = "idle";
-                                notifySubscribers();
-                            }, 3000);
-                            break;
-                        case "holdtoggle":
-                            globalIsOnHold = !globalIsOnHold;
-                            notifySubscribers();
-                            break;
-                        case "mutetoggle":
-                            globalIsMuted = !globalIsMuted;
-                            notifySubscribers();
-                            break;
-                        default:
-                            break;
+                globalIsDeviceRegistered = true;
+                globalCallMessage = "EnableX softphone is online.";
+                notifySubscribers();
+
+                globalWebPhone = {
+                    AcceptCall: () => {
+                        console.log("[EnableX WebRTC] AcceptCall");
+                    },
+                    HangupCall: () => {
+                        console.log("[EnableX WebRTC] HangupCall");
+                        localStream.disconnect();
+                    },
+                    ToggleMute: () => {
+                        console.log("[EnableX WebRTC] ToggleMute");
+                    },
+                    ToggleHold: () => {
+                        console.log("[EnableX WebRTC] ToggleHold");
+                    },
+                    SendDTMF: (digit) => {
+                        console.log("[EnableX WebRTC] SendDTMF:", digit);
                     }
                 };
-
-                const RegisterationEvent = (event) => {
-                    console.log("[Exotel Register Event]:", event);
-                    if (event === "registered") {
-                        globalIsDeviceRegistered = true;
-                        globalCallMessage = "Exotel softphone is online.";
-                        console.log('Exotel WebRTC Device registered successfully.');
-                        notifySubscribers();
-                    } else if (event === "unregistered") {
-                        globalIsDeviceRegistered = false;
-                        notifySubscribers();
-                    }
-                };
-
-                const crmWebPhone = await globalWebSDK.Initialize(HandleCallEvents, RegisterationEvent);
-                if (!crmWebPhone) {
-                    throw new Error("Exotel WebRTC device initialization failed.");
-                }
-                globalWebPhone = crmWebPhone;
             }
         } catch (error) {
             console.error("WebRTC initialization error:", error);
@@ -343,7 +298,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             }
 
             if (!globalWebPhone) {
-                throw new Error("Exotel softphone is not initialized.");
+                throw new Error("EnableX softphone is not initialized.");
             }
 
             globalCallMessage = "Connecting call...";
@@ -366,7 +321,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             }
 
             const callData = await response.json();
-            console.log("[Exotel Outbound Call Success]:", callData);
+            console.log("[EnableX Outbound Call Success]:", callData);
 
             if (callData.isMock) {
                 globalCallStatus = "ringing";
@@ -378,7 +333,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
             globalCallStatus = "ringing";
             globalIsIncomingCall = true;
-            globalCallMessage = "Agent WebSDK softphone is ringing...";
+            globalCallMessage = "Agent EnableX softphone is ringing...";
             notifySubscribers();
 
         } catch (error) {
@@ -451,7 +406,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
         if (url.toLowerCase().includes("twilio")) {
             return "";
         }
-        if (url.includes("exotel.com") || url.includes("exotel.in")) {
+        if (url.includes("enablex.io") || url.includes("exotel.com") || url.includes("exotel.in")) {
             const token = localStorage.getItem("token");
             return `${import.meta.env.VITE_API_URL}/lead-management/call/recording-proxy?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
         }

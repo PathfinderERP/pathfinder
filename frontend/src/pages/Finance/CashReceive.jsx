@@ -93,14 +93,11 @@ const CashReceive = () => {
     };
 
     const handleConfirmReceive = async () => {
-        if (!passwordInput) return toast.warn("Password is required");
-
         try {
             setProcessing(true);
             const token = localStorage.getItem("token");
             await axios.post(`${import.meta.env.VITE_API_URL}/finance/cash/confirm-receive`, {
-                transferId: selectedRequest._id,
-                password: passwordInput.trim()
+                transferId: selectedRequest._id
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -109,7 +106,7 @@ const CashReceive = () => {
             setIsModalOpen(false);
             fetchRequests();
         } catch (error) {
-            toast.error(error.response?.data?.message || "Invalid password or verification failed");
+            toast.error(error.response?.data?.message || "Verification failed");
         } finally {
             setProcessing(false);
         }
@@ -439,13 +436,13 @@ const CashReceive = () => {
                     </div>
                 </div>
 
-                {/* Verification Modal (Passcode) */}
+                {/* Verification Modal (Passcode removed) */}
                 {isModalOpen && (
                     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
                             <div className="space-y-8">
                                 <div className="flex justify-between items-center">
-                                    <h2 className="text-2xl font-bold text-white">Security Release</h2>
+                                    <h2 className="text-2xl font-bold text-white">Confirm Cash Receipt</h2>
                                     <button onClick={() => !processing && setIsModalOpen(false)} className="p-2 bg-gray-800 rounded-xl text-gray-400 hover:text-white transition-colors">
                                         <FaTimes />
                                     </button>
@@ -457,24 +454,14 @@ const CashReceive = () => {
                                     <div className="text-3xl font-black text-white">₹{selectedRequest?.amount.toLocaleString()}</div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Authenticator Code</label>
-                                    <input
-                                        type="text"
-                                        placeholder="••••••"
-                                        className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl py-5 text-white text-3xl tracking-[0.6em] font-mono focus:outline-none focus:border-cyan-500 transition-all text-center placeholder:opacity-20"
-                                        value={passwordInput}
-                                        onChange={(e) => setPasswordInput(e.target.value)}
-                                        maxLength={6}
-                                    />
-                                </div>
+                                <p className="text-gray-400 text-sm text-center">Please verify that the cash has been physically received before confirming.</p>
 
                                 <button
                                     onClick={handleConfirmReceive}
                                     disabled={processing}
-                                    className="w-full bg-cyan-600 text-white font-black py-5 rounded-3xl hover:bg-cyan-500 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+                                    className="w-full bg-cyan-600 text-white font-black py-4 rounded-3xl hover:bg-cyan-500 transition-all shadow-xl active:scale-95 disabled:opacity-50"
                                 >
-                                    {processing ? "VERIFYING..." : "CONFIRM RECEIPT"}
+                                    {processing ? "CONFIRMING..." : "CONFIRM RECEIPT"}
                                 </button>
                             </div>
                         </div>

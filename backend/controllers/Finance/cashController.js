@@ -58,14 +58,11 @@ export const initiateCashTransfer = async (req, res) => {
             receiptFileKey = fileName;
         }
 
-        const uniquePassword = generatePassword();
-
         const transfer = new CashTransfer({
             fromCentre: fromCentreId,
             toCentre: toCentreId,
             amount: Number(amount),
             accountNumber,
-            uniquePassword,
             referenceNumber,
             receiptFile: receiptFileKey,
             transferredBy: req.user.id || req.user._id,
@@ -80,8 +77,7 @@ export const initiateCashTransfer = async (req, res) => {
 
         res.status(201).json({
             message: "Cash transfer initiated successfully",
-            transfer: transfer,
-            password: uniquePassword
+            transfer: transfer
         });
     } catch (error) {
         console.error("INITIATE_CASH_TRANSFER_ERROR:", error);
@@ -168,7 +164,7 @@ export const getCashReceiveRequests = async (req, res) => {
 
 export const confirmCashReceived = async (req, res) => {
     try {
-        const { transferId, password } = req.body;
+        const { transferId } = req.body;
 
         const transfer = await CashTransfer.findById(transferId);
         if (!transfer) {
@@ -177,10 +173,6 @@ export const confirmCashReceived = async (req, res) => {
 
         if (transfer.status !== "PENDING") {
             return res.status(400).json({ message: "This transfer is already processed" });
-        }
-
-        if (String(transfer.uniquePassword).trim() !== String(password).trim()) {
-            return res.status(401).json({ message: "Invalid password" });
         }
 
         transfer.status = "RECEIVED";

@@ -33,7 +33,7 @@ const cashTransferSchema = new mongoose.Schema({
     },
     uniquePassword: {
         type: String,
-        required: true
+        required: false
     },
     serialNumber: {
         type: Number,

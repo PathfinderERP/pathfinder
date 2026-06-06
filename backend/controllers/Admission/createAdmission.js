@@ -35,7 +35,8 @@ export const createAdmission = async (req, res) => {
             chequeDate = "",
             receivedDate = "",
             billingMonth = "", // For Board Admissions
-            customBoardDuration = "" // New: Custom duration override
+            customBoardDuration = "", // New: Custom duration override
+            bankAccount = null
         } = req.body;
 
         // Validate required fields (Common)
@@ -45,6 +46,9 @@ export const createAdmission = async (req, res) => {
 
         // Validate Transaction ID for non-cash payments (except Cheque which has its own validation)
         if (Number(downPayment) > 0) {
+            if (paymentMethod === "CHEQUE" && !bankAccount) {
+                return res.status(400).json({ message: "Bank Account is required for Cheque down payments" });
+            }
             if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
                 return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
             }
@@ -276,7 +280,8 @@ export const createAdmission = async (req, res) => {
             downPaymentTransactionId: transactionId,
             downPaymentBankName: bankName,
             downPaymentAccountHolderName: accountHolderName,
-            downPaymentChequeDate: chequeDate
+            downPaymentChequeDate: chequeDate,
+            downPaymentBankAccount: bankAccount
         });
 
         await admission.save();
@@ -329,6 +334,7 @@ export const createAdmission = async (req, res) => {
                 bankName: bankName,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
+                bankAccount: bankAccount,
                 billingMonth: billingMonth || null,
                 boardCourseName: boardCourseNameString || null,
                 remarks: "Down Payment at Admission",
@@ -363,7 +369,15 @@ export const createAdmission = async (req, res) => {
             .populate('department')
             .populate('board') // Populate Board
             .populate('selectedSubjects.subject') // Populate Subjects
-            .populate('createdBy', 'name');
+            .populate('createdBy', 'name')
+            .populate({
+                path: 'downPaymentBankAccount',
+                model: 'Account'
+            })
+            .populate({
+                path: 'paymentBreakdown.bankAccount',
+                model: 'Account'
+            });
 
         res.status(201).json({
             message: "Admission created successfully",

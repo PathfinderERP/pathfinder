@@ -22,7 +22,7 @@ import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentr
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
-import { getVoiceToken, handleRecordingCallback, proxyRecording, initiateExotelCall } from "../../controllers/leadManagement/exotelVoice.js";
+import { getVoiceToken, handleRecordingCallback, proxyRecording, initiateEnablexCall } from "../../controllers/leadManagement/enablexVoice.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -54,11 +54,11 @@ router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);
 router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
 router.post("/bulk-update", requireAuth, bulkUpdateLeads);
 
-// Exotel Call routes
+// EnableX Call routes
 router.all("/call/recording-callback", handleRecordingCallback);
 router.get("/call/recording-proxy", proxyRecording);
 router.get("/call/token", requireAuth, getVoiceToken);
-router.post("/call/outbound-call", requireAuth, initiateExotelCall);
+router.post("/call/outbound-call", requireAuth, initiateEnablexCall);
 
 // Generic ID route must come AFTER specific routes
 router.get("/:id", requireAuth, getLeadById);

@@ -54,6 +54,7 @@ const EnrolledStudentsContent = () => {
     const [masterSessions, setMasterSessions] = useState([]);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [activeEmployees, setActiveEmployees] = useState([]);
+    const [masterAccounts, setMasterAccounts] = useState([]);
     const [studentAdmissions, setStudentAdmissions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -70,6 +71,7 @@ const EnrolledStudentsContent = () => {
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
+        bankAccount: "",
         remarks: "",
         carryForward: false
     });
@@ -130,12 +132,13 @@ const EnrolledStudentsContent = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, courseRes, classRes, sessionRes, employeeRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/session/list`, { headers }),
-                fetch(`${apiUrl}/admission/active-employees`, { headers })
+                fetch(`${apiUrl}/admission/active-employees`, { headers }),
+                fetch(`${apiUrl}/master-data/account`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -148,6 +151,9 @@ const EnrolledStudentsContent = () => {
             if (sessionRes.ok) setMasterSessions(await sessionRes.json());
             if (employeeRes && employeeRes.ok) {
                 setActiveEmployees(await employeeRes.json());
+            }
+            if (accountRes && accountRes.ok) {
+                setMasterAccounts(await accountRes.json());
             }
         } catch (error) {
             console.error("Error fetching master data:", error);
@@ -786,6 +792,18 @@ const EnrolledStudentsContent = () => {
         })
     );
     const totalCollected = filteredAdmissions.reduce((sum, a) => sum + (a.totalPaidAmount || 0), 0);
+    const totalCollectedWithoutGst = filteredAdmissions.reduce((sum, a) => {
+        const paid = a.totalPaidAmount || 0;
+        const total = a.totalFees || 0;
+        const ratio = total > 0 ? (total - (a.cgstAmount || 0) - (a.sgstAmount || 0)) / total : 1;
+        return sum + (paid * ratio);
+    }, 0);
+    const averageAdmissionFee = filteredAdmissions.length > 0
+        ? filteredAdmissions.reduce((sum, a) => sum + (a.totalFees || 0), 0) / filteredAdmissions.length
+        : 0;
+    const averageAdmissionFeeWithoutGst = filteredAdmissions.length > 0
+        ? filteredAdmissions.reduce((sum, a) => sum + ((a.totalFees || 0) - (a.cgstAmount || 0) - (a.sgstAmount || 0)), 0) / filteredAdmissions.length
+        : 0;
 
     const chartData = React.useMemo(() => {
         const admissionsByDate = {};
@@ -973,6 +991,7 @@ const EnrolledStudentsContent = () => {
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
             receivedDate: new Date().toISOString().split('T')[0],
+            bankAccount: "",
             remarks: "",
             carryForward: false
         });
@@ -1000,6 +1019,11 @@ const EnrolledStudentsContent = () => {
 
         if (isOnlinePayment && !paymentData.transactionId.trim()) {
             toast.error("Transaction ID is required for online payment methods");
+            return;
+        }
+
+        if (paymentData.paymentMethod === "CHEQUE" && !paymentData.bankAccount) {
+            toast.error("Bank Account selection is required for Cheque payments");
             return;
         }
 
@@ -1339,23 +1363,49 @@ const EnrolledStudentsContent = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-green-500 hover:scale-[1.02] transition-all`}>
                     <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Students</h3>
                     <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{filteredStudents.length}</p>
                     <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active in view</p>
                 </div>
 
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all flex flex-col justify-between`}>
+                    <div>
+                        <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Average Admission Fee</h3>
+                        <div className="flex flex-col gap-1.5 mt-2">
+                            <div>
+                                <span className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(averageAdmissionFee)}</span>
+                                <span className={`text-[9px] font-black uppercase ml-1.5 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>With GST</span>
+                            </div>
+                            <div className="opacity-80">
+                                <span className={`text-xl font-bold tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>₹{fmt(averageAdmissionFeeWithoutGst)}</span>
+                                <span className="text-gray-500 text-[8px] font-black uppercase ml-1.5">Excl. GST</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-3">Per Student</p>
+                </div>
 
-
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-blue-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Collected</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{totalCollected.toLocaleString()}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Net Revenue</p>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-blue-500 hover:scale-[1.02] transition-all flex flex-col justify-between`}>
+                    <div>
+                        <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Collected</h3>
+                        <div className="flex flex-col gap-1.5 mt-2">
+                            <div>
+                                <span className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className={`text-[9px] font-black uppercase ml-1.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>With GST</span>
+                            </div>
+                            <div className="opacity-80">
+                                <span className={`text-xl font-bold tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>₹{totalCollectedWithoutGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-gray-500 text-[8px] font-black uppercase ml-1.5">Excl. GST</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-3">Net Revenue</p>
                 </div>
 
                 {/* Admission Trend Analysis */}
-                <div className={`lg:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 rounded-[4px] border border-dashed ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} flex flex-col`}>
+                <div className={`md:col-span-2 lg:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 rounded-[4px] border border-dashed ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} flex flex-col`}>
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex flex-col">
                             <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Daily Admission Analysis</h3>
@@ -3122,6 +3172,24 @@ const EnrolledStudentsContent = () => {
                                                 className={`w-full p-2.5 rounded-[4px] border font-black uppercase tracking-widest text-[10px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900'}`}
                                             />
                                         </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
+                                            BANK ACCOUNT <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            value={paymentData.bankAccount}
+                                            onChange={(e) => setPaymentData({ ...paymentData, bankAccount: e.target.value })}
+                                            required
+                                            className={`w-full p-2.5 rounded-[4px] border font-black uppercase tracking-widest text-[10px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-purple-500'}`}
+                                        >
+                                            <option value="">SELECT BANK ACCOUNT</option>
+                                            {masterAccounts.map(account => (
+                                                <option key={account._id} value={account._id}>
+                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
