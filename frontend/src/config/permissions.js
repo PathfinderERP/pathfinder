@@ -138,6 +138,10 @@ export const PERMISSION_MODULES = {
                 label: "Cheque Management",
                 operations: ["create", "edit", "delete"]
             },
+            chequeDepositEntry: {
+                label: "Cheque Deposit Entry",
+                operations: ["create", "edit", "delete"]
+            },
             cancelCheque: {
                 label: "Cancel Cheque Payment",
                 operations: ["create", "edit", "delete"]

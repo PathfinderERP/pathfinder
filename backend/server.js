@@ -58,6 +58,7 @@ import boardRoutes from "./routes/board/board.routes.js";
 import boardCourseSubjectRoutes from "./routes/board/boardCourseSubject.routes.js";
 import subjectRoutes from "./routes/subject/subject.routes.js";
 import chequeRoutes from "./routes/Finance/chequeRoutes.js";
+import chequeDepositRoutes from "./routes/Finance/chequeDeposit.routes.js";
 import centerTaggingRoutes from "./routes/Finance/centerTaggingRoutes.js";
 import budgetRoutes from "./routes/Finance/budgetRoutes.js";
 import partTimeTeacherRoutes from "./routes/Finance/partTimeTeacher.routes.js";
@@ -176,6 +177,7 @@ app.use("/api/hr/cv", cvAnalysisRoutes);
 //finance routes
 app.use("/api/finance/installment", installmentRoutes);
 app.use("/api/finance/cheque", chequeRoutes);
+app.use("/api/finance/cheque-deposit", chequeDepositRoutes);
 app.use("/api/finance/cash", cashRoutes);
 app.use("/api/finance/petty-cash", pettyCashRoutes);
 app.use("/api/finance/center-tagging", centerTaggingRoutes);

@@ -146,6 +146,7 @@ import CandidateHiring from "./pages/HR/CandidateHiring";
 import InstallmentPayment from "./pages/Finance/InstallmentPayment";
 import FeeDueList from "./pages/Finance/FeeDueList";
 import ChequeManagement from "./pages/Finance/ChequeManagement";
+import ChequeDepositEntry from "./pages/Finance/ChequeDepositEntry";
 import CancelChequePayment from "./pages/Finance/CancelChequePayment";
 import CashReport from "./pages/Finance/CashReport";
 import CashTransfer from "./pages/Finance/CashTransfer";
@@ -213,6 +214,7 @@ function App() {
         <Route path="/finance/pay-employee/:id" element={<ProtectedRoute><PayEmployeeDetails /></ProtectedRoute>} />
         <Route path="/finance/fee-due-list" element={<ProtectedRoute><FeeDueList /></ProtectedRoute>} />
         <Route path="/finance/cheque-management" element={<ProtectedRoute><ChequeManagement /></ProtectedRoute>} />
+        <Route path="/finance/cheque-deposit-entry" element={<ProtectedRoute><ChequeDepositEntry /></ProtectedRoute>} />
         <Route path="/finance/cancel-cheque" element={<ProtectedRoute><CancelChequePayment /></ProtectedRoute>} />
         <Route path="/finance/cash/report" element={<ProtectedRoute><CashReport /></ProtectedRoute>} />
         <Route path="/finance/cash/transfer" element={<ProtectedRoute><CashTransfer /></ProtectedRoute>} />

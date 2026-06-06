@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload } from "react-icons/fa";
+import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useNavigate } from "react-router-dom";
 
 const ChequeManagement = () => {
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [cheques, setCheques] = useState([]);
@@ -41,6 +43,18 @@ const ChequeManagement = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canManageCheques = hasPermission(user, 'financeFees', 'chequeManagement', 'edit');
+
+    useEffect(() => {
+        const userRoles = Array.isArray(user.role) ? user.role : [user.role];
+        const isAuthorized = userRoles.some(r => {
+            const norm = typeof r === "string" ? r.toLowerCase().replace(/\s+/g, "") : "";
+            return norm === "superadmin" || norm === "accounts";
+        });
+        if (!isAuthorized) {
+            toast.error("Access Denied: You do not have permission to view Cheque Management.");
+            navigate("/");
+        }
+    }, [user, navigate]);
 
     useEffect(() => {
         fetchMetadata();
@@ -493,6 +507,7 @@ const ChequeManagement = () => {
                                 <th className="p-6">Amount</th>
                                 <th className="p-6">Cheque Date</th>
                                 <th className="p-6">Cleared/Rejected Date</th>
+                                <th className="p-6">Receipt</th>
                                 <th className="p-6">Status</th>
                                 <th className="p-6">Processed By</th>
                                 <th className="p-6 text-right">Actions</th>
@@ -501,13 +516,13 @@ const ChequeManagement = () => {
                         <tbody className="divide-y divide-gray-800">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="8" className="p-20 text-center">
+                                    <td colSpan="10" className="p-20 text-center">
                                         <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
                                     </td>
                                 </tr>
                             ) : filteredCheques.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                    <td colSpan="10" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                                         No cheques found in records
                                     </td>
                                 </tr>
@@ -532,6 +547,20 @@ const ChequeManagement = () => {
                                         </td>
                                         <td className="p-6 text-gray-300 font-bold text-xs">
                                             {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}
+                                        </td>
+                                        <td className="p-6">
+                                            {cheque.receiptFile ? (
+                                                <a
+                                                    href={cheque.receiptFile}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
+                                                >
+                                                    <FaRegFileAlt /> View Slip
+                                                </a>
+                                            ) : (
+                                                <span className="text-[10px] text-gray-500 font-bold uppercase">Not Deposited</span>
+                                            )}
                                         </td>
                                         <td className="p-6">{getStatusBadge(cheque.status)}</td>
                                         <td className="p-6">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaBan, FaUndo, FaExclamationTriangle, FaFilter, FaDownload, FaTimes } from "react-icons/fa";
+import { FaSearch, FaBan, FaUndo, FaExclamationTriangle, FaFilter, FaDownload, FaTimes, FaRegFileAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -465,6 +465,7 @@ const CancelChequePayment = () => {
                                     <th className="p-6">Amount</th>
                                     <th className="p-6">Cheque Date</th>
                                     <th className="p-6">Cleared/Rejected Date</th>
+                                    <th className="p-6">Receipt</th>
                                     <th className="p-6 text-center">Status</th>
                                     <th className="p-6">Processed By</th>
                                     <th className="p-6 text-right">Remarks / Notes</th>
@@ -473,14 +474,14 @@ const CancelChequePayment = () => {
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="9" className="p-12 text-center">
+                                        <td colSpan="10" className="p-12 text-center">
                                             <div className="animate-spin h-8 w-8 border-t-2 border-cyan-500 rounded-full mx-auto mb-4"></div>
                                             <div className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Records...</div>
                                         </td>
                                     </tr>
                                 ) : cheques.length === 0 ? (
                                     <tr>
-                                        <td colSpan="9" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs italic">
+                                        <td colSpan="10" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs italic">
                                             No cheque recovery records found
                                         </td>
                                     </tr>
@@ -503,6 +504,20 @@ const CancelChequePayment = () => {
                                             </td>
                                             <td className="p-6 text-gray-300 font-bold text-xs">
                                                 {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"}
+                                            </td>
+                                            <td className="p-6">
+                                                {cheque.receiptFile ? (
+                                                    <a
+                                                        href={cheque.receiptFile}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
+                                                    >
+                                                        <FaRegFileAlt /> View Slip
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase">Not Deposited</span>
+                                                )}
                                             </td>
                                             <td className="p-6 text-center">
                                                 <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border shadow-sm ${

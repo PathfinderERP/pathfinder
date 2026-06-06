@@ -118,6 +118,27 @@ const paymentSchema = new mongoose.Schema({
     isCarryForward: {
         type: Boolean,
         default: false
+    },
+    receiptFile: {
+        type: String,
+        default: null
+    },
+    depositedDate: {
+        type: Date,
+        default: null
+    },
+    depositedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+    },
+    depositAccount: {
+        type: String,
+        default: null
+    },
+    isDeposited: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 

@@ -5,6 +5,27 @@ import User from "../../models/User.js";
 import Student from "../../models/Students.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
+import s3Client from "../../config/r2Config.js";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const getBucketName = () => process.env.R2_BUCKET_NAME || "erp-documents";
+
+const getSignedReceiptUrl = async (key) => {
+    if (!key) return null;
+    if (key.startsWith('http')) return key;
+    try {
+        const bucketName = getBucketName();
+        const command = new GetObjectCommand({
+            Bucket: bucketName,
+            Key: key
+        });
+        return await getSignedUrl(s3Client, command, { expiresIn: 3600 * 24 });
+    } catch (error) {
+        console.error("Error generating signed URL:", error);
+        return null;
+    }
+};
 
 // Helper function to revert installment amount or carry-forward adjustments
 const revertPaymentVariance = async (payment, admission, isBoardAdmission = false) => {
@@ -135,6 +156,10 @@ export const getPendingCheques = async (req, res) => {
                 path: "processedBy",
                 select: "name"
             })
+            .populate({
+                path: "depositedBy",
+                select: "name"
+            })
             .sort({ updatedAt: -1 })
             .lean();
 
@@ -183,9 +208,10 @@ export const getPendingCheques = async (req, res) => {
             });
         }
 
-        const formattedCheques = cheques.map(c => {
+        const formattedCheques = await Promise.all(cheques.map(async (c) => {
             const adm = c.admission;
             const isBoard = c.isBoardAdmission;
+            const signedReceiptUrl = c.receiptFile ? await getSignedReceiptUrl(c.receiptFile) : null;
 
             return {
                 paymentId: c._id,
@@ -205,9 +231,14 @@ export const getPendingCheques = async (req, res) => {
                 status: c.status,
                 createdAt: c.createdAt,
                 processedBy: c.processedBy?.name || "System",
-                clearedOrRejectedDate: c.clearedOrRejectedDate
+                clearedOrRejectedDate: c.clearedOrRejectedDate,
+                receiptFile: signedReceiptUrl,
+                depositedDate: c.depositedDate,
+                depositAccount: c.depositAccount,
+                depositedBy: c.depositedBy?.name || null,
+                isDeposited: c.isDeposited || false
             };
-        });
+        }));
 
         res.status(200).json(formattedCheques);
     } catch (error) {
@@ -573,6 +604,10 @@ export const getAllCheques = async (req, res) => {
                 path: "processedBy",
                 select: "name"
             })
+            .populate({
+                path: "depositedBy",
+                select: "name"
+            })
             .sort({ createdAt: -1 })
             .lean();
 
@@ -629,9 +664,10 @@ export const getAllCheques = async (req, res) => {
             });
         }
 
-        const formattedCheques = cheques.map(c => {
+        const formattedCheques = await Promise.all(cheques.map(async (c) => {
             const adm = c.admission;
             const isBoard = c.isBoardAdmission;
+            const signedReceiptUrl = c.receiptFile ? await getSignedReceiptUrl(c.receiptFile) : null;
 
             return {
                 id: c._id,
@@ -651,9 +687,14 @@ export const getAllCheques = async (req, res) => {
                 remarks: c.remarks || "N/A",
                 processedBy: c.processedBy?.name || "System",
                 processedDate: c.updatedAt,
-                clearedOrRejectedDate: c.clearedOrRejectedDate
+                clearedOrRejectedDate: c.clearedOrRejectedDate,
+                receiptFile: signedReceiptUrl,
+                depositedDate: c.depositedDate,
+                depositAccount: c.depositAccount,
+                depositedBy: c.depositedBy?.name || null,
+                isDeposited: c.isDeposited || false
             };
-        });
+        }));
 
         res.status(200).json(formattedCheques);
     } catch (error) {

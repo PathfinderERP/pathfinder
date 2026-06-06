@@ -18,7 +18,7 @@ const ALL_MODULES = {
     ceoControlTower: ["dashboard", "analytics", "reports"],
     admissions: ["allLeads", "enrolledStudents", "sectionAllotment", "telecallingConsole"],
     academics: ["courses", "classes", "students", "teachers", "studentTeacherReview", "liveClassReview", "ccTeacherReview", "hodList", "centreManagement", "rmList", "classCoordinator", "mentalSessionTable", "classManagement", "sectionLeaderBoard", "examLeaderBoard", "upcomingClass", "ongoingClass", "previousClass"],
-    financeFees: ["feeManagement", "installmentPayment", "feeDueList", "chequeManagement", "cancelCheque", "payments", "paymentReminders", "cashReport", "cashTransfer", "cashReceive", "financialAnalysis", "centerTagging", "budget", "cashCentre", "partTimeTeachers", "financePerson", "vendorManagement", "payEmployee", "paymentAnalysis", "budgetAnalysis"],
+    financeFees: ["feeManagement", "installmentPayment", "feeDueList", "chequeManagement", "chequeDepositEntry", "cancelCheque", "payments", "paymentReminders", "cashReport", "cashTransfer", "cashReceive", "financialAnalysis", "centerTagging", "budget", "cashCentre", "partTimeTeachers", "financePerson", "vendorManagement", "payEmployee", "paymentAnalysis", "budgetAnalysis"],
     hrManpower: ["employees", "attendance", "holidayManagement", "holidayList", "leaveType", "leaveManagement", "leaveRequest", "regularizeTable", "department", "designation", "center", "centerDetails", "training", "posh", "upload", "feedback", "reimbursement", "resign", "birthday", "overview", "payroll"],
     employeeCenter: EMPLOYEE_CENTER_SECTIONS,
     operations: ["centres", "inventory", "facilities"],
