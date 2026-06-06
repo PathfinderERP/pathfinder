@@ -648,7 +648,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-cyan-500/10 rounded-[2px]">
                                             <FaUsers className="text-cyan-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Live Force</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">All Employees</span>
                                     </div>
                                     <p className={`text-4xl font-black tracking-tighter relative z-10 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                         {analytics.totalEmployees}
@@ -662,7 +662,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-emerald-500/10 rounded-[2px]">
                                             <FaUsers className="text-emerald-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Operational</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Active</span>
                                     </div>
                                     <p className="text-4xl font-black text-emerald-500 tracking-tighter relative z-10 bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
                                         {analytics.statusBreakdown?.find(s => s._id === "Active")?.count || 0}
@@ -676,7 +676,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-cyan-500/10 rounded-[2px]">
                                             <FaBuilding className="text-cyan-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Structure</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Department</span>
                                     </div>
                                     <p className="text-4xl font-black text-cyan-500 tracking-tighter relative z-10 bg-gradient-to-br from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
                                         {analytics.departmentDistribution?.length || 0}
@@ -690,7 +690,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-amber-500/10 rounded-[2px]">
                                             <FaMapMarkerAlt className="text-amber-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Network</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Center</span>
                                     </div>
                                     <p className="text-4xl font-black text-amber-500 tracking-tighter relative z-10 bg-gradient-to-br from-amber-400 to-amber-600 bg-clip-text text-transparent">
                                         {analytics.centreDistribution?.length || 0}
