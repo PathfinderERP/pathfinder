@@ -59,14 +59,17 @@ export const getCourseTargetAnalysis = async (req, res) => {
         if (centre === 'all') {
             let allowedCentres;
             if (req.user.role === 'superAdmin') {
-                allowedCentres = await Centre.find({}).lean();
+                allowedCentres = await Centre.find({ status: { $ne: 'deactive' } }).lean();
             } else {
                 const userCentres = req.user.centres.map(id => typeof id === 'object' ? id._id : id);
-                allowedCentres = await Centre.find({ _id: { $in: userCentres } }).lean();
+                allowedCentres = await Centre.find({ _id: { $in: userCentres }, status: { $ne: 'deactive' } }).lean();
             }
             centreIds = allowedCentres.map(c => c._id.toString());
         } else {
             centreIds = centre.split(',').filter(id => id.trim() !== '');
+            // Filter to only include active centres
+            const activeCentres = await Centre.find({ _id: { $in: centreIds }, status: { $ne: 'deactive' } }).lean();
+            centreIds = activeCentres.map(c => c._id.toString());
         }
 
         if (centreIds.length === 0) {
@@ -74,7 +77,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
         }
 
         const masterDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
-        const allCentres = await Centre.find({ _id: { $in: centreIds } }).lean();
+        const allCentres = await Centre.find({ _id: { $in: centreIds }, status: { $ne: 'deactive' } }).lean();
         const centreMap = {};
         allCentres.forEach(c => centreMap[c._id.toString()] = c);
 

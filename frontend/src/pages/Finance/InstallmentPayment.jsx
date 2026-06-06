@@ -262,6 +262,9 @@ const InstallmentPayment = () => {
                 });
             }
 
+            // Exclude deactive centres
+            filteredCentres = filteredCentres.filter(c => c.status !== 'deactive');
+
             setMetadata({
                 centres: filteredCentres,
                 courses: (Array.isArray(courses) ? courses : []).filter(c => c.department?.showInAdmission !== false),

@@ -4,6 +4,7 @@ import { FaStar, FaChartLine, FaFilter, FaFileExcel, FaUsers, FaTasks, FaChevron
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
+import { hasPermission } from "../../config/permissions";
 
 const LeadDashboard = () => {
     const { theme, toggleTheme } = useTheme();
@@ -11,6 +12,7 @@ const LeadDashboard = () => {
 
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [canExport, setCanExport] = useState(true); // default true; false only if admin explicitly unchecks
     const [filters, setFilters] = useState({
         centre: [],
         course: [],
@@ -179,6 +181,39 @@ const LeadDashboard = () => {
     useEffect(() => {
         fetchMetadata();
         fetchDashboardData();
+
+        // Fetch FRESH permissions from server (overrides any stale localStorage data)
+        const fetchFreshPermissions = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const freshUser = data.user;
+                    if (freshUser) {
+                        localStorage.setItem("user", JSON.stringify(freshUser));
+                        const hasExportPerm = hasPermission(freshUser, 'leadManagement', 'leads', 'export');
+                        const exportPermDefined = freshUser?.granularPermissions?.leadManagement?.leads?.hasOwnProperty('export');
+                        setCanExport(exportPermDefined ? hasExportPerm : true);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching fresh user permissions:", error);
+            }
+        };
+
+        // Apply from localStorage immediately, then override with server data
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            const hasExportPerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'export');
+            const exportPermDefined = parsedUser?.granularPermissions?.leadManagement?.leads?.hasOwnProperty('export');
+            setCanExport(exportPermDefined ? hasExportPerm : true);
+        }
+
+        fetchFreshPermissions();
     }, [fetchMetadata, fetchDashboardData]);
 
     const handleExportExcel = async () => {
@@ -264,13 +299,15 @@ const LeadDashboard = () => {
                             {isDarkMode ? <FaSun size={18} /> : <FaMoon size={18} />}
                             <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Toggle Interface</span>
                         </button>
-                        <button
-                            onClick={handleExportExcel}
-                            className="flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:scale-95"
-                        >
-                            <FaFileExcel className="text-lg" />
-                            <span>Export Intelligence</span>
-                        </button>
+                        {canExport && (
+                            <button
+                                onClick={handleExportExcel}
+                                className="flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[4px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:scale-95"
+                            >
+                                <FaFileExcel className="text-lg" />
+                                <span>Export Intelligence</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 

@@ -512,7 +512,7 @@ export const PERMISSION_MODULES = {
         sections: {
             leads: {
                 label: "Leads",
-                operations: ["create", "edit", "delete", "upload"]
+                operations: ["create", "edit", "delete", "upload", "export"]
             },
             dashboard: {
                 label: "Dashboard",

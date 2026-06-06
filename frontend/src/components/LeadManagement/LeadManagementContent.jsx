@@ -74,6 +74,7 @@ const LeadManagementContent = () => {
     const [canEdit, setCanEdit] = useState(false);
     const [canDelete, setCanDelete] = useState(false);
     const [canUpload, setCanUpload] = useState(false);
+    const [canExport, setCanExport] = useState(true); // default true; false only if admin explicitly unchecks
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -397,23 +398,56 @@ const LeadManagementContent = () => {
         }
     }, []);
 
+    // Helper to apply permissions from a user object
+    const applyPermissions = (parsedUser) => {
+        setUser(parsedUser);
+        setCanCreate(true); // Everyone can create leads as requested
+        setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
+        setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
+
+        const hasCreatePerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'create');
+        const hasUploadPerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'upload');
+        const uploadPermDefined = parsedUser?.granularPermissions?.leadManagement?.leads?.hasOwnProperty('upload');
+        setCanUpload(uploadPermDefined ? hasUploadPerm : hasCreatePerm);
+
+        // Export permission — must be explicitly set to true; no access by default if defined
+        const hasExportPerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'export');
+        const exportPermDefined = parsedUser?.granularPermissions?.leadManagement?.leads?.hasOwnProperty('export');
+        setCanExport(exportPermDefined ? hasExportPerm : true);
+    };
+
     useEffect(() => {
+        // Apply cached permissions immediately for instant UI render
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-            setCanCreate(true); // Everyone can create leads as requested
-            setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
-            setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
-
-            const hasCreatePerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'create');
-            const hasUploadPerm = hasPermission(parsedUser, 'leadManagement', 'leads', 'upload');
-            const uploadPermDefined = parsedUser?.granularPermissions?.leadManagement?.leads?.hasOwnProperty('upload');
-            setCanUpload(uploadPermDefined ? hasUploadPerm : hasCreatePerm);
+            applyPermissions(JSON.parse(storedUser));
         }
+
+        // Then fetch FRESH permissions from server to override any stale localStorage data
+        const fetchFreshPermissions = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const freshUser = data.user;
+                    if (freshUser) {
+                        // Update localStorage so subsequent reads are also fresh
+                        localStorage.setItem("user", JSON.stringify(freshUser));
+                        applyPermissions(freshUser);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching fresh user permissions:", error);
+            }
+        };
+
+        fetchFreshPermissions();
         fetchAllowedCentres();
         fetchFilterData();
-    }, [fetchAllowedCentres, fetchFilterData]);
+    }, [fetchAllowedCentres, fetchFilterData]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         // Debounce search to avoid too many requests
@@ -784,12 +818,14 @@ const LeadManagementContent = () => {
                             {isDarkMode ? <><FaSun /> Day Mode</> : <><FaMoon /> Night Mode</>}
                         </button>
 
-                        <button
-                            onClick={handleExport}
-                            className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                        >
-                            <FaDownload /> Export Excel
-                        </button>
+                        {canExport && (
+                            <button
+                                onClick={handleExport}
+                                className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                            >
+                                <FaDownload /> Export Excel
+                            </button>
+                        )}
                         {user && hasPermission(user, 'leadManagement', 'dashboard', 'view') && (
                             <button
                                 onClick={() => navigate('/lead-management/dashboard')}
@@ -1380,7 +1416,7 @@ const LeadManagementContent = () => {
                         >
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
-                                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>Pending Leads</p>
+                                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>UnContacted Leads</p>
                                     <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.remainingCount}</h3>
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.3)]`}>
