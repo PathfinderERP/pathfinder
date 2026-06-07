@@ -13,17 +13,7 @@ export const getTransactionReport = async (req, res) => {
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
 
         // REDIS CACHING LOGIC START
-        const cacheKey = generateCacheKey("finance:transaction_report_v5", {
-            query: req.query,
-            userId: req.user._id,
-            role: req.user.role,
-            centres: req.user.centres
-        });
-
-        const cachedData = await getCache(cacheKey);
-        if (cachedData) {
-            return res.status(200).json(cachedData);
-        }
+        // Bypassed for instant live view updates
         // REDIS CACHING LOGIC END
 
         const {
@@ -470,32 +460,34 @@ export const getTransactionReport = async (req, res) => {
 
 
         // --- Stats Calculation (Current Year, Previous Year, Current Month, Previous Month) ---
-        // Dynamically calculate based on current date
-        // Dynamically calculate based on current date
-        const now = new Date();
-        const currentYear = now.getFullYear();
+        // Dynamically calculate based on current date in Indian Standard Time (IST)
+        const nowInIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+        const now = nowInIST;
+        const currentYear = nowInIST.getFullYear();
+
+        // Helper to convert IST date components to UTC Date object
+        const getISTDate = (y, m, d, hr = 0, min = 0, sec = 0, ms = 0) => {
+            const utcDate = new Date(Date.UTC(y, m, d, hr, min, sec, ms));
+            utcDate.setMinutes(utcDate.getMinutes() - 330);
+            return utcDate;
+        };
 
         // Financial Year Logic (April - March)
-        const fyStartYear = now.getMonth() >= 3 ? currentYear : currentYear - 1;
-        const startCFY = new Date(fyStartYear, 3, 1);
-        const endCFY = new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999);
+        const fyStartYear = nowInIST.getMonth() >= 3 ? currentYear : currentYear - 1;
+        const startCFY = getISTDate(fyStartYear, 3, 1, 0, 0, 0, 0);
+        const endCFY = getISTDate(fyStartYear + 1, 2, 31, 23, 59, 59, 999);
 
-        const startPFY = new Date(fyStartYear - 1, 3, 1);
-        const endPFY = new Date(fyStartYear, 2, 31, 23, 59, 59, 999);
+        const startPFY = getISTDate(fyStartYear - 1, 3, 1, 0, 0, 0, 0);
+        const endPFY = getISTDate(fyStartYear, 2, 31, 23, 59, 59, 999);
 
-        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const currentMonthStart = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), 1, 0, 0, 0, 0);
+        const currentMonthEnd = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth() + 1, 0, 23, 59, 59, 999);
 
-        const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        const prevMonthStart = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth() - 1, 1, 0, 0, 0, 0);
+        const prevMonthEnd = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), 0, 23, 59, 59, 999);
 
-        const indiaTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-        const yyyy = indiaTime.getFullYear();
-        const mm = String(indiaTime.getMonth() + 1).padStart(2, '0');
-        const dd = String(indiaTime.getDate()).padStart(2, '0');
-
-        const todayStart = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`);
-        const todayEnd = new Date(`${yyyy}-${mm}-${dd}T23:59:59.999Z`);
+        const todayStart = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate(), 0, 0, 0, 0);
+        const todayEnd = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate(), 23, 59, 59, 999);
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
@@ -614,8 +606,7 @@ export const getTransactionReport = async (req, res) => {
             }
         };
 
-        // Cache for 10 minutes
-        await setCache(cacheKey, responseData, 600);
+        // Cache bypassed for live updates
 
         res.status(200).json(responseData);
 
