@@ -1,4 +1,9 @@
 import Admission from "../../models/Admission/Admission.js";
+import Student from "../../models/Students.js";
+import Course from "../../models/Master_data/Courses.js";
+import Class from "../../models/Master_data/Class.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
+import Department from "../../models/Master_data/Department.js";
 
 /**
  * Controller to re-divide the remaining balance of an admission into a new set of installments.

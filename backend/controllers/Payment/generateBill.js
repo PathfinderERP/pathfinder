@@ -2,6 +2,11 @@ import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Course from "../../models/Master_data/Courses.js";
+import Class from "../../models/Master_data/Class.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
+import Department from "../../models/Master_data/Department.js";
+import Boards from "../../models/Master_data/Boards.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 
 

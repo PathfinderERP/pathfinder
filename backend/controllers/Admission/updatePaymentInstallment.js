@@ -2,6 +2,11 @@ import Admission from "../../models/Admission/Admission.js";
 import Payment from "../../models/Payment/Payment.js";
 import Student from "../../models/Students.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Course from "../../models/Master_data/Courses.js";
+import Class from "../../models/Master_data/Class.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
+import Department from "../../models/Master_data/Department.js";
+import Account from "../../models/Master_data/Account.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 import { clearCachePattern } from "../../utils/redisCache.js";
@@ -87,7 +92,7 @@ export const updatePaymentInstallment = async (req, res) => {
         installment.transactionId = finalTransactionId;
         installment.accountHolderName = accountHolderName; // New
         installment.chequeDate = chequeDate; // New
-        installment.bankAccount = bankAccount;
+        installment.bankAccount = (bankAccount && bankAccount !== "") ? bankAccount : undefined;
         installment.remarks = remarks;
 
         // Check if this is the last installment
@@ -304,7 +309,7 @@ export const updatePaymentInstallment = async (req, res) => {
                     transactionId: finalTransactionId,
                     accountHolderName: accountHolderName, // New
                     chequeDate: chequeDate, // New
-                    bankAccount: bankAccount,
+                    bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                     remarks: remarks,
                     recordedBy: req.user?._id,
                     cgst: parseFloat(cgst.toFixed(2)),
@@ -326,7 +331,7 @@ export const updatePaymentInstallment = async (req, res) => {
                 payment.transactionId = finalTransactionId;
                 payment.accountHolderName = accountHolderName; // New
                 payment.chequeDate = chequeDate; // New
-                payment.bankAccount = bankAccount;
+                payment.bankAccount = (bankAccount && bankAccount !== "") ? bankAccount : undefined;
                 payment.remarks = remarks;
                 payment.cgst = parseFloat(cgst.toFixed(2));
                 payment.sgst = parseFloat(sgst.toFixed(2));
