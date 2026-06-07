@@ -157,10 +157,12 @@ const DailyCollection = () => {
                 setDailyDetails(sortedDetails);
                 setCurrentPage(1);
                 setPageInput("1");
-                // Extract unique payment methods for the filter dropdown
+                // Extract unique payment methods and merge with default methods
                 const methods = data.paymentMethods || [];
                 const uniqueMethods = methods.map(m => m._id).filter(Boolean);
-                setPaymentMethodsList(uniqueMethods);
+                const defaultMethods = ["CASH", "UPI", "CARD", "CHEQUE", "BANK_TRANSFER"];
+                const mergedMethods = Array.from(new Set([...defaultMethods, ...uniqueMethods]));
+                setPaymentMethodsList(mergedMethods);
             } else {
                 setDailyDetails([]);
                 setPaymentMethods([]);
@@ -784,7 +786,18 @@ const DailyCollection = () => {
                                         acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
                                         acc[c].total += (curr.paidAmount || 0);
                                         return acc;
-                                    }, {})).sort((a, b) => a[0].localeCompare(b[0])).map(([centre, data]) => (
+                                    }, (() => {
+                                        const initialAcc = {};
+                                        const targetCentres = selectedCentres.length > 0
+                                            ? centres.filter(c => selectedCentres.includes(c._id))
+                                            : centres;
+                                        targetCentres.forEach(c => {
+                                            if (c.centreName) {
+                                                initialAcc[c.centreName] = { total: 0 };
+                                            }
+                                        });
+                                        return initialAcc;
+                                    })())).sort((a, b) => a[0].localeCompare(b[0])).map(([centre, data]) => (
                                         <tr key={centre} className={tableRowHoverClass}>
                                             <td className={`px-4 py-4 font-bold ${cardTextClass}`}>{centre}</td>
                                             {paymentMethodsList.map(method => (

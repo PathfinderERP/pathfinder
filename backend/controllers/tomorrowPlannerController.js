@@ -43,9 +43,9 @@ const mapRoleToDepartment = (role) => {
 // ─── Add a task to tomorrow's planner ───────────────────────────────────────
 export const addTask = async (req, res) => {
     try {
-        const { taskDetails, priority, estimatedDuration, notes, planDate } = req.body;
-        if (!taskDetails) {
-            return res.status(400).json({ message: "Task details are required." });
+        const { taskDetails, activityType, place, time, priority, estimatedDuration, notes, planDate } = req.body;
+        if (!taskDetails && !activityType) {
+            return res.status(400).json({ message: "Task details or Activity Type is required." });
         }
 
         // planDate can be explicitly passed (e.g. admin adding for a future date).
@@ -72,7 +72,10 @@ export const addTask = async (req, res) => {
         }
 
         plan.tasks.push({
-            taskDetails,
+            taskDetails: taskDetails || `${activityType || 'Activity'} at ${place || 'Unspecified Place'}`,
+            activityType: activityType || "",
+            place: place || "",
+            time: time || "",
             priority: priority || "Medium",
             estimatedDuration: estimatedDuration || "",
             notes: notes || "",
@@ -276,7 +279,7 @@ export const getBoardPlans = async (req, res) => {
 export const updateTask = async (req, res) => {
     try {
         const { planId, taskId } = req.params;
-        const { taskDetails, priority, estimatedDuration, notes, status } = req.body;
+        const { taskDetails, activityType, place, time, priority, estimatedDuration, notes, status } = req.body;
 
         const plan = await TomorrowPlanner.findById(planId);
         if (!plan) return res.status(404).json({ message: "Planner not found." });
@@ -291,6 +294,9 @@ export const updateTask = async (req, res) => {
         if (!task) return res.status(404).json({ message: "Task not found." });
 
         if (taskDetails !== undefined) task.taskDetails = taskDetails;
+        if (activityType !== undefined) task.activityType = activityType;
+        if (place !== undefined) task.place = place;
+        if (time !== undefined) task.time = time;
         if (priority !== undefined) task.priority = priority;
         if (estimatedDuration !== undefined) task.estimatedDuration = estimatedDuration;
         if (notes !== undefined) task.notes = notes;
@@ -347,7 +353,10 @@ export const savePlan = async (req, res) => {
 
         // Filter and map tasks to clean up temporary client-side IDs
         const mappedTasks = tasks.map(t => ({
-            taskDetails: t.taskDetails,
+            taskDetails: t.taskDetails || `${t.activityType || 'Activity'} at ${t.place || 'Unspecified Place'}`,
+            activityType: t.activityType || "",
+            place: t.place || "",
+            time: t.time || "",
             priority: t.priority || "Medium",
             estimatedDuration: t.estimatedDuration || "",
             notes: t.notes || "",

@@ -27,6 +27,9 @@ export const createPlanner = async (req, res) => {
                     return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
                 })() : "—",
                 planTimeRaw: act.time || "",
+                estimatedDuration: act.estimatedDuration || "",
+                notes: act.notes || "",
+                priority: act.priority || "Medium",
                 actual: act.actualTime || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
                 leads: act.expectedLeads || "0",
                 photo: act.photos?.[0] || act.photo || null,

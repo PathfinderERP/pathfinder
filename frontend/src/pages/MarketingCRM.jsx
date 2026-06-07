@@ -198,10 +198,11 @@ const MarketingCRM = () => {
 
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const [planDate, setPlanDate] = useState(getTodayDateString());
-    const [expectedLeadTarget, setExpectedLeadTarget] = useState("");
-    const [expectedHotLeads, setExpectedHotLeads] = useState("");
+    const [expectedLeadTarget, setExpectedLeadTarget] = useState("0");
+    const [expectedHotLeads, setExpectedHotLeads] = useState("0");
     const [primaryCentreName, setPrimaryCentreName] = useState("");
     const [activitySources, setActivitySources] = useState([]);
+    const [todayTaskSubmitted, setTodayTaskSubmitted] = useState(false);
 
     // Tomorrow Planner States
     const [tomorrowPlanDate, setTomorrowPlanDate] = useState(getTomorrowDateString());
@@ -209,10 +210,12 @@ const MarketingCRM = () => {
     const [tomorrowPlanId, setTomorrowPlanId] = useState(null);
     const [savingTomorrowPlan, setSavingTomorrowPlan] = useState(false);
     const [newTaskForm, setNewTaskForm] = useState({
-        taskDetails: "",
-        priority: "Medium",
+        activityType: "",
+        place: "",
+        time: "",
         estimatedDuration: "",
-        notes: ""
+        notes: "",
+        priority: "Medium"
     });
 
     const fetchTomorrowPlan = async () => {
@@ -236,25 +239,120 @@ const MarketingCRM = () => {
         }
     };
 
+    const fetchTodayPlanActivities = async () => {
+        try {
+            const token = localStorage.getItem("token");
+
+            // Check if there are already submitted activities in auditRecords for this date and user
+            const auditRes = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            let alreadySubmitted = false;
+            if (auditRes.ok) {
+                const auditData = await auditRes.json();
+                if (auditData.records) {
+                    setAuditRecords(auditData.records);
+                    alreadySubmitted = auditData.records.some(r => {
+                        const recUser = r.user?._id || r.user || "";
+                        const currentUserId = currentUser._id || currentUser.id || "";
+                        return r.date === planDate && recUser.toString() === currentUserId.toString();
+                    });
+                }
+            }
+
+            if (alreadySubmitted) {
+                setTodayTaskSubmitted(true);
+                setTodayActivities([]);
+                return;
+            }
+
+            setTodayTaskSubmitted(false);
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/my-plan?date=${planDate}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.plan && data.plan.tasks && data.plan.tasks.length > 0) {
+                    const mapped = data.plan.tasks.map(task => ({
+                        type: task.activityType || "",
+                        place: task.place || "",
+                        time: task.time || "",
+                        expectedLeads: "",
+                        isSaved: false,
+                        geoTagged: false,
+                        latitude: null,
+                        longitude: null,
+                        locationName: "",
+                        photo: null,
+                        estimatedDuration: task.estimatedDuration || "",
+                        notes: task.notes || "",
+                        priority: task.priority || "Medium",
+                        _id: task._id
+                    }));
+                    setTodayActivities(mapped);
+                } else {
+                    setTodayActivities([{
+                        type: activitySources[0] || "School Visit",
+                        place: "",
+                        time: "",
+                        expectedLeads: "",
+                        isSaved: false,
+                        geoTagged: false,
+                        latitude: null,
+                        longitude: null,
+                        locationName: "",
+                        photo: null,
+                        estimatedDuration: "",
+                        notes: "",
+                        priority: "Medium"
+                    }]);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching today's plan activities:", error);
+        }
+    };
+
     const handleAddTomorrowTask = (e) => {
         e.preventDefault();
-        if (!newTaskForm.taskDetails) {
-            toast.error("Task Details are required.");
+        const actType = newTaskForm.activityType || activitySources[0] || "School Visit";
+        if (!newTaskForm.place) {
+            toast.error("Place / Institution is required.");
+            return;
+        }
+        if (!newTaskForm.time) {
+            toast.error("Time is required.");
+            return;
+        }
+        if (!newTaskForm.estimatedDuration) {
+            toast.error("Duration is required.");
             return;
         }
 
         const newTask = {
             _id: `temp_${Date.now()}_${Math.random()}`,
-            taskDetails: newTaskForm.taskDetails,
-            priority: newTaskForm.priority,
+            activityType: actType,
+            place: newTaskForm.place,
+            time: newTaskForm.time,
             estimatedDuration: newTaskForm.estimatedDuration,
-            notes: newTaskForm.notes,
+            notes: newTaskForm.notes || "",
+            priority: newTaskForm.priority,
             status: "Planned"
         };
 
         setTomorrowTasks(prev => [...prev, newTask]);
-        setNewTaskForm({ taskDetails: "", priority: "Medium", estimatedDuration: "", notes: "" });
-        toast.info("Task added locally. Remember to save your plan!");
+        setNewTaskForm({
+            activityType: activitySources[0] || "School Visit",
+            place: "",
+            time: "",
+            estimatedDuration: "",
+            notes: "",
+            priority: "Medium"
+        });
+        toast.info("Activity added locally. Remember to save your plan!", {
+            autoClose: 4000,
+            closeOnClick: true
+        });
     };
 
     const handleDeleteTomorrowTask = (taskId) => {
@@ -263,6 +361,7 @@ const MarketingCRM = () => {
     };
 
     const handleSaveTomorrowPlan = async () => {
+        toast.dismiss();
         setSavingTomorrowPlan(true);
         try {
             const token = localStorage.getItem("token");
@@ -284,6 +383,27 @@ const MarketingCRM = () => {
                 if (data.plan && data.plan._id) {
                     setTomorrowPlanId(data.plan._id);
                     setTomorrowTasks(data.plan.tasks || []);
+                    
+                    // Immediately sync to Today Task state in memory
+                    if (data.plan.tasks && data.plan.tasks.length > 0) {
+                        const mapped = data.plan.tasks.map(task => ({
+                            type: task.activityType || "",
+                            place: task.place || "",
+                            time: task.time || "",
+                            expectedLeads: "",
+                            isSaved: false,
+                            geoTagged: false,
+                            latitude: null,
+                            longitude: null,
+                            locationName: "",
+                            photo: null,
+                            estimatedDuration: task.estimatedDuration || "",
+                            notes: task.notes || "",
+                            priority: task.priority || "Medium",
+                            _id: task._id
+                        }));
+                        setTodayActivities(mapped);
+                    }
                 }
             } else {
                 const errData = await response.json();
@@ -442,14 +562,6 @@ const MarketingCRM = () => {
             toast.error("Please select a date for the field plan.");
             return;
         }
-        if (!expectedLeadTarget) {
-            toast.error("Please enter the expected lead target.");
-            return;
-        }
-        if (!expectedHotLeads) {
-            toast.error("Please enter the expected hot leads.");
-            return;
-        }
 
         const hasUnverified = todayActivities.some(act => !act.geoTagged);
         if (hasUnverified) {
@@ -474,7 +586,10 @@ const MarketingCRM = () => {
             locationName: act.locationName,
             photos: act.photos || (act.photo ? [act.photo] : []),
             photo: act.photos?.[0] || act.photo || null,
-            submittedAt
+            submittedAt,
+            estimatedDuration: act.estimatedDuration || "",
+            notes: act.notes || "",
+            priority: act.priority || "Medium"
         }));
 
         try {
@@ -487,8 +602,8 @@ const MarketingCRM = () => {
                 },
                 body: JSON.stringify({
                     date: planDate,
-                    expectedLeadTarget: Number(expectedLeadTarget),
-                    expectedHotLeads: Number(expectedHotLeads),
+                    expectedLeadTarget: Number(expectedLeadTarget || 0),
+                    expectedHotLeads: Number(expectedHotLeads || 0),
                     activities: activitiesPayload
                 })
             });
@@ -504,8 +619,17 @@ const MarketingCRM = () => {
                     });
                     setApprovalState(prev => ({ ...prev, ...newApprovals }));
 
-                    toast.success(`Today's Field Plan saved! ${data.records.length} activit${data.records.length === 1 ? 'y' : 'ies'} saved to database and added to Audit.`);
+                    toast.success(`Today's Task saved successfully!`);
                 }
+                
+                setTodayTaskSubmitted(true);
+                setTodayActivities([]);
+                setExpectedLeadTarget("");
+                setExpectedHotLeads("");
+                
+                // Switch to Activity Audit tab
+                setActiveTab("Activity Audit");
+                return;
             } else {
                 const text = await response.text();
                 let errData;
@@ -525,24 +649,6 @@ const MarketingCRM = () => {
             toast.error("Failed to connect to database. Plan was not saved.");
             return;
         }
-
-        // Switch to Activity Audit tab
-        setActiveTab("Activity Audit");
-
-        setExpectedLeadTarget("");
-        setExpectedHotLeads("");
-        setTodayActivities([{
-            type: activitySources[0] || "",
-            place: "",
-            time: "",
-            expectedLeads: "",
-            isSaved: false,
-            geoTagged: false,
-            latitude: null,
-            longitude: null,
-            locationName: "",
-            photo: null
-        }]);
     };
 
     // Geo-Tag verification states
@@ -806,7 +912,10 @@ const MarketingCRM = () => {
                 geoTagged: false,
                 latitude: null,
                 longitude: null,
-                photo: null
+                photo: null,
+                estimatedDuration: "",
+                notes: "",
+                priority: "Medium"
             }]);
             toast.info("First row reset.");
         } else {
@@ -828,7 +937,10 @@ const MarketingCRM = () => {
             latitude: null,
             longitude: null,
             locationName: "",
-            photo: null
+            photo: null,
+            estimatedDuration: "",
+            notes: "",
+            priority: "Medium"
         }
     ]);
 
@@ -843,7 +955,10 @@ const MarketingCRM = () => {
             latitude: null,
             longitude: null,
             locationName: "",
-            photo: null
+            photo: null,
+            estimatedDuration: "",
+            notes: "",
+            priority: "Medium"
         }]);
     };
 
@@ -861,10 +976,34 @@ const MarketingCRM = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, tomorrowPlanDate]);
 
+    // Sync planDate with tomorrowPlanDate so Today Task displays the planned activities
+    useEffect(() => {
+        setPlanDate(tomorrowPlanDate);
+    }, [tomorrowPlanDate]);
+
+    // Fetch today plan activities when switching to Today Task tab or when planDate changes
+    useEffect(() => {
+        if (activeTab === "Today Task") {
+            fetchTodayPlanActivities();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, planDate]);
+
     return (
         <Layout activePage="Marketing & CRM">
             <div className={`flex flex-col min-h-screen transition-all duration-300 ${isDarkMode ? 'bg-[#0f1215] text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
-                <ToastContainer theme={isDarkMode ? 'dark' : 'light'} />
+                <ToastContainer
+                    position="top-right"
+                    autoClose={4000}
+                    hideProgressBar={false}
+                    newestOnTop={false}
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                    theme={isDarkMode ? 'dark' : 'light'}
+                />
 
                 <div className="flex-1 custom-scrollbar overflow-y-auto">
                     {/* HERO SECTION */}
@@ -941,7 +1080,7 @@ const MarketingCRM = () => {
                         {/* NAVIGATION */}
                         <div className="flex flex-wrap items-center gap-2">
                             {[
-                                "Tomorrow Planner", "Command Centre", "Today Planner", "Activity Audit"
+                                "Command Centre", "Tomorrow Planner", "Today Task", "Activity Audit"
                             ].map((tab, idx) => (
                                 <button
                                     key={idx}
@@ -1006,8 +1145,8 @@ const MarketingCRM = () => {
                                                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">ZM • Zone Control</p>
                                                         </div>
                                                         <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${isDarkMode
-                                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                                : 'bg-emerald-100 text-emerald-600 border-emerald-200'
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                            : 'bg-emerald-100 text-emerald-600 border-emerald-200'
                                                             }`}>Verified</span>
                                                     </div>
                                                     <div className="grid grid-cols-4 gap-2">
@@ -1104,95 +1243,28 @@ const MarketingCRM = () => {
                             </div>
                         )}
 
-                        {/* TODAY PLANNER VIEW */}
-                        {activeTab === "Today Planner" && (
+                        {/* TODAY TASK VIEW */}
+                        {activeTab === "Today Task" && (
                             <div className="space-y-6 animate-fadeIn">
                                 <div>
-                                    <h2 className="text-3xl font-black tracking-tighter">Today Planner</h2>
+                                    <h2 className="text-3xl font-black tracking-tighter">Today Task</h2>
                                     <p className="text-gray-500 text-[11px] font-bold mt-1">Staff must submit today's exact duty plan. The ERP should lock vague or weak plans.</p>
                                 </div>
 
                                 <div className={`p-8 rounded-[24px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                    <h3 className="text-xl font-black tracking-tight mb-6">Create Today's Field Plan</h3>
-
-                                    {/* Form Grid */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                                        {/* Date Field */}
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Date *</label>
-                                            <input
-                                                type="date"
-                                                value={planDate}
-                                                onChange={(e) => setPlanDate(e.target.value)}
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
-                                            />
+                                    {todayTaskSubmitted ? (
+                                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-[20px] border border-dashed border-emerald-500/30 bg-emerald-500/5 transition-all">
+                                            <div className="p-4 bg-emerald-500/10 rounded-full text-emerald-500 mb-4 animate-bounce">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-10 h-10">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                </svg>
+                                            </div>
+                                            <h3 className="text-lg font-black text-emerald-500 uppercase tracking-widest mb-2">Today's Task Saved Successfully</h3>
+                                            <p className="text-xs text-gray-500 font-bold max-w-md">Today's field plan/tasks have been saved. You cannot submit again for this date.</p>
                                         </div>
-
-                                        {/* Staff Name Field (Auto-filled) */}
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Staff Name (Auto)</label>
-                                            <input
-                                                type="text"
-                                                value={currentUser.name || ""}
-                                                readOnly
-                                                disabled
-                                                placeholder="Staff Name"
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800/80 text-gray-500 cursor-not-allowed' : 'bg-gray-100/80 border-gray-200 text-gray-500 cursor-not-allowed shadow-inner'}`}
-                                            />
-                                        </div>
-
-                                        {/* Role Field (Auto-filled) */}
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Role (Auto)</label>
-                                            <input
-                                                type="text"
-                                                value={currentUser.role || ""}
-                                                readOnly
-                                                disabled
-                                                placeholder="Role"
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800/80 text-gray-500 cursor-not-allowed' : 'bg-gray-100/80 border-gray-200 text-gray-500 cursor-not-allowed shadow-inner'}`}
-                                            />
-                                        </div>
-
-                                        {/* Center Field (Auto-filled) */}
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Primary Center (Auto)</label>
-                                            <input
-                                                type="text"
-                                                value={primaryCentreName || "Loading..."}
-                                                readOnly
-                                                disabled
-                                                placeholder="Center"
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800/80 text-gray-500 cursor-not-allowed' : 'bg-gray-100/80 border-gray-200 text-gray-500 cursor-not-allowed shadow-inner'}`}
-                                            />
-                                        </div>
-
-                                        {/* Expected Lead Target Field */}
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Expected Lead Target *</label>
-                                            <input
-                                                type="number"
-                                                value={expectedLeadTarget}
-                                                onChange={(e) => setExpectedLeadTarget(e.target.value)}
-                                                placeholder="Expected Lead Target"
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
-                                            />
-                                        </div>
-
-                                        {/* Expected Hot Leads Field */}
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Expected Hot Leads *</label>
-                                            <input
-                                                type="number"
-                                                value={expectedHotLeads}
-                                                onChange={(e) => setExpectedHotLeads(e.target.value)}
-                                                placeholder="Expected Hot Leads"
-                                                className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Activity Blocks */}
+                                    ) : (
+                                        <>
+                                            {/* Activity Blocks */}
                                     <div className="space-y-4 mb-8">
                                         <div className="flex justify-between items-center mb-6">
                                             <h4 className="text-lg font-black tracking-tight">Planned Activity Blocks</h4>
@@ -1204,22 +1276,25 @@ const MarketingCRM = () => {
                                         <div className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-[#f4f6f8] border-gray-100'}`}>
                                             {/* Grid Column Headers (Desktop only) */}
                                             <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
-                                                <div className="col-span-3">Activity Type</div>
-                                                <div className="col-span-3">Place / Institution</div>
-                                                <div className="col-span-2">Time</div>
+                                                <div className="col-span-2">Activity Type</div>
+                                                <div className="col-span-2">Place / Institution</div>
+                                                <div className="col-span-1">Time</div>
+                                                <div className="col-span-1">Duration</div>
+                                                <div className="col-span-2">Notes</div>
+                                                <div className="col-span-1 text-center">Priority</div>
                                                 <div className="col-span-1 text-center">Leads</div>
-                                                <div className="col-span-2 text-center">Geo-Tag</div>
+                                                <div className="col-span-1 text-center">Geo-Tag</div>
                                                 <div className="col-span-1 text-center">Actions</div>
                                             </div>
 
                                             {todayActivities.map((activity, idx) => (
                                                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-fadeIn border-b border-gray-800/10 dark:border-gray-800/30 pb-4 md:pb-0 md:border-b-0">
                                                     {/* Activity Type select — sourced from Master Data /source */}
-                                                    <div className="col-span-1 md:col-span-3">
+                                                    <div className="col-span-1 md:col-span-2">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
                                                         <select
                                                             disabled={activity.isSaved}
-                                                            className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                             value={activity.type}
                                                             onChange={(e) => {
                                                                 const newActs = [...todayActivities];
@@ -1241,8 +1316,8 @@ const MarketingCRM = () => {
                                                     </div>
 
                                                     {/* Place / Institution input */}
-                                                    <div className="col-span-1 md:col-span-3">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution</label>
+                                                    <div className="col-span-1 md:col-span-2">
+                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
                                                         <input
                                                             type="text"
                                                             disabled={activity.isSaved}
@@ -1253,12 +1328,12 @@ const MarketingCRM = () => {
                                                                 newActs[idx].place = e.target.value;
                                                                 setTodayActivities(newActs);
                                                             }}
-                                                            className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                         />
                                                     </div>
 
                                                     {/* Time picker */}
-                                                    <div className="col-span-1 md:col-span-2">
+                                                    <div className="col-span-1 md:col-span-1">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Time</label>
                                                         <input
                                                             type="time"
@@ -1269,8 +1344,61 @@ const MarketingCRM = () => {
                                                                 newActs[idx].time = e.target.value;
                                                                 setTodayActivities(newActs);
                                                             }}
-                                                            className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                         />
+                                                    </div>
+
+                                                    {/* Duration input */}
+                                                    <div className="col-span-1 md:col-span-1">
+                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration</label>
+                                                        <input
+                                                            type="text"
+                                                            disabled={activity.isSaved}
+                                                            placeholder="Duration"
+                                                            value={activity.estimatedDuration}
+                                                            onChange={(e) => {
+                                                                const newActs = [...todayActivities];
+                                                                newActs[idx].estimatedDuration = e.target.value;
+                                                                setTodayActivities(newActs);
+                                                            }}
+                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                        />
+                                                    </div>
+
+                                                    {/* Notes input */}
+                                                    <div className="col-span-1 md:col-span-2">
+                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
+                                                        <input
+                                                            type="text"
+                                                            disabled={activity.isSaved}
+                                                            placeholder="Notes"
+                                                            value={activity.notes}
+                                                            onChange={(e) => {
+                                                                const newActs = [...todayActivities];
+                                                                newActs[idx].notes = e.target.value;
+                                                                setTodayActivities(newActs);
+                                                            }}
+                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                        />
+                                                    </div>
+
+                                                    {/* Priority select */}
+                                                    <div className="col-span-1 md:col-span-1">
+                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Priority</label>
+                                                        <select
+                                                            disabled={activity.isSaved}
+                                                            value={activity.priority || "Medium"}
+                                                            onChange={(e) => {
+                                                                const newActs = [...todayActivities];
+                                                                newActs[idx].priority = e.target.value;
+                                                                setTodayActivities(newActs);
+                                                            }}
+                                                            className={`w-full px-2 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                        >
+                                                            <option value="High">High</option>
+                                                            <option value="Medium">Medium</option>
+                                                            <option value="Low">Low</option>
+                                                        </select>
                                                     </div>
 
                                                     {/* Expected Leads input */}
@@ -1286,32 +1414,32 @@ const MarketingCRM = () => {
                                                                 newActs[idx].expectedLeads = e.target.value;
                                                                 setTodayActivities(newActs);
                                                             }}
-                                                            className={`w-full px-4 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all text-center ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                            className={`w-full px-2 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all text-center ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                         />
                                                     </div>
 
                                                     {/* Geo-Tag status and action button */}
-                                                    <div className="col-span-1 md:col-span-2">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Geo-Tag Status</label>
+                                                    <div className="col-span-1 md:col-span-1">
+                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Geo-Tag</label>
                                                         {activity.geoTagged ? (
                                                             <button
                                                                 onClick={() => handleOpenVerifyModal(idx)}
-                                                                className="w-full py-2.5 px-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-green-500/20 transition-all"
+                                                                className="w-full py-2.5 px-1 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-green-500/20 transition-all"
                                                             >
-                                                                📍 Verified
+                                                                📍 OK
                                                             </button>
                                                         ) : (
                                                             <button
                                                                 onClick={() => handleOpenVerifyModal(idx)}
-                                                                className="w-full py-2.5 px-3 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 hover:bg-orange-500/20 transition-all"
+                                                                className="w-full py-2.5 px-1 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-orange-500/20 transition-all"
                                                             >
-                                                                📸 Verify Loc
+                                                                📸 Verify
                                                             </button>
                                                         )}
                                                     </div>
 
                                                     {/* Actions (Edit and Delete) */}
-                                                    <div className="col-span-1 md:col-span-1 flex justify-center items-center gap-2 pt-2 md:pt-0">
+                                                    <div className="col-span-1 md:col-span-1 flex justify-center items-center gap-1.5 pt-2 md:pt-0">
                                                         <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Actions</label>
 
                                                         {/* Edit/Save Toggle button */}
@@ -1321,11 +1449,11 @@ const MarketingCRM = () => {
                                                             className={`p-2 rounded-lg border transition-all ${activity.isSaved ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20' : 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'}`}
                                                         >
                                                             {activity.isSaved ? (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.83 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
                                                                 </svg>
                                                             ) : (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                                                                 </svg>
                                                             )}
@@ -1337,7 +1465,7 @@ const MarketingCRM = () => {
                                                             title="Delete Row"
                                                             className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-all"
                                                         >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                                                             </svg>
                                                         </button>
@@ -1347,15 +1475,17 @@ const MarketingCRM = () => {
                                         </div>
                                     </div>
 
-                                    <button
-                                        onClick={handleSubmitFieldPlan}
-                                        className="w-full py-4 rounded-xl bg-[#05080c] text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Save Today's Field Plan
-                                    </button>
+                                            <button
+                                                onClick={handleSubmitFieldPlan}
+                                                className="w-full py-4 rounded-xl bg-[#05080c] text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Save Todays Task
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -1558,16 +1688,26 @@ const MarketingCRM = () => {
                                             <input
                                                 type="date"
                                                 value={tomorrowPlanDate}
-                                                onChange={(e) => setTomorrowPlanDate(e.target.value)}
+                                                min={getTomorrowDateString()}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    const tom = getTomorrowDateString();
+                                                    if (val < tom) {
+                                                        toast.warning("Backdated dates are not allowed. Enforcing tomorrow's date.");
+                                                        setTomorrowPlanDate(tom);
+                                                    } else {
+                                                        setTomorrowPlanDate(val);
+                                                    }
+                                                }}
                                                 className={`w-full px-4 py-2 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
                                             />
                                         </div>
                                     </div>
 
-                                    <form onSubmit={handleAddTomorrowTask} className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 p-6 rounded-2xl border bg-[#05080c] border-gray-800 shadow-xl relative overflow-hidden">
+                                    <form onSubmit={handleAddTomorrowTask} className={`grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 p-6 rounded-2xl border shadow-xl relative overflow-hidden ${isDarkMode ? 'bg-[#05080c] border-gray-800' : 'bg-white border-gray-200'}`}>
                                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
                                         <div className="col-span-1 md:col-span-12 z-10">
-                                            <h4 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 mb-4">
+                                            <h4 className={`text-sm font-black uppercase tracking-widest flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-blue-500">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
@@ -1575,14 +1715,54 @@ const MarketingCRM = () => {
                                             </h4>
                                         </div>
 
-                                        <div className="col-span-1 md:col-span-5 z-10 flex flex-col gap-1.5">
-                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Task Details *</label>
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Type</label>
+                                            <select
+                                                value={newTaskForm.activityType}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, activityType: e.target.value })}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            >
+                                                {activitySources.length > 0 ? (
+                                                    activitySources.map((src, sIdx) => (
+                                                        <option key={sIdx} value={src}>{src}</option>
+                                                    ))
+                                                ) : (
+                                                    ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity", "Others Activity"].map((s, sIdx) => (
+                                                        <option key={sIdx} value={s}>{s}</option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Place / Institution *</label>
                                             <input
                                                 type="text"
-                                                placeholder="What needs to be done?"
-                                                value={newTaskForm.taskDetails}
-                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, taskDetails: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
+                                                placeholder="Place / Institution"
+                                                value={newTaskForm.place}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, place: e.target.value })}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
+                                            />
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-1 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Time *</label>
+                                            <input
+                                                type="time"
+                                                value={newTaskForm.time}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, time: e.target.value })}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            />
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Duration *</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. 2 hours"
+                                                value={newTaskForm.estimatedDuration}
+                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, estimatedDuration: e.target.value })}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
                                             />
                                         </div>
 
@@ -1591,7 +1771,7 @@ const MarketingCRM = () => {
                                             <select
                                                 value={newTaskForm.priority}
                                                 onChange={(e) => setNewTaskForm({ ...newTaskForm, priority: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all"
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                             >
                                                 <option value="High">High</option>
                                                 <option value="Medium">Medium</option>
@@ -1600,31 +1780,20 @@ const MarketingCRM = () => {
                                         </div>
 
                                         <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
-                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Est. Duration</label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. 2 hours"
-                                                value={newTaskForm.estimatedDuration}
-                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, estimatedDuration: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
-                                            />
-                                        </div>
-
-                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Notes (Optional)</label>
                                             <input
                                                 type="text"
-                                                placeholder="Any extra info"
+                                                placeholder="Remarks"
                                                 value={newTaskForm.notes}
                                                 onChange={(e) => setNewTaskForm({ ...newTaskForm, notes: e.target.value })}
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-700 bg-black/50 text-[11px] font-bold text-white outline-none focus:border-blue-500 transition-all placeholder-gray-600"
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
                                             />
                                         </div>
 
                                         <div className="col-span-1 md:col-span-1 z-10 flex items-end">
                                             <button
                                                 type="submit"
-                                                className="w-full h-[42px] rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                                                className="w-full h-[42px] rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer"
                                                 title="Add Task"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5">
@@ -1636,7 +1805,7 @@ const MarketingCRM = () => {
 
                                     {/* Task List */}
                                     <div className="space-y-4">
-                                        <h4 className="text-lg font-black tracking-tight flex items-center gap-2">
+                                        <h4 className="text-lg font-black tracking-tight flex items-center gap-2 mb-4">
                                             Planned Tasks
                                             <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black">{tomorrowTasks.length}</span>
                                         </h4>
@@ -1652,55 +1821,65 @@ const MarketingCRM = () => {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                {tomorrowTasks.map((task, idx) => (
-                                                    <div key={task._id || idx} className={`p-5 rounded-2xl border relative group transition-all hover:-translate-y-1 hover:shadow-xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                                        <div className="flex justify-between items-start mb-3">
-                                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                                                    task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
-                                                                        'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                                                                }`}>
-                                                                {task.priority} Priority
-                                                            </span>
+                                            <div className="space-y-3">
+                                                {/* Grid Column Headers (Desktop only) */}
+                                                <div className="hidden md:grid grid-cols-12 gap-4 px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
+                                                    <div className="col-span-2">Activity Type</div>
+                                                    <div className="col-span-3">Place / Institution Name</div>
+                                                    <div className="col-span-1 text-center"> From Time</div>
+                                                    <div className="col-span-2 text-center">Duration (In Hours)</div>
+                                                    <div className="col-span-2">Notes (Optional)</div>
+                                                    <div className="col-span-1 text-center">Priority</div>
+                                                    <div className="col-span-1 text-center">Actions</div>
+                                                </div>
 
+                                                {tomorrowTasks.map((task, idx) => (
+                                                    <div key={task._id || idx} className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619]/40 border-gray-800/60 text-white' : 'bg-gray-50/50 border-gray-100 text-gray-900'}`}>
+                                                        <div className="col-span-1 md:col-span-2">
+                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
+                                                            <span className="text-[11px] font-black uppercase">{task.activityType || task.taskDetails || "Activity"}</span>
+                                                        </div>
+
+                                                        <div className="col-span-1 md:col-span-3">
+                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
+                                                            <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.place || "-"}</span>
+                                                        </div>
+
+                                                        <div className="col-span-1 md:col-span-1 text-left md:text-center">
+                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">From Time</label>
+                                                            <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.time || "-"}</span>
+                                                        </div>
+
+                                                        <div className="col-span-1 md:col-span-2 text-left md:text-center">
+                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration (In Hours)</label>
+                                                            <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.estimatedDuration || "-"}</span>
+                                                        </div>
+
+                                                        <div className="col-span-1 md:col-span-2 truncate">
+                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
+                                                            <span className={`text-[11px] font-bold italic ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} title={task.notes}>{task.notes || "-"}</span>
+                                                        </div>
+
+                                                        <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center">
+                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Priority</label>
+                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                                                task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                                                                    'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                                                }`}>
+                                                                {task.priority || "Medium"}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center items-center">
                                                             <button
                                                                 onClick={() => handleDeleteTomorrowTask(task._id)}
-                                                                className="w-7 h-7 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-                                                                title="Delete Task"
+                                                                className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                                                                title="Delete Row"
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                                                                 </svg>
                                                             </button>
-                                                        </div>
-                                                        <h5 className={`font-black text-sm mb-3 leading-snug ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{task.taskDetails}</h5>
-
-                                                        <div className="flex flex-col gap-2">
-                                                            {task.estimatedDuration && (
-                                                                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                    </svg>
-                                                                    {task.estimatedDuration}
-                                                                </div>
-                                                            )}
-                                                            {task.notes && (
-                                                                <div className="flex items-start gap-2 text-[10px] font-bold text-gray-500 bg-gray-500/5 p-2 rounded-lg">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                                                                    </svg>
-                                                                    <span className="italic leading-relaxed">{task.notes}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        <div className="mt-4 pt-3 border-t border-gray-800/10 dark:border-gray-800/50 flex justify-between items-center">
-                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${task.status === 'Completed' ? 'text-green-500' :
-                                                                    task.status === 'Skipped' ? 'text-gray-500' :
-                                                                        'text-blue-500'
-                                                                }`}>
-                                                                • {task.status}
-                                                            </span>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -1846,16 +2025,16 @@ const MarketingCRM = () => {
                                             </div>
                                             <div className="text-center">
                                                 <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">No Audit Records Yet</p>
-                                                <p className="text-[10px] text-gray-400 mt-1">Submit a field plan from Today Planner to populate this table.</p>
+                                                <p className="text-[10px] text-gray-400 mt-1">Submit a field plan from Today Task to populate this table.</p>
                                             </div>
-                                            <button onClick={() => setActiveTab("Today Planner")} className="px-6 py-2.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95">
-                                                Go to Today Planner
+                                            <button onClick={() => setActiveTab("Today Task")} className="px-6 py-2.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95">
+                                                Go to Today Task
                                             </button>
                                         </div>
                                     ) : (
                                         <div className={`rounded-[24px] border overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                             <div className="overflow-x-auto">
-                                                <table className="w-full text-left border-collapse min-w-[1100px]">
+                                                <table className="w-full text-left border-collapse min-w-[1350px]">
                                                     <thead>
                                                         <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
                                                             <th className="px-5 py-4 whitespace-nowrap">Type</th>
@@ -1863,6 +2042,9 @@ const MarketingCRM = () => {
                                                             <th className="px-5 py-4 whitespace-nowrap">Owner</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Plan Time</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Actual Time</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Duration</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Notes</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Priority</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Leads</th>
                                                             <th className="px-5 py-4 whitespace-nowrap min-w-[140px]">Proof</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Status</th>
@@ -1873,7 +2055,7 @@ const MarketingCRM = () => {
                                                     <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
                                                         {filteredAuditRecords.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={10} className="px-5 py-12 text-center">
+                                                                <td colSpan={13} className="px-5 py-12 text-center">
                                                                     <div className="flex flex-col items-center gap-2 text-gray-400">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
@@ -1918,6 +2100,20 @@ const MarketingCRM = () => {
                                                                     {/* Actual Time */}
                                                                     <td className="px-5 py-4 whitespace-nowrap">
                                                                         <span className="font-mono text-[10px] text-blue-500 font-black">{row.actual}</span>
+                                                                    </td>
+                                                                    {/* Duration */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap text-gray-500 font-mono text-[10px]">{row.estimatedDuration || '—'}</td>
+                                                                    {/* Notes */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap max-w-[150px] truncate text-gray-500" title={row.notes}>{row.notes || '—'}</td>
+                                                                    {/* Priority */}
+                                                                    <td className="px-5 py-4 whitespace-nowrap">
+                                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                                                                            row.priority === 'High' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                                                                            row.priority === 'Low' ? 'bg-gray-500/10 text-gray-500 border border-gray-500/20' :
+                                                                            'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                                                                        }`}>
+                                                                            {row.priority || 'Medium'}
+                                                                        </span>
                                                                     </td>
                                                                     {/* Leads */}
                                                                     <td className="px-5 py-4 whitespace-nowrap">
@@ -1978,8 +2174,8 @@ const MarketingCRM = () => {
                                                                             <button
                                                                                 onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
                                                                                 className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Approved"
-                                                                                        ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
-                                                                                        : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
+                                                                                    ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
+                                                                                    : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
                                                                                     }`}
                                                                             >
                                                                                 ✓ Approve
@@ -1987,8 +2183,8 @@ const MarketingCRM = () => {
                                                                             <button
                                                                                 onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
                                                                                 className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Rejected"
-                                                                                        ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
-                                                                                        : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
+                                                                                    ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
+                                                                                    : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
                                                                                     }`}
                                                                             >
                                                                                 ✕ Reject

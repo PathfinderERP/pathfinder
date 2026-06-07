@@ -39,6 +39,18 @@ const marketingPlannerSchema = new mongoose.Schema({
         type: String, // e.g. "14:30"
         default: ""
     },
+    estimatedDuration: {
+        type: String,
+        default: ""
+    },
+    notes: {
+        type: String,
+        default: ""
+    },
+    priority: {
+        type: String,
+        default: "Medium"
+    },
     actual: {
         type: String,
         default: ""

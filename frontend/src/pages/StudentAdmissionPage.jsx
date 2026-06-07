@@ -42,6 +42,8 @@ const StudentAdmissionPage = () => {
         courseType: ""
     });
 
+    const [masterAccounts, setMasterAccounts] = useState([]);
+
     const [formData, setFormData] = useState({
         courseId: "",
         classId: "",
@@ -59,7 +61,8 @@ const StudentAdmissionPage = () => {
         accountHolderName: "",
         chequeDate: "",
         receivedDate: new Date().toISOString().split('T')[0],
-        customBoardDuration: "" // Manual override for Board duration
+        customBoardDuration: "", // Manual override for Board duration
+        bankAccount: ""
     });
 
     const [feeBreakdown, setFeeBreakdown] = useState({
@@ -190,7 +193,7 @@ const StudentAdmissionPage = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes] = await Promise.all([
+            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes, accountsRes] = await Promise.all([
                 fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
@@ -198,7 +201,8 @@ const StudentAdmissionPage = () => {
                 fetch(`${apiUrl}/session/list`, { headers }),
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/board`, { headers }),
-                fetch(`${apiUrl}/subject`, { headers })
+                fetch(`${apiUrl}/subject`, { headers }),
+                fetch(`${apiUrl}/master-data/account`, { headers })
             ]);
 
             if (studentRes.ok) {
@@ -224,6 +228,7 @@ const StudentAdmissionPage = () => {
             }
             if (boardsRes.ok) setBoards(await boardsRes.json());
             if (subjectsRes.ok) await subjectsRes.json();
+            if (accountsRes.ok) setMasterAccounts(await accountsRes.json());
 
         } catch (error) {
             console.error(error);
@@ -476,6 +481,12 @@ const StudentAdmissionPage = () => {
         // New validation: require Transaction ID for UPI/CARD/BANK_TRANSFER if down payment > 0
         if (['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod) && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
             toast.error(`Transaction ID / Ref is mandatory for ${formData.paymentMethod} payments.`);
+            setLoading(false);
+            return;
+        }
+
+        if (formData.paymentMethod === "CHEQUE" && !formData.bankAccount) {
+            toast.error("Bank Account selection is required for Cheque payments.");
             setLoading(false);
             return;
         }
@@ -1018,6 +1029,23 @@ const StudentAdmissionPage = () => {
                                             className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             placeholder="e.g. HDFC, ICICI..."
                                         />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Account <span className="text-red-500">*</span></label>
+                                        <select
+                                            name="bankAccount"
+                                            value={formData.bankAccount}
+                                            onChange={handleInputChange}
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(account => (
+                                                <option key={account._id} value={account._id}>
+                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </>
                             ) : (

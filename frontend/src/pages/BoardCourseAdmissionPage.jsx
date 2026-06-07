@@ -40,6 +40,8 @@ const BoardCourseAdmissionPage = () => {
     const [counselData, setCounselData] = useState(null);
     const [boardCourseSubjects, setBoardCourseSubjects] = useState([]); // Subjects for SPECIFIC Board+Class
     const [allBoardCourseSubjects, setAllBoardCourseSubjects] = useState([]); // All Board+Class mappings
+    const [bankAccount, setBankAccount] = useState("");
+    const [masterAccounts, setMasterAccounts] = useState([]);
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -102,7 +104,8 @@ const BoardCourseAdmissionPage = () => {
             const fetchPromises = [
                 fetch(`${apiUrl}/board`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/class`, { headers: { "Authorization": `Bearer ${token}` } }),
-                fetch(`${apiUrl}/board-course-subject`, { headers: { "Authorization": `Bearer ${token}` } })
+                fetch(`${apiUrl}/board-course-subject`, { headers: { "Authorization": `Bearer ${token}` } }),
+                fetch(`${apiUrl}/master-data/account`, { headers: { "Authorization": `Bearer ${token}` } })
             ];
 
             // Only fetch student if we have a valid-looking ID
@@ -115,11 +118,11 @@ const BoardCourseAdmissionPage = () => {
 
             const results = await Promise.all(fetchPromises);
 
-            let studentRes, boardsRes, classesRes, allBCSRes;
+            let studentRes, boardsRes, classesRes, allBCSRes, accountsRes;
             if (isValidStudentId) {
-                [studentRes, boardsRes, classesRes, allBCSRes] = results;
+                [studentRes, boardsRes, classesRes, allBCSRes, accountsRes] = results;
             } else {
-                [boardsRes, classesRes, allBCSRes] = results;
+                [boardsRes, classesRes, allBCSRes, accountsRes] = results;
                 studentRes = { ok: false }; // Mock failure if ID was invalid
             }
 
@@ -127,6 +130,8 @@ const BoardCourseAdmissionPage = () => {
             const boardsData = await boardsRes.json();
             const classesData = await (classesRes.ok ? classesRes.json() : Promise.resolve([]));
             const allBCSData = await (allBCSRes?.ok ? allBCSRes.json() : Promise.resolve([]));
+            const accountsData = await (accountsRes?.ok ? accountsRes.json() : Promise.resolve([]));
+            setMasterAccounts(accountsData);
 
             if (studentRes.ok) {
                 setStudent(studentData);
@@ -308,8 +313,8 @@ const BoardCourseAdmissionPage = () => {
         }
 
         if (paymentMethod === "CHEQUE") {
-            if (!bankName || !transactionId || !accountHolderName || !chequeDate) {
-                return toast.error("Please fill all bank details for Cheque payment");
+            if (!bankName || !transactionId || !accountHolderName || !chequeDate || !bankAccount) {
+                return toast.error("Please fill all bank details and select a bank account for Cheque payment");
             }
         }
 
@@ -347,6 +352,7 @@ const BoardCourseAdmissionPage = () => {
                     bankName,
                     accountHolderName,
                     chequeDate,
+                    bankAccount,
                     admissionFee: Number(admissionFee),
                     examFee: Number(examFee),
                     paidExamFee: Number(paidExamFee),
@@ -709,6 +715,24 @@ const BoardCourseAdmissionPage = () => {
                                                 />
                                             </div>
                                         </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="md:col-span-2">
+                                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Bank Account <span className="text-red-500">*</span></label>
+                                                <select
+                                                    value={bankAccount}
+                                                    onChange={(e) => setBankAccount(e.target.value)}
+                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                                    required
+                                                >
+                                                    <option value="">Select Bank Account</option>
+                                                    {masterAccounts.map(account => (
+                                                        <option key={account._id} value={account._id}>
+                                                            {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -890,6 +914,22 @@ const BoardCourseAdmissionPage = () => {
                                                             required
                                                         />
                                                     </div>
+                                                </div>
+                                                <div className="mt-3">
+                                                    <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Bank Account <span className="text-red-500">*</span></label>
+                                                    <select
+                                                        value={bankAccount}
+                                                        onChange={(e) => setBankAccount(e.target.value)}
+                                                        className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                        required
+                                                    >
+                                                        <option value="">Select Bank Account</option>
+                                                        {masterAccounts.map(account => (
+                                                            <option key={account._id} value={account._id}>
+                                                                {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             </div>
                                         )}

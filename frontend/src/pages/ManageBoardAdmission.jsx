@@ -33,6 +33,7 @@ const ManageBoardAdmission = () => {
         paymentMethod: "",
         transactionId: "",
         bankName: "",
+        bankAccount: "",
         chequeDate: new Date().toISOString().split('T')[0],
         receivedDate: new Date().toISOString().split('T')[0]
     });
@@ -45,9 +46,12 @@ const ManageBoardAdmission = () => {
         transactionId: "",
         bankName: "",
         accountHolderName: "",
+        bankAccount: "",
         chequeDate: new Date().toISOString().split('T')[0],
         receivedDate: new Date().toISOString().split('T')[0]
     });
+
+    const [masterAccounts, setMasterAccounts] = useState([]);
 
     const [showSMSModal, setShowSMSModal] = useState(false);
 
@@ -133,6 +137,22 @@ const ManageBoardAdmission = () => {
     }, [id, fetchData]);
 
     useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${apiUrl}/master-data/account`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok) setMasterAccounts(data || []);
+            } catch (error) {
+                console.error("Error fetching accounts:", error);
+            }
+        };
+        fetchAccounts();
+    }, [apiUrl]);
+
+    useEffect(() => {
         if (!paymentModal.show && !examPaymentModal && !additionalFeePaymentModal) {
             setPaymentForm({
                 amount: 0,
@@ -152,6 +172,15 @@ const ManageBoardAdmission = () => {
             }));
         }
     }, [paymentModal.show, paymentModal.installment, examPaymentModal, additionalFeePaymentModal]);
+
+    // Validate cheque bank account across all payment handlers
+    const validateChequeAccount = (method, account) => {
+        if (method === "CHEQUE" && !account) {
+            toast.error("Bank Account selection is required for Cheque payments");
+            return false;
+        }
+        return true;
+    };
 
     const handleUpdateSubjects = async () => {
         setLoading(true);
@@ -185,9 +214,7 @@ const ManageBoardAdmission = () => {
 
     const handleCollectPayment = async (e) => {
         e.preventDefault();
-
-        setLoading(true);
-
+        if (!validateChequeAccount(paymentForm.paymentMethod, paymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -206,6 +233,7 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
+                    bankAccount: paymentForm.paymentMethod === "CHEQUE" ? paymentForm.bankAccount : undefined,
                     chequeDate: paymentForm.chequeDate,
                     receivedDate: paymentForm.receivedDate
                 })
@@ -228,9 +256,7 @@ const ManageBoardAdmission = () => {
 
     const handleCollectExamPayment = async (e) => {
         e.preventDefault();
-
-        setLoading(true);
-
+        if (!validateChequeAccount(paymentForm.paymentMethod, paymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -246,6 +272,7 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
+                    bankAccount: paymentForm.paymentMethod === "CHEQUE" ? paymentForm.bankAccount : undefined,
                     chequeDate: paymentForm.chequeDate,
                     receivedDate: paymentForm.receivedDate
                 })
@@ -274,6 +301,7 @@ const ManageBoardAdmission = () => {
             toast.error("Please enter at least one fee amount.");
             return;
         }
+        if (!validateChequeAccount(ncrpPaymentForm.paymentMethod, ncrpPaymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -285,7 +313,7 @@ const ManageBoardAdmission = () => {
             if (response.ok) {
                 toast.success("NCRP fee payment collected!");
                 setNcrpPaymentModal(false);
-                setNcrpPaymentForm({ paidExamFee: 0, paidAdditionalThings: 0, paymentMethod: "CASH", transactionId: "", bankName: "", accountHolderName: "", chequeDate: new Date().toISOString().split('T')[0] });
+                setNcrpPaymentForm({ paidExamFee: 0, paidAdditionalThings: 0, paymentMethod: "CASH", transactionId: "", bankName: "", bankAccount: "", accountHolderName: "", chequeDate: new Date().toISOString().split('T')[0] });
                 fetchData();
             } else {
                 const data = await response.json();
@@ -299,9 +327,7 @@ const ManageBoardAdmission = () => {
     };
     const handleCollectAdditionalPayment = async (e) => {
         e.preventDefault();
-
-        setLoading(true);
-
+        if (!validateChequeAccount(paymentForm.paymentMethod, paymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -317,6 +343,7 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
+                    bankAccount: paymentForm.paymentMethod === "CHEQUE" ? paymentForm.bankAccount : undefined,
                     chequeDate: paymentForm.chequeDate,
                     receivedDate: paymentForm.receivedDate
                 })
@@ -1201,7 +1228,6 @@ const ManageBoardAdmission = () => {
                                             value={paymentForm.bankName}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, bankName: e.target.value })}
                                             className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
-                                            required
                                         />
                                     </div>
                                     <div>
@@ -1223,6 +1249,22 @@ const ManageBoardAdmission = () => {
                                             className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                             required
                                         />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Account *</label>
+                                        <select
+                                            value={paymentForm.bankAccount}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, bankAccount: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(acc => (
+                                                <option key={acc._id} value={acc._id}>
+                                                    {acc.accname} (A/C: {acc.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}
@@ -1368,11 +1410,27 @@ const ManageBoardAdmission = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Name</label>
-                                        <input type="text" value={ncrpPaymentForm.bankName} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, bankName: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} required />
+                                        <input type="text" value={ncrpPaymentForm.bankName} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, bankName: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} />
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Cheque Date</label>
                                         <input type="date" value={ncrpPaymentForm.chequeDate} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, chequeDate: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} required />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Account *</label>
+                                        <select
+                                            value={ncrpPaymentForm.bankAccount}
+                                            onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, bankAccount: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(acc => (
+                                                <option key={acc._id} value={acc._id}>
+                                                    {acc.accname} (A/C: {acc.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}

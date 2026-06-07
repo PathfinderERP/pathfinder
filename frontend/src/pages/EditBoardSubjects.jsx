@@ -21,6 +21,8 @@ const EditBoardSubjects = () => {
     const [transactionId, setTransactionId] = useState('');
     const [accountHolderName, setAccountHolderName] = useState('');
     const [chequeDate, setChequeDate] = useState('');
+    const [bankAccount, setBankAccount] = useState('');
+    const [masterAccounts, setMasterAccounts] = useState([]);
     const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
     const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
     const [processing, setProcessing] = useState(false);
@@ -31,6 +33,22 @@ const EditBoardSubjects = () => {
         fetchAdmissionData();
         // eslint-disable-next-line
     }, [admissionId]);
+
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${apiUrl}/master-data/account`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (response.ok) setMasterAccounts(data || []);
+            } catch (error) {
+                console.error('Error fetching accounts:', error);
+            }
+        };
+        fetchAccounts();
+    }, [apiUrl]);
 
     const fetchAdmissionData = async () => {
         try {
@@ -142,6 +160,11 @@ const EditBoardSubjects = () => {
             return;
         }
 
+        if (paymentMethod === 'CHEQUE' && !bankAccount) {
+            toast.error('Bank Account selection is required for Cheque payments');
+            return;
+        }
+
         setProcessing(true);
         try {
             const token = localStorage.getItem('token');
@@ -159,7 +182,8 @@ const EditBoardSubjects = () => {
                     transactionId,
                     receivedDate,
                     accountHolderName,
-                    chequeDate
+                    chequeDate,
+                    bankAccount: paymentMethod === 'CHEQUE' ? bankAccount : undefined
                 })
             });
 
@@ -464,16 +488,33 @@ const EditBoardSubjects = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className={`block mb-2 text-sm text-xs uppercase font-bold tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Name *</label>
+                                        <label className={`block mb-2 text-sm text-xs uppercase font-bold tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Name</label>
                                         <input
                                             type="text"
                                             value={accountHolderName}
                                             onChange={(e) => setAccountHolderName(e.target.value)}
                                             className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             placeholder="e.g. HDFC, ICICI, SBI..."
-                                            required
                                         />
                                     </div>
+                                    {paymentMethod === 'CHEQUE' && (
+                                        <div>
+                                            <label className={`block mb-2 text-sm text-xs uppercase font-bold tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Account *</label>
+                                            <select
+                                                value={bankAccount}
+                                                onChange={(e) => setBankAccount(e.target.value)}
+                                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                required
+                                            >
+                                                <option value="">Select Bank Account</option>
+                                                {masterAccounts.map(account => (
+                                                    <option key={account._id} value={account._id}>
+                                                        {account.accname} (A/C: {account.accno})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 paymentMethod !== 'CASH' && (
