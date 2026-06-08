@@ -174,7 +174,7 @@ const StudentAdmissionPage = () => {
                             s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
                         );
                     }
-                    
+
                     if (matchedSession) {
                         newData.academicSession = matchedSession.sessionName;
                     } else {
@@ -1002,13 +1002,12 @@ const StudentAdmissionPage = () => {
                                     name="feeWaiver"
                                     value={formData.feeWaiver}
                                     onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none transition-colors ${
-                                        discountError
+                                    className={`w-full border rounded-lg p-2 focus:outline-none transition-colors ${discountError
                                             ? 'border-red-500 bg-red-500/10 text-red-400 focus:border-red-500'
                                             : isDarkMode
                                                 ? 'bg-gray-800 border-gray-700 text-white focus:border-cyan-500'
                                                 : 'bg-white border-gray-300 text-gray-900 focus:border-cyan-500'
-                                    }`}
+                                        }`}
                                     min="0"
                                     max={selectedCourse ? Math.floor(getMaxAllowedDiscount()) : undefined}
                                     placeholder="0"
@@ -1060,7 +1059,7 @@ const StudentAdmissionPage = () => {
                                     <option value="CARD">CARD</option>
                                     <option value="BANK_TRANSFER">BANK TRANSFER</option>
                                     <option value="CHEQUE">CHEQUE</option>
-                                    <option value="RAZORPAY_POS">RAZORPAY POS</option>
+                                    {/* <option value="RAZORPAY_POS">RAZORPAY POS</option> */}
                                 </select>
                             </div>
 
