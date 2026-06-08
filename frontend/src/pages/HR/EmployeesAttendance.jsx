@@ -587,10 +587,11 @@ const EmployeesAttendance = () => {
 
             if (centresRes.ok) {
                 const allCentres = await centresRes.json();
+                const activeCentres = allCentres.filter(c => c.status === 'active');
                 if (!isSuperAdmin && userCentres.length > 0) {
-                    setCentres(allCentres.filter(c => userCentres.includes(c._id)));
+                    setCentres(activeCentres.filter(c => userCentres.includes(c._id)));
                 } else {
-                    setCentres(allCentres);
+                    setCentres(activeCentres);
                 }
             }
             if (deptRes.ok) setDepartments(await deptRes.json());
