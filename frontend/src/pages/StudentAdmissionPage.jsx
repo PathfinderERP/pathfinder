@@ -1014,15 +1014,15 @@ const StudentAdmissionPage = () => {
                                     placeholder="0"
                                 />
                                 {discountError && (
-                                    <p className="mt-1 text-xs font-semibold text-red-400 flex items-start gap-1">
-                                        <span>{discountError}</span>
+                                    <p className="mt-1 text-xs font-semibold text-red-400">
+                                        {discountError}
                                     </p>
                                 )}
-                                {!discountError && selectedCourse && getDiscountBreakdown().length > 0 && (
+                                {selectedCourse && getDiscountBreakdown().length > 0 && (
                                     <div className="mt-1 space-y-0.5">
                                         {getDiscountBreakdown().map((fd, i) => (
-                                            <p key={i} className="text-[10px] text-orange-400 font-semibold uppercase tracking-wider">
-                                                {fd.feesType}: {fd.discountPct}% → max ₹{Math.floor(fd.maxAmt).toLocaleString('en-IN')}
+                                            <p key={i} className={`text-[10px] font-semibold uppercase tracking-wider ${discountError ? 'text-red-400/70' : 'text-orange-400'}`}>
+                                                {fd.feesType}: {fd.discountPct}% of ₹{Math.floor(fd.value).toLocaleString('en-IN')} → max ₹{Math.floor(fd.maxAmt).toLocaleString('en-IN')}
                                             </p>
                                         ))}
                                     </div>
@@ -1324,13 +1324,15 @@ const StudentAdmissionPage = () => {
                     )}
 
                     {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={loading || !selectedCourse}
-                        className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? "Creating Admission..." : "Create Admission"}
-                    </button>
+                    {!discountError && (
+                        <button
+                            type="submit"
+                            disabled={loading || !selectedCourse}
+                            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {loading ? "Creating Admission..." : "Create Admission"}
+                        </button>
+                    )}
                 </div>
             </form>
 
