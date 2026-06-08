@@ -174,8 +174,17 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
         const fetchEmployees = async () => {
             try {
                 const token = localStorage.getItem("token");
+                const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const isSuperAdmin = currentUser?.role?.toLowerCase() === "superadmin" || currentUser?.role?.toLowerCase() === "super admin";
+                const userCentres = currentUser?.centres?.map(c => c._id || c) || [];
+
                 const queryParams = new URLSearchParams();
-                if (formData.centreId) queryParams.append("centre", formData.centreId);
+                if (formData.centreId) {
+                    queryParams.append("centre", formData.centreId);
+                } else if (!isSuperAdmin && userCentres.length > 0) {
+                    queryParams.append("centre", userCentres.join(','));
+                }
+                
                 if (formData.department) queryParams.append("department", formData.department);
                 if (formData.designation) queryParams.append("designation", formData.designation);
                 if (searchTerm) queryParams.append("search", searchTerm);
@@ -526,6 +535,11 @@ const EmployeesAttendance = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
+    // Current User Context
+    const currentUser = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
+    const isSuperAdmin = useMemo(() => currentUser?.role?.toLowerCase() === "superadmin" || currentUser?.role?.toLowerCase() === "super admin", [currentUser]);
+    const userCentres = useMemo(() => currentUser?.centres?.map(c => c._id || c) || [], [currentUser]);
+
     // Individual User Analysis State
     const [selectedUser, setSelectedUser] = useState(null);
     const [userAnalysisData, setUserAnalysisData] = useState(null);
@@ -571,7 +585,14 @@ const EmployeesAttendance = () => {
                 fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
-            if (centresRes.ok) setCentres(await centresRes.json());
+            if (centresRes.ok) {
+                const allCentres = await centresRes.json();
+                if (!isSuperAdmin && userCentres.length > 0) {
+                    setCentres(allCentres.filter(c => userCentres.includes(c._id)));
+                } else {
+                    setCentres(allCentres);
+                }
+            }
             if (deptRes.ok) setDepartments(await deptRes.json());
             if (desigRes.ok) setDesignations(await desigRes.json());
         } catch (error) {
@@ -588,7 +609,7 @@ const EmployeesAttendance = () => {
                 date: selectedDate,
                 month: filters.month,
                 year: filters.year,
-                centreId: filters.centreId.join(','),
+                centreId: filters.centreId.length > 0 ? filters.centreId.join(',') : (!isSuperAdmin ? userCentres.join(',') : ''),
                 department: filters.department.join(','),
                 designation: filters.designation.join(','),
                 role: filters.role.join(','),
