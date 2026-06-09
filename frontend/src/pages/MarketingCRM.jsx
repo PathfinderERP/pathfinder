@@ -32,6 +32,9 @@ const MarketingCRM = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [timePeriod, setTimePeriod] = useState('daily');
     const [filters, setFilters] = useState({ fromDate: "", toDate: "" });
+    const [boardPlans, setBoardPlans] = useState([]);
+    const [boardPlansLoading, setBoardPlansLoading] = useState(false);
+    const [boardPlanDate, setBoardPlanDate] = useState(() => new Date().toISOString().split('T')[0]);
 
     // Filtered marketing performance data
     const marketingPerformance = allPerformance.filter(u => {
@@ -82,6 +85,7 @@ const MarketingCRM = () => {
         fetchCentres();
         fetchAllPerformance(timePeriod, filters);
         fetchAuditRecords();
+        fetchBoardPlans();
         // eslint-disable-next-line
     }, []);
 
@@ -103,6 +107,27 @@ const MarketingCRM = () => {
             }
         } catch (error) {
             console.error("Error fetching centres:", error);
+        }
+    };
+
+    const fetchBoardPlans = async (date) => {
+        setBoardPlansLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const targetDate = date || boardPlanDate || new Date().toISOString().split('T')[0];
+            const params = new URLSearchParams({ date: targetDate, role: 'marketing' });
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/tomorrow-planner/board?${params.toString()}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setBoardPlans(data.plans || []);
+            }
+        } catch (error) {
+            console.error("Error fetching board plans:", error);
+        } finally {
+            setBoardPlansLoading(false);
         }
     };
 
@@ -1113,132 +1138,285 @@ const MarketingCRM = () => {
 
                         {/* MAIN CONTENT SPLIT */}
                         {activeTab === "Command Centre" && (
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fadeIn">
-                                {/* STAFF BOARD (Left) */}
-                                <div className="lg:col-span-4 space-y-6">
-                                    <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <h2 className={`text-xl font-black tracking-tight mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Staff Board</h2>
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Filter by role and status</p>
-
-                                        <div className="grid grid-cols-2 gap-4 mb-8">
-                                            <select className={`px-4 py-2.5 rounded-xl border text-[11px] font-bold outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}>
-                                                <option>All Roles</option>
-                                            </select>
-                                            <select className={`px-4 py-2.5 rounded-xl border text-[11px] font-bold outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200'}`}>
-                                                <option>All Status</option>
-                                            </select>
+                            <div className="space-y-6 animate-fadeIn">
+                                {/* Board Plan Date Picker */}
+                                <div className="flex flex-wrap items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white border border-gray-100 shadow-sm'}`}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-orange-500">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                            </svg>
                                         </div>
-
-                                        <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {marketingPerformance.map((staff, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    onClick={() => setSelectedStaff(staff)}
-                                                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedStaff?._id === staff._id
-                                                        ? 'border-orange-500 bg-orange-500/5'
-                                                        : 'border-transparent hover:bg-gray-50'
-                                                        } ${isDarkMode && !(selectedStaff?._id === staff._id) ? 'hover:bg-gray-800/50' : ''}`}
-                                                >
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <div>
-                                                            <h4 className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{staff.name}</h4>
-                                                            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">ZM • Zone Control</p>
-                                                        </div>
-                                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${isDarkMode
-                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                            : 'bg-emerald-100 text-emerald-600 border-emerald-200'
-                                                            }`}>Verified</span>
-                                                    </div>
-                                                    <div className="grid grid-cols-4 gap-2">
-                                                        {[
-                                                            { label: "Leads", value: staff.currentCalls || 0 },
-                                                            { label: "Hot", value: staff.hotLeads || 0 },
-                                                            { label: "Proof", value: "31" },
-                                                            { label: "Score", value: "97%" }
-                                                        ].map((m, i) => (
-                                                            <div key={i} className={`text-center p-2 rounded-xl transition-all ${isDarkMode ? 'bg-white/5' : 'bg-gray-50/50'}`}>
-                                                                <p className={`text-[10px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{m.value}</p>
-                                                                <p className={`text-[7px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase`}>{m.label}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Viewing Plans For</p>
+                                            <input
+                                                type="date"
+                                                value={boardPlanDate}
+                                                onChange={(e) => {
+                                                    setBoardPlanDate(e.target.value);
+                                                    fetchBoardPlans(e.target.value);
+                                                }}
+                                                className={`text-[11px] font-black outline-none border-none bg-transparent ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+                                            />
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {boardPlansLoading && (
+                                            <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading plans...</span>
+                                        )}
+                                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'}`}>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">{boardPlans.filter(p => p.tasks && p.tasks.length > 0).length} / {boardPlans.length} Plans Submitted</span>
+                                        </div>
+                                        <button
+                                            onClick={() => fetchBoardPlans(boardPlanDate)}
+                                            className="px-4 py-2 rounded-xl bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center gap-2 active:scale-95"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                            </svg>
+                                            Refresh
+                                        </button>
                                     </div>
                                 </div>
 
-                                {/* DETAIL PANEL (Right) */}
-                                <div className="lg:col-span-8">
-                                    {selectedStaff ? (
-                                        <div className={`p-8 rounded-3xl border min-h-full ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                            <div className="flex justify-between items-start mb-8">
-                                                <div>
-                                                    <h1 className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStaff.name}</h1>
-                                                    <p className="text-gray-500 text-sm font-bold mt-1 uppercase tracking-widest">ZM • South Kolkata Zone • Zone Control</p>
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                                    {/* STAFF BOARD (Left) */}
+                                    <div className="lg:col-span-4 space-y-6">
+                                        <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                            <h2 className={`text-xl font-black tracking-tight mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Staff Board</h2>
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Click a staff member to view their plan</p>
+
+                                            {/* Plan status legend */}
+                                            <div className="flex gap-3 mb-6">
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Plan Submitted</span>
                                                 </div>
-                                                <span className="px-4 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest">Risk: Low</span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-2 h-2 rounded-full bg-red-400" />
+                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">No Plan</span>
+                                                </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                                                {[
-                                                    { label: "Lead Target", value: `${selectedStaff.currentCalls || 0}/40`, status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
-                                                    { label: "Duties Done", value: "9/9", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
-                                                    { label: "Proof Files", value: "31", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" },
-                                                    { label: "Score", value: "97%", status: "Healthy", color: "text-emerald-500", bg: "bg-emerald-500/5" }
-                                                ].map((m, idx) => (
-                                                    <div key={idx} className={`p-6 rounded-2xl ${m.bg} border border-emerald-500/10`}>
-                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{m.label}</p>
-                                                        <h3 className={`text-2xl font-black tracking-tighter my-2 ${m.color}`}>{m.value}</h3>
-                                                        <p className={`text-[9px] font-black uppercase ${m.color}`}>{m.status}</p>
+                                            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                                {marketingPerformance.length === 0 ? (
+                                                    <div className="text-center py-8 text-gray-400 text-[11px] font-bold uppercase tracking-widest">
+                                                        No marketing staff found
                                                     </div>
-                                                ))}
-                                            </div>
+                                                ) : (
+                                                    marketingPerformance.map((staff, idx) => {
+                                                        const staffPlan = boardPlans.find(p =>
+                                                            p.user && (
+                                                                p.user._id?.toString() === staff._id?.toString() ||
+                                                                p.user.name?.toLowerCase().trim() === staff.name?.toLowerCase().trim()
+                                                            )
+                                                        );
+                                                        const hasPlan = staffPlan && staffPlan.tasks && staffPlan.tasks.length > 0;
+                                                        const taskCount = staffPlan?.tasks?.length || 0;
+                                                        const staffCentre = (staff.centres || [])[0]?.centreName || '';
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                                {/* Source Split */}
-                                                <div className="space-y-6">
-                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Source Split</h4>
-                                                    <div className="space-y-5">
+                                                        return (
+                                                            <div
+                                                                key={idx}
+                                                                onClick={() => setSelectedStaff({ ...staff, _plan: staffPlan || null })}
+                                                                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                                                                    selectedStaff?._id === staff._id
+                                                                        ? 'border-orange-500 bg-orange-500/5'
+                                                                        : isDarkMode
+                                                                            ? 'border-gray-800 hover:border-gray-700 hover:bg-gray-800/40'
+                                                                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                                                                }`}
+                                                            >
+                                                                <div className="flex justify-between items-start mb-3">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h4 className={`font-black text-sm truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{staff.name}</h4>
+                                                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{staff.role} {staffCentre ? `• ${staffCentre}` : ''}</p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                                                                        {hasPlan ? (
+                                                                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                                                                <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                                                                                {taskCount} Task{taskCount !== 1 ? 's' : ''}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-red-500/10 text-red-400 border border-red-500/20">
+                                                                                <span className="w-1 h-1 rounded-full bg-red-400" />
+                                                                                No Plan
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid grid-cols-3 gap-2">
+                                                                    {[
+                                                                        { label: "Leads", value: staff.currentCalls || 0 },
+                                                                        { label: "Hot", value: staff.hotLeads || 0 },
+                                                                        { label: "Tasks", value: taskCount }
+                                                                    ].map((m, i) => (
+                                                                        <div key={i} className={`text-center p-2 rounded-xl ${isDarkMode ? 'bg-white/5' : 'bg-gray-50'}`}>
+                                                                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{m.value}</p>
+                                                                            <p className={`text-[7px] font-bold uppercase ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{m.label}</p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* DETAIL PANEL (Right) */}
+                                    <div className="lg:col-span-8">
+                                        {selectedStaff ? (() => {
+                                            const staffPlan = selectedStaff._plan || boardPlans.find(p =>
+                                                p.user && (
+                                                    p.user._id?.toString() === selectedStaff._id?.toString() ||
+                                                    p.user.name?.toLowerCase().trim() === selectedStaff.name?.toLowerCase().trim()
+                                                )
+                                            );
+                                            const plannedTasks = staffPlan?.tasks || [];
+                                            const hasPlan = plannedTasks.length > 0;
+                                            const staffCentre = (selectedStaff.centres || [])[0]?.centreName || '';
+
+                                            return (
+                                                <div className={`p-8 rounded-3xl border min-h-full ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                                    {/* Header */}
+                                                    <div className="flex justify-between items-start mb-8">
+                                                        <div>
+                                                            <h1 className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStaff.name}</h1>
+                                                            <p className="text-gray-500 text-xs font-bold mt-1 uppercase tracking-widest">
+                                                                {selectedStaff.role} {staffCentre ? `• ${staffCentre}` : ''}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                            hasPlan
+                                                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                                                : 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                        }`}>
+                                                            {hasPlan ? `✓ Plan Submitted` : '✗ No Plan Yet'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* KPI row */}
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                                                         {[
-                                                            { label: "School Visits", value: 100 },
-                                                            { label: "Tuition Visits", value: 67 },
-                                                            { label: "Shikkha Bondhu", value: 100 },
-                                                            { label: "Referrals", value: 87 }
-                                                        ].map((s, idx) => (
-                                                            <div key={idx} className="space-y-1.5">
-                                                                <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                                                                    <span>{s.label}</span>
-                                                                    <span>{s.value}%</span>
-                                                                </div>
-                                                                <div className={`h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                                                    <div className={`h-full rounded-full ${isDarkMode ? 'bg-white' : 'bg-black'}`} style={{ width: `${s.value}%` }} />
-                                                                </div>
+                                                            { label: "Leads Today", value: selectedStaff.currentCalls || 0, color: "text-emerald-500", bg: "bg-emerald-500/5 border-emerald-500/10" },
+                                                            { label: "Hot Leads", value: selectedStaff.hotLeads || 0, color: "text-orange-500", bg: "bg-orange-500/5 border-orange-500/10" },
+                                                            { label: "Tasks Planned", value: plannedTasks.length, color: "text-blue-500", bg: "bg-blue-500/5 border-blue-500/10" },
+                                                            { label: "Admissions", value: selectedStaff.admissions || 0, color: "text-purple-500", bg: "bg-purple-500/5 border-purple-500/10" }
+                                                        ].map((m, idx) => (
+                                                            <div key={idx} className={`p-5 rounded-2xl border ${m.bg}`}>
+                                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">{m.label}</p>
+                                                                <h3 className={`text-2xl font-black tracking-tighter my-1.5 ${m.color}`}>{m.value}</h3>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                </div>
 
-                                                {/* Manager Decision */}
-                                                <div className="space-y-6">
-                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <button className="px-4 py-3 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Approve Work</button>
-                                                        <button className="px-4 py-3 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Ask Clarification</button>
-                                                        <button className="px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all">Raise Red Flag</button>
-                                                        <button className={`px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-black'}`}>Assign Follow-up</button>
+                                                    {/* Planned Tasks Section */}
+                                                    <div className="mb-8">
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <h4 className={`text-sm font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-blue-500">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                                                </svg>
+                                                                Field Plan — {boardPlanDate}
+                                                            </h4>
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${
+                                                                hasPlan ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-400'
+                                                            }`}>
+                                                                {plannedTasks.length} task{plannedTasks.length !== 1 ? 's' : ''}
+                                                            </span>
+                                                        </div>
+
+                                                        {!hasPlan ? (
+                                                            <div className={`p-8 rounded-2xl border border-dashed text-center ${
+                                                                isDarkMode ? 'border-gray-700 bg-gray-800/20' : 'border-gray-200 bg-gray-50'
+                                                            }`}>
+                                                                <div className="text-2xl mb-2">📋</div>
+                                                                <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">No Plan Submitted</p>
+                                                                <p className="text-[10px] text-gray-400 mt-1">This staff member has not uploaded their field plan for {boardPlanDate}.</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-3">
+                                                                {plannedTasks.map((task, tIdx) => {
+                                                                    const priorityColor = task.priority === 'High'
+                                                                        ? 'text-red-500 bg-red-500/10 border-red-500/20'
+                                                                        : task.priority === 'Low'
+                                                                            ? 'text-gray-400 bg-gray-500/10 border-gray-500/20'
+                                                                            : 'text-orange-500 bg-orange-500/10 border-orange-500/20';
+
+                                                                    return (
+                                                                        <div key={tIdx} className={`p-4 rounded-2xl border transition-all ${
+                                                                            isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200'
+                                                                        }`}>
+                                                                            <div className="flex items-start justify-between gap-3">
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${priorityColor}`}>
+                                                                                            {task.priority || 'Medium'}
+                                                                                        </span>
+                                                                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                                                                            isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
+                                                                                        }`}>
+                                                                                            {task.activityType || 'Activity'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <h5 className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                                        {task.place || task.taskDetails || 'Unspecified Place'}
+                                                                                    </h5>
+                                                                                    {task.notes && (
+                                                                                        <p className="text-[10px] text-gray-500 mt-1 font-medium">{task.notes}</p>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="flex-shrink-0 text-right">
+                                                                                    {task.time && (
+                                                                                        <p className={`text-[10px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                                            🕐 {task.time}
+                                                                                        </p>
+                                                                                    )}
+                                                                                    {task.estimatedDuration && (
+                                                                                        <p className="text-[9px] text-gray-500 font-bold mt-0.5">
+                                                                                            ⏱ {task.estimatedDuration}
+                                                                                        </p>
+                                                                                    )}
+                                                                                    <span className={`inline-block mt-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                                                                                        task.status === 'Completed'
+                                                                                            ? 'bg-emerald-500/10 text-emerald-500'
+                                                                                            : 'bg-yellow-500/10 text-yellow-500'
+                                                                                    }`}>
+                                                                                        {task.status || 'Planned'}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="pt-4 border-t border-dashed">
-                                                        <p className="text-[10px] text-gray-400 font-medium">Last submitted at <span className={`font-black ${isDarkMode ? 'text-white' : 'text-black'}`}>8:46 PM</span>. Final count is locked only after proof and approval.</p>
+
+                                                    {/* Manager Decision */}
+                                                    <div className={`pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                        <h4 className={`text-sm font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                            <button className="px-4 py-3 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-emerald-400 transition-all active:scale-95">Approve Work</button>
+                                                            <button className="px-4 py-3 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-orange-400 transition-all active:scale-95">Ask Clarification</button>
+                                                            <button className="px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-red-400 transition-all active:scale-95">Raise Red Flag</button>
+                                                            <button className={`px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-black hover:bg-gray-800'}`}>Assign Follow-up</button>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                            );
+                                        })() : (
+                                            <div className={`flex flex-col items-center justify-center h-full min-h-[400px] rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                                <div className="text-5xl mb-4">👤</div>
+                                                <p className="text-gray-400 uppercase font-black text-xs tracking-widest">Select a staff member</p>
+                                                <p className="text-gray-500 text-[10px] mt-1">Click any staff card on the left to view their field plan</p>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-gray-400 uppercase font-black text-xs tracking-widest">
-                                            Select a staff member to view details
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}

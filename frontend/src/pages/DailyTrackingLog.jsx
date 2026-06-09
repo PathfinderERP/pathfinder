@@ -266,7 +266,7 @@ const DailyTrackingLog = () => {
             if (centresParam) url += `&centreId=${centresParam}`;
 
             toast.info("Preparing Excel download...");
-            
+
             const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -280,7 +280,7 @@ const DailyTrackingLog = () => {
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = downloadUrl;
-            
+
             const formattedDate = selectedDate.replace(/\//g, '-');
             link.setAttribute("download", `Daily_Tracking_Logs_${formattedDate}.xlsx`);
             document.body.appendChild(link);
