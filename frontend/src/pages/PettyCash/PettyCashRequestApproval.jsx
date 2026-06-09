@@ -317,14 +317,15 @@ const PettyCashRequestApproval = () => {
                                     <th className="p-4 text-center">STATUS</th>
                                     <th className="p-4">CREATED BY</th>
                                     <th className="p-4">APROVED BY</th>
+                                    <th className="p-4">REMARKS</th>
                                     <th className="p-4 text-center">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="9" className="p-10 text-center text-gray-500">Loading requests...</td></tr>
+                                    <tr><td colSpan="10" className="p-10 text-center text-gray-500">Loading requests...</td></tr>
                                 ) : filteredRequests.length === 0 ? (
-                                    <tr><td colSpan="9" className="p-10 text-center text-gray-500">No requests found.</td></tr>
+                                    <tr><td colSpan="10" className="p-10 text-center text-gray-500">No requests found.</td></tr>
                                 ) : (
                                     filteredRequests.map((item) => (
                                         <tr key={item._id} className="hover:bg-white/5 transition-colors border-b border-gray-800/50">
@@ -353,6 +354,7 @@ const PettyCashRequestApproval = () => {
                                                 )}
                                             </td>
                                             <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.approvedBy?.name || "-"}</td>
+                                            <td className="p-4 text-xs text-gray-400 max-w-[150px] truncate" title={item.remarks}>{item.remarks || "-"}</td>
                                             <td className="p-4">
                                                 <div className="flex justify-center items-center gap-3">
                                                     {item.status === 'pending' && canApprove && (
