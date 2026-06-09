@@ -648,7 +648,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-cyan-500/10 rounded-[2px]">
                                             <FaUsers className="text-cyan-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Live Force</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">All Employees</span>
                                     </div>
                                     <p className={`text-4xl font-black tracking-tighter relative z-10 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                         {analytics.totalEmployees}
@@ -662,7 +662,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-emerald-500/10 rounded-[2px]">
                                             <FaUsers className="text-emerald-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Operational</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Active</span>
                                     </div>
                                     <p className="text-4xl font-black text-emerald-500 tracking-tighter relative z-10 bg-gradient-to-br from-emerald-400 to-emerald-600 bg-clip-text text-transparent">
                                         {analytics.statusBreakdown?.find(s => s._id === "Active")?.count || 0}
@@ -676,7 +676,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-cyan-500/10 rounded-[2px]">
                                             <FaBuilding className="text-cyan-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Structure</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Department</span>
                                     </div>
                                     <p className="text-4xl font-black text-cyan-500 tracking-tighter relative z-10 bg-gradient-to-br from-cyan-400 to-cyan-600 bg-clip-text text-transparent">
                                         {analytics.departmentDistribution?.length || 0}
@@ -690,7 +690,7 @@ const EmployeeList = () => {
                                         <div className="p-2 bg-amber-500/10 rounded-[2px]">
                                             <FaMapMarkerAlt className="text-amber-500 text-xl" />
                                         </div>
-                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Network</span>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Center</span>
                                     </div>
                                     <p className="text-4xl font-black text-amber-500 tracking-tighter relative z-10 bg-gradient-to-br from-amber-400 to-amber-600 bg-clip-text text-transparent">
                                         {analytics.centreDistribution?.length || 0}
@@ -818,8 +818,69 @@ const EmployeeList = () => {
                                     </div>
                                 </div>
 
+                                {/* Centre Distribution Bar Chart */}
+                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl overflow-hidden relative group">
+                                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <FaMapMarkerAlt className="text-6xl text-amber-500" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
+                                        <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
+                                        Center Distribution
+                                    </h3>
+                                    <div className="h-72 w-full overflow-x-auto custom-scrollbar">
+                                        <div
+                                            className="h-full"
+                                            style={{ width: `${Math.max(analytics.centreDistribution.length * 60, 400)}px` }}
+                                        >
+                                            <BarChart
+                                                width={Math.max(analytics.centreDistribution.length * 60, 400)}
+                                                height={260}
+                                                data={analytics.centreDistribution.map(c => ({
+                                                    name: c._id || "Unassigned",
+                                                    count: c.count
+                                                }))}
+                                                barSize={20}
+                                                margin={{ top: 10, right: 10, left: -20, bottom: 60 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                                                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={true}
+                                                    axisLine={true}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    interval={0}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <YAxis
+                                                    stroke="#9ca3af"
+                                                    fontSize={9}
+                                                    fontWeight="bold"
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    strokeOpacity={0.4}
+                                                />
+                                                <Tooltip
+                                                    content={<CustomTooltip />}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                                />
+                                                <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Monthly Joining Trend Area Chart */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                {/* <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <FaUsers className="text-4xl text-blue-500" />
                                     </div>
@@ -847,71 +908,10 @@ const EmployeeList = () => {
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     </div>
-                                </div>
-
-                                {/* Centre Distribution Bar Chart - Left Side */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl lg:col-span-2 overflow-hidden relative group">
-                                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                                        <FaMapMarkerAlt className="text-6xl text-amber-500" />
-                                    </div>
-                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-amber-500 rounded-full"></span>
-                                        Geographic Distribution
-                                    </h3>
-                                    <div className="h-80 w-full overflow-x-auto custom-scrollbar">
-                                        <div
-                                            className="h-full"
-                                            style={{ width: `${Math.max(analytics.centreDistribution.length * 80, 600)}px` }}
-                                        >
-                                            <BarChart
-                                                width={Math.max(analytics.centreDistribution.length * 80, 600)}
-                                                height={300}
-                                                data={analytics.centreDistribution.map(c => ({
-                                                    name: c._id || "Unassigned",
-                                                    count: c.count
-                                                }))}
-                                                barSize={32}
-                                                margin={{ top: 20, right: 30, left: 10, bottom: 80 }}
-                                            >
-                                                <defs>
-                                                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
-                                                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.6} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.2} vertical={false} />
-                                                <XAxis
-                                                    dataKey="name"
-                                                    stroke="#9ca3af"
-                                                    fontSize={10}
-                                                    fontWeight="bold"
-                                                    tickLine={true}
-                                                    axisLine={true}
-                                                    angle={-45}
-                                                    textAnchor="end"
-                                                    interval={0}
-                                                    strokeOpacity={0.4}
-                                                />
-                                                <YAxis
-                                                    stroke="#9ca3af"
-                                                    fontSize={10}
-                                                    fontWeight="bold"
-                                                    tickLine={false}
-                                                    axisLine={false}
-                                                    strokeOpacity={0.4}
-                                                />
-                                                <Tooltip
-                                                    content={<CustomTooltip />}
-                                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                                                />
-                                                <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
-                                            </BarChart>
-                                        </div>
-                                    </div>
-                                </div>
+                                </div> */}
 
                                 {/* Detailed Employment Breakdown */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
+                                {/* <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                         <FaUsers className="text-4xl text-cyan-500" />
                                     </div>
@@ -943,43 +943,11 @@ const EmployeeList = () => {
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
-                                </div>
+                                </div> */}
                             </div>
 
                             {/* Demographics Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {/* Gender Distribution Pie Chart */}
-                                <div className="bg-white dark:bg-[#131619] border border-gray-200 dark:border-gray-800 rounded-[2px] p-6 shadow-xl relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <FaUsers className="text-4xl text-pink-500" />
-                                    </div>
-                                    <h3 className="text-gray-400 font-black uppercase tracking-widest text-xs mb-6 flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
-                                        Gender Stats
-                                    </h3>
-                                    <div className="h-64 w-full">
-                                        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={analytics.genderDistribution.map(d => ({ name: d._id || 'Not Specified', value: d.count }))}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    {analytics.genderDistribution.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={['#ec4899', '#3b82f6', '#9ca3af'][index % 3]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Legend verticalAlign="bottom" height={36} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-                            </div>
+
                         </div>
                     )}
 
@@ -1067,8 +1035,8 @@ const EmployeeList = () => {
                                     options={[
                                         { value: "Full-time", label: "FULL-TIME" },
                                         { value: "Part-time", label: "PART-TIME" },
-                                        { value: "Contract", label: "CONTRACT" },
-                                        { value: "Intern", label: "INTERN" }
+                                        // { value: "Contract", label: "CONTRACT" },
+                                        // { value: "Intern", label: "INTERN" }
                                     ]}
                                     value={filters.typeOfEmployment}
                                     onChange={(val) => handleFilterChange("typeOfEmployment", val)}

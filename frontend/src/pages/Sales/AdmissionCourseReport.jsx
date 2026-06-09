@@ -238,6 +238,7 @@ const AdmissionCourseReport = () => {
                                 className:   r.className  || "—",
                                 monthName:   r.monthName  || MONTHS[(r.month || 1) - 1],
                                 count:       r.count      || 0,
+                                downPayment: r.downPayment || 0,
                             }));
                         }
 
@@ -252,6 +253,7 @@ const AdmissionCourseReport = () => {
                             className:   "—",
                             monthName:   "—",
                             count:       total,
+                            downPayment: 0,
                         }];
                     } catch { return []; }
                 })
@@ -341,6 +343,7 @@ const AdmissionCourseReport = () => {
             "Class":           r.className,
             "Month":           r.monthName,
             "Admissions":      r.count,
+            "Down Payment":    r.downPayment || 0,
         }));
         const wsDetail = XLSX.utils.json_to_sheet(detailExportData);
         XLSX.utils.book_append_sheet(wb, wsDetail, "Detailed_Report");

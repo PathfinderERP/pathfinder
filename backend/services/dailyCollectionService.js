@@ -72,13 +72,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     let departmentMatch = {};
 
     // Resolve Centre Names for filtering and active centres
-    const activeCentres = await Centre.find({ status: { $ne: "deactive" } }).select("centreName");
-    const activeCentreNames = activeCentres.map(c => c.centreName);
+    const allCentres = await Centre.find({}).select("centreName");
+    const allCentreNames = allCentres.map(c => c.centreName);
 
     let allowedCentreNames = [];
     if (user.role !== 'superAdmin') {
         const userCentreIds = Array.isArray(user.centres) ? user.centres : [];
-        const userCentres = await Centre.find({ _id: { $in: userCentreIds }, status: { $ne: "deactive" } }).select("centreName");
+        const userCentres = await Centre.find({ _id: { $in: userCentreIds } }).select("centreName");
         allowedCentreNames = userCentres.map(c => c.centreName);
     }
 
@@ -86,7 +86,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         const ids = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
         const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim()));
         if (validIds.length > 0) {
-            const requestedCentres = await Centre.find({ _id: { $in: validIds }, status: { $ne: "deactive" } }).select("centreName");
+            const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
             const requestedNames = requestedCentres.map(c => c.centreName);
             if (user.role !== 'superAdmin') {
                 const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
@@ -99,7 +99,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         if (user.role !== 'superAdmin') {
             admissionMatch["admissionInfo.centre"] = allowedCentreNames.length > 0 ? { $in: allowedCentreNames } : "__NO_MATCH__";
         } else {
-            admissionMatch["admissionInfo.centre"] = activeCentreNames.length > 0 ? { $in: activeCentreNames } : "__NO_MATCH__";
+            admissionMatch["admissionInfo.centre"] = allCentreNames.length > 0 ? { $in: allCentreNames } : "__NO_MATCH__";
         }
     }
 

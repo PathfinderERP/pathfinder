@@ -145,6 +145,9 @@ const CourseTarget = () => {
                 centerList = centerList.filter(c => allowed.includes(c._id));
             }
 
+            // Exclude deactive centres
+            centerList = centerList.filter(c => c.status !== 'deactive');
+
             centerList = centerList.sort((a, b) => a.centreName.localeCompare(b.centreName));
             setCentres(centerList);
             if (centerList.length > 0) {

@@ -322,7 +322,7 @@ const CourseContent = () => {
     };
 
     const toggleSelection = (id) => {
-        setSelectedIds(prev => 
+        setSelectedIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
     };
@@ -510,7 +510,7 @@ const CourseContent = () => {
         <div className="flex-1 bg-[#131619] p-3 sm:p-6 overflow-y-auto text-white">
             <ToastContainer position="top-right" theme="dark" />
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data (All the amounts are without GST)</h2>
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     {isSuperAdmin && canDelete && selectedIds.length > 0 && (
                         <button
@@ -661,12 +661,12 @@ const CourseContent = () => {
                         <tr className="bg-gray-800 text-gray-300">
                             <th className="p-4 border-b border-gray-700 w-[50px]">
                                 {isSuperAdmin && (
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
                                         onChange={handleSelectAll}
                                         checked={
-                                            filteredCourses.length > 0 && 
+                                            filteredCourses.length > 0 &&
                                             filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).every(c => selectedIds.includes(c._id))
                                         }
                                     />
@@ -691,15 +691,15 @@ const CourseContent = () => {
                             </tr>
                         ) : (
                             filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((course) => (
-                                <tr 
-                                    key={course._id} 
+                                <tr
+                                    key={course._id}
                                     onClick={() => openDetailModal(course)}
                                     className={`master-data-row-wave border-b border-gray-800 transition-colors cursor-pointer hover:bg-gray-700/30 ${selectedIds.includes(course._id) ? 'bg-cyan-500/5' : ''}`}
                                 >
                                     <td className="p-4" onClick={(e) => e.stopPropagation()}>
                                         {isSuperAdmin && (
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
                                                 checked={selectedIds.includes(course._id)}
                                                 onChange={() => toggleSelection(course._id)}
@@ -824,16 +824,16 @@ const CourseContent = () => {
                     </div>
                 ) : (
                     filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((course) => (
-                        <div 
-                            key={course._id} 
+                        <div
+                            key={course._id}
                             onClick={() => openDetailModal(course)}
                             className={`master-data-card-wave bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 transition-all cursor-pointer hover:border-cyan-500/30 active:scale-[0.98] ${selectedIds.includes(course._id) ? 'border-cyan-500/50 bg-cyan-500/5' : ''}`}
                         >
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex items-start gap-3 flex-1">
                                     <div className="pt-1" onClick={(e) => e.stopPropagation()}>
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
                                             checked={selectedIds.includes(course._id)}
                                             onChange={() => toggleSelection(course._id)}

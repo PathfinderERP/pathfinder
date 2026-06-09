@@ -42,6 +42,8 @@ const StudentAdmissionPage = () => {
         courseType: ""
     });
 
+    const [masterAccounts, setMasterAccounts] = useState([]);
+
     const [formData, setFormData] = useState({
         courseId: "",
         classId: "",
@@ -59,7 +61,8 @@ const StudentAdmissionPage = () => {
         accountHolderName: "",
         chequeDate: "",
         receivedDate: new Date().toISOString().split('T')[0],
-        customBoardDuration: "" // Manual override for Board duration
+        customBoardDuration: "", // Manual override for Board duration
+        bankAccount: ""
     });
 
     const [feeBreakdown, setFeeBreakdown] = useState({
@@ -77,6 +80,7 @@ const StudentAdmissionPage = () => {
 
     const [showPOSModal, setShowPOSModal] = useState(false);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
+    const [discountError, setDiscountError] = useState('');
     const [createdAdmission, setCreatedAdmission] = useState(null);
 
     const apiUrl = import.meta.env.VITE_API_URL;
@@ -170,7 +174,7 @@ const StudentAdmissionPage = () => {
                             s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
                         );
                     }
-                    
+
                     if (matchedSession) {
                         newData.academicSession = matchedSession.sessionName;
                     } else {
@@ -190,7 +194,7 @@ const StudentAdmissionPage = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes] = await Promise.all([
+            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes, accountsRes] = await Promise.all([
                 fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
@@ -198,7 +202,8 @@ const StudentAdmissionPage = () => {
                 fetch(`${apiUrl}/session/list`, { headers }),
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/board`, { headers }),
-                fetch(`${apiUrl}/subject`, { headers })
+                fetch(`${apiUrl}/subject`, { headers }),
+                fetch(`${apiUrl}/master-data/account`, { headers })
             ]);
 
             if (studentRes.ok) {
@@ -224,6 +229,7 @@ const StudentAdmissionPage = () => {
             }
             if (boardsRes.ok) setBoards(await boardsRes.json());
             if (subjectsRes.ok) await subjectsRes.json();
+            if (accountsRes.ok) setMasterAccounts(await accountsRes.json());
 
         } catch (error) {
             console.error(error);
@@ -390,10 +396,50 @@ const StudentAdmissionPage = () => {
         });
     };
 
+    // ── Discount helpers ──────────────────────────────────────────────────────
+    // Returns the maximum rupee discount allowed based on the course's feesStructure
+    const getMaxAllowedDiscount = (course) => {
+        const src = course || selectedCourse;
+        if (!src || !src.feesStructure) return Infinity; // no course selected → no cap
+        return src.feesStructure.reduce((total, fee) => {
+            const discountStr = (fee.discount || '0').toString().replace('%', '').trim();
+            const discountPct = parseFloat(discountStr) || 0;
+            if (discountPct <= 0) return total;
+            const maxForFee = (discountPct / 100) * (Number(fee.value) || 0);
+            return total + maxForFee;
+        }, 0);
+    };
+
+    // Per-fee discount cap details for display
+    const getDiscountBreakdown = () => {
+        if (!selectedCourse || !selectedCourse.feesStructure) return [];
+        return selectedCourse.feesStructure
+            .map(fee => {
+                const discountPct = parseFloat((fee.discount || '0').toString().replace('%', '').trim()) || 0;
+                const maxAmt = (discountPct / 100) * (Number(fee.value) || 0);
+                return { feesType: fee.feesType, value: fee.value, discountPct, maxAmt };
+            })
+            .filter(f => f.discountPct > 0);
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+
+        // Validate feeWaiver against max allowed discount
+        if (name === 'feeWaiver') {
+            const entered = parseFloat(value) || 0;
+            const maxAllowed = getMaxAllowedDiscount();
+            if (maxAllowed < Infinity && entered > maxAllowed) {
+                setDiscountError(
+                    `❌ Discount cannot exceed ₹${Math.floor(maxAllowed).toLocaleString('en-IN')} — the maximum allowed by the course fee structure.`
+                );
+            } else {
+                setDiscountError('');
+            }
+        }
+
         setFormData({ ...formData, [name]: value });
-        
+
         // Auto-close filters if course is selected
         if (name === "courseId" && value) {
             setShowCourseFilters(false);
@@ -454,6 +500,15 @@ const StudentAdmissionPage = () => {
         console.log("📤 [Admission Submit] Student ID:", studentId);
         console.log("📤 [Admission Submit] Admission Type:", admissionType);
 
+        // Validate discount cap
+        const maxAllowed = getMaxAllowedDiscount();
+        const enteredWaiver = parseFloat(currentFormData.feeWaiver) || 0;
+        if (maxAllowed < Infinity && enteredWaiver > maxAllowed) {
+            toast.error(`Fee waiver ₹${enteredWaiver.toLocaleString('en-IN')} exceeds the allowed maximum of ₹${Math.floor(maxAllowed).toLocaleString('en-IN')}. Please reduce the discount.`);
+            setLoading(false);
+            return;
+        }
+
         // Basic validation for board admission
         if (admissionType === "BOARD" && (!selectedBoard || selectedSubjectIds.length === 0)) {
             toast.error("Please select a board and at least one subject for Board Admission.");
@@ -476,6 +531,12 @@ const StudentAdmissionPage = () => {
         // New validation: require Transaction ID for UPI/CARD/BANK_TRANSFER if down payment > 0
         if (['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod) && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
             toast.error(`Transaction ID / Ref is mandatory for ${formData.paymentMethod} payments.`);
+            setLoading(false);
+            return;
+        }
+
+        if (formData.paymentMethod === "CHEQUE" && !formData.bankAccount) {
+            toast.error("Bank Account selection is required for Cheque payments.");
             setLoading(false);
             return;
         }
@@ -925,16 +986,46 @@ const StudentAdmissionPage = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Fee Waiver (Discount) ₹</label>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Fee Waiver (Discount) ₹
+                                    {selectedCourse && (() => {
+                                        const maxAllowed = getMaxAllowedDiscount();
+                                        return maxAllowed < Infinity ? (
+                                            <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-orange-400">
+                                                Max: ₹{Math.floor(maxAllowed).toLocaleString('en-IN')}
+                                            </span>
+                                        ) : null;
+                                    })()}
+                                </label>
                                 <input
                                     type="number"
                                     name="feeWaiver"
                                     value={formData.feeWaiver}
                                     onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none transition-colors ${discountError
+                                            ? 'border-red-500 bg-red-500/10 text-red-400 focus:border-red-500'
+                                            : isDarkMode
+                                                ? 'bg-gray-800 border-gray-700 text-white focus:border-cyan-500'
+                                                : 'bg-white border-gray-300 text-gray-900 focus:border-cyan-500'
+                                        }`}
                                     min="0"
+                                    max={selectedCourse ? Math.floor(getMaxAllowedDiscount()) : undefined}
                                     placeholder="0"
                                 />
+                                {discountError && (
+                                    <p className="mt-1 text-xs font-semibold text-red-400">
+                                        {discountError}
+                                    </p>
+                                )}
+                                {selectedCourse && getDiscountBreakdown().length > 0 && (
+                                    <div className="mt-1 space-y-0.5">
+                                        {getDiscountBreakdown().map((fd, i) => (
+                                            <p key={i} className={`text-[10px] font-semibold uppercase tracking-wider ${discountError ? 'text-red-400/70' : 'text-orange-400'}`}>
+                                                {fd.feesType}: {fd.discountPct}% of ₹{Math.floor(fd.value).toLocaleString('en-IN')} → max ₹{Math.floor(fd.maxAmt).toLocaleString('en-IN')}
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div>
@@ -968,7 +1059,7 @@ const StudentAdmissionPage = () => {
                                     <option value="CARD">CARD</option>
                                     <option value="BANK_TRANSFER">BANK TRANSFER</option>
                                     <option value="CHEQUE">CHEQUE</option>
-                                    <option value="RAZORPAY_POS">RAZORPAY POS</option>
+                                    {/* <option value="RAZORPAY_POS">RAZORPAY POS</option> */}
                                 </select>
                             </div>
 
@@ -1018,6 +1109,23 @@ const StudentAdmissionPage = () => {
                                             className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                             placeholder="e.g. HDFC, ICICI..."
                                         />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Account <span className="text-red-500">*</span></label>
+                                        <select
+                                            name="bankAccount"
+                                            value={formData.bankAccount}
+                                            onChange={handleInputChange}
+                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(account => (
+                                                <option key={account._id} value={account._id}>
+                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </>
                             ) : (
@@ -1076,13 +1184,32 @@ const StudentAdmissionPage = () => {
                             {/* Course Fee Structure */}
                             <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                                 <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Course Fee Structure</h3>
-                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                    {selectedCourse.feesStructure.map((fee, index) => (
-                                        <div key={index} className={`flex justify-between items-center p-2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                            <span className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fee.feesType}</span>
-                                            <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(fee.value)}</span>
-                                        </div>
-                                    ))}
+                                <div className="space-y-2 max-h-52 overflow-y-auto pr-2 custom-scrollbar">
+                                    {selectedCourse.feesStructure.map((fee, index) => {
+                                        const discountPct = parseFloat((fee.discount || '0').toString().replace('%', '').trim()) || 0;
+                                        const maxAmt = (discountPct / 100) * (Number(fee.value) || 0);
+                                        return (
+                                            <div key={index} className={`p-2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fee.feesType}</span>
+                                                        {discountPct > 0 && (
+                                                            <span className="ml-2 text-[9px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30 px-1.5 py-0.5 rounded">
+                                                                {discountPct}% disc
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className={`font-medium text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(fee.value)}</span>
+                                                </div>
+                                                {discountPct > 0 && (
+                                                    <div className="flex justify-between items-center mt-1">
+                                                        <span className="text-[10px] text-orange-400">Max discount allowed</span>
+                                                        <span className="text-[10px] font-bold text-orange-400">₹{Math.floor(maxAmt).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 <div className={`border-t my-2 pt-2 space-y-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -1110,10 +1237,22 @@ const StudentAdmissionPage = () => {
                                         <span className="text-gray-400">SGST (9%)</span>
                                         <span className="text-white">₹{fmt(feeBreakdown.sgstAmount)}</span>
                                     </div>
+                                    {/* Max Discount allowed summary */}
+                                    {(() => {
+                                        const maxAllowed = getMaxAllowedDiscount();
+                                        return maxAllowed > 0 && maxAllowed < Infinity ? (
+                                            <div className={`flex justify-between items-center p-2 rounded border border-dashed ${isDarkMode ? 'border-orange-500/30 bg-orange-500/5' : 'border-orange-300 bg-orange-50'}`}>
+                                                <span className="text-orange-400 text-xs font-bold uppercase tracking-wider">Max Discount Cap</span>
+                                                <span className="text-orange-400 text-xs font-bold">₹{Math.floor(maxAllowed).toLocaleString('en-IN')}</span>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                     {formData.feeWaiver > 0 && (
-                                        <div className="flex justify-between items-center bg-green-500/10 p-2 rounded">
-                                            <span className="text-green-400 font-semibold">Fee Waiver (Discount)</span>
-                                            <span className="text-green-400 font-bold">-₹{fmt(formData.feeWaiver)}</span>
+                                        <div className={`flex justify-between items-center p-2 rounded ${discountError ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
+                                            <span className={`font-semibold text-sm ${discountError ? 'text-red-400' : 'text-green-400'}`}>
+                                                Fee Waiver (Discount) {discountError ? '⚠ Exceeds Cap!' : ''}
+                                            </span>
+                                            <span className={`font-bold ${discountError ? 'text-red-400' : 'text-green-400'}`}>-₹{fmt(formData.feeWaiver)}</span>
                                         </div>
                                     )}
                                     {feeBreakdown.previousBalance > 0 && (
@@ -1184,13 +1323,15 @@ const StudentAdmissionPage = () => {
                     )}
 
                     {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={loading || !selectedCourse}
-                        className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? "Creating Admission..." : "Create Admission"}
-                    </button>
+                    {!discountError && (
+                        <button
+                            type="submit"
+                            disabled={loading || !selectedCourse}
+                            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {loading ? "Creating Admission..." : "Create Admission"}
+                        </button>
+                    )}
                 </div>
             </form>
 

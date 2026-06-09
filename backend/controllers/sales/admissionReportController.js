@@ -269,7 +269,8 @@ export const getAdmissionReport = async (req, res) => {
                     course: 1,
                     class: 1,
                     boardCourseName: 1,
-                    admissionType: 1
+                    admissionType: 1,
+                    downPayment: 1
                 }
             },
             {
@@ -284,7 +285,8 @@ export const getAdmissionReport = async (req, res) => {
                                 course: "$boardId",
                                 class: "$lastClass",
                                 boardCourseName: 1,
-                                admissionType: { $literal: "BOARD" }
+                                admissionType: { $literal: "BOARD" },
+                                downPayment: "$admissionFee"
                             }
                         }
                     ]
@@ -300,7 +302,8 @@ export const getAdmissionReport = async (req, res) => {
                         boardCourseName: "$boardCourseName",
                         admissionType: "$admissionType"
                     },
-                    count: { $sum: 1 }
+                    count: { $sum: 1 },
+                    downPaymentTotal: { $sum: { $ifNull: ["$downPayment", 0] } }
                 }
             },
             {
@@ -328,6 +331,7 @@ export const getAdmissionReport = async (req, res) => {
                     courseName: { $ifNull: ["$courseInfo.courseName", "$_id.boardCourseName", "Generic Admission"] },
                     className: { $ifNull: ["$classInfo.name", { $cond: [{ $eq: ["$_id.admissionType", "BOARD"] }, "Board", "N/A"] }] },
                     count: "$count",
+                    downPayment: "$downPaymentTotal",
                     _id: 0
                 }
             },

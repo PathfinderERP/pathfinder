@@ -143,6 +143,10 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
             bankName: String,
             accountHolderName: String,
             chequeDate: Date,
+            bankAccount: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Account"
+            },
             receivedBy: mongoose.Schema.Types.ObjectId
         }]
     }],

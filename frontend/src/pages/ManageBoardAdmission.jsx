@@ -33,6 +33,7 @@ const ManageBoardAdmission = () => {
         paymentMethod: "",
         transactionId: "",
         bankName: "",
+        bankAccount: "",
         chequeDate: new Date().toISOString().split('T')[0],
         receivedDate: new Date().toISOString().split('T')[0]
     });
@@ -45,9 +46,12 @@ const ManageBoardAdmission = () => {
         transactionId: "",
         bankName: "",
         accountHolderName: "",
+        bankAccount: "",
         chequeDate: new Date().toISOString().split('T')[0],
         receivedDate: new Date().toISOString().split('T')[0]
     });
+
+    const [masterAccounts, setMasterAccounts] = useState([]);
 
     const [showSMSModal, setShowSMSModal] = useState(false);
 
@@ -85,16 +89,16 @@ const ManageBoardAdmission = () => {
                 if (billsRes.ok) {
                     const billsData = await billsRes.json();
                     const allPayments = billsData.data || [];
-                    setExamPayments(allPayments.filter(p => 
-                        p.remarks?.toLowerCase()?.includes("exam") || 
+                    setExamPayments(allPayments.filter(p =>
+                        p.remarks?.toLowerCase()?.includes("exam") ||
                         p.boardCourseName?.toLowerCase()?.includes("examination")
                     ));
-                    setAdditionalFeePayments(allPayments.filter(p => 
-                        p.remarks?.toLowerCase()?.includes("additional") || 
+                    setAdditionalFeePayments(allPayments.filter(p =>
+                        p.remarks?.toLowerCase()?.includes("additional") ||
                         (admissionData?.additionalThingsName && p.boardCourseName?.toLowerCase()?.includes(admissionData.additionalThingsName.toLowerCase()))
                     ));
-                    setAdmissionPayments(allPayments.filter(p => 
-                        p.remarks?.toLowerCase()?.includes("initial") || 
+                    setAdmissionPayments(allPayments.filter(p =>
+                        p.remarks?.toLowerCase()?.includes("initial") ||
                         p.remarks?.toLowerCase()?.includes("admission") ||
                         p.remarks?.toLowerCase()?.includes("recovery") ||
                         p.remarks?.toLowerCase()?.includes("restored") ||
@@ -133,6 +137,22 @@ const ManageBoardAdmission = () => {
     }, [id, fetchData]);
 
     useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${apiUrl}/master-data/account`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok) setMasterAccounts(data || []);
+            } catch (error) {
+                console.error("Error fetching accounts:", error);
+            }
+        };
+        fetchAccounts();
+    }, [apiUrl]);
+
+    useEffect(() => {
         if (!paymentModal.show && !examPaymentModal && !additionalFeePaymentModal) {
             setPaymentForm({
                 amount: 0,
@@ -152,6 +172,15 @@ const ManageBoardAdmission = () => {
             }));
         }
     }, [paymentModal.show, paymentModal.installment, examPaymentModal, additionalFeePaymentModal]);
+
+    // Validate cheque bank account across all payment handlers
+    const validateChequeAccount = (method, account) => {
+        if (method === "CHEQUE" && !account) {
+            toast.error("Bank Account selection is required for Cheque payments");
+            return false;
+        }
+        return true;
+    };
 
     const handleUpdateSubjects = async () => {
         setLoading(true);
@@ -185,9 +214,7 @@ const ManageBoardAdmission = () => {
 
     const handleCollectPayment = async (e) => {
         e.preventDefault();
-
-        setLoading(true);
-
+        if (!validateChequeAccount(paymentForm.paymentMethod, paymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -206,6 +233,7 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
+                    bankAccount: paymentForm.paymentMethod === "CHEQUE" ? paymentForm.bankAccount : undefined,
                     chequeDate: paymentForm.chequeDate,
                     receivedDate: paymentForm.receivedDate
                 })
@@ -228,9 +256,7 @@ const ManageBoardAdmission = () => {
 
     const handleCollectExamPayment = async (e) => {
         e.preventDefault();
-
-        setLoading(true);
-
+        if (!validateChequeAccount(paymentForm.paymentMethod, paymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -246,6 +272,7 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
+                    bankAccount: paymentForm.paymentMethod === "CHEQUE" ? paymentForm.bankAccount : undefined,
                     chequeDate: paymentForm.chequeDate,
                     receivedDate: paymentForm.receivedDate
                 })
@@ -274,6 +301,7 @@ const ManageBoardAdmission = () => {
             toast.error("Please enter at least one fee amount.");
             return;
         }
+        if (!validateChequeAccount(ncrpPaymentForm.paymentMethod, ncrpPaymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -285,7 +313,7 @@ const ManageBoardAdmission = () => {
             if (response.ok) {
                 toast.success("NCRP fee payment collected!");
                 setNcrpPaymentModal(false);
-                setNcrpPaymentForm({ paidExamFee: 0, paidAdditionalThings: 0, paymentMethod: "CASH", transactionId: "", bankName: "", accountHolderName: "", chequeDate: new Date().toISOString().split('T')[0] });
+                setNcrpPaymentForm({ paidExamFee: 0, paidAdditionalThings: 0, paymentMethod: "CASH", transactionId: "", bankName: "", bankAccount: "", accountHolderName: "", chequeDate: new Date().toISOString().split('T')[0] });
                 fetchData();
             } else {
                 const data = await response.json();
@@ -299,9 +327,7 @@ const ManageBoardAdmission = () => {
     };
     const handleCollectAdditionalPayment = async (e) => {
         e.preventDefault();
-
-        setLoading(true);
-
+        if (!validateChequeAccount(paymentForm.paymentMethod, paymentForm.bankAccount)) return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -317,6 +343,7 @@ const ManageBoardAdmission = () => {
                     transactionId: paymentForm.transactionId,
                     bankName: paymentForm.bankName,
                     accountHolderName: paymentForm.accountHolderName,
+                    bankAccount: paymentForm.paymentMethod === "CHEQUE" ? paymentForm.bankAccount : undefined,
                     chequeDate: paymentForm.chequeDate,
                     receivedDate: paymentForm.receivedDate
                 })
@@ -432,20 +459,20 @@ const ManageBoardAdmission = () => {
                                                     }
                                                 }}
                                                 className={`relative z-10 p-5 rounded-xl border flex items-center justify-between cursor-pointer transition-all shadow-sm ${isCurrent
-                                                        ? 'border-cyan-500 ring-2 ring-cyan-500/50 bg-cyan-900/20 scale-[1.02]'
-                                                        : isPaid
-                                                            ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-green-50 border-green-200 opacity-90')
-                                                            : isNextToPay
-                                                                ? (isDarkMode ? 'bg-[#1a222c] border-cyan-500/30' : 'bg-white border-cyan-200 shadow-sm')
-                                                                : (isDarkMode ? 'bg-gray-800/40 border-gray-800/50 hover:border-gray-600 opacity-70' : 'bg-gray-50 border-gray-100 hover:border-gray-200 opacity-70')
+                                                    ? 'border-cyan-500 ring-2 ring-cyan-500/50 bg-cyan-900/20 scale-[1.02]'
+                                                    : isPaid
+                                                        ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-green-50 border-green-200 opacity-90')
+                                                        : isNextToPay
+                                                            ? (isDarkMode ? 'bg-[#1a222c] border-cyan-500/30' : 'bg-white border-cyan-200 shadow-sm')
+                                                            : (isDarkMode ? 'bg-gray-800/40 border-gray-800/50 hover:border-gray-600 opacity-70' : 'bg-gray-50 border-gray-100 hover:border-gray-200 opacity-70')
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-5">
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all shadow-lg ${isPaid
-                                                            ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                                                            : isNextToPay
-                                                                ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]'
-                                                                : isDarkMode ? 'bg-gray-800 text-gray-500 border border-gray-700' : 'bg-white text-gray-400 border border-gray-200'
+                                                        ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                                                        : isNextToPay
+                                                            ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                                                            : isDarkMode ? 'bg-gray-800 text-gray-500 border border-gray-700' : 'bg-white text-gray-400 border border-gray-200'
                                                         }`}>
                                                         {isPaid ? <FaCheck /> : inst.monthNumber}
                                                     </div>
@@ -495,8 +522,8 @@ const ManageBoardAdmission = () => {
                                                             }}
                                                             disabled={!isNextToPay || admission?.studentId?.status === 'Deactivated'}
                                                             className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay && admission?.studentId?.status !== 'Deactivated'
-                                                                    ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_5px_15px_rgba(6,182,212,0.3)]'
-                                                                    : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
+                                                                ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_5px_15px_rgba(6,182,212,0.3)]'
+                                                                : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
                                                                 }`}
                                                         >
                                                             PAY NOW
@@ -545,8 +572,8 @@ const ManageBoardAdmission = () => {
                                                 );
                                             }}
                                             className={`p-4 rounded-lg border cursor-pointer transition-all flex justify-between items-center group ${selectedSubjectIds.includes(s.subjectId?._id || s.subjectId)
-                                                    ? 'border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50'
-                                                    : isDarkMode ? 'border-gray-800 bg-[#131619] opacity-60 hover:opacity-100' : 'border-gray-100 bg-gray-50 opacity-60 hover:opacity-100'
+                                                ? 'border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50'
+                                                : isDarkMode ? 'border-gray-800 bg-[#131619] opacity-60 hover:opacity-100' : 'border-gray-100 bg-gray-50 opacity-60 hover:opacity-100'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -584,8 +611,8 @@ const ManageBoardAdmission = () => {
                                     onClick={handleUpdateSubjects}
                                     disabled={!effectiveFromMonth || effectiveFromMonth.paidAmount > 0 || admission?.studentId?.status === 'Deactivated'}
                                     className={`w-full py-3 font-black text-xs uppercase rounded transition-all ${effectiveFromMonth && effectiveFromMonth.paidAmount === 0 && admission?.studentId?.status !== 'Deactivated'
-                                            ? 'bg-cyan-500 text-black hover:bg-cyan-400'
-                                            : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                        ? 'bg-cyan-500 text-black hover:bg-cyan-400'
+                                        : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                         }`}
                                 >
                                     {!effectiveFromMonth ? "SELECT A MONTH" : "UPDATE SUBJECTS"}
@@ -631,10 +658,10 @@ const ManageBoardAdmission = () => {
                                     return (
                                         <div key={inst._id} className="flex flex-col items-center gap-3 relative group w-10">
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 z-10 ${isPaid
-                                                    ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white')
-                                                    : isNextToPay
-                                                        ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white') + ' scale-110'
-                                                        : isDarkMode ? 'bg-gray-800 text-gray-500 ring-4 ring-[#1a1f24]' : 'bg-white text-gray-400 border-2 border-gray-200 ring-4 ring-white'
+                                                ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white')
+                                                : isNextToPay
+                                                    ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white') + ' scale-110'
+                                                    : isDarkMode ? 'bg-gray-800 text-gray-500 ring-4 ring-[#1a1f24]' : 'bg-white text-gray-400 border-2 border-gray-200 ring-4 ring-white'
                                                 }`}>
                                                 {isPaid ? <FaCheck /> : inst.monthNumber}
                                             </div>
@@ -659,7 +686,7 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setPaymentModal({ show: false, installment: null })}><FaTimes /></button>
                         </div>
 
-                        <form 
+                        <form
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 if (paymentForm.paymentMethod === 'RAZORPAY_SMS') {
@@ -667,7 +694,7 @@ const ManageBoardAdmission = () => {
                                 } else {
                                     handleCollectPayment(e);
                                 }
-                            }} 
+                            }}
                             className="space-y-6"
                         >
                             <div className="grid grid-cols-2 gap-4">
@@ -718,7 +745,7 @@ const ManageBoardAdmission = () => {
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK TRANSFER</option>
-                                        <option value="RAZORPAY_SMS">RAZORPAY SMS PAY</option>
+                                        {/* <option value="RAZORPAY_SMS">RAZORPAY SMS PAY</option> */}
                                     </select>
                                 </div>
                             </div>
@@ -844,39 +871,38 @@ const ManageBoardAdmission = () => {
             {/* NCRP Unified PAY NOW button - shown above fee sections when any fee is still pending */}
             {admission && admission.programme === 'NCRP' &&
                 ((admission.examFee > 0 && admission.examFeePaid < admission.examFee) ||
-                 (admission.additionalThingsAmount > 0 && admission.additionalThingsPaid < admission.additionalThingsAmount)) && (
-                <div className={`mt-4 p-5 rounded-xl border-2 border-cyan-500/40 flex items-center justify-between ${isDarkMode ? 'bg-cyan-500/5' : 'bg-cyan-50'}`}>
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-cyan-500 mb-0.5">NCRP — Outstanding Fees</p>
-                        <p className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {[admission.examFee > (admission.examFeePaid||0) ? `Exam: ₹${admission.examFee - (admission.examFeePaid||0)}` : null, admission.additionalThingsAmount > (admission.additionalThingsPaid||0) ? `${admission.additionalThingsName||'Additional'}: ₹${admission.additionalThingsAmount - (admission.additionalThingsPaid||0)}` : null].filter(Boolean).join('  +  ')}
-                        </p>
+                    (admission.additionalThingsAmount > 0 && admission.additionalThingsPaid < admission.additionalThingsAmount)) && (
+                    <div className={`mt-4 p-5 rounded-xl border-2 border-cyan-500/40 flex items-center justify-between ${isDarkMode ? 'bg-cyan-500/5' : 'bg-cyan-50'}`}>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-500 mb-0.5">NCRP — Outstanding Fees</p>
+                            <p className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {[admission.examFee > (admission.examFeePaid || 0) ? `Exam: ₹${admission.examFee - (admission.examFeePaid || 0)}` : null, admission.additionalThingsAmount > (admission.additionalThingsPaid || 0) ? `${admission.additionalThingsName || 'Additional'}: ₹${admission.additionalThingsAmount - (admission.additionalThingsPaid || 0)}` : null].filter(Boolean).join('  +  ')}
+                            </p>
+                        </div>
+                        <button
+                            disabled={admission?.studentId?.status === 'Deactivated'}
+                            onClick={() => {
+                                if (admission?.studentId?.status === 'Deactivated') {
+                                    toast.error("This student is deactivated. Payments are disabled.");
+                                    return;
+                                }
+                                setNcrpPaymentForm({
+                                    paidExamFee: Math.max(0, admission.examFee - (admission.examFeePaid || 0)),
+                                    paidAdditionalThings: Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0)),
+                                    paymentMethod: 'CASH', transactionId: '', bankName: '', accountHolderName: '',
+                                    chequeDate: new Date().toISOString().split('T')[0]
+                                });
+                                setNcrpPaymentModal(true);
+                            }}
+                            className={`px-8 py-3 font-black uppercase text-xs rounded-lg transition-all shadow-lg tracking-widest flex items-center gap-2 ${admission?.studentId?.status === 'Deactivated'
+                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
+                                    : 'bg-cyan-500 text-black hover:bg-cyan-400'
+                                }`}
+                        >
+                            <FaMoneyBillWave /> PAY NOW
+                        </button>
                     </div>
-                    <button
-                        disabled={admission?.studentId?.status === 'Deactivated'}
-                        onClick={() => {
-                            if (admission?.studentId?.status === 'Deactivated') {
-                                toast.error("This student is deactivated. Payments are disabled.");
-                                return;
-                            }
-                            setNcrpPaymentForm({
-                                paidExamFee: Math.max(0, admission.examFee - (admission.examFeePaid || 0)),
-                                paidAdditionalThings: Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0)),
-                                paymentMethod: 'CASH', transactionId: '', bankName: '', accountHolderName: '',
-                                chequeDate: new Date().toISOString().split('T')[0]
-                            });
-                            setNcrpPaymentModal(true);
-                        }}
-                        className={`px-8 py-3 font-black uppercase text-xs rounded-lg transition-all shadow-lg tracking-widest flex items-center gap-2 ${
-                            admission?.studentId?.status === 'Deactivated'
-                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
-                                : 'bg-cyan-500 text-black hover:bg-cyan-400'
-                        }`}
-                    >
-                        <FaMoneyBillWave /> PAY NOW
-                    </button>
-                </div>
-            )}
+                )}
 
             {/* Examination Fee Tracker Section */}
             {admission && admission.examFee > 0 && (
@@ -920,11 +946,10 @@ const ManageBoardAdmission = () => {
                                         setExamPaymentModal(true);
                                         setPaymentForm({ ...paymentForm, amount: admission.examFee - (admission.examFeePaid || 0) });
                                     }}
-                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${
-                                        admission?.studentId?.status === 'Deactivated'
+                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${admission?.studentId?.status === 'Deactivated'
                                             ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
                                             : 'bg-cyan-500 text-black hover:bg-cyan-400'
-                                    }`}
+                                        }`}
                                 >
                                     PAY NOW
                                 </button>
@@ -960,7 +985,7 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setExamPaymentModal(false)}><FaTimes /></button>
                         </div>
 
-                        <form 
+                        <form
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 if (paymentForm.paymentMethod === 'RAZORPAY_SMS') {
@@ -972,7 +997,7 @@ const ManageBoardAdmission = () => {
                                 } else {
                                     handleCollectExamPayment(e);
                                 }
-                            }} 
+                            }}
                             className="space-y-6"
                         >
                             <div className="grid grid-cols-2 gap-4">
@@ -1107,11 +1132,10 @@ const ManageBoardAdmission = () => {
                                         setAdditionalFeePaymentModal(true);
                                         setPaymentForm({ ...paymentForm, amount: admission.additionalThingsAmount - (admission.additionalThingsPaid || 0) });
                                     }}
-                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${
-                                        admission?.studentId?.status === 'Deactivated'
+                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${admission?.studentId?.status === 'Deactivated'
                                             ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
                                             : 'bg-cyan-500 text-black hover:bg-cyan-400'
-                                    }`}
+                                        }`}
                                 >
                                     PAY NOW
                                 </button>
@@ -1147,7 +1171,7 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setAdditionalFeePaymentModal(false)}><FaTimes /></button>
                         </div>
 
-                        <form 
+                        <form
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 if (paymentForm.paymentMethod === 'RAZORPAY_SMS') {
@@ -1159,7 +1183,7 @@ const ManageBoardAdmission = () => {
                                 } else {
                                     handleCollectAdditionalPayment(e);
                                 }
-                            }} 
+                            }}
                             className="space-y-6"
                         >
                             <div className="grid grid-cols-2 gap-4">
@@ -1201,7 +1225,6 @@ const ManageBoardAdmission = () => {
                                             value={paymentForm.bankName}
                                             onChange={(e) => setPaymentForm({ ...paymentForm, bankName: e.target.value })}
                                             className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
-                                            required
                                         />
                                     </div>
                                     <div>
@@ -1223,6 +1246,22 @@ const ManageBoardAdmission = () => {
                                             className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                             required
                                         />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Account *</label>
+                                        <select
+                                            value={paymentForm.bankAccount}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, bankAccount: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(acc => (
+                                                <option key={acc._id} value={acc._id}>
+                                                    {acc.accname} (A/C: {acc.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}
@@ -1274,7 +1313,7 @@ const ManageBoardAdmission = () => {
                             <button onClick={() => setNcrpPaymentModal(false)}><FaTimes /></button>
                         </div>
 
-                        <form 
+                        <form
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 if (ncrpPaymentForm.paymentMethod === 'RAZORPAY_SMS') {
@@ -1291,7 +1330,7 @@ const ManageBoardAdmission = () => {
                                 } else {
                                     handleCollectNcrpFees(e);
                                 }
-                            }} 
+                            }}
                             className="space-y-5"
                         >
                             {/* Fee Amount Fields */}
@@ -1299,7 +1338,7 @@ const ManageBoardAdmission = () => {
                                 {admission.examFee > 0 && (
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">
-                                            Exam Fee <span className="text-gray-500">(bal: ₹{Math.max(0, admission.examFee - (admission.examFeePaid||0))})</span>
+                                            Exam Fee <span className="text-gray-500">(bal: ₹{Math.max(0, admission.examFee - (admission.examFeePaid || 0))})</span>
                                         </label>
                                         <input
                                             type="number" min="0"
@@ -1312,7 +1351,7 @@ const ManageBoardAdmission = () => {
                                 {admission.additionalThingsAmount > 0 && (
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2 truncate" title={admission.additionalThingsName}>
-                                            {admission.additionalThingsName || 'Additional'} <span className="text-gray-500">(bal: ₹{Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid||0))})</span>
+                                            {admission.additionalThingsName || 'Additional'} <span className="text-gray-500">(bal: ₹{Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0))})</span>
                                         </label>
                                         <input
                                             type="number" min="0"
@@ -1368,11 +1407,27 @@ const ManageBoardAdmission = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Name</label>
-                                        <input type="text" value={ncrpPaymentForm.bankName} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, bankName: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} required />
+                                        <input type="text" value={ncrpPaymentForm.bankName} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, bankName: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} />
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Cheque Date</label>
                                         <input type="date" value={ncrpPaymentForm.chequeDate} onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, chequeDate: e.target.value })} className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`} required />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Account *</label>
+                                        <select
+                                            value={ncrpPaymentForm.bankAccount}
+                                            onChange={(e) => setNcrpPaymentForm({ ...ncrpPaymentForm, bankAccount: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(acc => (
+                                                <option key={acc._id} value={acc._id}>
+                                                    {acc.accname} (A/C: {acc.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}
@@ -1390,7 +1445,7 @@ const ManageBoardAdmission = () => {
 
                             <button
                                 type="submit"
-                                disabled={Number(ncrpPaymentForm.paidExamFee||0) + Number(ncrpPaymentForm.paidAdditionalThings||0) <= 0}
+                                disabled={Number(ncrpPaymentForm.paidExamFee || 0) + Number(ncrpPaymentForm.paidAdditionalThings || 0) <= 0}
                                 className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 CONFIRM &amp; GENERATE BILL

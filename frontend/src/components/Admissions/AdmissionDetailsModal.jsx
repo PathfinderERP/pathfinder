@@ -14,6 +14,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
         transactionId: "",
         accountHolderName: "",
         chequeDate: "",
+        bankAccount: "",
 
         remarks: "",
         carryForward: false
@@ -21,6 +22,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
     const [monthlyBreakdown, setMonthlyBreakdown] = useState([]);
     const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+    const [masterAccounts, setMasterAccounts] = useState([]);
 
     const apiUrl = import.meta.env.VITE_API_URL;
     const navigate = useNavigate();
@@ -48,6 +50,24 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
             fetchBreakdown();
         }
     }, [admission, fetchBreakdown]);
+
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch(`${apiUrl}/master-data/account`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    setMasterAccounts(data || []);
+                }
+            } catch (error) {
+                console.error("Error fetching accounts:", error);
+            }
+        };
+        fetchAccounts();
+    }, [apiUrl]);
 
     if (!admission) return null;
 
@@ -78,6 +98,11 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
 
         if (isOnlinePayment && !paymentData.transactionId.trim()) {
             toast.error("Transaction ID is required for online payment methods");
+            return;
+        }
+
+        if (paymentData.paymentMethod === "CHEQUE" && !paymentData.bankAccount) {
+            toast.error("Bank Account selection is required for Cheque payments");
             return;
         }
 
@@ -142,6 +167,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
             accountHolderName: "",
             chequeDate: new Date().toISOString().split('T')[0],
             receivedDate: new Date().toISOString().split('T')[0],
+            bankAccount: "",
 
             remarks: "",
             carryForward: false
@@ -789,6 +815,22 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                 required
                                             />
                                         </div>
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>BANK ACCOUNT *</label>
+                                        <select
+                                            value={paymentData.bankAccount}
+                                            onChange={(e) => setPaymentData({ ...paymentData, bankAccount: e.target.value })}
+                                            className={`w-full p-2.5 rounded-[4px] border font-bold text-[11px] uppercase tracking-wider focus:outline-none transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            required
+                                        >
+                                            <option value="">SELECT BANK ACCOUNT</option>
+                                            {masterAccounts.map(account => (
+                                                <option key={account._id} value={account._id}>
+                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}

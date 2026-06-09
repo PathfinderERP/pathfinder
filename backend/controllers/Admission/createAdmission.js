@@ -281,7 +281,7 @@ export const createAdmission = async (req, res) => {
             downPaymentBankName: bankName,
             downPaymentAccountHolderName: accountHolderName,
             downPaymentChequeDate: chequeDate,
-            downPaymentBankAccount: bankAccount
+            downPaymentBankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined
         });
 
         await admission.save();
@@ -334,7 +334,7 @@ export const createAdmission = async (req, res) => {
                 bankName: bankName,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
-                bankAccount: bankAccount,
+                bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                 billingMonth: billingMonth || null,
                 boardCourseName: boardCourseNameString || null,
                 remarks: "Down Payment at Admission",

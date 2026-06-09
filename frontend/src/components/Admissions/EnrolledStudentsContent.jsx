@@ -715,7 +715,7 @@ const EnrolledStudentsContent = () => {
                     }
                     return true;
                 })[0] || item.latestAdmission;
-                
+
                 const leadBy = item.student?.leadBy || latestAdmission?.leadBy;
                 const leadByName = leadBy?.name || "System";
                 return filterLeadBy.includes(leadByName);
@@ -3109,7 +3109,7 @@ const EnrolledStudentsContent = () => {
                                         <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CREDIT/DEBIT CARD</option>
                                         <option value="BANK_TRANSFER" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK WIRE TRANSFER</option>
                                         <option value="CHEQUE" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK CHEQUE</option>
-                                        <option value="RAZORPAY_POS" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>RAZORPAY POS (TERMINAL)</option>
+                                        {/* <option value="RAZORPAY_POS" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>RAZORPAY POS (TERMINAL)</option> */}
                                     </select>
                                 </div>
                                 <div>

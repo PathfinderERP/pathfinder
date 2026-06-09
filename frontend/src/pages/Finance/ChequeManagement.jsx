@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload } from "react-icons/fa";
+import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useNavigate } from "react-router-dom";
 
 const ChequeManagement = () => {
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [cheques, setCheques] = useState([]);
@@ -21,6 +23,10 @@ const ChequeManagement = () => {
     const [showClearModal, setShowClearModal] = useState(false);
     const [clearingId, setClearingId] = useState(null);
     const [clearDate, setClearDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [jumpToPage, setJumpToPage] = useState("");
 
     const [filters, setFilters] = useState({
         centre: [],
@@ -41,6 +47,18 @@ const ChequeManagement = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canManageCheques = hasPermission(user, 'financeFees', 'chequeManagement', 'edit');
+
+    useEffect(() => {
+        const userRoles = Array.isArray(user.role) ? user.role : [user.role];
+        const isAuthorized = userRoles.some(r => {
+            const norm = typeof r === "string" ? r.toLowerCase().replace(/\s+/g, "") : "";
+            return norm === "superadmin" || norm === "accounts";
+        });
+        if (!isAuthorized) {
+            toast.error("Access Denied: You do not have permission to view Cheque Management.");
+            navigate("/");
+        }
+    }, [user, navigate]);
 
     useEffect(() => {
         fetchMetadata();
@@ -343,6 +361,23 @@ const ChequeManagement = () => {
         }
     };
 
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredCheques.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredCheques.length / itemsPerPage);
+
+    const handleJumpToPage = (e) => {
+        e.preventDefault();
+        const page = parseInt(jumpToPage);
+        if (page > 0 && page <= totalPages) {
+            setCurrentPage(page);
+        } else {
+            toast.error(`Please enter a valid page number between 1 and ${totalPages}`);
+        }
+        setJumpToPage("");
+    };
+
     return (
         <Layout activePage="Finance & Fees">
             <div className="p-4 md:p-10 max-w-[1700px] mx-auto min-h-screen pb-20">
@@ -484,7 +519,8 @@ const ChequeManagement = () => {
 
                 {/* Table */}
                 <div className="bg-[#131619] border border-gray-800 rounded-[2rem] overflow-hidden shadow-2xl">
-                    <table className="w-full text-left border-collapse">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-max">
                         <thead>
                             <tr className="bg-gray-900/50 border-b border-gray-800 text-[10px] font-black text-gray-500 uppercase tracking-widest">
                                 <th className="p-6">Cheque Info</th>
@@ -493,6 +529,7 @@ const ChequeManagement = () => {
                                 <th className="p-6">Amount</th>
                                 <th className="p-6">Cheque Date</th>
                                 <th className="p-6">Cleared/Rejected Date</th>
+                                <th className="p-6">Receipt</th>
                                 <th className="p-6">Status</th>
                                 <th className="p-6">Processed By</th>
                                 <th className="p-6 text-right">Actions</th>
@@ -501,18 +538,18 @@ const ChequeManagement = () => {
                         <tbody className="divide-y divide-gray-800">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="8" className="p-20 text-center">
+                                    <td colSpan="10" className="p-20 text-center">
                                         <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
                                     </td>
                                 </tr>
-                            ) : filteredCheques.length === 0 ? (
+                            ) : currentItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                    <td colSpan="10" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                                         No cheques found in records
                                     </td>
                                 </tr>
                             ) : (
-                                filteredCheques.map((cheque) => (
+                                currentItems.map((cheque) => (
                                     <tr key={cheque.paymentId} className="hover:bg-emerald-500/[0.02] transition-colors group">
                                         <td className="p-6">
                                             <div className="text-cyan-500 font-black"># {cheque.chequeNumber || "N/A"}</div>
@@ -532,6 +569,20 @@ const ChequeManagement = () => {
                                         </td>
                                         <td className="p-6 text-gray-300 font-bold text-xs">
                                             {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}
+                                        </td>
+                                        <td className="p-6">
+                                            {cheque.receiptFile ? (
+                                                <a
+                                                    href={cheque.receiptFile}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
+                                                >
+                                                    <FaRegFileAlt /> View Slip
+                                                </a>
+                                            ) : (
+                                                <span className="text-[10px] text-gray-500 font-bold uppercase">Not Deposited</span>
+                                            )}
                                         </td>
                                         <td className="p-6">{getStatusBadge(cheque.status)}</td>
                                         <td className="p-6">
@@ -569,7 +620,71 @@ const ChequeManagement = () => {
                                 ))
                             )}
                         </tbody>
-                    </table>
+                        </table>
+                    </div>
+
+                    {/* Pagination UI */}
+                    {!loading && filteredCheques.length > 0 && (
+                        <div className="p-4 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-[#131619]">
+                            <div className="flex items-center gap-4">
+                                <span className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">
+                                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredCheques.length)} of {filteredCheques.length} entries
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">Rows per page:</label>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => {
+                                            setItemsPerPage(Number(e.target.value));
+                                            setCurrentPage(1);
+                                        }}
+                                        className="bg-black/40 border border-gray-800 rounded-lg px-2 py-1 text-gray-300 text-[10px] font-bold outline-none focus:border-emerald-500/50"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 bg-gray-800 text-gray-300 font-bold text-[10px] uppercase rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    Previous
+                                </button>
+                                <span className="text-gray-400 font-bold text-[10px] uppercase px-2">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 bg-gray-800 text-gray-300 font-bold text-[10px] uppercase rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    Next
+                                </button>
+                                <form onSubmit={handleJumpToPage} className="flex items-center gap-2 ml-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={totalPages}
+                                        value={jumpToPage}
+                                        onChange={(e) => setJumpToPage(e.target.value)}
+                                        placeholder="PAGE"
+                                        className="w-16 bg-black/40 border border-gray-800 rounded-lg px-2 py-1.5 text-gray-300 text-[10px] font-bold outline-none focus:border-emerald-500/50 text-center uppercase"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold text-[10px] uppercase rounded-lg hover:bg-emerald-500 hover:text-black transition-all"
+                                    >
+                                        Go
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Reject Modal */}

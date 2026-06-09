@@ -45,7 +45,8 @@ export const createBoardAdmission = async (req, res) => {
             paidAdditionalThings = 0,
             programme,
             lastClass,
-            receivedDate
+            receivedDate,
+            bankAccount
         } = req.body;
 
         // Normalize payment method to match Payment schema enum
@@ -72,6 +73,9 @@ export const createBoardAdmission = async (req, res) => {
         if (downPayment > 0 || paidExamFee > 0 || paidAdditionalThings > 0) {
             if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
                 return res.status(400).json({ message: `Transaction ID is mandatory for ${paymentMethod} payments` });
+            }
+            if (paymentMethod === "CHEQUE" && !bankAccount) {
+                return res.status(400).json({ message: "Bank Account is required for Cheque payments" });
             }
         }
 
@@ -135,6 +139,7 @@ export const createBoardAdmission = async (req, res) => {
                         bankName: bankName,
                         accountHolderName: accountHolderName,
                         chequeDate: chequeDate,
+                        bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                         receivedBy: req.user?._id
                     });
                 }
@@ -259,6 +264,7 @@ export const createBoardAdmission = async (req, res) => {
                 bankName: bankName,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
+                bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                 billingMonth: new Date(installments.length > 0 ? installments[0].dueDate : billingStartDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                 recordedBy: req.user?._id,
                 billId: billId,

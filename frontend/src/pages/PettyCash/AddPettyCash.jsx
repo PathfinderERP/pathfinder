@@ -11,6 +11,8 @@ const AddPettyCash = () => {
     const [showModal, setShowModal] = useState(false);
     const [centres, setCentres] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [showRemarksModal, setShowRemarksModal] = useState(false);
+    const [viewRemarks, setViewRemarks] = useState("");
 
     const [formData, setFormData] = useState({
         centre: "",
@@ -132,14 +134,15 @@ const AddPettyCash = () => {
                                     <th className="p-4">STATUS</th>
                                     <th className="p-4">CREATED BY</th>
                                     <th className="p-4">APROVED BY</th>
-                                    <th className="p-4">ACTIONS</th>
+                                    <th className="p-4">REMARKS</th>
+                                    <th className="p-4 text-center">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="9" className="p-10 text-center text-gray-500">Loading requests...</td></tr>
+                                    <tr><td colSpan="10" className="p-10 text-center text-gray-500">Loading requests...</td></tr>
                                 ) : filteredRequests.length === 0 ? (
-                                    <tr><td colSpan="9" className="p-10 text-center text-gray-500">No requests found.</td></tr>
+                                    <tr><td colSpan="10" className="p-10 text-center text-gray-500">No requests found.</td></tr>
                                 ) : (
                                     filteredRequests.map((item) => (
                                         <tr key={item._id} className="hover:bg-white/5 transition-colors border-b border-gray-800/50">
@@ -161,7 +164,21 @@ const AddPettyCash = () => {
                                             </td>
                                             <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.requestedBy?.name || "N/A"}</td>
                                             <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.approvedBy?.name || "-"}</td>
-                                            <td className="p-4">
+                                            <td className="p-4 text-xs text-gray-400 max-w-[150px]">
+                                                <div 
+                                                    className={`truncate ${item.remarks ? 'cursor-pointer hover:text-blue-400 transition-colors' : ''}`}
+                                                    onClick={() => {
+                                                        if (item.remarks) {
+                                                            setViewRemarks(item.remarks);
+                                                            setShowRemarksModal(true);
+                                                        }
+                                                    }}
+                                                    title={item.remarks ? "Click to view full remarks" : ""}
+                                                >
+                                                    {item.remarks || "-"}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-center">
                                                 <button className="text-gray-500 hover:text-white transition-colors" title="View Details">
                                                     ...
                                                 </button>
@@ -226,6 +243,29 @@ const AddPettyCash = () => {
                                     Submit Request
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Remarks View Modal */}
+                {showRemarksModal && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                        <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold">Remarks Details</h3>
+                                <button onClick={() => setShowRemarksModal(false)} className="text-gray-400 hover:text-white transition-colors"><FaTimes /></button>
+                            </div>
+                            <div className="bg-[#131619] border border-gray-800 rounded-lg p-4 text-gray-300 text-sm leading-relaxed max-h-[60vh] overflow-y-auto whitespace-pre-wrap">
+                                {viewRemarks}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setShowRemarksModal(false)}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg shadow-blue-900/20 transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

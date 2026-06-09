@@ -61,7 +61,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     const userPermissions = user.permissions || [];
     const granularPermissions = user.granularPermissions || {};
-    const isSuperAdmin = Array.isArray(user.role) ? user.role.includes("superAdmin") : user.role === "superAdmin";
+    const isSuperAdmin = Array.isArray(user.role)
+        ? user.role.some(r => typeof r === "string" && (r.toLowerCase().replace(/\s+/g, "") === "superadmin"))
+        : typeof user.role === "string" && (user.role.toLowerCase().replace(/\s+/g, "") === "superadmin");
 
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
@@ -162,6 +164,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Installment Payment", path: "/finance/installment-payment", permissionSection: "installmentPayment" },
                 { name: "Fee Due List", path: "/finance/fee-due-list", permissionSection: "feeDueList" },
                 { name: "Cheque Management", path: "/finance/cheque-management", permissionSection: "chequeManagement" },
+                { name: "Cheque Deposit Entry", path: "/finance/cheque-deposit-entry", permissionSection: "chequeDepositEntry" },
                 { name: "Cancel Cheque Payment", path: "/finance/cancel-cheque", permissionSection: "cancelCheque" },
                 { name: "Cash Report", path: "/finance/cash/report", permissionSection: "cashReport" },
                 { name: "Cash Transfer", path: "/finance/cash/transfer", permissionSection: "cashTransfer" },

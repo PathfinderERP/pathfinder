@@ -22,7 +22,19 @@ const tomorrowPlannerSchema = new mongoose.Schema({
     tasks: [{
         taskDetails: {
             type: String,
-            required: true
+            required: false
+        },
+        activityType: {
+            type: String,
+            default: ""
+        },
+        place: {
+            type: String,
+            default: ""
+        },
+        time: {
+            type: String,
+            default: ""
         },
         priority: {
             type: String,

@@ -112,7 +112,8 @@ export const generateMonthlyBill = async (req, res) => {
             transactionId = "",
             accountHolderName = "",
             chequeDate = "",
-            receivedDate = ""
+            receivedDate = "",
+            bankAccount = null
         } = req.body;
 
         console.log("Generating bill for:", { admissionId, billingMonth, paymentAmount, subjectCount: selectedSubjectIds?.length });
@@ -128,6 +129,10 @@ export const generateMonthlyBill = async (req, res) => {
         if (!paymentAmount || Number(paymentAmount) <= 0) {
             console.log("Invalid amount:", paymentAmount);
             return res.status(400).json({ message: "Invalid payment amount. Ensure subjects are configured and selected." });
+        }
+
+        if (paymentMethod === "CHEQUE" && !bankAccount) {
+            return res.status(400).json({ message: "Bank Account is required for Cheque payments" });
         }
 
         // Fetch the admission
@@ -300,6 +305,7 @@ export const generateMonthlyBill = async (req, res) => {
                 existingPayment.accountHolderName = accountHolderName || existingPayment.accountHolderName;
                 existingPayment.chequeDate = chequeDate || existingPayment.chequeDate;
                 existingPayment.receivedDate = receivedDate ? new Date(receivedDate) : new Date();
+                existingPayment.bankAccount = (bankAccount && bankAccount !== "") ? bankAccount : existingPayment.bankAccount;
                 existingPayment.boardCourseName = specificBoardCourseName;
                 existingPayment.cgst = cgstAmount;
                 existingPayment.sgst = sgstAmount;
@@ -329,6 +335,7 @@ export const generateMonthlyBill = async (req, res) => {
                     transactionId: transactionId,
                     accountHolderName: accountHolderName,
                     chequeDate: chequeDate,
+                    bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                     billingMonth: billingMonth,
                     boardCourseName: specificBoardCourseName,
                     remarks: `Monthly Payment for ${billingMonth}`,

@@ -148,7 +148,7 @@ const AddEmployee = () => {
                     specialAllowance: data.specialAllowance || 0,
                     salaryStructure: data.salaryStructure?.map(s => {
                         const isDeductions = data.isDeductions || false;
-                        
+
                         let deductionsObj = {
                             pf: s.pf,
                             esi: s.esi,
@@ -1113,8 +1113,8 @@ const AddEmployee = () => {
                                     options={[
                                         { value: "Full-time", label: "Full-time" },
                                         { value: "Part-time", label: "Part-time" },
-                                        { value: "Contract", label: "Contract" },
-                                        { value: "Intern", label: "Intern" }
+                                        // { value: "Contract", label: "Contract" },
+                                        // { value: "Intern", label: "Intern" }
                                     ]}
                                     onChange={handleInputChange}
                                 />
