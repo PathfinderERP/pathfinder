@@ -1035,8 +1035,8 @@ const EmployeeList = () => {
                                     options={[
                                         { value: "Full-time", label: "FULL-TIME" },
                                         { value: "Part-time", label: "PART-TIME" },
-                                        { value: "Contract", label: "CONTRACT" },
-                                        { value: "Intern", label: "INTERN" }
+                                        // { value: "Contract", label: "CONTRACT" },
+                                        // { value: "Intern", label: "INTERN" }
                                     ]}
                                     value={filters.typeOfEmployment}
                                     onChange={(val) => handleFilterChange("typeOfEmployment", val)}

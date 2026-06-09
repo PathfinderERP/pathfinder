@@ -104,9 +104,16 @@ const PettyCashRequestApproval = () => {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
+            
+            // Append approver remarks to the creator's original remarks
+            const creatorName = selectedRequest.requestedBy?.name || "Creator";
+            const originalRemarks = selectedRequest.remarks || "No initial remarks";
+            const newRemarkText = remarks.trim() ? `\n\nApproved By ${user.name}: ${remarks}` : `\n\nApproved By ${user.name} without remarks`;
+            const combinedRemarks = `Requested By ${creatorName}: ${originalRemarks}${newRemarkText}`;
+
             await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/request-approve/${selectedRequest._id}`, {
                 approvedAmount,
-                remarks
+                remarks: combinedRemarks
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -124,8 +131,15 @@ const PettyCashRequestApproval = () => {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
+            
+            // Append rejecter remarks to the creator's original remarks
+            const creatorName = selectedRequest.requestedBy?.name || "Creator";
+            const originalRemarks = selectedRequest.remarks || "No initial remarks";
+            const newRemarkText = remarks.trim() ? `\n\nRejected By ${user.name}: ${remarks}` : `\n\nRejected By ${user.name} without remarks`;
+            const combinedRemarks = `Requested By ${creatorName}: ${originalRemarks}${newRemarkText}`;
+
             await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/request-reject/${selectedRequest._id}`, {
-                remarks
+                remarks: combinedRemarks
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
