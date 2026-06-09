@@ -22,7 +22,7 @@ import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentr
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
-import { getVoiceToken, handleRecordingCallback, proxyRecording, initiateEnablexCall } from "../../controllers/leadManagement/enablexVoice.js";
+import { getVoiceToken, handleRecordingCallback, proxyRecording, initiateEnablexCall, getEventStream, hangupEnablexCall } from "../../controllers/leadManagement/enablexVoice.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -59,6 +59,8 @@ router.all("/call/recording-callback", handleRecordingCallback);
 router.get("/call/recording-proxy", proxyRecording);
 router.get("/call/token", requireAuth, getVoiceToken);
 router.post("/call/outbound-call", requireAuth, initiateEnablexCall);
+router.get("/call/event-stream", requireAuth, getEventStream);
+router.post("/call/hangup", requireAuth, hangupEnablexCall);
 
 // Generic ID route must come AFTER specific routes
 router.get("/:id", requireAuth, getLeadById);

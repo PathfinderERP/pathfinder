@@ -4,6 +4,8 @@ import express from "express";
 // Force restart timestamp: 2025-12-29
 import cors from "cors";
 import http from "http";
+import https from "https";
+import fs from "fs";
 import { initSocket } from "./utils/socket.js";
 import protect from "./middleware/authMiddleware.js"; // Direct import
 // import loggingMiddleware from "./middleware/loggingMiddleware.js";
@@ -212,9 +214,27 @@ app.use("/api/category",categoryRoutes);
 
 
 
-const server = http.createServer(app);
+let server;
+const isSSL = process.env.LISTEN_SSL === 'true';
+
+if (isSSL) {
+    const options = {
+        key: fs.readFileSync(process.env.CERTIFICATE_SSL_KEY || "./certs/example.key"),
+        cert: fs.readFileSync(process.env.CERTIFICATE_SSL_CERT || "./certs/example.crt"),
+    };
+    if (process.env.CERTIFICATE_SSL_CACERTS) {
+        options.ca = fs.readFileSync(process.env.CERTIFICATE_SSL_CACERTS);
+    }
+    server = https.createServer(options, app);
+    console.log("Starting server with SSL/HTTPS...");
+} else {
+    server = http.createServer(app);
+    console.log("Starting server with HTTP...");
+}
+
 initSocket(server);
 
-server.listen(process.env.PORT, () => {
-    console.log(`Server is running on port ${process.env.PORT}`);
+const port = process.env.SERVICE_PORT || process.env.PORT || 5000;
+server.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 });

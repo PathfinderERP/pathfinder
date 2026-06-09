@@ -1,6 +1,12 @@
 import LeadManagement from '../../models/LeadManagement.js';
 import User from '../../models/User.js';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { EventEmitter } from 'events';
+
+const callEvents = new EventEmitter();
+const activeCalls = new Map(); // voiceId -> agentEmail
+const apiHost = process.env.ENABLEX_API_HOST || 'api-qa.enablex.io';
 
 const formatPhoneNumber = (num) => {
     if (!num) return '';
@@ -19,94 +25,35 @@ const cleanPhoneNumber = (num) => {
     return num.replace(/\D/g, '').slice(-10); // Match last 10 digits
 };
 
-// Generates access token for EnableX WebClient WebRTC
+// Generates dummy token for client-side to bypass WebRTC registration gracefully
 export const getVoiceToken = async (req, res) => {
     try {
-        const appId = process.env.ENABLEX_APP_ID;
-        const appKey = process.env.ENABLEX_APP_KEY;
-
-        const isMockMode = !appId || appId === 'your_enablex_app_id' || !appKey || appKey === 'your_enablex_app_key';
-
-        if (isMockMode) {
-            console.log("[EnableX Voice] Credentials missing or placeholder. Returning mock voice token.");
-            return res.status(200).json({
-                token: "mock-token",
-                userId: req.user.email,
-                isMock: true
-            });
-        }
-
-        const domain = process.env.ENABLEX_DOMAIN || req.hostname;
-        console.log(`[EnableX Voice] Requesting WebClient Token for domain: ${domain}`);
-
-        const authString = Buffer.from(`${appId}:${appKey}`).toString('base64');
-        let tokenResponse;
-        try {
-            tokenResponse = await fetch('https://api.enablex.io/voice/v1/webclient/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Basic ${authString}`
-                },
-                body: JSON.stringify({ domain })
-            });
-        } catch (fetchErr) {
-            console.error('[EnableX Voice] API Connection failed, falling back to mock mode:', fetchErr.message);
-            return res.status(200).json({
-                token: "mock-token",
-                userId: req.user.email,
-                isMock: true,
-                warning: "EnableX connection failed. operating in mock mode."
-            });
-        }
-
-        if (!tokenResponse.ok) {
-            const errText = await tokenResponse.text().catch(() => "No response text");
-            console.error(`[EnableX Voice] Token generation failed with status ${tokenResponse.status}:`, errText);
-            console.warn('[EnableX Voice] Falling back to mock voice token.');
-            return res.status(200).json({
-                token: "mock-token",
-                userId: req.user.email,
-                isMock: true,
-                warning: `EnableX API returned status ${tokenResponse.status}. Operating in Mock Mode.`
-            });
-        }
-
-        let tokenData;
-        try {
-            tokenData = await tokenResponse.json();
-        } catch (jsonErr) {
-            console.error('[EnableX Voice] JSON parsing failed for token response:', jsonErr.message);
-            return res.status(200).json({
-                token: "mock-token",
-                userId: req.user.email,
-                isMock: true,
-                warning: "EnableX response was invalid JSON. Operating in Mock Mode."
-            });
-        }
-
-        res.status(200).json({
-            token: tokenData.token,
-            userId: req.user.email
+        return res.status(200).json({
+            token: "mock-token",
+            userId: req.user.email,
+            isMock: true
         });
     } catch (error) {
         console.error("EnableX Voice Token Error:", error);
-        // Fallback to mock mode even on uncaught errors
         return res.status(200).json({
             token: "mock-token",
             userId: req?.user?.email || "mock-user",
-            isMock: true,
-            warning: error.message
+            isMock: true
         });
     }
 };
 
-// Initiates outbound call via EnableX Voice API
+// Initiates outbound call via EnableX Voice API and bridges it to agent mobile
 export const initiateEnablexCall = async (req, res) => {
     try {
         const { to } = req.body;
         if (!to) {
             return res.status(400).json({ message: "Recipient number (to) is required" });
+        }
+
+        const agentPhone = req.user.mobNum;
+        if (!agentPhone) {
+            return res.status(400).json({ message: "Please configure your mobile number in your profile to bridge outbound calls." });
         }
 
         const appId = process.env.ENABLEX_APP_ID;
@@ -115,12 +62,29 @@ export const initiateEnablexCall = async (req, res) => {
 
         const isMockMode = !appId || appId === 'your_enablex_app_id' || !appKey || appKey === 'your_enablex_app_key';
 
+        const formattedTo = formatPhoneNumber(to);
+        const formattedAgentPhone = formatPhoneNumber(agentPhone);
+
         if (isMockMode) {
-            console.log(`[EnableX Voice] Mock Mode: Initiating mock outbound call to: ${to}`);
+            console.log(`[EnableX Voice] Mock Mode: Initiating mock outbound call from ${fromNumber || "MockNum"} to ${formattedTo} bridged to ${formattedAgentPhone}`);
+            const mockVoiceId = "mock_call_sid_" + Date.now();
+            activeCalls.set(mockVoiceId, req.user.email);
+
+            // Simulate events asynchronously for mock mode
+            setTimeout(() => {
+                callEvents.emit(`call_event:${req.user.email}`, {
+                    state: 'connected',
+                    voice_id: mockVoiceId,
+                    isMock: true
+                });
+            }, 3000);
+
             return res.status(200).json({
+                voice_id: mockVoiceId,
+                status: 'initiated',
                 isMock: true,
                 Call: {
-                    Sid: "mock_call_sid_" + Date.now(),
+                    Sid: mockVoiceId,
                     From: req.user.email,
                     To: to,
                     Status: "in-progress"
@@ -128,100 +92,53 @@ export const initiateEnablexCall = async (req, res) => {
             });
         }
 
-        const formattedTo = formatPhoneNumber(to);
-        const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.headers.host}`;
+        const backendUrl = process.env.PUBLIC_WEBHOOK_URL || process.env.BACKEND_URL || `${req.protocol}://${req.headers.host}`;
         const eventUrl = `${backendUrl}/api/lead-management/call/recording-callback`;
 
         const authString = Buffer.from(`${appId}:${appKey}`).toString('base64');
         const payload = {
-            name: "outbound-call",
-            from: fromNumber || "03344069212",
-            to: [formattedTo],
+            name: "outbound-call-bridge",
+            owner_ref: fromNumber,
+            from: fromNumber || "+911169040030",
+            to: formattedTo,
+            auto_record: true,
             action_on_connect: {
-                play: {
-                    text: "Connecting your call from Pathfinder CRM.",
-                    language: "en-US",
-                    voice: "female"
+                connect: {
+                    from: fromNumber,
+                    to: formattedAgentPhone
                 }
             },
             event_url: eventUrl
         };
 
-        console.log(`[EnableX Voice] Placing call to: ${formattedTo} using events url: ${eventUrl}`);
+        console.log(`[EnableX Voice] Placing bridged call to: ${formattedTo} (Agent: ${formattedAgentPhone}) using events url: ${eventUrl}`);
 
-        let response;
-        try {
-            response = await fetch('https://api.enablex.io/voice/v1/call', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Basic ${authString}`
-                },
-                body: JSON.stringify(payload)
-            });
-        } catch (fetchErr) {
-            console.error('[EnableX Voice] Outbound call API connection failed. Placing mock call:', fetchErr.message);
-            return res.status(200).json({
-                isMock: true,
-                Call: {
-                    Sid: "mock_call_sid_" + Date.now(),
-                    From: req.user.email,
-                    To: to,
-                    Status: "in-progress"
-                },
-                warning: "EnableX connection failed. Placed mock call."
-            });
-        }
+        const response = await fetch(`https://${apiHost}/voice/v1/call`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${authString}`
+            },
+            body: JSON.stringify(payload)
+        });
 
         if (!response.ok) {
             const errText = await response.text().catch(() => "No response text");
             console.error(`[EnableX Voice] Outbound call API failed with status ${response.status}:`, errText);
-            return res.status(200).json({
-                isMock: true,
-                Call: {
-                    Sid: "mock_call_sid_" + Date.now(),
-                    From: req.user.email,
-                    To: to,
-                    Status: "in-progress"
-                },
-                warning: `EnableX API returned status ${response.status}. Placed mock call.`
-            });
+            return res.status(response.status).json({ message: "Failed to initiate outbound call with EnableX", detail: errText });
         }
 
-        let responseData;
-        try {
-            responseData = await response.json();
-        } catch (jsonErr) {
-            console.error('[EnableX Voice] Outbound call failed to parse response JSON:', jsonErr.message);
-            const rawBody = await response.text().catch(() => "");
-            console.error('[EnableX Voice] Raw Response body:', rawBody);
-            return res.status(200).json({
-                isMock: true,
-                Call: {
-                    Sid: "mock_call_sid_" + Date.now(),
-                    From: req.user.email,
-                    To: to,
-                    Status: "in-progress"
-                },
-                warning: "EnableX response was invalid JSON. Placed mock call."
-            });
-        }
-
+        const responseData = await response.json();
         console.log('[EnableX Voice] Outbound call placed successfully:', responseData);
-        res.status(200).json(responseData);
 
+        if (responseData.voice_id) {
+            activeCalls.set(responseData.voice_id, req.user.email);
+        }
+
+        res.status(200).json(responseData);
     } catch (error) {
         console.error("EnableX Outbound Call Error:", error);
-        return res.status(200).json({
-            isMock: true,
-            Call: {
-                Sid: "mock_call_sid_" + Date.now(),
-                From: req?.user?.email || "mock-user",
-                To: to,
-                Status: "in-progress"
-            },
-            warning: error.message
-        });
+        res.status(500).json({ message: "Error initiating outbound call", error: error.message });
     }
 };
 
@@ -230,14 +147,39 @@ export const handleRecordingCallback = async (req, res) => {
     try {
         console.log("[EnableX Webhook] Received event payload:", JSON.stringify(req.body));
 
-        // 1. Support both EnableX webhook fields and mock payloads from frontend
-        const eventType = req.body.event || req.body.type || req.body.Status;
-        const voiceId = req.body.voice_id || req.body.call_id || req.body.CallSid;
-        const recipient = req.body.to || req.body.To;
-        const recordingUrl = req.body.recording_url || req.body.url || req.body.RecordingUrl;
-        const duration = parseInt(req.body.duration || req.body.ConversationDuration, 10) || 0;
+        let eventBody = req.body;
+        if (req.headers['x-algoritm'] !== undefined) {
+            try {
+                const key = crypto.createDecipher(req.headers['x-algoritm'], process.env.ENABLEX_APP_ID);
+                let decryptedData = key.update(req.body.encrypted_data, req.headers['x-format'], req.headers['x-encoding']);
+                decryptedData += key.final(req.headers['x-encoding']);
+                eventBody = JSON.parse(decryptedData);
+                console.log("[EnableX Webhook] Decrypted payload:", JSON.stringify(eventBody));
+            } catch (decErr) {
+                console.error("[EnableX Webhook] Failed to decrypt payload:", decErr.message);
+            }
+        }
 
-        // 2. Handle call answered event: trigger recording start
+        const eventType = eventBody.event || eventBody.type || eventBody.Status || eventBody.state;
+        const voiceId = eventBody.voice_id || eventBody.call_id || eventBody.CallSid;
+        const recipient = eventBody.to || eventBody.To;
+        const recordingUrl = eventBody.recording_url || eventBody.url || eventBody.RecordingUrl;
+        const duration = parseInt(eventBody.duration || eventBody.ConversationDuration, 10) || 0;
+
+        // 1. Broadcast call state events to active SSE client
+        if (voiceId) {
+            const agentEmail = activeCalls.get(voiceId);
+            if (agentEmail) {
+                console.log(`[EnableX Webhook] Routing event '${eventType}' to agent ${agentEmail}`);
+                callEvents.emit(`call_event:${agentEmail}`, eventBody);
+
+                if (eventType === 'disconnected') {
+                    activeCalls.delete(voiceId);
+                }
+            }
+        }
+
+        // 2. Handle call answered event: trigger recording start (fallback if auto_record didn't start)
         if (eventType === 'answered' && voiceId) {
             const appId = process.env.ENABLEX_APP_ID;
             const appKey = process.env.ENABLEX_APP_KEY;
@@ -247,7 +189,7 @@ export const handleRecordingCallback = async (req, res) => {
                 console.log(`[EnableX Webhook] Call answered. Triggering recording start for voiceId: ${voiceId}`);
                 const authString = Buffer.from(`${appId}:${appKey}`).toString('base64');
                 try {
-                    const recRes = await fetch(`https://api.enablex.io/voice/v1/call/${voiceId}/record/start`, {
+                    const recRes = await fetch(`https://${apiHost}/voice/v1/call/${voiceId}/record/start`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Basic ${authString}`,
@@ -262,7 +204,7 @@ export const handleRecordingCallback = async (req, res) => {
             }
         }
 
-        // 3. Handle recording completion or mock callback
+        // 3. Handle recording completion and save metadata to Lead record
         if (recordingUrl && recipient) {
             const cleanTo = cleanPhoneNumber(recipient);
             if (!cleanTo) {
@@ -304,7 +246,7 @@ export const handleRecordingCallback = async (req, res) => {
 
         res.status(200).send("Event processed");
     } catch (error) {
-        console.error("[EnableX Webhook] Error processing recording callback:", error);
+        console.error("[EnableX Webhook] Error processing callback:", error);
         res.status(500).send("Internal Server Error");
     }
 };
@@ -320,18 +262,16 @@ export const proxyRecording = async (req, res) => {
             return res.status(401).send("No authentication token provided");
         }
 
-        // Verify the user token
         try {
             jwt.verify(token, process.env.JWT_SECRET);
         } catch (err) {
             return res.status(401).send("Invalid or expired authentication token");
         }
 
-        // Ensure we only proxy to EnableX domains or allowed resources (including mock local urls/examples)
         const parsedUrl = new URL(url);
-        const isAllowed = parsedUrl.hostname.endsWith("enablex.io") || 
-                          parsedUrl.hostname.includes("soundhelix.com") || 
-                          process.env.NODE_ENV === 'development';
+        const isAllowed = parsedUrl.hostname.endsWith("enablex.io") ||
+            parsedUrl.hostname.includes("soundhelix.com") ||
+            process.env.NODE_ENV === 'development';
 
         if (!isAllowed) {
             return res.status(400).send("Invalid recording source");
@@ -343,7 +283,6 @@ export const proxyRecording = async (req, res) => {
 
         let response;
         if (isMockMode || parsedUrl.hostname.includes("soundhelix.com")) {
-            // For mock mode or test sound files, fetch directly without credentials
             response = await fetch(url);
         } else {
             const auth = Buffer.from(`${appId}:${appKey}`).toString("base64");
@@ -366,5 +305,83 @@ export const proxyRecording = async (req, res) => {
     } catch (error) {
         console.error("[Recording Proxy] Proxy error:", error);
         res.status(500).send("Error proxying recording");
+    }
+};
+
+// SSE stream endpoint
+export const getEventStream = async (req, res) => {
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+    });
+
+    const agentEmail = req.user.email;
+    console.log(`[SSE] Agent ${agentEmail} connected to event-stream.`);
+
+    // Send initial ping to establish connection
+    res.write(`data: ${JSON.stringify({ type: "ping", status: "connected" })}\n\n`);
+
+    const onCallEvent = (event) => {
+        console.log(`[SSE] Forwarding event to agent ${agentEmail}:`, JSON.stringify(event));
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    callEvents.on(`call_event:${agentEmail}`, onCallEvent);
+
+    req.on('close', () => {
+        console.log(`[SSE] Agent ${agentEmail} disconnected from event-stream.`);
+        callEvents.off(`call_event:${agentEmail}`, onCallEvent);
+    });
+};
+
+// Programmatically hangs up/terminates call leg
+export const hangupEnablexCall = async (req, res) => {
+    try {
+        const { voiceId } = req.body;
+        if (!voiceId) {
+            return res.status(400).json({ message: "voiceId is required to hang up call" });
+        }
+
+        const agentEmail = req.user.email;
+        const mappedEmail = activeCalls.get(voiceId);
+
+        if (mappedEmail && mappedEmail !== agentEmail) {
+            return res.status(403).json({ message: "You are not authorized to terminate this call session" });
+        }
+
+        if (voiceId.startsWith("mock_call_sid_")) {
+            console.log(`[EnableX Voice] Mock Mode: Hanging up call ${voiceId}`);
+            activeCalls.delete(voiceId);
+            callEvents.emit(`call_event:${agentEmail}`, {
+                state: 'disconnected',
+                voice_id: voiceId
+            });
+            return res.status(200).json({ message: "Mock call terminated successfully" });
+        }
+
+        const appId = process.env.ENABLEX_APP_ID;
+        const appKey = process.env.ENABLEX_APP_KEY;
+        const authString = Buffer.from(`${appId}:${appKey}`).toString('base64');
+
+        console.log(`[EnableX Voice] Terminating call ${voiceId}`);
+        const response = await fetch(`https://${apiHost}/voice/v1/call/${voiceId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Basic ${authString}`
+            }
+        });
+
+        if (!response.ok) {
+            const errText = await response.text().catch(() => "No response text");
+            console.error(`[EnableX Voice] Hang up call failed with status ${response.status}:`, errText);
+            return res.status(response.status).json({ message: "Failed to hang up call with EnableX", detail: errText });
+        }
+
+        activeCalls.delete(voiceId);
+        res.status(200).json({ message: "Call hung up successfully" });
+    } catch (error) {
+        console.error("EnableX Hangup Call Error:", error);
+        res.status(500).json({ message: "Error hanging up call", error: error.message });
     }
 };

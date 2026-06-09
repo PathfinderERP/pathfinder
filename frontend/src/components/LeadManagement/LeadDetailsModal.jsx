@@ -2,17 +2,16 @@ import React from "react";
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-// Module-level persistent state for EnableX WebRTC (preserves registration across modal open/close)
-let globalWebPhone = null;
-let globalWebSDK = null;
+// Module-level persistent state for EnableX (preserves registration across modal open/close)
+let globalEventSource = null;
+let globalActiveVoiceId = null;
 let globalIsDeviceRegistered = false;
 let globalCallStatus = "idle";
-let globalCallMessage = "";
+let globalCallMessage = "PSTN Calling Ready";
 let globalIsIncomingCall = false;
 let globalIsMuted = false;
 let globalIsOnHold = false;
 let globalCallDuration = 0;
-let globalActiveCallObj = null;
 let globalTimerId = null;
 
 // Subscribers for state updates
@@ -81,6 +80,14 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             const data = await response.json();
             if (response.ok) {
                 setUserProfile(data.user);
+                if (data.user?.mobNum) {
+                    globalIsDeviceRegistered = true;
+                    globalCallMessage = `PSTN Calling Online (${data.user.mobNum})`;
+                } else {
+                    globalIsDeviceRegistered = false;
+                    globalCallMessage = "Please add a phone number to your profile";
+                }
+                notifySubscribers();
             }
         } catch (error) {
             console.error("Error fetching profile:", error);
@@ -88,173 +95,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
     };
 
     const initWebRTC = async () => {
-        if (globalWebPhone) {
-            console.log("[EnableX WebRTC]: Using existing registered device.");
-            return;
-        }
-
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/token`, {
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || "Failed to fetch voice token");
-            }
-
-            if (!globalWebPhone) {
-                if (data.isMock || !window.EnxRtc) {
-                    console.log("[EnableX WebRTC]: Initializing Mock WebRTC Phone for local development.");
-                    
-                    const HandleCallEvents = (eventType, callObj) => {
-                        console.log("[Mock EnableX Call Event]:", eventType, callObj);
-                        globalActiveCallObj = callObj;
-                        switch (eventType) {
-                            case "incoming":
-                                globalCallStatus = "ringing";
-                                globalIsIncomingCall = true;
-                                globalCallMessage = isOutboundCallRef.current ? "Agent leg ringing (outbound)..." : "Incoming call...";
-                                notifySubscribers();
-                                break;
-                            case "connected":
-                                globalCallStatus = "connected";
-                                globalIsIncomingCall = false;
-                                globalCallMessage = "Call connected! Talk now. (EnableX Mock)";
-                                globalIsMuted = false;
-                                globalIsOnHold = false;
-                                notifySubscribers();
-                                
-                                // Start timer
-                                globalCallDuration = 0;
-                                if (globalTimerId) clearInterval(globalTimerId);
-                                globalTimerId = setInterval(() => {
-                                    globalCallDuration += 1;
-                                    notifySubscribers();
-                                }, 1000);
-                                break;
-                            case "callEnded":
-                                isOutboundCallRef.current = false;
-                                globalCallStatus = "disconnected";
-                                globalIsIncomingCall = false;
-                                globalIsMuted = false;
-                                globalIsOnHold = false;
-                                globalCallMessage = "Call disconnected.";
-                                notifySubscribers();
-                                if (globalTimerId) {
-                                    clearInterval(globalTimerId);
-                                    globalTimerId = null;
-                                }
-                                setTimeout(() => {
-                                    globalCallStatus = "idle";
-                                    notifySubscribers();
-                                }, 3000);
-                                break;
-                            case "holdtoggle":
-                                globalIsOnHold = !globalIsOnHold;
-                                notifySubscribers();
-                                break;
-                            case "mutetoggle":
-                                globalIsMuted = !globalIsMuted;
-                                notifySubscribers();
-                                break;
-                            default:
-                                break;
-                        }
-                    };
-
-                    setTimeout(() => {
-                        globalIsDeviceRegistered = true;
-                        globalCallMessage = "EnableX softphone is online (Mock Mode).";
-                        console.log('EnableX WebRTC Device registered successfully (Mock).');
-                        notifySubscribers();
-                    }, 500);
-
-                    globalWebPhone = {
-                        AcceptCall: () => {
-                            console.log("[Mock EnableX] AcceptCall called");
-                            HandleCallEvents("connected", {});
-                        },
-                        HangupCall: async () => {
-                            console.log("[Mock EnableX] HangupCall called");
-                            HandleCallEvents("callEnded", {});
-
-                            // Attempt to POST to webhook for local recording testing
-                            try {
-                                const leadNumber = lead.phoneNumber || lead.secondPhoneNumber;
-                                await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/recording-callback`, {
-                                    method: "POST",
-                                    headers: {
-                                        "Content-Type": "application/json"
-                                    },
-                                    body: JSON.stringify({
-                                        To: leadNumber,
-                                        RecordingUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-                                        ConversationDuration: globalCallDuration || 15,
-                                        CallSid: "mock_call_sid_" + Date.now(),
-                                        Status: "completed"
-                                    })
-                                });
-                                console.log("[Mock EnableX] Mock recording callback sent successfully.");
-                            } catch (err) {
-                                console.error("[Mock EnableX] Failed to trigger mock recording callback:", err);
-                            }
-                        },
-                        ToggleMute: () => {
-                            console.log("[Mock EnableX] ToggleMute called");
-                            HandleCallEvents("mutetoggle", {});
-                        },
-                        ToggleHold: () => {
-                            console.log("[Mock EnableX] ToggleHold called");
-                            HandleCallEvents("holdtoggle", {});
-                        },
-                        SendDTMF: (digit) => {
-                            console.log("[Mock EnableX] SendDTMF called with:", digit);
-                        }
-                    };
-                    return;
-                }
-
-                // If real EnableX SDK (window.EnxRtc) is available, connect using it
-                console.log("[EnableX WebRTC]: Initializing real EnableX WebRTC Voice connection.");
-                // Note: The app key is securely handled by the backend, which returns a valid web client token
-                // We initialize the EnableX voice room session with the token
-                // (This matches standard EnxRtc voice room connection patterns)
-                const localStream = await window.EnxRtc.joinRoom(data.token, {
-                    audio: true,
-                    video: false
-                });
-
-                globalIsDeviceRegistered = true;
-                globalCallMessage = "EnableX softphone is online.";
-                notifySubscribers();
-
-                globalWebPhone = {
-                    AcceptCall: () => {
-                        console.log("[EnableX WebRTC] AcceptCall");
-                    },
-                    HangupCall: () => {
-                        console.log("[EnableX WebRTC] HangupCall");
-                        localStream.disconnect();
-                    },
-                    ToggleMute: () => {
-                        console.log("[EnableX WebRTC] ToggleMute");
-                    },
-                    ToggleHold: () => {
-                        console.log("[EnableX WebRTC] ToggleHold");
-                    },
-                    SendDTMF: (digit) => {
-                        console.log("[EnableX WebRTC] SendDTMF:", digit);
-                    }
-                };
-            }
-        } catch (error) {
-            console.error("WebRTC initialization error:", error);
-            globalCallMessage = "Calling capability offline.";
-            notifySubscribers();
-        }
+        // PSTN Bridging replaces browser WebRTC, so WebRTC initialization is not required.
     };
 
     React.useEffect(() => {
@@ -262,10 +103,9 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             setRecordings((lead.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
         }
         fetchUserProfile();
-        initWebRTC();
 
         return () => {
-            // Keep WebRTC online. Do not unregister globalWebPhone.
+            // Keep state intact
         };
     }, [lead]);
 
@@ -284,27 +124,16 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
         leadNumber = leadNumber.replace(/[^\d+]/g, "");
 
+        if (!globalIsDeviceRegistered) {
+            toast.error("You must have a mobile number configured in your profile to place bridged calls.");
+            return;
+        }
+
         globalCallStatus = "connecting";
-        globalCallMessage = "Requesting microphone permissions...";
+        globalCallMessage = "Dialing lead phone number...";
         notifySubscribers();
 
         try {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-
-            if (!globalWebPhone) {
-                globalCallMessage = "Initializing WebRTC device...";
-                notifySubscribers();
-                await initWebRTC();
-            }
-
-            if (!globalWebPhone) {
-                throw new Error("EnableX softphone is not initialized.");
-            }
-
-            globalCallMessage = "Connecting call...";
-            notifySubscribers();
-            isOutboundCallRef.current = true;
-
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/outbound-call`, {
                 method: "POST",
@@ -323,82 +152,144 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             const callData = await response.json();
             console.log("[EnableX Outbound Call Success]:", callData);
 
-            if (callData.isMock) {
-                globalCallStatus = "ringing";
-                globalIsIncomingCall = true;
-                globalCallMessage = "Agent WebSDK softphone is ringing (Mock Mode)...";
-                notifySubscribers();
-                return;
+            if (callData.voice_id) {
+                globalActiveVoiceId = callData.voice_id;
             }
 
             globalCallStatus = "ringing";
-            globalIsIncomingCall = true;
-            globalCallMessage = "Agent EnableX softphone is ringing...";
+            globalCallMessage = "Dialing lead. Check your physical phone...";
             notifySubscribers();
 
+            if (globalEventSource) {
+                globalEventSource.close();
+            }
+
+            const sseUrl = `${import.meta.env.VITE_API_URL}/lead-management/call/event-stream?token=${encodeURIComponent(token)}`;
+            globalEventSource = new EventSource(sseUrl);
+
+            globalEventSource.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    console.log("[SSE Event Received]:", data);
+                    
+                    if (data.type === "ping") return;
+
+                    const state = data.state || data.Status || data.event;
+                    
+                    if (state === "connected") {
+                        globalCallStatus = "connected";
+                        globalCallMessage = "Connected (Call Bridged)";
+                        
+                        globalCallDuration = 0;
+                        if (globalTimerId) clearInterval(globalTimerId);
+                        globalTimerId = setInterval(() => {
+                            globalCallDuration += 1;
+                            notifySubscribers();
+                        }, 1000);
+                        
+                        notifySubscribers();
+                        toast.success("Call connected & bridged successfully!");
+                    } else if (state === "disconnected" || state === "completed" || state === "failed") {
+                        globalCallStatus = "disconnected";
+                        globalCallMessage = `Call disconnected (${state}).`;
+                        
+                        if (globalTimerId) {
+                            clearInterval(globalTimerId);
+                            globalTimerId = null;
+                        }
+                        notifySubscribers();
+
+                        if (globalEventSource) {
+                            globalEventSource.close();
+                            globalEventSource = null;
+                        }
+
+                        setTimeout(() => {
+                            globalCallStatus = "idle";
+                            globalCallMessage = userProfile?.mobNum ? `PSTN Calling Online (${userProfile.mobNum})` : "PSTN Calling Ready";
+                            notifySubscribers();
+                        }, 3000);
+                    }
+                } catch (err) {
+                    console.error("[SSE Parsing Error]:", err);
+                }
+            };
+
+            globalEventSource.onerror = (err) => {
+                console.error("[SSE Connection Error]:", err);
+                if (globalEventSource) {
+                    globalEventSource.close();
+                    globalEventSource = null;
+                }
+            };
+
         } catch (error) {
-            isOutboundCallRef.current = false;
-            console.error("Outbound WebRTC call error:", error);
+            console.error("Outbound call error:", error);
             globalCallStatus = "error";
-            globalCallMessage = error.message || "Failed to initialize WebRTC call.";
+            globalCallMessage = error.message || "Failed to initiate bridged call.";
             notifySubscribers();
-            toast.error(error.message || "Microphone access denied or connection failed.");
+            toast.error(error.message || "Outbound call failed.");
             setTimeout(() => {
                 globalCallStatus = "idle";
+                globalCallMessage = userProfile?.mobNum ? `PSTN Calling Online (${userProfile.mobNum})` : "PSTN Calling Ready";
                 notifySubscribers();
             }, 3000);
         }
     };
 
-    const handleHangUp = () => {
-        isOutboundCallRef.current = false;
-        if (globalWebPhone) {
-            globalWebPhone.HangupCall();
+    const handleHangUp = async () => {
+        if (globalEventSource) {
+            globalEventSource.close();
+            globalEventSource = null;
         }
         if (globalTimerId) {
             clearInterval(globalTimerId);
             globalTimerId = null;
         }
+
+        const voiceId = globalActiveVoiceId;
         globalCallStatus = "disconnected";
-        globalIsIncomingCall = false;
-        globalIsMuted = false;
-        globalIsOnHold = false;
-        globalCallMessage = "Call hung up by agent.";
+        globalCallMessage = "Disconnecting call...";
         notifySubscribers();
+
+        if (voiceId) {
+            try {
+                const token = localStorage.getItem("token");
+                await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/hangup`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ voiceId })
+                });
+            } catch (err) {
+                console.error("Error hanging up call on server:", err);
+            }
+            globalActiveVoiceId = null;
+        }
+
         setTimeout(() => {
             globalCallStatus = "idle";
+            globalCallMessage = userProfile?.mobNum ? `PSTN Calling Online (${userProfile.mobNum})` : "PSTN Calling Ready";
             notifySubscribers();
         }, 3000);
     };
 
     const handleToggleMute = () => {
-        if (!globalWebPhone) return;
-        debounceClick(lastMuteClick, () => {
-            globalWebPhone.ToggleMute();
-        });
+        toast.info("Please use your physical phone to mute/unmute the call.");
     };
 
     const handleToggleHold = () => {
-        if (!globalWebPhone) return;
-        debounceClick(lastHoldClick, () => {
-            globalWebPhone.ToggleHold();
-        });
+        toast.info("Please use your physical phone to hold/resume the call.");
     };
 
     const handleSendDTMF = (digit) => {
-        if (!globalWebPhone) return;
-        globalWebPhone.SendDTMF(digit.toString());
-        toast.info(`Sent tone: ${digit}`, { autoClose: 1000 });
+        toast.info("Please use your physical phone dialer.");
     };
 
     const handleAcceptCall = () => {
-        if (!globalWebPhone) return;
-        globalWebPhone.AcceptCall();
-        globalCallStatus = "connected";
-        globalIsIncomingCall = false;
-        globalIsMuted = false;
-        globalIsOnHold = false;
-        notifySubscribers();
+        // PSTN calls are answered directly on the handset
     };
 
     const getAudioUrl = (url) => {
