@@ -516,15 +516,7 @@ const DailyTrackingLog = () => {
                     </div>
                 </div>
 
-                {/* Loading Indicator */}
-                {loading && (
-                    <div className="flex items-center justify-center p-12">
-                        <FaSpinner className="animate-spin text-3xl text-indigo-500 mr-2" />
-                        <span className="text-gray-500 font-medium">Fetching activities...</span>
-                    </div>
-                )}
-
-                {!loading && activeTab === "myLog" && (
+                {activeTab === "myLog" && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Left side: Add activity form */}
                         <div className="lg:col-span-1">
@@ -609,7 +601,12 @@ const DailyTrackingLog = () => {
                                     </span>
                                 </div>
 
-                                {myActivities.length === 0 ? (
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <FaSpinner className="animate-spin text-3xl text-indigo-500 mr-2" />
+                                        <span className="text-gray-500 font-medium">Fetching activities...</span>
+                                    </div>
+                                ) : myActivities.length === 0 ? (
                                     <div className="text-center py-12 flex flex-col items-center justify-center">
                                         <FaHistory className={`text-4xl mb-3 ${isDarkMode ? "text-gray-700" : "text-gray-300"}`} />
                                         <p className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>No activity logs found for today.</p>
@@ -775,7 +772,7 @@ const DailyTrackingLog = () => {
                     </div>
                 )}
 
-                {!loading && activeTab === "deptBoard" && (
+                {activeTab === "deptBoard" && (
                     <div>
                         {/* Filters dashboard panel */}
                         <div className={`p-5 rounded-2xl border mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
@@ -833,7 +830,12 @@ const DailyTrackingLog = () => {
                         </div>
 
                         {/* Employee Logs Grid */}
-                        {boardLogs.length === 0 ? (
+                        {loading ? (
+                            <div className="flex items-center justify-center p-12">
+                                <FaSpinner className="animate-spin text-3xl text-indigo-500 mr-2" />
+                                <span className="text-gray-500 font-medium">Fetching activities...</span>
+                            </div>
+                        ) : boardLogs.length === 0 ? (
                             <div className="text-center py-16 flex flex-col items-center justify-center">
                                 <FaBuilding className={`text-5xl mb-3 ${isDarkMode ? "text-gray-700" : "text-gray-300"}`} />
                                 <p className="text-gray-500 text-sm font-medium">No tracking logs found on the board for today.</p>
