@@ -19,6 +19,8 @@ const PettyCashRequestApproval = () => {
     const [approvedAmount, setApprovedAmount] = useState("");
     const [remarks, setRemarks] = useState("");
     const [employees, setEmployees] = useState([]);
+    const [showRemarksModal, setShowRemarksModal] = useState(false);
+    const [viewRemarks, setViewRemarks] = useState("");
     const [showEditModal, setShowEditModal] = useState(false);
     const [editFormData, setEditFormData] = useState({
         id: "",
@@ -354,7 +356,20 @@ const PettyCashRequestApproval = () => {
                                                 )}
                                             </td>
                                             <td className="p-4 text-xs font-bold text-gray-400 uppercase">{item.approvedBy?.name || "-"}</td>
-                                            <td className="p-4 text-xs text-gray-400 max-w-[150px] truncate" title={item.remarks}>{item.remarks || "-"}</td>
+                                            <td className="p-4 text-xs text-gray-400 max-w-[150px]">
+                                                <div 
+                                                    className={`truncate ${item.remarks ? 'cursor-pointer hover:text-blue-400 transition-colors' : ''}`}
+                                                    onClick={() => {
+                                                        if (item.remarks) {
+                                                            setViewRemarks(item.remarks);
+                                                            setShowRemarksModal(true);
+                                                        }
+                                                    }}
+                                                    title={item.remarks ? "Click to view full remarks" : ""}
+                                                >
+                                                    {item.remarks || "-"}
+                                                </div>
+                                            </td>
                                             <td className="p-4">
                                                 <div className="flex justify-center items-center gap-3">
                                                     {item.status === 'pending' && canApprove && (
@@ -657,6 +672,29 @@ const PettyCashRequestApproval = () => {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Remarks View Modal */}
+                {showRemarksModal && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                        <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold">Remarks Details</h3>
+                                <button onClick={() => setShowRemarksModal(false)} className="text-gray-400 hover:text-white transition-colors"><FaTimes /></button>
+                            </div>
+                            <div className="bg-[#131619] border border-gray-800 rounded-lg p-4 text-gray-300 text-sm leading-relaxed max-h-[60vh] overflow-y-auto whitespace-pre-wrap">
+                                {viewRemarks}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setShowRemarksModal(false)}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg shadow-blue-900/20 transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
