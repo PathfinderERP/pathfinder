@@ -237,6 +237,7 @@ const AdmissionCourseReport = () => {
                                 courseName:  r.courseName || "—",
                                 className:   r.className  || "—",
                                 monthName:   r.monthName  || MONTHS[(r.month || 1) - 1],
+                                date:        r.date       || "—",
                                 count:       r.count      || 0,
                                 downPayment: r.downPayment || 0,
                             }));
@@ -252,6 +253,7 @@ const AdmissionCourseReport = () => {
                             courseName:  "—",
                             className:   "—",
                             monthName:   "—",
+                            date:        "—",
                             count:       total,
                             downPayment: 0,
                         }];
@@ -337,6 +339,7 @@ const AdmissionCourseReport = () => {
         // Detailed Report Export
         const detailExportData = rows.map((r, i) => ({
             "#":               i + 1,
+            "Date":            r.date,
             "Exam Tag":        r.examTagName,
             "Centre":          r.centreName,
             "Course":          r.courseName,
@@ -611,6 +614,7 @@ const AdmissionCourseReport = () => {
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                    <th className={thCls}>Date</th>
                                     <th className={thCls}>Course Name</th>
                                     <th className={thCls}>Class</th>
                                     <th className={thCls}>Month</th>
@@ -620,6 +624,9 @@ const AdmissionCourseReport = () => {
                             <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
                                 {selectedCell.details.map((detail, idx) => (
                                     <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={`${tdCls} text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                            {detail.date}
+                                        </td>
                                         <td className={tdCls}>
                                             <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
                                                 {detail.courseName}
@@ -641,7 +648,7 @@ const AdmissionCourseReport = () => {
                             </tbody>
                             <tfoot>
                                 <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
-                                    <td colSpan={3} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                    <td colSpan={4} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
                                     <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
                                         {selectedCell.details.reduce((a, d) => a + d.count, 0).toLocaleString("en-IN")}
                                     </td>

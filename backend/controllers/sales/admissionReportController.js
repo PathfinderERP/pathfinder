@@ -295,6 +295,7 @@ export const getAdmissionReport = async (req, res) => {
             {
                 $group: {
                     _id: {
+                        date: { $dateToString: { format: "%d-%m-%Y", date: "$admissionDate" } },
                         month: { $month: "$admissionDate" },
                         centre: "$centre",
                         course: "$course",
@@ -326,6 +327,7 @@ export const getAdmissionReport = async (req, res) => {
             { $unwind: { path: "$classInfo", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
+                    date: "$_id.date",
                     month: "$_id.month",
                     centre: "$_id.centre",
                     courseName: { $ifNull: ["$courseInfo.courseName", "$_id.boardCourseName", "Generic Admission"] },
@@ -335,7 +337,7 @@ export const getAdmissionReport = async (req, res) => {
                     _id: 0
                 }
             },
-            { $sort: { month: 1, centre: 1 } }
+            { $sort: { month: 1, date: 1, centre: 1 } }
         ]);
 
 
