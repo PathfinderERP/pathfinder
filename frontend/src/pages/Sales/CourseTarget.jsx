@@ -148,7 +148,7 @@ const CourseTarget = () => {
             // Exclude deactive centres
             centerList = centerList.filter(c => c.status !== 'deactive');
 
-            centerList = centerList.sort((a, b) => a.centreName.localeCompare(b.centreName));
+            centerList = centerList.sort((a, b) => (a.centreName || "").localeCompare((b.centreName || ""), undefined, { sensitivity: 'base' }));
             setCentres(centerList);
             if (centerList.length > 0) {
                 const allIds = centerList.map(c => c._id);
@@ -203,7 +203,9 @@ const CourseTarget = () => {
             });
 
             console.log("Analysis Data Received:", res.data.data?.length, "centres");
-            setData(res.data.data || []);
+            let fetchedData = res.data.data || [];
+            fetchedData.sort((a, b) => (a.centreName || "").localeCompare((b.centreName || ""), undefined, { sensitivity: 'base' }));
+            setData(fetchedData);
 
         } catch (e) {
             console.error(e);
