@@ -13,7 +13,7 @@ dotenv.config();
  * CONFIGURATION
  */
 const MONGO_URL = process.env.MONGO_URL || "mongodb+srv://pathtex:pathtex@pathtex.ariihtc.mongodb.net/PATHFINDER_NEW";
-const ADMIN_ID = "69ccfffdd74b678e3a08afc3"; // Default Admin: Malay Maity
+const ADMIN_ID = "6970c4129590082b81674b65"; // Default Admin: Malay Maity
 const GENERATE_BILL = false; // Set to true if payment records/bills are needed
 
 /**
