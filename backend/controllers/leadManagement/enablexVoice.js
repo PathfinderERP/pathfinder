@@ -150,6 +150,9 @@ export const handleRecordingCallback = async (req, res) => {
         let eventBody = req.body;
         if (req.headers['x-algoritm'] !== undefined) {
             try {
+                if (typeof crypto.createDecipher !== 'function') {
+                    throw new Error("crypto.createDecipher is not supported in this Node.js version. Disable encryption on the EnableX portal or upgrade this handler.");
+                }
                 const key = crypto.createDecipher(req.headers['x-algoritm'], process.env.ENABLEX_APP_ID);
                 let decryptedData = key.update(req.body.encrypted_data, req.headers['x-format'], req.headers['x-encoding']);
                 decryptedData += key.final(req.headers['x-encoding']);
@@ -173,7 +176,7 @@ export const handleRecordingCallback = async (req, res) => {
                 console.log(`[EnableX Webhook] Routing event '${eventType}' to agent ${agentEmail}`);
                 callEvents.emit(`call_event:${agentEmail}`, eventBody);
 
-                if (eventType === 'disconnected') {
+                if (['disconnected', 'completed', 'failed', 'bridged-party-disconnected'].includes(eventType)) {
                     activeCalls.delete(voiceId);
                 }
             }
@@ -374,6 +377,22 @@ export const hangupEnablexCall = async (req, res) => {
 
         if (!response.ok) {
             const errText = await response.text().catch(() => "No response text");
+            
+            // Check if call was already hung up/inactive (EnableX returns 404 with result 6110 "Application not found")
+            let isAlreadyEnded = false;
+            try {
+                const parsed = JSON.parse(errText);
+                if (response.status === 404 || parsed.result === 6110 || parsed.event_code === "6110" || parsed.statusCode === 404) {
+                    isAlreadyEnded = true;
+                }
+            } catch (e) {}
+
+            if (isAlreadyEnded) {
+                console.log(`[EnableX Voice] Call ${voiceId} was already inactive/terminated on EnableX.`);
+                activeCalls.delete(voiceId);
+                return res.status(200).json({ message: "Call session already terminated" });
+            }
+
             console.error(`[EnableX Voice] Hang up call failed with status ${response.status}:`, errText);
             return res.status(response.status).json({ message: "Failed to hang up call with EnableX", detail: errText });
         }
