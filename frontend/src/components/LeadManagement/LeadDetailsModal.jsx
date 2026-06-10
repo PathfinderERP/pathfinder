@@ -189,7 +189,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                         
                         notifySubscribers();
                         toast.success("Call connected & bridged successfully!");
-                    } else if (state === "disconnected" || state === "completed" || state === "failed") {
+                    } else if (state === "disconnected" || state === "completed" || state === "failed" || state === "bridged-party-disconnected") {
                         globalCallStatus = "disconnected";
                         globalCallMessage = `Call disconnected (${state}).`;
                         
