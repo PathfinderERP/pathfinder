@@ -384,10 +384,15 @@ const DailyTrackingLog = () => {
             }
         };
 
-        const timeParts = activity.time.split(" - ");
-        if (timeParts.length === 2) {
-            setEditStartTime(parseTimeTo24h(timeParts[0]));
-            setEditEndTime(parseTimeTo24h(timeParts[1]));
+        if (activity.time) {
+            const timeParts = activity.time.split(" - ");
+            if (timeParts.length === 2) {
+                setEditStartTime(parseTimeTo24h(timeParts[0]));
+                setEditEndTime(parseTimeTo24h(timeParts[1]));
+            } else {
+                setEditStartTime("09:00");
+                setEditEndTime("10:00");
+            }
         } else {
             setEditStartTime("09:00");
             setEditEndTime("10:00");
