@@ -205,7 +205,7 @@ export const getTransactionReport = async (req, res) => {
             { $match: baseAttributesMatch },
             {
                 $addFields: {
-                    reportDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] },
+                    reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] },
                     revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
                 }
             },
@@ -258,7 +258,7 @@ export const getTransactionReport = async (req, res) => {
         // Process Detailed Report (Separate Query for Flattened Data)
         const detailedPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] } } },
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
         ];
 
         if (paymentMatch.isDateFiltered) {
@@ -491,7 +491,7 @@ export const getTransactionReport = async (req, res) => {
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }, "$createdAt"] } } }
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } }
         ];
 
         if (needsAdmissionLookup) {

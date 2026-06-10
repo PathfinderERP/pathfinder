@@ -279,7 +279,7 @@ const TransactionList = () => {
         .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"));
 
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
-    const hasActiveFilters = 
+    const hasActiveFilters =
         selectedCentres.length > 0 ||
         selectedCourses.length > 0 ||
         selectedExamTag !== "" ||
@@ -794,7 +794,7 @@ const TransactionList = () => {
                 <div className={`${cardBg} p-2 rounded-xl shadow-sm ${cardBorder}`}>
                     <div className="flex flex-wrap items-center gap-4">
                         <div className={`flex items-center gap-2 ${innerBox} p-2 rounded-lg flex-1 min-w-[300px]`}>
-                            <span className={`text-[10px] font-black ${subText} uppercase tracking-widest px-2`}>Duration:</span>
+                            <span className={`text-[10px] font-black ${subText} uppercase tracking-widest px-2`}>Paid Date:</span>
                             <input
                                 type="date"
                                 value={startDate}
