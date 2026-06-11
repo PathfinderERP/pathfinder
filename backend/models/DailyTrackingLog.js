@@ -41,6 +41,11 @@ const dailyTrackingLogSchema = new mongoose.Schema({
             enum: ['In Progress', 'Completed'],
             default: 'Completed'
         },
+        centre: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'CentreSchema',
+            required: false
+        },
         createdAt: {
             type: Date,
             default: Date.now

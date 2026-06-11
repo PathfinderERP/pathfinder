@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import DailyTrackingLog from "../models/DailyTrackingLog.js";
 import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
+import CentreSchema from "../models/Master_data/Centre.js";
 import XLSX from "xlsx";
 
 // Helper to get midnight in India Standard Time as a standardized UTC Date object
@@ -52,7 +53,7 @@ const mapRoleToDepartment = (role) => {
 // Add a new activity to today's log
 export const addOrUpdateActivity = async (req, res) => {
     try {
-        const { time, workDetails, completedWork, status } = req.body;
+        const { time, workDetails, completedWork, status, centre } = req.body;
         if (!workDetails) {
             return res.status(400).json({ message: "Work Details are required." });
         }
@@ -83,7 +84,8 @@ export const addOrUpdateActivity = async (req, res) => {
             time,
             workDetails,
             completedWork: completedWork || "",
-            status: status || "Completed"
+            status: status || "Completed",
+            centre: centre || null
         });
 
         await log.save();
@@ -106,7 +108,7 @@ export const getMyLog = async (req, res) => {
         const log = await DailyTrackingLog.findOne({ 
             user: req.user._id, 
             date: { $gte: startRange, $lt: endRange } 
-        });
+        }).populate("activities.centre", "centreName enterCode");
         res.status(200).json({ log: log || { activities: [] } });
     } catch (error) {
         console.error("Error fetching my tracking log:", error);
@@ -272,7 +274,8 @@ const getLogsDataHelper = async (req) => {
     };
 
     const logs = await DailyTrackingLog.find(logQuery)
-        .populate("user", "name role designation profileImage");
+        .populate("user", "name role designation profileImage")
+        .populate("activities.centre", "centreName enterCode");
 
     // Map logs by user ID string
     const logMap = new Map();
@@ -372,6 +375,7 @@ export const exportDepartmentLogs = async (req, res) => {
                 for (const act of log.activities) {
                     reportData.push({
                         ...rowBase,
+                        "Activity Centre": act.centre?.centreName || "N/A",
                         "Status": act.status || "Completed",
                         "Work Details": act.workDetails || "N/A",
                         "Completed Work / Deliverables": act.completedWork || "N/A"
@@ -380,6 +384,7 @@ export const exportDepartmentLogs = async (req, res) => {
             } else {
                 reportData.push({
                     ...rowBase,
+                    "Activity Centre": "N/A",
                     "Status": "No Entry",
                     "Work Details": "No activities logged today.",
                     "Completed Work / Deliverables": "N/A"
@@ -408,7 +413,7 @@ export const exportDepartmentLogs = async (req, res) => {
 export const updateActivity = async (req, res) => {
     try {
         const { logId, activityId } = req.params;
-        const { time, workDetails, completedWork, status } = req.body;
+        const { time, workDetails, completedWork, status, centre } = req.body;
 
         const log = await DailyTrackingLog.findById(logId);
         if (!log) {
@@ -431,6 +436,7 @@ export const updateActivity = async (req, res) => {
         if (workDetails !== undefined) activity.workDetails = workDetails;
         if (completedWork !== undefined) activity.completedWork = completedWork;
         if (status !== undefined) activity.status = status;
+        if (centre !== undefined) activity.centre = centre || null;
 
         await log.save();
 
