@@ -349,18 +349,51 @@ const AdmissionCourseReport = () => {
         const ws = XLSX.utils.json_to_sheet(pivotExportData);
         XLSX.utils.book_append_sheet(wb, ws, "Pivot_Report");
 
-        // Detailed Report Export
-        const detailExportData = rows.map((r, i) => ({
-            "#":               i + 1,
-            "Date":            r.date,
-            "Exam Tag":        r.examTagName,
-            "Centre":          r.centreName,
-            "Course":          r.courseName,
-            "Class":           r.className,
-            "Month":           r.monthName,
-            "Admissions":      r.count,
-            "Down Payment":    r.downPayment || 0,
-        }));
+        // Detailed Report Export - ensure all filtered centres appear
+        // Group existing rows by centre name for quick lookup
+        const rowsByCentre = {};
+        rows.forEach(r => {
+            if (!rowsByCentre[r.centreName]) {
+                rowsByCentre[r.centreName] = [];
+            }
+            rowsByCentre[r.centreName].push(r);
+        });
+
+        const detailExportData = [];
+        let counter = 1;
+
+        filteredCentres.forEach(c => {
+            const centreRows = rowsByCentre[c] || [];
+            if (centreRows.length > 0) {
+                centreRows.forEach(r => {
+                    detailExportData.push({
+                        "#":               counter++,
+                        "Date":            r.date,
+                        "Exam Tag":        r.examTagName,
+                        "Centre":          r.centreName,
+                        "Course":          r.courseName,
+                        "Class":           r.className,
+                        "Month":           r.monthName,
+                        "Admissions":      r.count,
+                        "Down Payment":    r.downPayment || 0,
+                    });
+                });
+            } else {
+                // Generate a placeholder row for centres with 0 admissions
+                detailExportData.push({
+                    "#":               counter++,
+                    "Date":            "—",
+                    "Exam Tag":        "—",
+                    "Centre":          c,
+                    "Course":          "—",
+                    "Class":           "—",
+                    "Month":           "—",
+                    "Admissions":      0,
+                    "Down Payment":    0,
+                });
+            }
+        });
+
         const wsDetail = XLSX.utils.json_to_sheet(detailExportData);
         XLSX.utils.book_append_sheet(wb, wsDetail, "Detailed_Report");
 

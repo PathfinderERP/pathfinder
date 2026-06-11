@@ -67,6 +67,12 @@ export const checkOverduePayments = async () => {
                 }
             }
             if (modified) {
+                // Sanitize any invalid legacy data like paymentMethod = "0" or 0 to avoid Mongoose validation failure
+                for (const p of admission.paymentBreakdown) {
+                    if (p.paymentMethod === "0" || p.paymentMethod === 0) {
+                        p.paymentMethod = null;
+                    }
+                }
                 await admission.save();
             }
         }
