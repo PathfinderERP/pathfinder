@@ -27,7 +27,8 @@ const TrainingList = () => {
         description: "",
         category: "General",
         visibility: "All",
-        assignedTo: []
+        assignedTo: [],
+        videoUrl: ""
     });
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
@@ -83,8 +84,8 @@ const TrainingList = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (files.length === 0 && !isEditMode) {
-            toast.error("Please select at least one file");
+        if (files.length === 0 && !formData.videoUrl && !isEditMode) {
+            toast.error("Please select at least one file or provide a video link");
             return;
         }
 
@@ -95,6 +96,7 @@ const TrainingList = () => {
         data.append("category", formData.category);
         data.append("visibility", formData.visibility);
         data.append("assignedTo", JSON.stringify(formData.assignedTo));
+        data.append("videoUrl", formData.videoUrl);
 
         files.forEach(file => {
             data.append("files", file);
@@ -154,7 +156,8 @@ const TrainingList = () => {
             description: "",
             category: "General",
             visibility: "All",
-            assignedTo: []
+            assignedTo: [],
+            videoUrl: ""
         });
         setFiles([]);
         setIsEditMode(false);
@@ -168,7 +171,8 @@ const TrainingList = () => {
             description: training.description,
             category: training.category,
             visibility: training.visibility,
-            assignedTo: training.assignedTo?.map(e => e._id) || []
+            assignedTo: training.assignedTo?.map(e => e._id) || [],
+            videoUrl: training.videoUrl || ""
         });
         setFiles([]); // For edit, only add if new files are selected
         setIsEditMode(true);
@@ -242,6 +246,15 @@ const TrainingList = () => {
 
                                 <div className="space-y-2 mt-auto">
                                     <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-2 border-b border-gray-800 pb-1">Attachments ({training.files?.length || 0})</p>
+                                    {training.videoUrl && (
+                                        <div className="flex items-center justify-between text-[11px] text-gray-400 bg-blue-950/20 border border-blue-500/10 p-2 rounded-lg truncate">
+                                            <div className="flex items-center gap-2 truncate">
+                                                <FaVideo className="text-blue-400 shrink-0" size={14} />
+                                                <span className="truncate font-semibold text-blue-300">Video Lesson</span>
+                                            </div>
+                                            <a href={training.videoUrl} target="_blank" rel="noreferrer" className="text-cyan-500 hover:underline shrink-0">Open Link</a>
+                                        </div>
+                                    )}
                                     {training.files?.slice(0, 3).map((f, i) => (
                                         <div key={i} className="flex items-center justify-between text-[11px] text-gray-400 bg-gray-800/20 p-2 rounded-lg truncate">
                                             <div className="flex items-center gap-2 truncate">
@@ -281,6 +294,10 @@ const TrainingList = () => {
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Description</label>
                                 <textarea className="w-full bg-[#1a1f24] border border-gray-800 rounded-xl py-3 px-4 text-gray-300 h-24 resize-none outline-none focus:ring-1 focus:ring-cyan-500" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Video Link (Optional)</label>
+                                <input type="url" placeholder="https://example.com/video" className="w-full bg-[#1a1f24] border border-gray-800 rounded-xl py-3 px-4 text-gray-300 focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-gray-700" value={formData.videoUrl} onChange={e => setFormData({ ...formData, videoUrl: e.target.value })} />
                             </div>
 
                             {/* File Upload Area */}
