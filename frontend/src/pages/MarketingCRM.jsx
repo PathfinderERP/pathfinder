@@ -380,9 +380,53 @@ const MarketingCRM = () => {
         });
     };
 
-    const handleDeleteTomorrowTask = (taskId) => {
+    const handleDeleteTomorrowTask = async (taskId) => {
+        if (!taskId) return;
+
+        // 1. Remove from local Tomorrow Tasks state immediately
         setTomorrowTasks(prev => prev.filter(t => t._id !== taskId));
-        toast.success("Task removed from list.");
+
+        // 2. If planDate matches tomorrowPlanDate, also remove from Today Activities state
+        if (planDate === tomorrowPlanDate) {
+            setTodayActivities(prev => prev.filter(t => t._id !== taskId));
+        }
+
+        // 3. If it's a temporary local task (starts with temp_), we are done
+        if (typeof taskId === "string" && taskId.startsWith("temp_")) {
+            toast.success("Task removed from list.");
+            return;
+        }
+
+        // 4. Otherwise, delete from backend MongoDB via DELETE request
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/${tomorrowPlanId}/task/${taskId}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                toast.success("Task deleted successfully.");
+            } else {
+                const errData = await response.json();
+                toast.error(errData.message || "Failed to delete task from server.");
+                // Refetch on failure to restore state
+                fetchTomorrowPlan();
+                if (planDate === tomorrowPlanDate) {
+                    fetchTodayPlanActivities();
+                }
+            }
+        } catch (error) {
+            console.error("Error deleting tomorrow task:", error);
+            toast.error("Failed to delete task due to network error.");
+            // Refetch on error to restore state
+            fetchTomorrowPlan();
+            if (planDate === tomorrowPlanDate) {
+                fetchTodayPlanActivities();
+            }
+        }
     };
 
     const handleSaveTomorrowPlan = async () => {
