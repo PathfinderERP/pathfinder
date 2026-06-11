@@ -290,10 +290,23 @@ const AdmissionCourseReport = () => {
     const tagIndexMap = {};
     [...new Set(rows.map(r => r.examTagId))].forEach((id, i) => { tagIndexMap[id] = i; });
 
+    // Build the full list of centres to display:
+    // Start from the master centres list (respecting the centre filter dropdown),
+    // then merge in any centre names that came back in the rows data (edge cases).
+    // This ensures centres with 0 admissions still appear in the table and Excel export.
+    const masterCentreNames = (
+        selCentres.length > 0
+            ? centres.filter(c => selCentres.includes(c._id))
+            : centres
+    ).map(c => c.centreName);
+
+    const rowCentreNames = rows.map(r => r.centreName);
+    const allCentreNames = [...new Set([...masterCentreNames, ...rowCentreNames])];
+
     // Search (filter centres based on search term)
-    const filteredCentres = [...new Set(rows.map(r => r.centreName))].filter(c =>
-        !search || (c || "").toLowerCase().includes(search.toLowerCase())
-    ).sort();
+    const filteredCentres = allCentreNames
+        .filter(c => !search || (c || "").toLowerCase().includes(search.toLowerCase()))
+        .sort();
 
     // Pivot Data Structure
     // pivotData[centreName][examTagName] = { count: 0, details: [] }
@@ -317,15 +330,15 @@ const AdmissionCourseReport = () => {
 
     // ── excel export ──────────────────────────────────────────────────────────
     const handleExport = () => {
-        if (!uniqueTags.length || !filteredCentres.length) return;
+        if (!filteredCentres.length) return;
         const wb   = XLSX.utils.book_new();
         
-        // Pivot Table Export
+        // Pivot Table Export — includes centres with 0 admissions (all tag counts will be 0)
         const pivotExportData = filteredCentres.map(c => {
             const rowObj = { "Centre": c };
             let total = 0;
             uniqueTags.forEach(t => {
-                const count = pivotData[c][t]?.count || 0;
+                const count = pivotData[c]?.[t]?.count || 0;
                 rowObj[t] = count;
                 total += count;
             });
