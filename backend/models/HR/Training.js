@@ -15,7 +15,8 @@ const trainingSchema = new mongoose.Schema({
     visibility: { type: String, enum: ["All", "Specific"], default: "All" },
     assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "Employee" }],
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    files: [fileSchema]
+    files: [fileSchema],
+    videoUrl: { type: String }
 }, { timestamps: true });
 
 const Training = mongoose.model("Training", trainingSchema);

@@ -163,6 +163,21 @@ const TrainingCenter = () => {
 
                                     {/* Files Section within Card */}
                                     <div className={`space-y-3 mt-auto pt-6 border-t ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                         {training.videoUrl && (
+                                             <a
+                                                 href={training.videoUrl}
+                                                 target="_blank"
+                                                 rel="noopener noreferrer"
+                                                 className={`w-full py-3.5 px-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-300 border mb-4 ${
+                                                     isDarkMode
+                                                         ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500 hover:text-[#1a1f24] hover:border-cyan-500 hover:shadow-xl hover:shadow-cyan-500/10"
+                                                         : "bg-cyan-50 text-cyan-600 border-cyan-200 hover:bg-cyan-600 hover:text-white hover:border-cyan-600 hover:shadow-xl hover:shadow-cyan-600/10"
+                                                 }`}
+                                             >
+                                                 <FaVideo className="text-sm shrink-0" />
+                                                 Watch Video Lesson
+                                             </a>
+                                         )}
                                         <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Module Content ({training.files?.length || 0})</p>
                                         <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                                             {training.files?.map((file, idx) => (

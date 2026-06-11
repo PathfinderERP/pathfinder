@@ -80,11 +80,11 @@ const determineFileType = (mimetype) => {
 
 export const createTraining = async (req, res) => {
     try {
-        const { title, description, category, visibility, assignedTo } = req.body;
+        const { title, description, category, visibility, assignedTo, videoUrl } = req.body;
         const files = req.files || [];
 
-        if (files.length === 0) {
-            return res.status(400).json({ message: "No files uploaded" });
+        if (files.length === 0 && !videoUrl) {
+            return res.status(400).json({ message: "Please upload at least one resource file or provide a video link." });
         }
 
         const uploadedFiles = await Promise.all(files.map(async (file) => {
@@ -104,7 +104,8 @@ export const createTraining = async (req, res) => {
             visibility,
             assignedTo: visibility === "Specific" ? JSON.parse(assignedTo || "[]") : [],
             uploadedBy: req.user.id,
-            files: uploadedFiles
+            files: uploadedFiles,
+            videoUrl: videoUrl || null
         });
 
         await training.save();
@@ -181,7 +182,7 @@ export const deleteTraining = async (req, res) => {
 
 export const updateTraining = async (req, res) => {
     try {
-        const { title, description, category, visibility, assignedTo } = req.body;
+        const { title, description, category, visibility, assignedTo, videoUrl } = req.body;
         const training = await Training.findById(req.params.id);
         if (!training) return res.status(404).json({ message: "Training not found" });
 
@@ -190,7 +191,8 @@ export const updateTraining = async (req, res) => {
             description,
             category,
             visibility,
-            assignedTo: visibility === "Specific" ? JSON.parse(assignedTo || "[]") : []
+            assignedTo: visibility === "Specific" ? JSON.parse(assignedTo || "[]") : [],
+            videoUrl: videoUrl || null
         };
 
         if (req.files && req.files.length > 0) {
