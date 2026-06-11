@@ -1022,7 +1022,7 @@ const LeadManagementContent = () => {
                                     <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
                                         <div>
                                             <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Filtered Followups" : "Today's Followups"}
+                                                {filters.fromDate || filters.toDate ? "Filtered Follow Up" : "Followed Up Till Date"}
                                             </p>
                                             <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
                                             {/* <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p> */}
