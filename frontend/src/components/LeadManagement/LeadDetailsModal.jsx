@@ -2,74 +2,9 @@ import React from "react";
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-// Module-level persistent state for EnableX (preserves registration across modal open/close)
-let globalEventSource = null;
-let globalActiveVoiceId = null;
-let globalIsDeviceRegistered = false;
-let globalCallStatus = "idle";
-let globalCallMessage = "PSTN Calling Ready";
-let globalIsIncomingCall = false;
-let globalIsMuted = false;
-let globalIsOnHold = false;
-let globalCallDuration = 0;
-let globalTimerId = null;
-
-// Subscribers for state updates
-const subscribers = new Set();
-const notifySubscribers = () => {
-    subscribers.forEach(sub => sub({
-        isDeviceRegistered: globalIsDeviceRegistered,
-        callStatus: globalCallStatus,
-        callMessage: globalCallMessage,
-        isIncomingCall: globalIsIncomingCall,
-        isMuted: globalIsMuted,
-        isOnHold: globalIsOnHold,
-        callDuration: globalCallDuration
-    }));
-};
-
 const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, canEdit, canDelete, isDarkMode }) => {
     const [recordings, setRecordings] = React.useState((lead?.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
     const [userProfile, setUserProfile] = React.useState(null);
-    
-    // Local state variables bound to persistent global state
-    const [callStatus, setCallStatus] = React.useState(globalCallStatus); 
-    const [callMessage, setCallMessage] = React.useState(globalCallMessage);
-    const [callDuration, setCallDuration] = React.useState(globalCallDuration);
-    const [isMuted, setIsMuted] = React.useState(globalIsMuted);
-    const [isOnHold, setIsOnHold] = React.useState(globalIsOnHold);
-    const [isIncomingCall, setIsIncomingCall] = React.useState(globalIsIncomingCall);
-    const [isDeviceRegistered, setIsDeviceRegistered] = React.useState(globalIsDeviceRegistered);
-    const [isKeypadOpen, setIsKeypadOpen] = React.useState(false);
-
-    const lastMuteClick = React.useRef(0);
-    const lastHoldClick = React.useRef(0);
-    const isOutboundCallRef = React.useRef(false);
-
-    // Sync local state with global state on mount and when changed
-    React.useEffect(() => {
-        const updateState = (state) => {
-            setIsDeviceRegistered(state.isDeviceRegistered);
-            setCallStatus(state.callStatus);
-            setCallMessage(state.callMessage);
-            setIsIncomingCall(state.isIncomingCall);
-            setIsMuted(state.isMuted);
-            setIsOnHold(state.isOnHold);
-            setCallDuration(state.callDuration);
-        };
-        
-        subscribers.add(updateState);
-        return () => {
-            subscribers.delete(updateState);
-        };
-    }, []);
-
-    const debounceClick = (ref, callback, delay = 500) => {
-        const now = Date.now();
-        if (now - ref.current < delay) return;
-        ref.current = now;
-        callback();
-    };
 
     const fetchUserProfile = async () => {
         try {
@@ -80,22 +15,10 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             const data = await response.json();
             if (response.ok) {
                 setUserProfile(data.user);
-                if (data.user?.mobNum) {
-                    globalIsDeviceRegistered = true;
-                    globalCallMessage = `PSTN Calling Online (${data.user.mobNum})`;
-                } else {
-                    globalIsDeviceRegistered = false;
-                    globalCallMessage = "Please add a phone number to your profile";
-                }
-                notifySubscribers();
             }
         } catch (error) {
             console.error("Error fetching profile:", error);
         }
-    };
-
-    const initWebRTC = async () => {
-        // PSTN Bridging replaces browser WebRTC, so WebRTC initialization is not required.
     };
 
     React.useEffect(() => {
@@ -103,203 +26,21 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
             setRecordings((lead.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
         }
         fetchUserProfile();
-
-        return () => {
-            // Keep state intact
-        };
     }, [lead]);
 
-    const formatDuration = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const handleCallNow = async () => {
+    const handleCallNow = () => {
         let leadNumber = lead.phoneNumber || lead.secondPhoneNumber;
         if (!leadNumber) {
             toast.error("Lead does not have any phone number configured.");
             return;
         }
-
-        leadNumber = leadNumber.replace(/[^\d+]/g, "");
-
-        if (!globalIsDeviceRegistered) {
-            toast.error("You must have a mobile number configured in your profile to place bridged calls.");
-            return;
-        }
-
-        globalCallStatus = "connecting";
-        globalCallMessage = "Dialing lead phone number...";
-        notifySubscribers();
-
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/outbound-call`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ to: leadNumber })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.message || "Failed to initiate outbound call on server.");
-            }
-
-            const callData = await response.json();
-            console.log("[EnableX Outbound Call Success]:", callData);
-
-            if (callData.voice_id) {
-                globalActiveVoiceId = callData.voice_id;
-            }
-
-            globalCallStatus = "ringing";
-            globalCallMessage = "Dialing lead. Check your physical phone...";
-            notifySubscribers();
-
-            if (globalEventSource) {
-                globalEventSource.close();
-            }
-
-            const sseUrl = `${import.meta.env.VITE_API_URL}/lead-management/call/event-stream?token=${encodeURIComponent(token)}`;
-            globalEventSource = new EventSource(sseUrl);
-
-            globalEventSource.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    console.log("[SSE Event Received]:", data);
-                    
-                    if (data.type === "ping") return;
-
-                    const state = data.state || data.Status || data.event;
-                    
-                    if (state === "connected") {
-                        globalCallStatus = "connected";
-                        globalCallMessage = "Connected (Call Bridged)";
-                        
-                        globalCallDuration = 0;
-                        if (globalTimerId) clearInterval(globalTimerId);
-                        globalTimerId = setInterval(() => {
-                            globalCallDuration += 1;
-                            notifySubscribers();
-                        }, 1000);
-                        
-                        notifySubscribers();
-                        toast.success("Call connected & bridged successfully!");
-                    } else if (state === "disconnected" || state === "completed" || state === "failed" || state === "bridged-party-disconnected") {
-                        globalCallStatus = "disconnected";
-                        globalCallMessage = `Call disconnected (${state}).`;
-                        
-                        if (globalTimerId) {
-                            clearInterval(globalTimerId);
-                            globalTimerId = null;
-                        }
-                        notifySubscribers();
-
-                        if (globalEventSource) {
-                            globalEventSource.close();
-                            globalEventSource = null;
-                        }
-
-                        setTimeout(() => {
-                            globalCallStatus = "idle";
-                            globalCallMessage = userProfile?.mobNum ? `PSTN Calling Online (${userProfile.mobNum})` : "PSTN Calling Ready";
-                            notifySubscribers();
-                        }, 3000);
-                    }
-                } catch (err) {
-                    console.error("[SSE Parsing Error]:", err);
-                }
-            };
-
-            globalEventSource.onerror = (err) => {
-                console.error("[SSE Connection Error]:", err);
-                if (globalEventSource) {
-                    globalEventSource.close();
-                    globalEventSource = null;
-                }
-            };
-
-        } catch (error) {
-            console.error("Outbound call error:", error);
-            globalCallStatus = "error";
-            globalCallMessage = error.message || "Failed to initiate bridged call.";
-            notifySubscribers();
-            toast.error(error.message || "Outbound call failed.");
-            setTimeout(() => {
-                globalCallStatus = "idle";
-                globalCallMessage = userProfile?.mobNum ? `PSTN Calling Online (${userProfile.mobNum})` : "PSTN Calling Ready";
-                notifySubscribers();
-            }, 3000);
-        }
-    };
-
-    const handleHangUp = async () => {
-        if (globalEventSource) {
-            globalEventSource.close();
-            globalEventSource = null;
-        }
-        if (globalTimerId) {
-            clearInterval(globalTimerId);
-            globalTimerId = null;
-        }
-
-        const voiceId = globalActiveVoiceId;
-        globalCallStatus = "disconnected";
-        globalCallMessage = "Disconnecting call...";
-        notifySubscribers();
-
-        if (voiceId) {
-            try {
-                const token = localStorage.getItem("token");
-                await fetch(`${import.meta.env.VITE_API_URL}/lead-management/call/hangup`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ voiceId })
-                });
-            } catch (err) {
-                console.error("Error hanging up call on server:", err);
-            }
-            globalActiveVoiceId = null;
-        }
-
-        setTimeout(() => {
-            globalCallStatus = "idle";
-            globalCallMessage = userProfile?.mobNum ? `PSTN Calling Online (${userProfile.mobNum})` : "PSTN Calling Ready";
-            notifySubscribers();
-        }, 3000);
-    };
-
-    const handleToggleMute = () => {
-        toast.info("Please use your physical phone to mute/unmute the call.");
-    };
-
-    const handleToggleHold = () => {
-        toast.info("Please use your physical phone to hold/resume the call.");
-    };
-
-    const handleSendDTMF = (digit) => {
-        toast.info("Please use your physical phone dialer.");
-    };
-
-    const handleAcceptCall = () => {
-        // PSTN calls are answered directly on the handset
+        onFollowUp(lead, true);
     };
 
     const getAudioUrl = (url) => {
         if (!url) return "";
         if (url.toLowerCase().includes("twilio")) {
             return "";
-        }
-        if (url.includes("enablex.io") || url.includes("exotel.com") || url.includes("exotel.in")) {
-            const token = localStorage.getItem("token");
-            return `${import.meta.env.VITE_API_URL}/lead-management/call/recording-proxy?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
         }
         return url;
     };
@@ -338,15 +79,6 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                     </div>
 
                     <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end mt-4 sm:mt-0 z-10">
-                        {/* Device Registration Status Pill */}
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border text-[9px] font-black uppercase tracking-widest shrink-0 ${
-                            isDeviceRegistered 
-                                ? (isDarkMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-green-50 border-green-200 text-green-700')
-                                : (isDarkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700')
-                        }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isDeviceRegistered ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                            {isDeviceRegistered ? "Phone Online" : "Phone Offline"}
-                        </div>
                         <button
                             onClick={onClose}
                             className={`transition-all p-2 rounded-[4px] active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
@@ -477,170 +209,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                         </div>
                     )}
 
-                    {/* Incoming Call Ringing Overlay */}
-                    {isIncomingCall && (
-                        <div className={`p-6 rounded-[4px] border border-green-500/30 mb-6 flex flex-col items-center justify-center space-y-4 animate-pulse ${
-                            isDarkMode ? 'bg-green-500/5' : 'bg-green-50/50'
-                        }`}>
-                            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)] animate-bounce`}>
-                                <FaPhone size={24} className="animate-pulse" />
-                            </div>
-                            <div className="text-center">
-                                <h4 className={`text-base font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>INCOMING CALL</h4>
-                                <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Agent WebSDK softphone is ringing...</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <button
-                                    onClick={handleAcceptCall}
-                                    className="px-6 py-2.5 rounded-[4px] bg-green-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-green-500 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-green-600/20"
-                                >
-                                    <FaPhone size={10} /> Accept Call
-                                </button>
-                                <button
-                                    onClick={handleHangUp}
-                                    className="px-6 py-2.5 rounded-[4px] bg-red-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-500 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-red-600/20"
-                                >
-                                    <FaPhoneSlash size={10} /> Decline
-                                </button>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* Call Status & Premium Active Call Console */}
-                    {callStatus !== "idle" && !isIncomingCall && (
-                        <div className={`p-6 rounded-[4px] border mb-6 transition-all ${
-                            isDarkMode 
-                                ? 'bg-[#131619]/90 border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.05)]' 
-                                : 'bg-slate-50 border-gray-200 shadow-inner'
-                        }`}>
-                            {/* Device & Status Header */}
-                            <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${
-                                        callStatus === "connecting" ? 'bg-amber-500 animate-pulse' :
-                                        callStatus === "ringing" ? (isIncomingCall ? 'bg-green-500 animate-bounce' : 'bg-cyan-500 animate-ping') :
-                                        callStatus === "connected" ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                                    }`} />
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        {callMessage}
-                                    </span>
-                                </div>
-                                <div className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-[4px] border ${
-                                    isDeviceRegistered 
-                                        ? (isDarkMode ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-green-50 border-green-200 text-green-700')
-                                        : (isDarkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700')
-                                }`}>
-                                    {isDeviceRegistered ? "Device Online" : "Device Offline"}
-                                </div>
-                            </div>
-
-                            {/* Active call details */}
-                            <div className="flex flex-col items-center justify-center py-4 space-y-2 border-t border-b border-dashed border-gray-800/10">
-                                <span className={`text-xs font-bold uppercase tracking-widest ${isIncomingCall ? 'text-green-500 animate-pulse' : isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    {isIncomingCall ? "INCOMING CALL (AGENT DEVICE)" : callStatus === "connected" ? "Ongoing Session" : "Outbound Ringing"}
-                                </span>
-                                <span className={`text-xl font-mono font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    {lead.phoneNumber || lead.secondPhoneNumber}
-                                </span>
-                                {callStatus === "connected" && (
-                                    <span className={`text-sm font-mono font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                                        {formatDuration(callDuration)}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Call Action Panel (Mute, Hold, Keypad, Hangup) */}
-                            {["connecting", "ringing", "connected"].includes(callStatus) && (
-                                <div className="flex items-center justify-center gap-6 mt-6">
-                                    {/* Mute Button */}
-                                    <button
-                                        onClick={handleToggleMute}
-                                        disabled={callStatus !== "connected"}
-                                        title={isMuted ? "Unmute Call" : "Mute Call"}
-                                        className={`w-12 h-12 rounded-full border flex items-center justify-center text-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${
-                                            isMuted
-                                                ? (isDarkMode ? 'bg-red-500/20 border-red-500 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'bg-red-50 border-red-300 text-red-600')
-                                                : (isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500/50 hover:text-cyan-400' : 'bg-white border-gray-300 text-gray-600 hover:border-cyan-600 hover:text-cyan-600')
-                                        }`}
-                                    >
-                                        {isMuted ? <FaMicrophoneSlash size={16} /> : <FaMicrophone size={16} />}
-                                    </button>
-
-                                    {/* Hang Up (Decline) Button */}
-                                    <button
-                                        onClick={handleHangUp}
-                                        title="Hang Up"
-                                        className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-all shadow-lg shadow-red-600/30 active:scale-95"
-                                    >
-                                        <FaPhoneSlash size={20} />
-                                    </button>
-
-                                    {/* Hold Button */}
-                                    <button
-                                        onClick={handleToggleHold}
-                                        disabled={callStatus !== "connected"}
-                                        title={isOnHold ? "Resume Call" : "Hold Call"}
-                                        className={`w-12 h-12 rounded-full border flex items-center justify-center text-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${
-                                            isOnHold
-                                                ? (isDarkMode ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-amber-50 border-amber-300 text-amber-600')
-                                                : (isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500/50 hover:text-cyan-400' : 'bg-white border-gray-300 text-gray-600 hover:border-cyan-600 hover:text-cyan-600')
-                                        }`}
-                                    >
-                                        {isOnHold ? <FaPlay size={14} className="ml-0.5" /> : <FaPause size={14} />}
-                                    </button>
-
-                                    {/* Keypad Toggle Button */}
-                                    <button
-                                        onClick={() => setIsKeypadOpen((prev) => !prev)}
-                                        disabled={callStatus !== "connected"}
-                                        title="Show Keypad"
-                                        className={`w-12 h-12 rounded-full border flex items-center justify-center text-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${
-                                            isKeypadOpen
-                                                ? (isDarkMode ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'bg-cyan-50 border-cyan-300 text-cyan-600')
-                                                : (isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-cyan-500/50 hover:text-cyan-400' : 'bg-white border-gray-300 text-gray-600 hover:border-cyan-600 hover:text-cyan-600')
-                                        }`}
-                                    >
-                                        <FaTh size={16} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* DTMF Keypad Drawer */}
-                            {isKeypadOpen && callStatus === "connected" && (
-                                <div className="mt-6 border-t border-gray-800/10 pt-6 flex flex-col items-center">
-                                    <div className="grid grid-cols-3 gap-3 max-w-[200px]">
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, "*", 0, "#"].map((digit) => (
-                                            <button
-                                                key={digit}
-                                                onClick={() => handleSendDTMF(digit)}
-                                                className={`w-12 h-12 rounded-full border flex items-center justify-center font-bold text-base transition-all active:scale-90 ${
-                                                    isDarkMode 
-                                                        ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700 hover:border-cyan-500/30' 
-                                                        : 'bg-white border-gray-200 text-gray-850 hover:bg-gray-100 hover:border-cyan-600'
-                                                }`}
-                                            >
-                                                {digit}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Dismiss button if call ended */}
-                            {!["connecting", "ringing", "connected"].includes(callStatus) && (
-                                <div className="flex justify-center mt-4">
-                                    <button 
-                                        onClick={() => setCallStatus("idle")} 
-                                        className={`px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${
-                                            isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                        }`}
-                                    >
-                                        Dismiss
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Recordings Section */}
                     <div className="space-y-4">
@@ -737,21 +306,12 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                     <FaMapMarkerAlt size={12} /> Walk In
                                 </button>
                             )}
-                            {["connecting", "ringing", "connected"].includes(callStatus) ? (
-                                <button
-                                    onClick={handleHangUp}
-                                    className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-red-600 text-white hover:bg-red-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 animate-pulse"
-                                >
-                                    <FaPhone size={12} className="rotate-[135deg]" /> Hang Up
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleCallNow}
-                                    className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-95"
-                                >
-                                    <FaPhone size={12} /> Call Now
-                                </button>
-                            )}
+                            {/* <button
+                                onClick={handleCallNow}
+                                className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-95"
+                            >
+                                <FaPhone size={12} /> Call Now
+                            </button> */}
                             <button
                                 onClick={() => onFollowUp(lead)}
                                 className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-cyan-600 text-white hover:bg-cyan-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-95"
