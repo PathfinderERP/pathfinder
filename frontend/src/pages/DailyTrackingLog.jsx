@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
     FaClock,
@@ -84,6 +84,7 @@ const DailyTrackingLog = () => {
     const [workDetails, setWorkDetails] = useState("");
     const [completedWork, setCompletedWork] = useState("");
     const [status, setStatus] = useState("Completed");
+    const [selectedEntryCentre, setSelectedEntryCentre] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Board filters
@@ -113,16 +114,47 @@ const DailyTrackingLog = () => {
             }
         };
 
-        if (isSuperAdmin) {
-            fetchAllCentres();
-        } else {
-            const userCentres = currentUser.centres || [];
-            if (currentUser.centre && !userCentres.some(c => c._id === (currentUser.centre._id || currentUser.centre))) {
-                userCentres.push(typeof currentUser.centre === 'object' ? currentUser.centre : { _id: currentUser.centre, centreName: 'Primary Centre' });
+        const initCentres = async () => {
+            if (isSuperAdmin) {
+                await fetchAllCentres();
+            } else {
+                let freshUser = currentUser;
+                try {
+                    const res = await fetch(`${apiUrl}/profile/me`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.user) {
+                        freshUser = data.user;
+                        localStorage.setItem("user", JSON.stringify(freshUser));
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch fresh user profile:", err);
+                }
+
+                const userCentres = freshUser.centres || [];
+                if (freshUser.centre && !userCentres.some(c => c._id === (freshUser.centre._id || freshUser.centre))) {
+                    userCentres.push(typeof freshUser.centre === 'object' ? freshUser.centre : { _id: freshUser.centre, centreName: 'Primary Centre' });
+                }
+                setAvailableCentres(userCentres);
             }
-            setAvailableCentres(userCentres);
-        }
+        };
+
+        initCentres();
     }, [apiUrl, token, isSuperAdmin]);
+
+    useEffect(() => {
+        if (availableCentres.length > 0 && !selectedEntryCentre) {
+            const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+            const primaryId = userObj.centre?._id || userObj.centre;
+            const hasPrimary = availableCentres.some(c => c._id === primaryId);
+            if (hasPrimary) {
+                setSelectedEntryCentre(primaryId);
+            } else {
+                setSelectedEntryCentre(availableCentres[0]._id);
+            }
+        }
+    }, [availableCentres, selectedEntryCentre]);
 
     // Editing states
     const [editingActivityId, setEditingActivityId] = useState(null);
@@ -131,6 +163,7 @@ const DailyTrackingLog = () => {
     const [editWorkDetails, setEditWorkDetails] = useState("");
     const [editCompletedWork, setEditCompletedWork] = useState("");
     const [editStatus, setEditStatus] = useState("Completed");
+    const [editCentre, setEditCentre] = useState("");
 
     const rolesMap = {
         "All": "All",
@@ -309,6 +342,11 @@ const DailyTrackingLog = () => {
             return;
         }
 
+        if (availableCentres.length > 0 && !selectedEntryCentre) {
+            toast.warning("Please select a centre.");
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -321,7 +359,8 @@ const DailyTrackingLog = () => {
                 body: JSON.stringify({
                     workDetails,
                     completedWork,
-                    status
+                    status,
+                    centre: selectedEntryCentre || null
                 })
             });
 
@@ -401,12 +440,18 @@ const DailyTrackingLog = () => {
         setEditWorkDetails(activity.workDetails);
         setEditCompletedWork(activity.completedWork || "");
         setEditStatus(activity.status || "Completed");
+        setEditCentre(activity.centre?._id || activity.centre || "");
     };
 
     // Save Edit
     const handleUpdateActivity = async (activityId) => {
         if (!editWorkDetails.trim()) {
             toast.warning("Please fill in all required fields.");
+            return;
+        }
+
+        if (availableCentres.length > 0 && !editCentre) {
+            toast.warning("Please select a centre.");
             return;
         }
 
@@ -420,7 +465,8 @@ const DailyTrackingLog = () => {
                 body: JSON.stringify({
                     workDetails: editWorkDetails,
                     completedWork: editCompletedWork,
-                    status: editStatus
+                    status: editStatus,
+                    centre: editCentre || null
                 })
             });
 
@@ -483,7 +529,6 @@ const DailyTrackingLog = () => {
         <Layout activePage="Daily Tracking Log">
             <div className={`flex-1 p-6 min-h-screen overflow-y-auto transition-colors duration-300 ${isDarkMode ? "bg-[#131619] text-white" : "bg-[#f8fafc] text-gray-900"
                 }`}>
-                <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "colored"} />
 
                 {/* Header section with glass effect */}
                 <div className={`p-6 rounded-2xl border mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${isDarkMode
@@ -562,6 +607,28 @@ const DailyTrackingLog = () => {
                                                 }`}
                                         />
                                     </div>
+
+                                    {availableCentres.length > 0 && (
+                                        <div>
+                                            <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                }`}>
+                                                Centre
+                                            </label>
+                                            <select
+                                                value={selectedEntryCentre}
+                                                onChange={(e) => setSelectedEntryCentre(e.target.value)}
+                                                className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                                                    }`}
+                                            >
+                                                <option value="">Select Centre</option>
+                                                {availableCentres.map((c) => (
+                                                    <option key={c._id} value={c._id}>
+                                                        {c.centreName || 'Unknown Centre'}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
 
                                     <div>
                                         <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
@@ -676,34 +743,52 @@ const DailyTrackingLog = () => {
                                                             />
                                                         </div>
 
-                                                        <div className="flex justify-between items-center">
+                                                        <div className="grid grid-cols-2 gap-2">
                                                             <div>
                                                                 <span className="text-[10px] text-gray-400 block mb-1">Status</span>
                                                                 <select
                                                                     value={editStatus}
                                                                     onChange={(e) => setEditStatus(e.target.value)}
-                                                                    className={`p-1.5 rounded border text-xs ${isDarkMode ? "bg-gray-900 border-gray-700 text-white" : "bg-white border-slate-300"
+                                                                    className={`w-full p-1.5 rounded border text-xs ${isDarkMode ? "bg-gray-900 border-gray-700 text-white" : "bg-white border-slate-300"
                                                                         }`}
                                                                 >
                                                                     <option value="Completed">Completed</option>
                                                                     <option value="In Progress">In Progress</option>
                                                                 </select>
                                                             </div>
+                                                            {availableCentres.length > 0 && (
+                                                                <div>
+                                                                    <span className="text-[10px] text-gray-400 block mb-1">Centre</span>
+                                                                    <select
+                                                                        value={editCentre}
+                                                                        onChange={(e) => setEditCentre(e.target.value)}
+                                                                        className={`w-full p-1.5 rounded border text-xs ${isDarkMode ? "bg-gray-900 border-gray-700 text-white" : "bg-white border-slate-300"
+                                                                            }`}
+                                                                    >
+                                                                        <option value="">Select Centre</option>
+                                                                        {availableCentres.map((c) => (
+                                                                            <option key={c._id} value={c._id}>
+                                                                                {c.centreName || 'Unknown Centre'}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                            )}
+                                                        </div>
 
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={() => setEditingActivityId(null)}
-                                                                    className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs font-bold rounded-lg transition"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleUpdateActivity(act._id)}
-                                                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition"
-                                                                >
-                                                                    Save
-                                                                </button>
-                                                            </div>
+                                                        <div className="flex justify-end gap-2 mt-2">
+                                                            <button
+                                                                onClick={() => setEditingActivityId(null)}
+                                                                className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs font-bold rounded-lg transition"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleUpdateActivity(act._id)}
+                                                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition"
+                                                            >
+                                                                Save
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -753,6 +838,14 @@ const DailyTrackingLog = () => {
                                                             <div>
                                                                 <h4 className={`text-xs font-semibold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Work Description</h4>
                                                                 <p className={`text-sm leading-relaxed ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>{act.workDetails}</p>
+                                                                {act.centre && (
+                                                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}>
+                                                                            <FaBuilding className="text-[9px]" />
+                                                                            {act.centre.centreName}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
                                                             </div>
 
                                                             {act.completedWork && (
@@ -932,6 +1025,12 @@ const DailyTrackingLog = () => {
                                                                     }`}>
                                                                     {act.status}
                                                                 </span>
+                                                                {act.centre && (
+                                                                    <span className={`inline-flex items-center gap-1 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}>
+                                                                        <FaBuilding className="text-[7px]" />
+                                                                        {act.centre.centreName}
+                                                                    </span>
+                                                                )}
                                                             </div>
 
                                                             <p className={`text-xs leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
