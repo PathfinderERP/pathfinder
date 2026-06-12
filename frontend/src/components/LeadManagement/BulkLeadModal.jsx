@@ -155,6 +155,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             Name: "John Doe",
             PhoneNum: "9876543210",
             SecondPhoneNum: "9876543211",
+            SchoolName: "DPS Delhi",
             Class: "10",
             Board: "CBSE",
             Centre: "Delhi Centre",
@@ -178,6 +179,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             Name: "John Doe",
             PhoneNum: "9876543210",
             SecondPhoneNum: "9876543211",
+            SchoolName: "DPS Delhi",
             Class: "10",
             Board: "CBSE",
             Centre: "Delhi Centre",
@@ -220,7 +222,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 if (jsonData.length === 0) { setErrorMsg("The file is empty"); setValidating(false); return; }
 
                 // ── Extra-column guard ─────────────────────────────────────
-                const ALLOWED_FRESH_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse"];
+                const ALLOWED_FRESH_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "SchoolName", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse"];
                 const uploadedColumns = Object.keys(jsonData[0] || {});
                 const extraColumns = uploadedColumns.filter(col => !ALLOWED_FRESH_COLUMNS.includes(col));
                 if (extraColumns.length > 0) {
@@ -242,6 +244,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     if (!row.Name) {
                         errors.push(`Row ${rowNum}: Missing Required Data (Name required)`);
+                        continue;
+                    }
+
+                    if (!row.SchoolName || !row.SchoolName.toString().trim()) {
+                        errors.push(`Row ${rowNum}: Missing Required Data (SchoolName required)`);
                         continue;
                     }
 
@@ -286,6 +293,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         name: row.Name,
                         phoneNumber: row.PhoneNum,
                         secondPhoneNumber: row.SecondPhoneNum,
+                        schoolName: row.SchoolName ? row.SchoolName.toString().trim() : "",
                         className: classId,
                         centre: centreId,
                         course: courseId,
@@ -368,7 +376,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 if (jsonData.length === 0) { setErrorMsg("The file is empty"); setValidating(false); return; }
 
                 // ── Extra-column guard ─────────────────────────────────────
-                const ALLOWED_CONTACTED_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Feedback", "Remarks"];
+                const ALLOWED_CONTACTED_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "SchoolName", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Feedback", "Remarks"];
                 const uploadedContactedColumns = Object.keys(jsonData[0] || {});
                 const extraContactedColumns = uploadedContactedColumns.filter(col => !ALLOWED_CONTACTED_COLUMNS.includes(col));
                 if (extraContactedColumns.length > 0) {
@@ -394,6 +402,11 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     if (!row.Name) {
                         errors.push(`Row ${rowNum}: Missing Required Data (Name required)`);
+                        continue;
+                    }
+
+                    if (!row.SchoolName || !row.SchoolName.toString().trim()) {
+                        errors.push(`Row ${rowNum}: Missing Required Data (SchoolName required)`);
                         continue;
                     }
 
@@ -450,6 +463,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         name: row.Name,
                         phoneNumber: row.PhoneNum ? row.PhoneNum.toString().trim() : undefined,
                         secondPhoneNumber: row.SecondPhoneNum ? row.SecondPhoneNum.toString().trim() : undefined,
+                        schoolName: row.SchoolName ? row.SchoolName.toString().trim() : "",
                         className: classId,
                         centre: centreId,
                         course: courseId,

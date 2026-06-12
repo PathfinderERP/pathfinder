@@ -52,8 +52,8 @@ export const bulkUploadLeads = async (req, res) => {
             return doc;
         });
 
-        // Filter out rows missing the mandatory `name` field
-        const valid   = prepared.filter(r => r.name);
+        // Filter out rows missing the mandatory `name` or `schoolName` field
+        const valid   = prepared.filter(r => r.name && r.schoolName);
         const skipped = prepared.length - valid.length;
 
         if (valid.length === 0) {

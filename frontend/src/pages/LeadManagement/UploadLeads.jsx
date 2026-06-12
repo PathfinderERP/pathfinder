@@ -19,6 +19,8 @@ const COL_MAP = {
     "Phone Number":        "phoneNumber",
     "SecondPhoneNumber":   "secondPhoneNumber",
     "Second Phone Number": "secondPhoneNumber",
+    "SchoolName":         "schoolName",
+    "School Name":        "schoolName",
     "Class":              "className",
     "Board":              "board",
     "Centre":             "centre",
@@ -28,19 +30,19 @@ const COL_MAP = {
     "Lead Type":          "leadType",
 };
 
-const REQUIRED_COLS = ["name"];
+const REQUIRED_COLS = ["name", "schoolName"];
 
 const SAMPLE_HEADERS = [
-    "Name", "PhoneNumber", "SecondPhoneNumber", "Class",
+    "Name", "PhoneNumber", "SecondPhoneNumber", "SchoolName", "Class",
     "Board", "Centre", "Course", "Source", "LeadType"
 ];
 
 const downloadSampleExcel = () => {
     const sampleData = [
         SAMPLE_HEADERS,
-        ["John Doe",    "9876543210", "9876543211", "10th", "CBSE",  "Delhi Centre", "JEE Main",  "Facebook", "WARM LEAD"],
-        ["Priya Roy",   "9876543212", "",           "11th", "ICSE",  "Salt Lake",    "NEET",      "School Visit", "HOT LEAD"],
-        ["Aman Sharma", "9876543213", "",           "12th", "State", "Park Street",  "Foundation","Walk In",  "COLD LEAD"],
+        ["John Doe",    "9876543210", "9876543211", "DPS Delhi",       "10th", "CBSE",  "Delhi Centre", "JEE Main",  "Facebook", "WARM LEAD"],
+        ["Priya Roy",   "9876543212", "",           "Salt Lake High",  "11th", "ICSE",  "Salt Lake",    "NEET",      "School Visit", "HOT LEAD"],
+        ["Aman Sharma", "9876543213", "",           "Park Street High","12th", "State", "Park Street",  "Foundation","Walk In",  "COLD LEAD"],
     ];
     const ws = XLSX.utils.aoa_to_sheet(sampleData);
     ws['!cols'] = SAMPLE_HEADERS.map(() => ({ wch: 18 }));
@@ -297,7 +299,7 @@ const UploadLeads = () => {
                     <FaInfoCircle className="text-blue-400 mt-0.5 shrink-0" size={14} />
                     <p className={`text-xs font-semibold leading-relaxed ${isDark ? "text-blue-300" : "text-blue-700"}`}>
                         Uploaded leads will appear in <b>Lead Management</b> with your name as the responsible person.
-                        Required column: <b>Name</b>. Optional: Email, Phone, School Name, Source, Target Exam, Lead Type (HOT LEAD / WARM LEAD / COLD LEAD).
+                        Required columns: <b>Name</b> and <b>School Name</b>. Optional: Email, Phone, Source, Target Exam, Lead Type (HOT LEAD / WARM LEAD / COLD LEAD).
                         <button onClick={downloadSampleExcel} className="ml-2 underline font-black hover:text-blue-500 transition-colors">
                             Download sample template →
                         </button>
@@ -390,7 +392,7 @@ const UploadLeads = () => {
                                 </button>
                                 <button
                                     onClick={handleUpload}
-                                    disabled={!parsedRows.length}
+                                    disabled={!parsedRows.length || parsedRows.some(row => !row.name?.trim() || !row.schoolName?.trim())}
                                     className="px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest
                                         bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20
                                         transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 flex items-center gap-2"
@@ -406,7 +408,7 @@ const UploadLeads = () => {
                                 <table className="w-full text-left border-collapse min-w-[1100px]">
                                     <thead className={`sticky top-0 z-10 ${isDark ? "bg-[#1a1f24]" : "bg-white"}`}>
                                         <tr className={`border-b ${isDark ? "border-gray-800" : "border-gray-100"}`}>
-                                            {["#", "Name *", "PhoneNumber", "SecondPhone", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Actions"].map(h => (
+                                            {["#", "Name *", "PhoneNumber", "SecondPhone", "School Name *", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Actions"].map(h => (
                                                 <th key={h} className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 whitespace-nowrap">
                                                     {h === "LeadResponse" ? <span className="text-emerald-500">{h} 🔒</span> : h}
                                                 </th>
@@ -415,11 +417,12 @@ const UploadLeads = () => {
                                     </thead>
                                     <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
                                         {parsedRows.map((row, idx) => (
-                                            <tr key={idx} className={`hover:bg-emerald-500/[0.03] transition-colors ${!row.name ? "bg-red-500/5" : ""}`}>
+                                            <tr key={idx} className={`hover:bg-emerald-500/[0.03] transition-colors ${(!row.name || !row.schoolName) ? "bg-red-500/5" : ""}`}>
                                                 <td className={`px-3 py-2 text-[10px] font-black ${sub}`}>{idx + 1}</td>
                                                 <td className="px-2 py-2 min-w-[130px]"><input className={inp} value={row.name || ""} onChange={e => updateRow(idx, "name", e.target.value)} placeholder="Required *" /></td>
                                                 <td className="px-2 py-2 min-w-[120px]"><input className={inp} value={row.phoneNumber || ""} onChange={e => updateRow(idx, "phoneNumber", e.target.value)} placeholder="—" /></td>
                                                 <td className="px-2 py-2 min-w-[120px]"><input className={inp} value={row.secondPhoneNumber || ""} onChange={e => updateRow(idx, "secondPhoneNumber", e.target.value)} placeholder="—" /></td>
+                                                <td className="px-2 py-2 min-w-[150px]"><input className={inp} value={row.schoolName || ""} onChange={e => updateRow(idx, "schoolName", e.target.value)} placeholder="Required *" /></td>
                                                 <td className="px-2 py-2 min-w-[90px]"><input className={inp} value={row.className || ""} onChange={e => updateRow(idx, "className", e.target.value)} placeholder="—" /></td>
                                                 <td className="px-2 py-2 min-w-[90px]"><input className={inp} value={row.board || ""} onChange={e => updateRow(idx, "board", e.target.value)} placeholder="—" /></td>
                                                 <td className="px-2 py-2 min-w-[110px]"><input className={inp} value={row.centre || ""} onChange={e => updateRow(idx, "centre", e.target.value)} placeholder="—" /></td>
