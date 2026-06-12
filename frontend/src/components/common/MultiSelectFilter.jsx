@@ -16,10 +16,12 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
           )
         : [];
 
-    // Filter options based on search term
-    const filteredOptions = options.filter(option =>
-        (option.label || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Filter options based on search term (supports non-contiguous keyword search)
+    const filteredOptions = options.filter(option => {
+        const labelStr = (option.label || '').toLowerCase();
+        const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        return searchWords.every(word => labelStr.includes(word));
+    });
 
     // Calculate dropdown position based on trigger element
     const openDropdown = () => {

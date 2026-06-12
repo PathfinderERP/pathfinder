@@ -3,6 +3,7 @@ import { createCourse } from "../../controllers/course/createCourse.js";
 import { getCourses } from "../../controllers/course/getCourses.js";
 import { getCourseById } from "../../controllers/course/getCourseById.js";
 import { updateCourse } from "../../controllers/course/updateCourse.js";
+import { bulkUpdateCourses } from "../../controllers/course/bulkUpdateCourses.js";
 import { deleteCourse } from "../../controllers/course/deleteCourse.js";
 import { deleteMultipleCourses } from "../../controllers/course/deleteMultipleCourses.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -20,6 +21,7 @@ router.get("/:id", requireAuth, getCourseById);
 // Write routes - Require granular permissions
 router.post("/create", requireGranularPermission("courseManagement", "courses", "create"), createCourse);
 router.post("/import", requireGranularPermission("courseManagement", "courses", "create"), bulkImport(Course));
+router.post("/bulk-update", requireGranularPermission("courseManagement", "courses", "edit"), bulkUpdateCourses);
 router.put("/:id", requireGranularPermission("courseManagement", "courses", "edit"), updateCourse);
 router.delete("/delete-multiple", requireSuperAdmin, deleteMultipleCourses);
 

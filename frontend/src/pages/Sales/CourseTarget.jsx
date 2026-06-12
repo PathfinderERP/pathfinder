@@ -8,6 +8,8 @@ import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { useNavigate } from "react-router-dom";
 import AddCourseTargetModal from "../../components/Sales/AddCourseTargetModal";
 import { hasPermission } from "../../config/permissions";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const CourseTarget = () => {
     const { theme, toggleTheme } = useTheme();
@@ -247,6 +249,69 @@ const CourseTarget = () => {
         return centreData.departments.reduce((sum, dept) => sum + (dept.achieved || 0), 0);
     };
 
+    const exportMatrixToExcel = () => {
+        if (data.length === 0) {
+            toast.info("No data to export");
+            return;
+        }
+
+        const rows = data.map(centre => {
+            const row = { "Centre Name": centre.centreName };
+            departments.forEach(deptName => {
+                const { target, achieved } = getDeptStats(centre, deptName);
+                if (viewMode === "YEARLY") {
+                    row[deptName] = `${achieved} / ${target > 0 ? target : "-"}`;
+                } else {
+                    row[deptName] = achieved;
+                }
+            });
+            row["Grand Total"] = getCentreTotalAchieved(centre);
+            return row;
+        });
+
+        // Add a Total row at the bottom
+        const totalRow = { "Centre Name": "TOTAL" };
+        departments.forEach(deptName => {
+            let deptAchievedSum = 0;
+            let deptTargetSum = 0;
+            data.forEach(centre => {
+                const { target, achieved } = getDeptStats(centre, deptName);
+                deptAchievedSum += achieved;
+                deptTargetSum += target;
+            });
+            if (viewMode === "YEARLY") {
+                totalRow[deptName] = `${deptAchievedSum} / ${deptTargetSum > 0 ? deptTargetSum : "-"}`;
+            } else {
+                totalRow[deptName] = deptAchievedSum;
+            }
+        });
+        totalRow["Grand Total"] = data.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0);
+        rows.push(totalRow);
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, "Admission Matrix");
+        
+        let filename = `Admission_Matrix_${viewMode}`;
+        if (viewMode === "MONTHLY" || viewMode === "WEEKLY") {
+            filename += `_${selectedMonth}`;
+        }
+        if (viewMode === "WEEKLY") {
+            filename += `_Week${selectedWeek}`;
+        }
+        if (viewMode === "QUARTERLY") {
+            filename += `_${selectedQuarter}`;
+        }
+        if (viewMode !== "CUSTOM") {
+            filename += `_${selectedYear}`;
+        } else {
+            filename += `_${customStartDate}_to_${customEndDate}`;
+        }
+        
+        XLSX.writeFile(wb, `${filename}.xlsx`);
+        toast.success("Excel report exported successfully!");
+    };
+
     return (
         <Layout activePage="Sales">
             <div className={`space-y-6 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'} p-4 md:p-8`}>
@@ -268,6 +333,7 @@ const CourseTarget = () => {
                             {isDarkMode ? <><FaSun /> Gold Mode</> : <><FaMoon /> Night Mode</>}
                         </button>
                         <button
+                            onClick={exportMatrixToExcel}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${isDarkMode
                                 ? 'bg-green-600/90 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/20'
                                 : 'bg-green-600 text-white hover:bg-green-700 shadow-md'

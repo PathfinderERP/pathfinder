@@ -5,6 +5,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import '../MasterDataWave.css';
 import { hasPermission } from '../../../config/permissions';
 import ExcelImportExport from "../../common/ExcelImportExport";
+import CustomMultiSelect from "../../common/CustomMultiSelect";
+import BulkUpdateCourseModal from "./BulkUpdateCourseModal";
 
 const CourseContent = () => {
     const [courses, setCourses] = useState([]);
@@ -16,6 +18,7 @@ const CourseContent = () => {
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
     const [currentCourse, setCurrentCourse] = useState(null);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]); // Added for multiple deletion
@@ -36,9 +39,13 @@ const CourseContent = () => {
 
     // Filter states
     const [filters, setFilters] = useState({
-        examTag: "",
-        courseSession: "",
-        programme: "",
+        mode: [],
+        courseType: [],
+        class: [],
+        department: [],
+        examTag: [],
+        courseSession: [],
+        programme: [],
         searchTerm: ""
     });
 
@@ -98,26 +105,26 @@ const CourseContent = () => {
     const applyFilters = () => {
         let filtered = [...courses];
 
-        if (filters.mode) {
-            filtered = filtered.filter(c => c.mode === filters.mode);
+        if (filters.mode && filters.mode.length > 0) {
+            filtered = filtered.filter(c => filters.mode.includes(c.mode));
         }
-        if (filters.courseType) {
-            filtered = filtered.filter(c => c.courseType === filters.courseType);
+        if (filters.courseType && filters.courseType.length > 0) {
+            filtered = filtered.filter(c => filters.courseType.includes(c.courseType));
         }
-        if (filters.class) {
-            filtered = filtered.filter(c => c.class?._id === filters.class);
+        if (filters.class && filters.class.length > 0) {
+            filtered = filtered.filter(c => filters.class.includes(c.class?._id || c.class));
         }
-        if (filters.department) {
-            filtered = filtered.filter(c => c.department?._id === filters.department);
+        if (filters.department && filters.department.length > 0) {
+            filtered = filtered.filter(c => filters.department.includes(c.department?._id || c.department));
         }
-        if (filters.examTag) {
-            filtered = filtered.filter(c => c.examTag?._id === filters.examTag);
+        if (filters.examTag && filters.examTag.length > 0) {
+            filtered = filtered.filter(c => filters.examTag.includes(c.examTag?._id || c.examTag));
         }
-        if (filters.courseSession) {
-            filtered = filtered.filter(c => c.courseSession === filters.courseSession);
+        if (filters.courseSession && filters.courseSession.length > 0) {
+            filtered = filtered.filter(c => filters.courseSession.includes(c.courseSession));
         }
-        if (filters.programme) {
-            filtered = filtered.filter(c => c.programme === filters.programme);
+        if (filters.programme && filters.programme.length > 0) {
+            filtered = filtered.filter(c => filters.programme.includes(c.programme));
         }
         if (filters.searchTerm) {
             const searchLower = filters.searchTerm.toLowerCase();
@@ -141,10 +148,13 @@ const CourseContent = () => {
 
     const clearFilters = () => {
         setFilters({
-            department: "",
-            examTag: "",
-            courseSession: "",
-            programme: "",
+            mode: [],
+            courseType: [],
+            class: [],
+            department: [],
+            examTag: [],
+            courseSession: [],
+            programme: [],
             searchTerm: ""
         });
     };
@@ -515,10 +525,17 @@ const CourseContent = () => {
                     {isSuperAdmin && canDelete && selectedIds.length > 0 && (
                         <button
                             onClick={handleBulkDelete}
-
                             className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-pulse"
                         >
                             <FaTrash /> Delete ({selectedIds.length})
+                        </button>
+                    )}
+                    {canEdit && selectedIds.length > 0 && (
+                        <button
+                            onClick={() => setIsBulkUpdateModalOpen(true)}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+                        >
+                            <FaEdit /> Bulk Update ({selectedIds.length})
                         </button>
                     )}
                     {canCreate && (
@@ -561,87 +578,82 @@ const CourseContent = () => {
                     </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Mode</label>
-                        <select
-                            value={filters.mode}
-                            onChange={(e) => handleFilterChange('mode', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
-                        >
-                            <option value="">All Modes</option>
-                            <option value="ONLINE">ONLINE</option>
-                            <option value="OFFLINE">OFFLINE</option>
-                        </select>
+                        <CustomMultiSelect
+                            options={[
+                                { value: "ONLINE", label: "ONLINE" },
+                                { value: "OFFLINE", label: "OFFLINE" }
+                            ]}
+                            value={filters.mode.map(val => ({ value: val, label: val }))}
+                            onChange={(selected) => handleFilterChange('mode', selected ? selected.map(o => o.value) : [])}
+                            placeholder="All Modes"
+                            isDarkMode={true}
+                        />
                     </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Course Type</label>
-                        <select
-                            value={filters.courseType}
-                            onChange={(e) => handleFilterChange('courseType', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
-                        >
-                            <option value="">All Types</option>
-                            <option value="INSTATION">INSTATION</option>
-                            <option value="OUTSTATION">OUTSTATION</option>
-                        </select>
+                        <CustomMultiSelect
+                            options={[
+                                { value: "INSTATION", label: "INSTATION" },
+                                { value: "OUTSTATION", label: "OUTSTATION" }
+                            ]}
+                            value={filters.courseType.map(val => ({ value: val, label: val }))}
+                            onChange={(selected) => handleFilterChange('courseType', selected ? selected.map(o => o.value) : [])}
+                            placeholder="All Types"
+                            isDarkMode={true}
+                        />
                     </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Class</label>
-                        <select
-                            value={filters.class}
-                            onChange={(e) => handleFilterChange('class', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
-                        >
-                            <option value="">All Classes</option>
-                            {classes.map(cls => <option key={cls._id} value={cls._id}>{cls.name}</option>)}
-                        </select>
+                        <CustomMultiSelect
+                            options={classes.map(cls => ({ value: cls._id, label: cls.name }))}
+                            value={classes.filter(cls => filters.class.includes(cls._id)).map(cls => ({ value: cls._id, label: cls.name }))}
+                            onChange={(selected) => handleFilterChange('class', selected ? selected.map(o => o.value) : [])}
+                            placeholder="All Classes"
+                            isDarkMode={true}
+                        />
                     </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Department</label>
-                        <select
-                            value={filters.department}
-                            onChange={(e) => handleFilterChange('department', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
-                        >
-                            <option value="">All Departments</option>
-                            {departments.map(dept => (
-                                <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
-                            ))}
-                        </select>
+                        <CustomMultiSelect
+                            options={departments.map(dept => ({ value: dept._id, label: dept.departmentName }))}
+                            value={departments.filter(dept => filters.department.includes(dept._id)).map(dept => ({ value: dept._id, label: dept.departmentName }))}
+                            onChange={(selected) => handleFilterChange('department', selected ? selected.map(o => o.value) : [])}
+                            placeholder="All Departments"
+                            isDarkMode={true}
+                        />
                     </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Exam Tag</label>
-                        <select
-                            value={filters.examTag}
-                            onChange={(e) => handleFilterChange('examTag', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
-                        >
-                            <option value="">All Exam Tags</option>
-                            {examTags.map(tag => <option key={tag._id} value={tag._id}>{tag.name}</option>)}
-                        </select>
+                        <CustomMultiSelect
+                            options={examTags.map(tag => ({ value: tag._id, label: tag.name }))}
+                            value={examTags.filter(tag => filters.examTag.includes(tag._id)).map(tag => ({ value: tag._id, label: tag.name }))}
+                            onChange={(selected) => handleFilterChange('examTag', selected ? selected.map(o => o.value) : [])}
+                            placeholder="All Exam Tags"
+                            isDarkMode={true}
+                        />
                     </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Session</label>
-                        <select
-                            value={filters.courseSession}
-                            onChange={(e) => handleFilterChange('courseSession', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
-                        >
-                            <option value="">All Sessions</option>
-                            {sessions.map(sess => (
-                                <option key={sess._id} value={sess.sessionName}>{sess.sessionName}</option>
-                            ))}
-                        </select>
+                        <CustomMultiSelect
+                            options={sessions.map(sess => ({ value: sess.sessionName, label: sess.sessionName }))}
+                            value={filters.courseSession.map(val => ({ value: val, label: val }))}
+                            onChange={(selected) => handleFilterChange('courseSession', selected ? selected.map(o => o.value) : [])}
+                            placeholder="All Sessions"
+                            isDarkMode={true}
+                        />
                     </div>
                     <div>
                         <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Programme</label>
-                        <select
-                            value={filters.programme}
-                            onChange={(e) => handleFilterChange('programme', e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
-                        >
-                            <option value="">All Programmes</option>
-                            <option value="CRP">CRP</option>
-                            <option value="NCRP">NCRP</option>
-                        </select>
+                        <CustomMultiSelect
+                            options={[
+                                { value: "CRP", label: "CRP" },
+                                { value: "NCRP", label: "NCRP" }
+                            ]}
+                            value={filters.programme.map(val => ({ value: val, label: val }))}
+                            onChange={(selected) => handleFilterChange('programme', selected ? selected.map(o => o.value) : [])}
+                            placeholder="All Programmes"
+                            isDarkMode={true}
+                        />
                     </div>
                 </div>
                 <div className="mt-3 flex justify-end">
@@ -1259,7 +1271,7 @@ const CourseContent = () => {
                                 )}
                                 <button
                                     onClick={closeDetailModal}
-                                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                                    className="px-4 py-2 bg-[#1c2125] text-white rounded-lg hover:bg-gray-650 transition-colors"
                                 >
                                     Close
                                 </button>
@@ -1268,7 +1280,24 @@ const CourseContent = () => {
                     </div>
                 )
             }
-        </div >
+
+            {isBulkUpdateModalOpen && (
+                <BulkUpdateCourseModal
+                    selectedCourseIds={selectedIds}
+                    onClose={() => setIsBulkUpdateModalOpen(false)}
+                    onSuccess={() => {
+                        setIsBulkUpdateModalOpen(false);
+                        setSelectedIds([]);
+                        fetchData();
+                    }}
+                    classes={classes}
+                    departments={departments}
+                    examTags={examTags}
+                    sessions={sessions}
+                    isDarkMode={true}
+                />
+            )}
+        </div>
     );
 };
 
