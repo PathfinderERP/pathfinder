@@ -6,7 +6,8 @@ import {
     FaHistory,
     FaUserTie, FaArrowLeft, FaPhoneAlt, FaUsers, FaUserGraduate,
     FaMoneyBillWave, FaCalendarAlt, FaIdCard, FaReceipt, FaCloudUploadAlt,
-    FaFire, FaSnowflake, FaThermometerHalf, FaCheckCircle, FaSearch, FaFileExcel
+    FaFire, FaSnowflake, FaThermometerHalf, FaCheckCircle, FaSearch, FaFileExcel,
+    FaTimesCircle
 } from 'react-icons/fa';
 import { toast } from "react-toastify";
 import { BarChart, Bar, Cell, AreaChart, Area, PieChart, Pie, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -16,6 +17,7 @@ const LEAD_TYPE_CONFIG = {
     'WARM LEAD': { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: <FaThermometerHalf />, label: 'WARM' },
     'COLD LEAD': { color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', icon: <FaSnowflake />, label: 'COLD' },
     'NEUTRAL LEAD': { color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30', icon: <FaHistory />, label: 'NEUTRAL' },
+    'INVALID LEAD': { color: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/30', icon: <FaTimesCircle />, label: 'INVALID' },
     'UNTAGGED': { color: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/30', icon: <FaPhoneAlt />, label: '-' },
 };
 
@@ -25,6 +27,7 @@ const getLeadConfig = (type) => {
     if (key.includes('WARM')) return LEAD_TYPE_CONFIG['WARM LEAD'];
     if (key.includes('COLD')) return LEAD_TYPE_CONFIG['COLD LEAD'];
     if (key.includes('NEUTRAL')) return LEAD_TYPE_CONFIG['NEUTRAL LEAD'];
+    if (key.includes('INVALID')) return LEAD_TYPE_CONFIG['INVALID LEAD'];
     return LEAD_TYPE_CONFIG['UNTAGGED'];
 };
 

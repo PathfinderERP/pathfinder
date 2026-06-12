@@ -61,13 +61,14 @@ const parseRow = (rawRow) => {
     return lead;
 };
 
-const LEAD_TYPE_OPTIONS = ["HOT LEAD", "WARM LEAD", "COLD LEAD", "NEUTRAL LEAD"];
+const LEAD_TYPE_OPTIONS = ["HOT LEAD", "WARM LEAD", "COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"];
 
 const LEAD_TYPE_COLORS = {
     "HOT LEAD":  { bg: "bg-red-500/10",    border: "border-red-500/30",    text: "text-red-400"    },
     "WARM LEAD": { bg: "bg-orange-500/10", border: "border-orange-500/30", text: "text-orange-400" },
     "COLD LEAD": { bg: "bg-blue-500/10",   border: "border-blue-500/30",   text: "text-blue-400"   },
     "NEUTRAL LEAD": { bg: "bg-purple-500/10", border: "border-purple-500/30", text: "text-purple-400" },
+    "INVALID LEAD": { bg: "bg-gray-500/10", border: "border-gray-500/30", text: "text-gray-400" },
 };
 
 /* ========================================================== */

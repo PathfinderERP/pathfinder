@@ -47,6 +47,8 @@ const LeadManagementContent = () => {
         hotLeads: 0,
         warmLeads: 0,
         coldLeads: 0,
+        neutralLeads: 0,
+        invalidLeads: 0,
         totalScheduled: 0,
         recentActivity: [],
         scheduledList: [],
@@ -724,6 +726,8 @@ const LeadManagementContent = () => {
                 return "bg-blue-500/20 text-blue-400 border-blue-500";
             case "NEUTRAL LEAD":
                 return "bg-purple-500/20 text-purple-400 border-purple-500";
+            case "INVALID LEAD":
+                return "bg-gray-500/20 text-gray-400 border-gray-500";
             default:
                 return "bg-gray-500/20 text-gray-400 border-gray-500";
         }
@@ -755,6 +759,10 @@ const LeadManagementContent = () => {
             case 'neutral':
                 title = "Neutral Lead Discussions";
                 filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'NEUTRAL LEAD');
+                break;
+            case 'invalid':
+                title = "Invalid Lead Discussions";
+                filteredData = followUpStats.recentActivity.filter(a => a.status?.toUpperCase() === 'INVALID LEAD');
                 break;
             case 'scheduled':
                 title = `Scheduled Follow-ups (${dashboardFilters.scheduledDate})`;
@@ -953,9 +961,10 @@ const LeadManagementContent = () => {
 
                 {/* Activity Analysis */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
                         {statsLoading ? (
                             <>
+                                <CardSkeleton isDarkMode={isDarkMode} />
                                 <CardSkeleton isDarkMode={isDarkMode} />
                                 <CardSkeleton isDarkMode={isDarkMode} />
                                 <CardSkeleton isDarkMode={isDarkMode} />
@@ -1133,7 +1142,26 @@ const LeadManagementContent = () => {
                                     </div>
                                 </div>
 
-
+                                {/* Invalid Leads Card */}
+                                <div
+                                    onClick={() => handleCardClick('invalid')}
+                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                                >
+                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                        <div>
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                Invalid Leads
+                                            </p>
+                                            <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.invalidLeads || 0}</h3>
+                                        </div>
+                                        <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
+                                            <FaTimes size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-gray-500">
+                                        <FaTimes size={100} />
+                                    </div>
+                                </div>
                             </>
                         )}
                     </div>
@@ -1247,6 +1275,12 @@ const LeadManagementContent = () => {
                     >
                         Only Neutral Lead
                     </button>
+                    <button
+                        onClick={() => handleFilterChange('leadType', [{ value: "INVALID LEAD", label: "INVALID LEAD" }])}
+                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "INVALID LEAD" ? 'bg-gray-500 text-white border-gray-500 shadow-[0_0_15px_rgba(107,114,128,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-gray-400 hover:border-gray-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-500')}`}
+                    >
+                        Only Invalid Lead
+                    </button>
                 </div>
 
                 {/* Search Bar - Reduced Padding (p-4 instead of p-6) */}
@@ -1282,7 +1316,8 @@ const LeadManagementContent = () => {
                                     { value: "HOT LEAD", label: "HOT LEAD" },
                                     { value: "WARM LEAD", label: "WARM  LEAD" },
                                     { value: "COLD LEAD", label: "COLD LEAD" },
-                                    { value: "NEUTRAL LEAD", label: "NEUTRAL LEAD" }
+                                    { value: "NEUTRAL LEAD", label: "NEUTRAL LEAD" },
+                                    { value: "INVALID LEAD", label: "INVALID LEAD" }
                                 ]}
                                 value={filters.leadType}
                                 onChange={(selected) => handleFilterChange('leadType', selected)}

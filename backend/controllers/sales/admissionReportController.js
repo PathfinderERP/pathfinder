@@ -168,7 +168,7 @@ export const getAdmissionReport = async (req, res) => {
                 {
                     $match: {
                         ...leadQuery,
-                        leadType: { $in: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD'] }
+                        leadType: { $in: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'] }
                     }
                 },
                 {
@@ -357,7 +357,7 @@ export const getAdmissionReport = async (req, res) => {
             {
                 $match: {
                     ...leadQuery,
-                    leadType: { $in: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD'] }
+                    leadType: { $in: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'] }
                 }
             },
             {

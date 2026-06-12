@@ -34,6 +34,13 @@ const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAdd
                     border: 'border-blue-500/20',
                     icon: <FaExclamationCircle className="text-blue-500" />
                 };
+            case 'INVALID LEAD':
+                return {
+                    bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50',
+                    text: 'text-gray-400',
+                    border: 'border-gray-500/20',
+                    icon: <FaTimesCircle className="text-gray-400" />
+                };
             default:
                 return {
                     bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50',

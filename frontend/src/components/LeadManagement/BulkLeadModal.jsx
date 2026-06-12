@@ -299,7 +299,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         course: courseId,
                         board: boardId,
                         source: row.Source,
-                        leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD'].includes(row.LeadType?.toUpperCase()) ? row.LeadType.toUpperCase() : "COLD LEAD",
+                        leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'].includes(row.LeadType?.toUpperCase()) ? row.LeadType.toUpperCase() : "COLD LEAD",
                         leadResponsibility: row.LeadResponse
                     });
                 }
@@ -469,7 +469,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         course: courseId,
                         board: boardId,
                         source: row.Source,
-                        leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD'].includes(row.LeadType?.toString().toUpperCase()) ? row.LeadType.toString().toUpperCase() : "COLD LEAD",
+                        leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'].includes(row.LeadType?.toString().toUpperCase()) ? row.LeadType.toString().toUpperCase() : "COLD LEAD",
                         leadResponsibility: row.LeadResponse,
                         feedback: row.Feedback ? row.Feedback.toString().trim() : '',
                         remarks: row.Remarks ? row.Remarks.toString().trim() : ''

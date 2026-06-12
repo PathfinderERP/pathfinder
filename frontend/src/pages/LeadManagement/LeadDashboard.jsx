@@ -10,6 +10,17 @@ const LeadDashboard = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
+    const getLeadBadgeStyle = (type) => {
+        switch (type) {
+            case "HOT LEAD": return isDarkMode ? "text-red-400 border-red-500/50 bg-red-500/10" : "text-red-600 border-red-200 bg-red-50";
+            case "WARM LEAD": return isDarkMode ? "text-orange-400 border-orange-500/50 bg-orange-500/10" : "text-orange-600 border-orange-200 bg-orange-50";
+            case "COLD LEAD": return isDarkMode ? "text-blue-400 border-blue-500/50 bg-blue-500/10" : "text-blue-600 border-blue-200 bg-blue-50";
+            case "NEUTRAL LEAD": return isDarkMode ? "text-purple-400 border-purple-500/50 bg-purple-500/10" : "text-purple-600 border-purple-200 bg-purple-50";
+            case "INVALID LEAD": return isDarkMode ? "text-gray-400 border-gray-500/50 bg-gray-500/10" : "text-gray-600 border-gray-200 bg-gray-50";
+            default: return isDarkMode ? "text-gray-400 border-gray-500/50 bg-gray-500/10" : "text-gray-600 border-gray-200 bg-gray-50";
+        }
+    };
+
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [canExport, setCanExport] = useState(true); // default true; false only if admin explicitly unchecks
@@ -323,7 +334,7 @@ const LeadDashboard = () => {
                             { label: "Target Course", name: "course", type: "multi-select", options: courses.map(c => ({ value: c._id, label: c.courseName })) },
                             { label: "Origin Source", name: "source", type: "multi-select", options: sources.map(s => ({ value: s.sourceName, label: s.sourceName })) },
                             { label: "Feedback Status", name: "feedback", type: "multi-select", options: feedbacks.map(f => ({ value: f.name, label: f.name })) },
-                            { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'WARM LEAD', label: 'WARM LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }, { value: 'NEUTRAL LEAD', label: 'NEUTRAL LEAD' }] },
+                            { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'WARM LEAD', label: 'WARM LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }, { value: 'NEUTRAL LEAD', label: 'NEUTRAL LEAD' }, { value: 'INVALID LEAD', label: 'INVALID LEAD' }] },
                             { label: "Agent Identity", name: "leadResponsibility", type: "multi-select", options: telecallerList.map(t => ({ value: t.value || t.name, label: t.displayName || t.name })) },
                             { label: "Student Cipher", name: "search", type: "text", placeholder: "SEARCH..." },
                             { label: "Window Start", name: "fromDate", type: "date" },
@@ -369,13 +380,14 @@ const LeadDashboard = () => {
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-8">
                     {[
                         { label: "Total Pooled leads", value: stats?.summary?.totalLeads, color: "from-blue-600 to-indigo-700", icon: FaUsers, shadow: "shadow-blue-500/20", tag: "Aggregate", filter: {} },
                         { label: "High Intent (Hot)", value: stats?.summary?.hotLeads, color: "from-emerald-600 to-teal-700", icon: FaChartLine, shadow: "shadow-emerald-500/20", tag: "Priority", pulse: true, filter: { leadType: 'HOT LEAD' } },
                         { label: "Moderate (Warm)", value: stats?.summary?.warmLeads, color: "from-orange-600 to-amber-700", icon: FaStar, shadow: "shadow-orange-500/20", tag: "Growing", filter: { leadType: 'WARM LEAD' } },
                         { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-gray-600 to-slate-700", icon: FaTasks, shadow: "shadow-gray-500/20", tag: "Queue", filter: { leadType: 'COLD LEAD' } },
-                        { label: "Neutral leads", value: stats?.summary?.neutralLeads, color: "from-purple-600 to-fuchsia-700", icon: FaTasks, shadow: "shadow-purple-500/20", tag: "Stable", filter: { leadType: 'NEUTRAL LEAD' } }
+                        { label: "Neutral leads", value: stats?.summary?.neutralLeads, color: "from-purple-600 to-fuchsia-700", icon: FaTasks, shadow: "shadow-purple-500/20", tag: "Stable", filter: { leadType: 'NEUTRAL LEAD' } },
+                        { label: "Invalid leads", value: stats?.summary?.invalidLeads, color: "from-zinc-700 to-slate-900", icon: FaTimes, shadow: "shadow-zinc-700/20", tag: "Discard", filter: { leadType: 'INVALID LEAD' } }
                     ].map((card, i) => (
                         <div
                             key={i}
@@ -419,12 +431,13 @@ const LeadDashboard = () => {
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">ACTIVE (WARM)</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">LEVEL (COLD)</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">NEUTRAL</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">INVALID</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">THROUGHPUT</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                     {loading ? (
-                                        <tr><td colSpan="7" className="py-24 text-center">
+                                        <tr><td colSpan="8" className="py-24 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <FaSpinner className="animate-spin text-cyan-500" size={40} />
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500 animate-pulse">Analyzing Member Performance...</span>
@@ -460,6 +473,9 @@ const LeadDashboard = () => {
                                                 <td className="px-8 py-6 text-center">
                                                     <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${getLeadBadgeStyle('NEUTRAL LEAD')}`}>{tc.neutralLeads || 0}</span>
                                                 </td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${getLeadBadgeStyle('INVALID LEAD')}`}>{tc.invalidLeads || 0}</span>
+                                                </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className={`flex-1 h-2 rounded-[4px] overflow-hidden transition-all ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
@@ -474,7 +490,7 @@ const LeadDashboard = () => {
                                             </tr>
                                         ))
                                     ) : (
-                                        <tr><td colSpan="7" className="py-24 text-center opacity-40 italic">
+                                        <tr><td colSpan="8" className="py-24 text-center opacity-40 italic">
                                             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Awaiting Signal Integrity / No Agent Data</p>
                                         </td></tr>
                                     )}

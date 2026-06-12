@@ -245,6 +245,7 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
                                 <option value="WARM LEAD">WARM LEAD</option>
                                 <option value="COLD LEAD">COLD LEAD</option>
                                 <option value="NEUTRAL LEAD">NEUTRAL LEAD</option>
+                                <option value="INVALID LEAD">INVALID LEAD</option>
                             </select>
                         </div>
 

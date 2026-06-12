@@ -58,7 +58,7 @@ const leadManagementSchema = new mongoose.Schema({
     },
     leadType: {
         type: String,
-        enum: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD'],
+        enum: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'],
     },
     leadResponsibility: {
         type: String,
@@ -104,7 +104,7 @@ const leadManagementSchema = new mongoose.Schema({
         },
         status: {
             type: String, // Tracking lead status at the time of follow-up
-            enum: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD']
+            enum: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD']
         },
         callStartTime: {
             type: Date

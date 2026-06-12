@@ -43,6 +43,13 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                     text: 'text-blue-500',
                     border: 'border-blue-500/20'
                 };
+            case 'INVALID LEAD':
+            case 'INVALID':
+                return {
+                    bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50',
+                    text: 'text-gray-400',
+                    border: 'border-gray-500/20'
+                };
             case 'NORMAL ADM':
             case 'BOARD ADM':
                 return {

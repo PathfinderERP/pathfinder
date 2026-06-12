@@ -332,7 +332,8 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                             { value: "HOT LEAD", label: "HOT LEAD" },
                                             { value: "WARM LEAD", label: "WARM LEAD" },
                                             { value: "COLD LEAD", label: "COLD LEAD" },
-                                            { value: "NEUTRAL LEAD", label: "NEUTRAL LEAD" }
+                                            { value: "NEUTRAL LEAD", label: "NEUTRAL LEAD" },
+                                            { value: "INVALID LEAD", label: "INVALID LEAD" }
                                         ]}
                                         value={formData.leadType}
                                         onChange={(val) => setFormData({ ...formData, leadType: val })}
