@@ -170,7 +170,7 @@ export const getCourseReport = async (req, res) => {
             LeadManagement.aggregate([
                 {
                     $match: {
-                        leadType: { $in: ['HOT LEAD', 'COLD LEAD'] },
+                        leadType: { $in: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD'] },
                         ...(matchStage.course ? { course: matchStage.course } : {}),
                         ...(matchStage.centre ? { centre: matchStage.centre } : {})
                     }

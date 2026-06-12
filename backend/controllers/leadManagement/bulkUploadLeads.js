@@ -29,7 +29,7 @@ export const bulkUploadLeads = async (req, res) => {
                 schoolName:         row.schoolName || "",
                 source:             row.source || "",
                 targetExam:         row.targetExam || "",
-                leadType:           ["HOT LEAD","WARM LEAD","COLD LEAD"].includes(row.leadType)
+                leadType:           ["HOT LEAD","WARM LEAD","COLD LEAD","NEUTRAL LEAD"].includes(row.leadType)
                                         ? row.leadType
                                         : undefined,
                 // The uploader IS the lead responsibility person

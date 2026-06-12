@@ -20,6 +20,13 @@ const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAdd
                     border: 'border-orange-500/20',
                     icon: <FaStar className="text-orange-500" />
                 };
+            case 'NEUTRAL LEAD':
+                return {
+                    bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50',
+                    text: 'text-purple-500',
+                    border: 'border-purple-500/20',
+                    icon: <FaHistory className="text-purple-500" />
+                };
             case 'COLD LEAD':
                 return {
                     bg: isDarkMode ? 'bg-blue-500/10' : 'bg-blue-50',

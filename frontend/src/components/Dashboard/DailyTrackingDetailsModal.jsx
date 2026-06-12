@@ -29,6 +29,13 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                     text: 'text-orange-500',
                     border: 'border-orange-500/20'
                 };
+            case 'NEUTRAL LEAD':
+            case 'NEUTRAL':
+                return {
+                    bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50',
+                    text: 'text-purple-500',
+                    border: 'border-purple-500/20'
+                };
             case 'COLD LEAD':
             case 'COLD':
                 return {

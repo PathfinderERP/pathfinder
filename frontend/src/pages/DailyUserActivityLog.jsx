@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
 import {
+    FaHistory,
     FaUserTie, FaArrowLeft, FaPhoneAlt, FaUsers, FaUserGraduate,
     FaMoneyBillWave, FaCalendarAlt, FaIdCard, FaReceipt, FaCloudUploadAlt,
     FaFire, FaSnowflake, FaThermometerHalf, FaCheckCircle, FaSearch, FaFileExcel
@@ -14,6 +15,7 @@ const LEAD_TYPE_CONFIG = {
     'HOT LEAD': { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <FaFire />, label: 'HOT' },
     'WARM LEAD': { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: <FaThermometerHalf />, label: 'WARM' },
     'COLD LEAD': { color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', icon: <FaSnowflake />, label: 'COLD' },
+    'NEUTRAL LEAD': { color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30', icon: <FaHistory />, label: 'NEUTRAL' },
     'UNTAGGED': { color: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/30', icon: <FaPhoneAlt />, label: '-' },
 };
 
@@ -22,6 +24,7 @@ const getLeadConfig = (type) => {
     if (key.includes('HOT')) return LEAD_TYPE_CONFIG['HOT LEAD'];
     if (key.includes('WARM')) return LEAD_TYPE_CONFIG['WARM LEAD'];
     if (key.includes('COLD')) return LEAD_TYPE_CONFIG['COLD LEAD'];
+    if (key.includes('NEUTRAL')) return LEAD_TYPE_CONFIG['NEUTRAL LEAD'];
     return LEAD_TYPE_CONFIG['UNTAGGED'];
 };
 
@@ -80,7 +83,7 @@ const DailyUserActivityLog = () => {
                     Authorization: `Bearer ${token}`,
                 },
             });
-            
+
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -129,7 +132,7 @@ const DailyUserActivityLog = () => {
         const matchType = callTypeFilter === 'ALL' || call.callType === callTypeFilter;
         const cfg = getLeadConfig(call.leadType);
         const matchLead = leadTypeFilter === 'ALL' || cfg.label === leadTypeFilter;
-        
+
         let matchSection = true;
         if (selectedSection === 'FRESH') {
             matchSection = call.callType === 'FRESH';
@@ -150,7 +153,7 @@ const DailyUserActivityLog = () => {
         } else if (selectedSection === 'COLD') {
             matchSection = (call.leadType || '').toUpperCase().includes('COLD');
         }
-        
+
         return matchSearch && matchType && matchLead && matchSection;
     });
 
@@ -178,15 +181,14 @@ const DailyUserActivityLog = () => {
 
                     <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-6">
                         {/* Left Column: Full-Height Profile Card */}
-                        <div className={`w-full xl:w-[280px] h-[200px] xl:h-[234px] rounded-xl overflow-hidden relative border shadow-lg ${
-                            isDark ? 'bg-[#131619] border-gray-800 shadow-black/45' : 'bg-white border-gray-100 shadow-sm'
-                        }`}>
+                        <div className={`w-full xl:w-[280px] h-[200px] xl:h-[234px] rounded-xl overflow-hidden relative border shadow-lg ${isDark ? 'bg-[#131619] border-gray-800 shadow-black/45' : 'bg-white border-gray-100 shadow-sm'
+                            }`}>
                             {data.profileImage ? (
                                 <>
-                                    <img 
-                                        src={data.profileImage} 
-                                        alt={data.userName} 
-                                        className="absolute inset-0 w-full h-full object-cover" 
+                                    <img
+                                        src={data.profileImage}
+                                        alt={data.userName}
+                                        className="absolute inset-0 w-full h-full object-cover"
                                     />
                                     {/* Gradient overlay for readability */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent z-0" />
@@ -218,10 +220,10 @@ const DailyUserActivityLog = () => {
 
                         {/* Right Column: Two horizontal rows */}
                         <div className="flex flex-col justify-between gap-4">
-                            
+
                             {/* Upper row: Conversion Funnel and Date Pickers */}
                             <div className="flex flex-col xl:flex-row justify-between items-stretch gap-4">
-                                
+
                                 {/* Conversion Funnel Widget with Interactive Charts */}
                                 <div className={`flex-1 flex items-center justify-between gap-6 px-6 py-2 rounded-xl border ${isDark ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'} h-[110px] overflow-hidden`}>
                                     {/* Charts Area */}
@@ -380,8 +382,8 @@ const DailyUserActivityLog = () => {
                                 ].map((kpi, i) => {
                                     const isActive = selectedSection === kpi.section;
                                     return (
-                                        <div 
-                                            key={i} 
+                                        <div
+                                            key={i}
                                             onClick={() => setSelectedSection(isActive ? 'ALL' : kpi.section)}
                                             className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? kpi.activeBorder : card} flex items-center gap-4 h-[100px] xl:h-[108px]`}
                                         >
@@ -409,8 +411,8 @@ const DailyUserActivityLog = () => {
                         const pct = totalCalls > 0 ? Math.round((item.value / totalCalls) * 100) : 0;
                         const isActive = selectedSection === item.section;
                         return (
-                            <div 
-                                key={i} 
+                            <div
+                                key={i}
                                 onClick={() => setSelectedSection(isActive ? 'ALL' : item.section)}
                                 className={`p-5 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? item.activeBorder : card} flex items-center justify-between gap-4`}
                             >
@@ -444,7 +446,7 @@ const DailyUserActivityLog = () => {
                                     {filteredCalls.length} / {data.callDetails?.length || 0}
                                 </span>
                                 {selectedSection !== 'ALL' && (
-                                    <span 
+                                    <span
                                         onClick={() => setSelectedSection('ALL')}
                                         className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer hover:bg-red-500/20 transition-all flex items-center gap-1"
                                     >
@@ -501,11 +503,10 @@ const DailyUserActivityLog = () => {
                                         setLeadTypeFilter('ALL');
                                         setSelectedSection('ALL');
                                     }}
-                                    className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                                        isDark 
-                                            ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' 
+                                    className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isDark
+                                            ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
                                             : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
-                                    }`}
+                                        }`}
                                 >
                                     Reset Filter
                                 </button>
@@ -556,16 +557,15 @@ const DailyUserActivityLog = () => {
                                             </td>
                                             <td className={`px-5 py-3 text-xs font-mono ${subText}`}>{call.phoneNumber}</td>
                                             <td className="px-5 py-3 text-center">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${
-                                                    call.callType === 'FRESH'
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${call.callType === 'FRESH'
                                                         ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                                                         : call.callType === 'ADMISSION'
-                                                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                        : call.callType === 'BOARD-ADMIT'
-                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                        : call.callType === 'BOARD-COUNSEL'
-                                                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                                                        : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                            : call.callType === 'BOARD-ADMIT'
+                                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                                : call.callType === 'BOARD-COUNSEL'
+                                                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                                                    : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                                                     }`}>
                                                     {call.callType}
                                                 </span>

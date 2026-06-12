@@ -20,12 +20,13 @@ export const getLeadDashboardStats = async (req, res) => {
                     totalLeads: { $sum: 1 },
                     hotLeads: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
                     warmLeads: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
-                    coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } }
+                    coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
+                    neutralLeads: { $sum: { $cond: [{ $eq: ["$leadType", "NEUTRAL LEAD"] }, 1, 0] } }
                 }
             }
         ]);
 
-        const summary = summaryArr[0] || { totalLeads: 0, hotLeads: 0, warmLeads: 0, coldLeads: 0 };
+        const summary = summaryArr[0] || { totalLeads: 0, hotLeads: 0, warmLeads: 0, coldLeads: 0, neutralLeads: 0 };
 
         // Telecaller Performance Aggregation (using baseQuery - respects current leadType filter)
         const aggregatedTelecallers = await LeadManagement.aggregate([
@@ -40,6 +41,7 @@ export const getLeadDashboardStats = async (req, res) => {
                     hotLeads: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
                     warmLeads: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
                     coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
+                    neutralLeads: { $sum: { $cond: [{ $eq: ["$leadType", "NEUTRAL LEAD"] }, 1, 0] } },
                     totalFollowUps: { $sum: { $size: { $ifNull: ["$followUps", []] } } }
                 }
             }
@@ -83,6 +85,7 @@ export const getLeadDashboardStats = async (req, res) => {
                 existing.hotLeads += item.hotLeads;
                 existing.warmLeads += item.warmLeads;
                 existing.coldLeads += item.coldLeads;
+                existing.neutralLeads += item.neutralLeads;
                 existing.totalFollowUps += item.totalFollowUps;
             } else {
                 telecallersMap.set(displayName, {
@@ -91,6 +94,7 @@ export const getLeadDashboardStats = async (req, res) => {
                     hotLeads: item.hotLeads,
                     warmLeads: item.warmLeads,
                     coldLeads: item.coldLeads,
+                    neutralLeads: item.neutralLeads,
                     totalFollowUps: item.totalFollowUps
                 });
             }

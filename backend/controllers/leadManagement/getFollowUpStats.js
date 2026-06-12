@@ -166,6 +166,7 @@ export const getFollowUpStats = async (req, res) => {
                                 hotLeads: { $sum: { $cond: [{ $in: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, ["HOT LEAD", "ADMISSION TAKEN"]] }, 1, 0] } },
                                 warmLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "WARM LEAD"] }, 1, 0] } },
                                 coldLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] }, 1, 0] } },
+                                neutralLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "NEUTRAL LEAD"] }, 1, 0] } },
                                 recentActivity: {
                                     $push: {
                                         leadId: "$_id",
@@ -207,7 +208,8 @@ export const getFollowUpStats = async (req, res) => {
                                 totalLeads: { $sum: 1 },
                                 hot: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
                                 warm: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
-                                cold: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } }
+                                cold: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
+                                neutral: { $sum: { $cond: [{ $eq: ["$leadType", "NEUTRAL LEAD"] }, 1, 0] } }
                             }
                         }
                     ]
@@ -246,6 +248,7 @@ export const getFollowUpStats = async (req, res) => {
             hotLeads: aS.hotLeads || 0,
             warmLeads: aS.warmLeads || 0,
             coldLeads: aS.coldLeads || 0,
+            neutralLeads: aS.neutralLeads || 0,
             recentActivity,
             totalScheduled: sS.totalScheduled || 0,
             scheduledList,

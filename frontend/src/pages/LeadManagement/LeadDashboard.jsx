@@ -323,7 +323,7 @@ const LeadDashboard = () => {
                             { label: "Target Course", name: "course", type: "multi-select", options: courses.map(c => ({ value: c._id, label: c.courseName })) },
                             { label: "Origin Source", name: "source", type: "multi-select", options: sources.map(s => ({ value: s.sourceName, label: s.sourceName })) },
                             { label: "Feedback Status", name: "feedback", type: "multi-select", options: feedbacks.map(f => ({ value: f.name, label: f.name })) },
-                            { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'WARM LEAD', label: 'WARM LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }] },
+                            { label: "Lead Intensity", name: "leadType", type: "multi-select", options: [{ value: 'HOT LEAD', label: 'HOT LEAD' }, { value: 'WARM LEAD', label: 'WARM LEAD' }, { value: 'COLD LEAD', label: 'COLD LEAD' }, { value: 'NEUTRAL LEAD', label: 'NEUTRAL LEAD' }] },
                             { label: "Agent Identity", name: "leadResponsibility", type: "multi-select", options: telecallerList.map(t => ({ value: t.value || t.name, label: t.displayName || t.name })) },
                             { label: "Student Cipher", name: "search", type: "text", placeholder: "SEARCH..." },
                             { label: "Window Start", name: "fromDate", type: "date" },
@@ -369,12 +369,13 @@ const LeadDashboard = () => {
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
                     {[
                         { label: "Total Pooled leads", value: stats?.summary?.totalLeads, color: "from-blue-600 to-indigo-700", icon: FaUsers, shadow: "shadow-blue-500/20", tag: "Aggregate", filter: {} },
                         { label: "High Intent (Hot)", value: stats?.summary?.hotLeads, color: "from-emerald-600 to-teal-700", icon: FaChartLine, shadow: "shadow-emerald-500/20", tag: "Priority", pulse: true, filter: { leadType: 'HOT LEAD' } },
                         { label: "Moderate (Warm)", value: stats?.summary?.warmLeads, color: "from-orange-600 to-amber-700", icon: FaStar, shadow: "shadow-orange-500/20", tag: "Growing", filter: { leadType: 'WARM LEAD' } },
-                        { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-gray-600 to-slate-700", icon: FaTasks, shadow: "shadow-gray-500/20", tag: "Queue", filter: { leadType: 'COLD LEAD' } }
+                        { label: "Standard leads (Cold)", value: stats?.summary?.coldLeads, color: "from-gray-600 to-slate-700", icon: FaTasks, shadow: "shadow-gray-500/20", tag: "Queue", filter: { leadType: 'COLD LEAD' } },
+                        { label: "Neutral leads", value: stats?.summary?.neutralLeads, color: "from-purple-600 to-fuchsia-700", icon: FaTasks, shadow: "shadow-purple-500/20", tag: "Stable", filter: { leadType: 'NEUTRAL LEAD' } }
                     ].map((card, i) => (
                         <div
                             key={i}
@@ -417,12 +418,13 @@ const LeadDashboard = () => {
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">INTENSE (HOT)</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">ACTIVE (WARM)</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">LEVEL (COLD)</th>
+                                        <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">NEUTRAL</th>
                                         <th className="px-8 py-6 text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] text-center">THROUGHPUT</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                     {loading ? (
-                                        <tr><td colSpan="5" className="py-24 text-center">
+                                        <tr><td colSpan="7" className="py-24 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <FaSpinner className="animate-spin text-cyan-500" size={40} />
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-cyan-500 animate-pulse">Analyzing Member Performance...</span>
@@ -447,13 +449,16 @@ const LeadDashboard = () => {
                                                 </td>
                                                 <td className={`px-8 py-6 text-center font-black italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{tc.totalLeads}</td>
                                                 <td className="px-8 py-6 text-center">
-                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>{tc.hotLeads}</span>
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${getLeadBadgeStyle('HOT LEAD')}`}>{tc.hotLeads}</span>
                                                 </td>
                                                 <td className="px-8 py-6 text-center">
-                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>{tc.warmLeads}</span>
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${getLeadBadgeStyle('WARM LEAD')}`}>{tc.warmLeads}</span>
                                                 </td>
                                                 <td className="px-8 py-6 text-center">
-                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>{tc.coldLeads}</span>
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${getLeadBadgeStyle('COLD LEAD')}`}>{tc.coldLeads}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <span className={`px-4 py-1 rounded-[4px] text-[9px] font-black border tracking-widest ${getLeadBadgeStyle('NEUTRAL LEAD')}`}>{tc.neutralLeads || 0}</span>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
@@ -469,7 +474,7 @@ const LeadDashboard = () => {
                                             </tr>
                                         ))
                                     ) : (
-                                        <tr><td colSpan="5" className="py-24 text-center opacity-40 italic">
+                                        <tr><td colSpan="7" className="py-24 text-center opacity-40 italic">
                                             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Awaiting Signal Integrity / No Agent Data</p>
                                         </td></tr>
                                     )}
@@ -507,10 +512,7 @@ const LeadDashboard = () => {
                                                 <h4 className={`font-black text-[13px] uppercase tracking-tighter italic transition-colors ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{call.name}</h4>
                                                 <p className="text-[11px] text-cyan-500 font-mono mt-1 font-bold tracking-tight underline underline-offset-4 decoration-cyan-500/20 group-hover:decoration-cyan-500/50 transition-all">{call.phoneNumber}</p>
                                             </div>
-                                            <div className={`px-3 py-1.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest border transition-all ${call.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100') :
-                                                call.leadType === 'COLD LEAD' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100') :
-                                                    (isDarkMode ? 'bg-gray-800 text-gray-500 border-gray-700' : 'bg-gray-100 text-gray-400 border-gray-200')
-                                                }`}>
+                                            <div className={`px-3 py-1.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest border transition-all ${getLeadBadgeStyle(call.leadType)}`}>
                                                 {call.leadType}
                                             </div>
                                         </div>
@@ -596,10 +598,7 @@ const LeadDashboard = () => {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Current State</p>
-                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase border tracking-widest ${selectedLead.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100') :
-                                                        selectedLead.leadType === 'COLD LEAD' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100') :
-                                                            (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-gray-100 text-gray-400 border-gray-200')
-                                                        }`}>
+                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase border tracking-widest ${getLeadBadgeStyle(selectedLead.leadType)}`}>
                                                         {selectedLead.leadType}
                                                     </span>
                                                 </div>
@@ -669,10 +668,7 @@ const LeadDashboard = () => {
                                                 <div>
                                                     <h3 className={`text-[15px] font-black uppercase tracking-tight italic transition-colors ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{lead.name}</h3>
                                                     <div className="flex items-center gap-3 mt-2">
-                                                        <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase border tracking-widest ${lead.leadType === 'HOT LEAD' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100') :
-                                                            lead.leadType === 'COLD LEAD' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100') :
-                                                                (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-gray-100 text-gray-400 border-gray-200')
-                                                            }`}>
+                                                        <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase border tracking-widest ${getLeadBadgeStyle(lead.leadType)}`}>
                                                             {lead.leadType}
                                                         </span>
                                                         <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1.5 opacity-60">
