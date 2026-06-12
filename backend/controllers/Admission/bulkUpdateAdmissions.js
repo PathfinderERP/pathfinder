@@ -1,5 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
 import Student from "../../models/Students.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
+import Class from "../../models/Master_data/Class.js";
 import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
 
 export const bulkUpdateAdmissions = async (req, res) => {
@@ -22,6 +24,23 @@ export const bulkUpdateAdmissions = async (req, res) => {
                 cleanUpdateData[field] = null;
             }
         });
+
+        // Fetch ExamTag and Class details once before the loop (avoiding N+1 queries)
+        let examTagName = null;
+        if (cleanUpdateData.examTag) {
+            const tagObj = await ExamTag.findById(cleanUpdateData.examTag);
+            if (tagObj) {
+                examTagName = tagObj.name;
+            }
+        }
+
+        let classNameStr = null;
+        if (cleanUpdateData.class) {
+            const classObj = await Class.findById(cleanUpdateData.class);
+            if (classObj) {
+                classNameStr = classObj.name || classObj.className;
+            }
+        }
 
         let modifiedCount = 0;
 
@@ -51,22 +70,81 @@ export const bulkUpdateAdmissions = async (req, res) => {
                         { student: studentId },
                         { centre: cleanUpdateData.centre }
                     );
-
-                    // Sync to Student profile details
-                    const student = await Student.findById(studentId);
-                    if (student && student.studentsDetails && student.studentsDetails[0]) {
-                        student.studentsDetails[0].centre = cleanUpdateData.centre;
-                        student.markModified('studentsDetails');
-                        await student.save();
-                    }
                 }
             }
 
-            // Sync Counselled By to the student record
-            if (cleanUpdateData.counselledBy !== undefined && studentId) {
-                await Student.findByIdAndUpdate(studentId, {
-                    counselledBy: cleanUpdateData.counselledBy
-                });
+            // Sync to Student profile details and vectors
+            if (studentId) {
+                const student = await Student.findById(studentId);
+                if (student) {
+                    let studentModified = false;
+
+                    // Sync Centre
+                    if (cleanUpdateData.centre !== undefined) {
+                        if (student.studentsDetails && student.studentsDetails[0]) {
+                            student.studentsDetails[0].centre = cleanUpdateData.centre;
+                            student.markModified('studentsDetails');
+                            studentModified = true;
+                        }
+                    }
+
+                    // Sync Counselled By
+                    if (cleanUpdateData.counselledBy !== undefined) {
+                        student.counselledBy = cleanUpdateData.counselledBy;
+                        studentModified = true;
+                    }
+
+                    // Sync Course
+                    if (cleanUpdateData.course !== undefined) {
+                        student.course = cleanUpdateData.course;
+                        studentModified = true;
+                    }
+
+                    // Sync Department
+                    if (cleanUpdateData.department !== undefined) {
+                        student.department = cleanUpdateData.department;
+                        studentModified = true;
+                    }
+
+                    // Sync Academic Vector (examSchema & sessionExamCourse)
+                    if (cleanUpdateData.academicSession !== undefined || cleanUpdateData.examTag !== undefined || cleanUpdateData.class !== undefined) {
+                        if (!student.examSchema) student.examSchema = [];
+                        if (student.examSchema.length === 0) student.examSchema.push({});
+
+                        if (!student.sessionExamCourse) student.sessionExamCourse = [];
+                        if (student.sessionExamCourse.length === 0) student.sessionExamCourse.push({});
+
+                        // Update examSchema[0]
+                        if (cleanUpdateData.examTag !== undefined) {
+                            student.examSchema[0].examName = examTagName;
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.class !== undefined) {
+                            student.examSchema[0].class = classNameStr;
+                            studentModified = true;
+                        }
+
+                        // Update sessionExamCourse[0]
+                        if (cleanUpdateData.academicSession !== undefined) {
+                            student.sessionExamCourse[0].session = cleanUpdateData.academicSession;
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.examTag !== undefined) {
+                            student.sessionExamCourse[0].examTag = examTagName;
+                            studentModified = true;
+                        }
+
+                        student.markModified('examSchema');
+                        student.markModified('sessionExamCourse');
+                    }
+
+                    // Add auditing metadata if updated
+                    if (studentModified) {
+                        student.updatedBy = req.user?.name || "System";
+                        student.updatedByUserId = req.user?._id;
+                        await student.save();
+                    }
+                }
             }
 
             // Apply updates to the current admission record
