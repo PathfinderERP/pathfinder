@@ -3,6 +3,7 @@ import { createAdmission } from "../../controllers/Admission/createAdmission.js"
 import { getAdmissions, getActiveEmployees } from "../../controllers/Admission/getAdmissions.js";
 import { getAdmissionById } from "../../controllers/Admission/getAdmissionById.js";
 import { updateAdmission } from "../../controllers/Admission/updateAdmission.js";
+import { bulkUpdateAdmissions } from "../../controllers/Admission/bulkUpdateAdmissions.js";
 import { deleteAdmission } from "../../controllers/Admission/deleteAdmission.js";
 import { updatePaymentInstallment } from "../../controllers/Admission/updatePaymentInstallment.js";
 import { toggleStudentStatus } from "../../controllers/Admission/toggleStudentStatus.js";
@@ -32,6 +33,7 @@ router.get("/:id", requireAuth, getAdmissionById);
 
 // Write routes - Require granular permissions
 router.post("/create", requireGranularPermission("admissions", "enrolledStudents", "create"), createAdmission);
+router.post("/bulk-update", requireGranularPermission("admissions", "enrolledStudents", "edit"), bulkUpdateAdmissions);
 router.put("/section-allotment/:admissionId", requireGranularPermission("admissions", "sectionAllotment", "edit"), allotSection); // Update Allotment
 router.put("/bulk-section-allotment", requireGranularPermission("admissions", "sectionAllotment", "edit"), bulkAllotSections); // Bulk Update Allotment
 router.post("/transfer", requireGranularPermission("admissions", "enrolledStudents", "edit"), transferCourse); // New Transfer Route

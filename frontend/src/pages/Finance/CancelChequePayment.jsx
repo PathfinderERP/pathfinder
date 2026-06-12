@@ -158,6 +158,7 @@ const CancelChequePayment = () => {
             "Bank": c.bankName,
             "Amount": c.amount,
             "Cheque Date": c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-IN') : "N/A",
+            "Cheque Deposit Date": c.depositedDate ? new Date(c.depositedDate).toLocaleDateString('en-IN') : "N/A",
             "Cleared/Rejected Date": c.clearedOrRejectedDate ? new Date(c.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A",
             "Status": c.status,
             "Centre": c.centre,
@@ -464,6 +465,7 @@ const CancelChequePayment = () => {
                                     <th className="p-6">Bank</th>
                                     <th className="p-6">Amount</th>
                                     <th className="p-6">Cheque Date</th>
+                                    <th className="p-6">Cheque Deposit Date</th>
                                     <th className="p-6">Cleared/Rejected Date</th>
                                     <th className="p-6">Receipt</th>
                                     <th className="p-6 text-center">Status</th>
@@ -474,14 +476,14 @@ const CancelChequePayment = () => {
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="10" className="p-12 text-center">
+                                        <td colSpan="11" className="p-12 text-center">
                                             <div className="animate-spin h-8 w-8 border-t-2 border-cyan-500 rounded-full mx-auto mb-4"></div>
                                             <div className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Records...</div>
                                         </td>
                                     </tr>
                                 ) : cheques.length === 0 ? (
                                     <tr>
-                                        <td colSpan="10" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs italic">
+                                        <td colSpan="11" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs italic">
                                             No cheque recovery records found
                                         </td>
                                     </tr>
@@ -501,6 +503,9 @@ const CancelChequePayment = () => {
                                             <td className="p-6 text-white font-black">₹{cheque.amount.toLocaleString()}</td>
                                             <td className="p-6 text-gray-300 font-bold text-xs">
                                                 {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
+                                            </td>
+                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                                {cheque.depositedDate ? new Date(cheque.depositedDate).toLocaleDateString('en-IN') : "N/A"}
                                             </td>
                                             <td className="p-6 text-gray-300 font-bold text-xs">
                                                 {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"}
