@@ -10,19 +10,18 @@ import {
 import { toast } from "react-toastify";
 import { BarChart, Bar, Cell, AreaChart, Area, PieChart, Pie, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-const LEAD_TYPE_CONFIG = {
-    'HOT LEAD': { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <FaFire />, label: 'HOT' },
-    'WARM LEAD': { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: <FaThermometerHalf />, label: 'WARM' },
-    'COLD LEAD': { color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', icon: <FaSnowflake />, label: 'COLD' },
-    'UNTAGGED': { color: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/30', icon: <FaPhoneAlt />, label: '-' },
-};
-
-const getLeadConfig = (type) => {
+const getLeadConfig = (type, isDark) => {
     const key = (type || '').toUpperCase();
-    if (key.includes('HOT')) return LEAD_TYPE_CONFIG['HOT LEAD'];
-    if (key.includes('WARM')) return LEAD_TYPE_CONFIG['WARM LEAD'];
-    if (key.includes('COLD')) return LEAD_TYPE_CONFIG['COLD LEAD'];
-    return LEAD_TYPE_CONFIG['UNTAGGED'];
+    const config = {
+        'HOT': { color: isDark ? 'text-red-400' : 'text-red-600', bg: isDark ? 'bg-red-500/10' : 'bg-red-50', border: isDark ? 'border-red-500/30' : 'border-red-200', icon: <FaFire />, label: 'HOT' },
+        'WARM': { color: isDark ? 'text-amber-400' : 'text-amber-600', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50', border: isDark ? 'border-amber-500/30' : 'border-amber-200', icon: <FaThermometerHalf />, label: 'WARM' },
+        'COLD': { color: isDark ? 'text-cyan-400' : 'text-cyan-600', bg: isDark ? 'bg-cyan-500/10' : 'bg-cyan-50', border: isDark ? 'border-cyan-500/30' : 'border-cyan-200', icon: <FaSnowflake />, label: 'COLD' },
+        'UNTAGGED': { color: isDark ? 'text-gray-400' : 'text-gray-600', bg: isDark ? 'bg-gray-500/10' : 'bg-gray-50', border: isDark ? 'border-gray-500/30' : 'border-gray-200', icon: <FaPhoneAlt />, label: '-' },
+    };
+    if (key.includes('HOT')) return config['HOT'];
+    if (key.includes('WARM')) return config['WARM'];
+    if (key.includes('COLD')) return config['COLD'];
+    return config['UNTAGGED'];
 };
 
 const DailyUserActivityLog = () => {
@@ -106,6 +105,58 @@ const DailyUserActivityLog = () => {
     const theadBg = isDark ? 'bg-black/20 text-gray-500' : 'bg-gray-50 text-gray-500';
     const divider = isDark ? 'divide-gray-800' : 'divide-gray-100';
 
+    const kpiConfigs = {
+        blue: {
+            text: isDark ? 'text-blue-400' : 'text-blue-600',
+            bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50',
+            active: isDark 
+                ? 'border-blue-500 shadow-lg shadow-blue-900/20 bg-blue-950/10' 
+                : 'border-blue-500 shadow-lg shadow-blue-500/10 bg-blue-50',
+        },
+        indigo: {
+            text: isDark ? 'text-indigo-400' : 'text-indigo-600',
+            bg: isDark ? 'bg-indigo-500/10' : 'bg-indigo-50',
+            active: isDark 
+                ? 'border-indigo-500 shadow-lg shadow-indigo-900/20 bg-indigo-950/10' 
+                : 'border-indigo-500 shadow-lg shadow-indigo-500/10 bg-indigo-50',
+        },
+        cyan: {
+            text: isDark ? 'text-cyan-400' : 'text-cyan-600',
+            bg: isDark ? 'bg-cyan-500/10' : 'bg-cyan-50',
+            active: isDark 
+                ? 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' 
+                : 'border-cyan-500 shadow-lg shadow-cyan-500/10 bg-cyan-50',
+        },
+        purple: {
+            text: isDark ? 'text-purple-400' : 'text-purple-600',
+            bg: isDark ? 'bg-purple-500/10' : 'bg-purple-50',
+            active: isDark 
+                ? 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' 
+                : 'border-purple-500 shadow-lg shadow-purple-500/10 bg-purple-50',
+        },
+        green: {
+            text: isDark ? 'text-green-400' : 'text-green-600',
+            bg: isDark ? 'bg-green-500/10' : 'bg-green-50',
+            active: isDark 
+                ? 'border-green-500 shadow-lg shadow-green-900/20 bg-green-950/10' 
+                : 'border-green-500 shadow-lg shadow-green-500/10 bg-green-50',
+        },
+        amber: {
+            text: isDark ? 'text-amber-400' : 'text-amber-600',
+            bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50',
+            active: isDark 
+                ? 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' 
+                : 'border-amber-500 shadow-lg shadow-amber-500/10 bg-amber-50',
+        },
+        red: {
+            text: isDark ? 'text-red-400' : 'text-red-600',
+            bg: isDark ? 'bg-red-500/10' : 'bg-red-50',
+            active: isDark 
+                ? 'border-red-500 shadow-lg shadow-red-900/20 bg-red-950/10' 
+                : 'border-red-500 shadow-lg shadow-red-500/10 bg-red-50',
+        }
+    };
+
     if (loading) return (
         <Layout activePage="Tracking & Flagging">
             <div className="flex items-center justify-center h-screen">
@@ -127,7 +178,7 @@ const DailyUserActivityLog = () => {
             call.phoneNumber.includes(callSearch) ||
             (call.feedback || '').toLowerCase().includes(callSearch.toLowerCase());
         const matchType = callTypeFilter === 'ALL' || call.callType === callTypeFilter;
-        const cfg = getLeadConfig(call.leadType);
+        const cfg = getLeadConfig(call.leadType, isDark);
         const matchLead = leadTypeFilter === 'ALL' || cfg.label === leadTypeFilter;
         
         let matchSection = true;
@@ -192,24 +243,48 @@ const DailyUserActivityLog = () => {
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent z-0" />
                                 </>
                             ) : (
-                                <div className="absolute inset-0 bg-gradient-to-br from-cyan-600/10 to-blue-600/10 flex items-center justify-center">
-                                    <FaUserTie className="absolute -right-4 -bottom-4 text-8xl text-cyan-500/5 pointer-events-none" />
+                                <div className={`absolute inset-0 bg-gradient-to-br ${isDark ? 'from-cyan-950/40 to-blue-950/40' : 'from-cyan-50 to-blue-50'} flex items-center justify-center`}>
+                                    <FaUserTie className={`absolute -right-4 -bottom-4 text-8xl ${isDark ? 'text-cyan-500/5' : 'text-cyan-500/10'} pointer-events-none`} />
                                 </div>
                             )}
 
                             {/* Content Overlaid */}
                             <div className="absolute inset-0 p-5 flex flex-col justify-between z-10">
                                 <div className="flex justify-between items-start">
-                                    <span className="text-[9px] font-black uppercase tracking-widest bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/30">
+                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                                        data.profileImage
+                                            ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+                                            : isDark
+                                                ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+                                                : 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                                    }`}>
                                         {data.role}
                                     </span>
                                 </div>
                                 <div>
-                                    <h1 className="text-xl font-black uppercase tracking-wide text-white drop-shadow-md leading-none mb-2">
+                                    <h1 className={`text-xl font-black uppercase tracking-wide leading-none mb-2 ${
+                                        data.profileImage
+                                            ? 'text-white drop-shadow-md'
+                                            : isDark
+                                                ? 'text-white drop-shadow-md'
+                                                : 'text-gray-900'
+                                    }`}>
                                         {data.userName}
                                     </h1>
-                                    <span className="text-[9px] font-medium text-gray-300 flex items-center gap-1 drop-shadow-md">
-                                        <FaCalendarAlt className="text-cyan-400" />
+                                    <span className={`text-[9px] font-medium flex items-center gap-1 ${
+                                        data.profileImage
+                                            ? 'text-gray-300 drop-shadow-md'
+                                            : isDark
+                                                ? 'text-gray-300 drop-shadow-md'
+                                                : 'text-gray-600'
+                                    }`}>
+                                        <FaCalendarAlt className={
+                                            data.profileImage
+                                                ? 'text-cyan-400'
+                                                : isDark
+                                                    ? 'text-cyan-400'
+                                                    : 'text-cyan-600'
+                                        } />
                                         {new Date(fromDate).toLocaleDateString('en-GB')} – {new Date(toDate).toLocaleDateString('en-GB')}
                                     </span>
                                 </div>
@@ -227,20 +302,20 @@ const DailyUserActivityLog = () => {
                                     {/* Charts Area */}
                                     <div className="flex-grow flex-1 flex flex-col items-center justify-between h-full">
                                         {/* Chart Selector Tabs */}
-                                        <div className={`flex rounded bg-black/30 p-0.5 text-[8px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1.5`}>
+                                        <div className={`flex rounded p-0.5 text-[8px] font-black uppercase tracking-wider ${isDark ? 'bg-black/30 text-gray-400' : 'bg-gray-100 text-gray-600'} mb-1.5`}>
                                             {['bar', 'area', 'pie'].map(tab => (
                                                 <button
                                                     key={tab}
                                                     onClick={() => setActiveChartTab(tab)}
                                                     className={`px-3 py-0.5 rounded transition-all ${activeChartTab === tab
                                                         ? 'bg-cyan-500 text-white font-black'
-                                                        : 'hover:text-white'}`}
+                                                        : isDark ? 'hover:text-white text-gray-400' : 'hover:text-gray-900 text-gray-500'}`}
                                                 >
                                                     {tab}
                                                 </button>
                                             ))}
                                         </div>
-
+ 
                                         {/* Recharts Display */}
                                         <div className="h-[52px] w-full bg-transparent">
                                             <ResponsiveContainer width="100%" height="100%">
@@ -251,6 +326,7 @@ const DailyUserActivityLog = () => {
                                                             contentStyle={{
                                                                 backgroundColor: isDark ? '#1a1f24' : '#fff',
                                                                 borderColor: isDark ? '#374151' : '#e5e7eb',
+                                                                color: isDark ? '#f3f4f6' : '#111827',
                                                                 fontSize: '8px',
                                                                 padding: '2px 4px'
                                                             }}
@@ -264,7 +340,7 @@ const DailyUserActivityLog = () => {
                                                         </Bar>
                                                     </BarChart>
                                                 )}
-
+ 
                                                 {activeChartTab === 'area' && (
                                                     <AreaChart data={conversionChartData} margin={{ top: 2, right: 10, left: -30, bottom: 0 }}>
                                                         <defs>
@@ -278,6 +354,7 @@ const DailyUserActivityLog = () => {
                                                             contentStyle={{
                                                                 backgroundColor: isDark ? '#1a1f24' : '#fff',
                                                                 borderColor: isDark ? '#374151' : '#e5e7eb',
+                                                                color: isDark ? '#f3f4f6' : '#111827',
                                                                 fontSize: '8px',
                                                                 padding: '2px 4px'
                                                             }}
@@ -285,7 +362,7 @@ const DailyUserActivityLog = () => {
                                                         <Area type="monotone" dataKey="value" stroke="#06b6d4" strokeWidth={1} fillOpacity={1} fill="url(#conversionGrad)" />
                                                     </AreaChart>
                                                 )}
-
+ 
                                                 {activeChartTab === 'pie' && (
                                                     <PieChart>
                                                         <Pie
@@ -306,6 +383,7 @@ const DailyUserActivityLog = () => {
                                                             contentStyle={{
                                                                 backgroundColor: isDark ? '#1a1f24' : '#fff',
                                                                 borderColor: isDark ? '#374151' : '#e5e7eb',
+                                                                color: isDark ? '#f3f4f6' : '#111827',
                                                                 fontSize: '8px',
                                                                 padding: '2px 4px'
                                                             }}
@@ -325,7 +403,7 @@ const DailyUserActivityLog = () => {
                                         <div className="flex items-center justify-between gap-4">
                                             <div className="text-left">
                                                 <span className="block text-[8px] font-bold text-gray-500 uppercase tracking-widest leading-none">Lead ➔ Counselled</span>
-                                                <span className="text-xs font-black text-cyan-400 mt-1 block leading-none">
+                                                <span className={`text-xs font-black ${isDark ? 'text-cyan-400' : 'text-cyan-600'} mt-1 block leading-none`}>
                                                     {totalCalls > 0
                                                         ? `${Math.round((data.counselled.total / totalCalls) * 100)}%`
                                                         : '0%'}
@@ -340,7 +418,7 @@ const DailyUserActivityLog = () => {
                                         <div className="flex items-center justify-between gap-4">
                                             <div className="text-left">
                                                 <span className="block text-[8px] font-bold text-gray-500 uppercase tracking-widest leading-none">Counselling ➔ Admitted</span>
-                                                <span className="text-xs font-black text-purple-400 mt-1 block leading-none">
+                                                <span className={`text-xs font-black ${isDark ? 'text-purple-400' : 'text-purple-600'} mt-1 block leading-none`}>
                                                     {data.counsembled?.total || data.counselled.total > 0
                                                         ? `${Math.round((data.admissions.total / (data.counsembled?.total || data.counselled.total)) * 100)}%`
                                                         : '0%'}
@@ -371,24 +449,25 @@ const DailyUserActivityLog = () => {
                             {/* Lower row: Six KPI cards side-by-side */}
                             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                                 {[
-                                    { label: 'Fresh Leads', value: data.leads.fresh, color: 'text-blue-400', bg: 'bg-blue-500/10', icon: <FaIdCard />, section: 'FRESH', activeBorder: 'border-blue-500 shadow-lg shadow-blue-900/20 bg-blue-950/10' },
-                                    { label: 'Contacted Uploads', value: data.leads.uploadedAsContacted, color: 'text-indigo-400', bg: 'bg-indigo-500/10', icon: <FaCloudUploadAlt />, section: 'CONTACTED_UPLOADS', activeBorder: 'border-indigo-500 shadow-lg shadow-indigo-900/20 bg-indigo-950/10' },
-                                    { label: 'Contacted Leads', value: data.leads.contacted, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
-                                    { label: 'Counselled', value: data.counselled.total, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: <FaUsers />, section: 'COUNSELLED', activeBorder: 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' },
-                                    { label: 'Admissions', value: data.admissions.total, color: 'text-green-400', bg: 'bg-green-500/10', icon: <FaUserGraduate />, section: 'ADMISSIONS', activeBorder: 'border-green-500 shadow-lg shadow-green-900/20 bg-green-950/10' },
-                                    { label: 'Collection', value: `₹${collectionTotal.toLocaleString('en-IN')}`, color: 'text-amber-400', bg: 'bg-amber-500/10', icon: <FaMoneyBillWave />, section: 'COLLECTION', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
+                                    { label: 'Fresh Leads', value: data.leads.fresh, colorKey: 'blue', icon: <FaIdCard />, section: 'FRESH' },
+                                    { label: 'Contacted Uploads', value: data.leads.uploadedAsContacted, colorKey: 'indigo', icon: <FaCloudUploadAlt />, section: 'CONTACTED_UPLOADS' },
+                                    { label: 'Contacted Leads', value: data.leads.contacted, colorKey: 'cyan', icon: <FaPhoneAlt />, section: 'CALLS' },
+                                    { label: 'Counselled', value: data.counselled.total, colorKey: 'purple', icon: <FaUsers />, section: 'COUNSELLED' },
+                                    { label: 'Admissions', value: data.admissions.total, colorKey: 'green', icon: <FaUserGraduate />, section: 'ADMISSIONS' },
+                                    { label: 'Collection', value: `₹${collectionTotal.toLocaleString('en-IN')}`, colorKey: 'amber', icon: <FaMoneyBillWave />, section: 'COLLECTION' },
                                 ].map((kpi, i) => {
+                                    const cfg = kpiConfigs[kpi.colorKey];
                                     const isActive = selectedSection === kpi.section;
                                     return (
                                         <div 
                                             key={i} 
                                             onClick={() => setSelectedSection(isActive ? 'ALL' : kpi.section)}
-                                            className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? kpi.activeBorder : card} flex items-center gap-4 h-[100px] xl:h-[108px]`}
+                                            className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? cfg.active : card} flex items-center gap-4 h-[100px] xl:h-[108px]`}
                                         >
-                                            <div className={`p-2.5 rounded-lg ${kpi.bg} ${kpi.color} text-base`}>{kpi.icon}</div>
+                                            <div className={`p-2.5 rounded-lg ${cfg.bg} ${cfg.text} text-base`}>{kpi.icon}</div>
                                             <div>
                                                 <p className={`text-[9px] font-black uppercase tracking-widest ${subText}`}>{kpi.label}</p>
-                                                <p className={`text-xl xl:text-2xl font-black tracking-tighter ${kpi.color}`}>{kpi.value}</p>
+                                                <p className={`text-xl xl:text-2xl font-black tracking-tighter ${cfg.text}`}>{kpi.value}</p>
                                             </div>
                                         </div>
                                     );
@@ -402,27 +481,29 @@ const DailyUserActivityLog = () => {
                 {/* HOT / WARM / COLD breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     {[
-                        { label: 'Hot Leads', value: data.leads.hot, cfg: LEAD_TYPE_CONFIG['HOT LEAD'], section: 'HOT', activeBorder: 'border-red-500 shadow-lg shadow-red-900/20 bg-red-950/10' },
-                        { label: 'Warm Leads', value: data.leads.warm, cfg: LEAD_TYPE_CONFIG['WARM LEAD'], section: 'WARM', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
-                        { label: 'Cold Leads', value: data.leads.cold, cfg: LEAD_TYPE_CONFIG['COLD LEAD'], section: 'COLD', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
+                        { label: 'Hot Leads', value: data.leads.hot, colorKey: 'red', section: 'HOT' },
+                        { label: 'Warm Leads', value: data.leads.warm, colorKey: 'amber', section: 'WARM' },
+                        { label: 'Cold Leads', value: data.leads.cold, colorKey: 'cyan', section: 'COLD' },
                     ].map((item, i) => {
                         const pct = totalCalls > 0 ? Math.round((item.value / totalCalls) * 100) : 0;
                         const isActive = selectedSection === item.section;
+                        const colorCfg = kpiConfigs[item.colorKey];
+                        const cfg = getLeadConfig(item.section, isDark);
                         return (
                             <div 
                                 key={i} 
                                 onClick={() => setSelectedSection(isActive ? 'ALL' : item.section)}
-                                className={`p-5 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? item.activeBorder : card} flex items-center justify-between gap-4`}
+                                className={`p-5 rounded-xl border cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${isActive ? colorCfg.active : card} flex items-center justify-between gap-4`}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-3 rounded-lg text-lg ${item.cfg.bg} ${item.cfg.color}`}>{item.cfg.icon}</div>
+                                    <div className={`p-3 rounded-lg text-lg ${cfg.bg} ${cfg.color}`}>{cfg.icon}</div>
                                     <div>
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${subText}`}>{item.label}</p>
-                                        <p className={`text-3xl font-black tracking-tighter ${item.cfg.color}`}>{item.value}</p>
+                                        <p className={`text-3xl font-black tracking-tighter ${cfg.color}`}>{item.value}</p>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <span className={`text-xs font-black ${item.cfg.color} ${item.cfg.bg} px-2 py-1 rounded-full border ${item.cfg.border}`}>
+                                    <span className={`text-xs font-black ${cfg.color} ${cfg.bg} px-2 py-1 rounded-full border ${cfg.border}`}>
                                         {pct}%
                                     </span>
                                     <p className={`text-[10px] mt-1 ${subText}`}>of total calls</p>
@@ -479,13 +560,12 @@ const DailyUserActivityLog = () => {
                             {/* Lead Type Filter */}
                             <div className={`flex rounded-lg overflow-hidden border text-[10px] font-black uppercase ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                                 {['ALL', 'HOT', 'WARM', 'COLD'].map(f => {
-                                    const cfgMap = { HOT: LEAD_TYPE_CONFIG['HOT LEAD'], WARM: LEAD_TYPE_CONFIG['WARM LEAD'], COLD: LEAD_TYPE_CONFIG['COLD LEAD'] };
                                     const active = leadTypeFilter === f;
-                                    const cfg = cfgMap[f];
+                                    const cfg = f !== 'ALL' ? getLeadConfig(f, isDark) : null;
                                     return (
                                         <button key={f} onClick={() => setLeadTypeFilter(f)}
                                             className={`px-3 py-1.5 transition-all ${active
-                                                ? (cfg ? `${cfg.bg} ${cfg.color} border-0` : 'bg-gray-500/20 text-gray-300')
+                                                ? (cfg ? `${cfg.bg} ${cfg.color} border-0` : (isDark ? 'bg-gray-500/20 text-gray-300' : 'bg-gray-200 text-gray-700'))
                                                 : isDark ? 'bg-black/20 text-gray-400 hover:bg-gray-800' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
                                             {f}
                                         </button>
@@ -539,14 +619,14 @@ const DailyUserActivityLog = () => {
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${divider}`}>
-                                {filteredCalls.length === 0 ? (
+                                 {filteredCalls.length === 0 ? (
                                     <tr>
                                         <td colSpan="12" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
                                             No call records found for the selected filters.
                                         </td>
                                     </tr>
                                 ) : filteredCalls.map((call, idx) => {
-                                    const cfg = getLeadConfig(call.leadType);
+                                    const cfg = getLeadConfig(call.leadType, isDark);
                                     const isFresh = call.callType === 'FRESH';
                                     return (
                                         <tr key={idx} className={`${rowHover} transition-colors`}>
@@ -556,16 +636,16 @@ const DailyUserActivityLog = () => {
                                             </td>
                                             <td className={`px-5 py-3 text-xs font-mono ${subText}`}>{call.phoneNumber}</td>
                                             <td className="px-5 py-3 text-center">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter border ${
                                                     call.callType === 'FRESH'
-                                                        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                                        ? isDark ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 border-cyan-200'
                                                         : call.callType === 'ADMISSION'
-                                                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                        ? isDark ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-700 border-green-200'
                                                         : call.callType === 'BOARD-ADMIT'
-                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                        ? isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                         : call.callType === 'BOARD-COUNSEL'
-                                                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                                                        : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                                        ? isDark ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                                        : isDark ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-700 border-purple-200'
                                                     }`}>
                                                     {call.callType}
                                                 </span>
@@ -600,7 +680,7 @@ const DailyUserActivityLog = () => {
                                             <td className="px-5 py-3 text-center">
                                                 {call.counselledTick ? (
                                                     <div className="flex flex-col items-center justify-center">
-                                                        <FaCheckCircle className="text-yellow-400 text-sm mb-1" />
+                                                        <FaCheckCircle className={`${isDark ? 'text-yellow-400' : 'text-amber-500'} text-sm mb-1`} />
                                                         <span className="text-[10px] text-gray-500 font-bold whitespace-nowrap block mt-0.5 leading-tight">
                                                             {new Date(call.counselledDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                                                             <br />
@@ -615,7 +695,7 @@ const DailyUserActivityLog = () => {
                                             <td className="px-5 py-3 text-center">
                                                 {call.enrolledTick ? (
                                                     <div className="flex flex-col items-center justify-center">
-                                                        <FaCheckCircle className="text-emerald-400 text-sm mb-1" />
+                                                        <FaCheckCircle className={`${isDark ? 'text-emerald-400' : 'text-emerald-600'} text-sm mb-1`} />
                                                         <span className="text-[10px] text-gray-500 font-bold whitespace-nowrap block mt-0.5 leading-tight">
                                                             {new Date(call.enrolledDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                                                             <br />
@@ -626,7 +706,7 @@ const DailyUserActivityLog = () => {
                                                     <span className={`text-xs ${subText}`}>–</span>
                                                 )}
                                             </td>
-                                            <td className={`px-5 py-3 text-xs whitespace-nowrap ${call.nextFollowUpDate ? 'text-amber-400 font-bold' : subText}`}>
+                                            <td className={`px-5 py-3 text-xs whitespace-nowrap ${call.nextFollowUpDate ? (isDark ? 'text-amber-400 font-bold' : 'text-amber-600 font-bold') : subText}`}>
                                                 {call.nextFollowUpDate
                                                     ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB')
                                                     : '-'}
@@ -648,18 +728,18 @@ const DailyUserActivityLog = () => {
                         <div className="flex justify-between items-center">
                             <div>
                                 <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${subText}`}>Fresh Admission Collection</p>
-                                <h2 className="text-3xl font-black tracking-tighter text-cyan-400">₹{data.collections.freshAdmissionTotal.toLocaleString('en-IN')}</h2>
+                                <h2 className={`text-3xl font-black tracking-tighter ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>₹{data.collections.freshAdmissionTotal.toLocaleString('en-IN')}</h2>
                             </div>
-                            <div className="p-4 rounded-lg bg-cyan-500/10 text-cyan-400 text-2xl"><FaUserGraduate /></div>
+                            <div className={`p-4 rounded-lg ${isDark ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'} text-2xl`}><FaUserGraduate /></div>
                         </div>
                     </div>
                     <div className={`p-5 rounded-xl border border-l-4 border-l-amber-500 ${card}`}>
                         <div className="flex justify-between items-center">
                             <div>
                                 <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${subText}`}>Installment Collection</p>
-                                <h2 className="text-3xl font-black tracking-tighter text-amber-400">₹{data.collections.installmentTotal.toLocaleString('en-IN')}</h2>
+                                <h2 className={`text-3xl font-black tracking-tighter ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>₹{data.collections.installmentTotal.toLocaleString('en-IN')}</h2>
                             </div>
-                            <div className="p-4 rounded-lg bg-amber-500/10 text-amber-400 text-2xl"><FaReceipt /></div>
+                            <div className={`p-4 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'} text-2xl`}><FaReceipt /></div>
                         </div>
                     </div>
                 </div>
@@ -668,7 +748,7 @@ const DailyUserActivityLog = () => {
                 {data.collections.details.length > 0 && (
                     <div className={`rounded-xl border overflow-hidden ${card}`}>
                         <div className={`p-5 border-b flex items-center gap-3 ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
-                            <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-400"><FaMoneyBillWave /></div>
+                            <div className={`p-2.5 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}><FaMoneyBillWave /></div>
                             <h3 className="font-black text-xs uppercase tracking-[0.2em]">Transaction Detail</h3>
                         </div>
                         <div className="overflow-x-auto">
@@ -689,12 +769,12 @@ const DailyUserActivityLog = () => {
                                                 <p className={`text-[10px] flex items-center gap-1 ${subText}`}><FaIdCard className="text-[8px]" />{col.admissionNumber}</p>
                                             </td>
                                             <td className="px-6 py-3 text-center">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black border ${col.isFresh ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black border ${col.isFresh ? (isDark ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 border-cyan-200') : (isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')}`}>
                                                     {col.type}
                                                 </span>
                                             </td>
                                             <td className={`px-6 py-3 text-center text-xs font-bold uppercase ${subText}`}>{col.method}</td>
-                                            <td className={`px-6 py-3 text-right text-lg font-black tracking-tighter ${col.isFresh ? 'text-cyan-400' : 'text-amber-400'}`}>
+                                            <td className={`px-6 py-3 text-right text-lg font-black tracking-tighter ${col.isFresh ? (isDark ? 'text-cyan-400' : 'text-cyan-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
                                                 ₹{col.amount.toLocaleString('en-IN')}
                                             </td>
                                         </tr>
@@ -704,7 +784,7 @@ const DailyUserActivityLog = () => {
                                     <tr className="font-black">
                                         <td colSpan="2" className="px-6 py-3 text-sm uppercase tracking-widest">Total</td>
                                         <td className={`px-6 py-3 text-center text-xs ${subText}`}>{data.collections.details.length} Txns</td>
-                                        <td className="px-6 py-3 text-right text-xl tracking-tighter text-amber-400">
+                                        <td className={`px-6 py-3 text-right text-xl tracking-tighter ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
                                             ₹{collectionTotal.toLocaleString('en-IN')}
                                         </td>
                                     </tr>

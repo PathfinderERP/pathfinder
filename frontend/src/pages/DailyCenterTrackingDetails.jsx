@@ -214,7 +214,7 @@ const DailyCenterTrackingDetails = () => {
 
                 {/* Role Tabs Section */}
                 <div className="mb-8 overflow-x-auto">
-                    <div className="flex border-b border-gray-800 gap-8 min-w-max">
+                    <div className={`flex border-b gap-8 min-w-max ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                         {roles.map(role => {
                             const filteredStaff = getFilteredStaff(role);
                             const userCount = filteredStaff.length;
@@ -226,12 +226,12 @@ const DailyCenterTrackingDetails = () => {
                                     className={`pb-4 px-2 text-sm font-black uppercase tracking-widest transition-all relative ${
                                         isActive 
                                             ? 'text-cyan-500' 
-                                            : 'text-gray-500 hover:text-gray-300'
+                                            : isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
                                     }`}
                                 >
                                     <span className="flex items-center gap-2">
                                         {role}
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] ${isActive ? 'bg-cyan-500/20 text-cyan-500' : 'bg-gray-800 text-gray-500'}`}>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] ${isActive ? 'bg-cyan-500/20 text-cyan-500' : (isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-500')}`}>
                                             {userCount}
                                         </span>
                                     </span>
@@ -270,39 +270,39 @@ const DailyCenterTrackingDetails = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="px-2 py-1 rounded bg-green-500/10 border border-green-500/20">
-                                        <span className="text-[8px] font-black text-green-500 uppercase tracking-tighter">Active</span>
+                                    <div className={`px-2 py-1 rounded border ${isDarkMode ? 'bg-green-500/10 border-green-500/20' : 'bg-green-50 border-green-200'}`}>
+                                        <span className={`text-[8px] font-black uppercase tracking-tighter ${isDarkMode ? 'text-green-500' : 'text-green-700'}`}>Active</span>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-3 rounded bg-black/20 border border-white/5">
+                                    <div className={`p-3 rounded ${isDarkMode ? 'bg-black/20 border border-white/5' : 'bg-gray-50 border border-gray-100'}`}>
                                         <div className="flex items-center gap-2 mb-1">
                                             <FaPhoneAlt className="text-[10px] text-cyan-500" />
                                             <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Calls</span>
                                         </div>
                                         <p className="text-xl font-black tracking-tighter">{user.performance.dailyCalls}</p>
                                     </div>
-                                    <div className="p-3 rounded bg-black/20 border border-white/5">
+                                    <div className={`p-3 rounded ${isDarkMode ? 'bg-black/20 border border-white/5' : 'bg-gray-50 border border-gray-100'}`}>
                                         <div className="flex items-center gap-2 mb-1">
                                             <FaUsers className="text-[10px] text-purple-500" />
                                             <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Counselled</span>
                                         </div>
                                         <p className="text-xl font-black tracking-tighter">{user.performance.counselled}</p>
                                     </div>
-                                    <div className="p-3 rounded bg-black/20 border border-white/5">
+                                    <div className={`p-3 rounded ${isDarkMode ? 'bg-black/20 border border-white/5' : 'bg-gray-50 border border-gray-100'}`}>
                                         <div className="flex items-center gap-2 mb-1">
                                             <FaUserGraduate className="text-[10px] text-green-500" />
                                             <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Admissions</span>
                                         </div>
                                         <p className="text-xl font-black tracking-tighter">{user.performance.admissions}</p>
                                     </div>
-                                    <div className="p-3 rounded bg-black/20 border border-white/5">
+                                    <div className={`p-3 rounded ${isDarkMode ? 'bg-black/20 border border-white/5' : 'bg-gray-50 border border-gray-100'}`}>
                                         <div className="flex items-center gap-2 mb-1">
                                             <FaMoneyBillWave className="text-[10px] text-amber-500" />
                                             <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Collection</span>
                                         </div>
-                                        <p className="text-xl font-black tracking-tighter text-amber-500">₹{user.performance.collection.toLocaleString()}</p>
+                                        <p className={`text-xl font-black tracking-tighter ${isDarkMode ? 'text-amber-500' : 'text-amber-600'}`}>₹{user.performance.collection.toLocaleString()}</p>
                                     </div>
                                 </div>
 

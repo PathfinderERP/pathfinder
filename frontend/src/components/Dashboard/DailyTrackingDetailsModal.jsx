@@ -9,8 +9,8 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
         if (tag?.startsWith('₹')) {
             return {
                 bg: isDarkMode ? 'bg-cyan-500/10' : 'bg-cyan-50',
-                text: 'text-cyan-400 dark:text-cyan-400 font-extrabold',
-                border: 'border-cyan-500/20'
+                text: isDarkMode ? 'text-cyan-400 font-extrabold' : 'text-cyan-600 font-extrabold',
+                border: isDarkMode ? 'border-cyan-500/20' : 'border-cyan-200'
             };
         }
         
@@ -19,41 +19,41 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
             case 'HOT':
                 return {
                     bg: isDarkMode ? 'bg-red-500/10' : 'bg-red-50',
-                    text: 'text-red-500',
-                    border: 'border-red-500/20'
+                    text: isDarkMode ? 'text-red-400 font-bold' : 'text-red-600 font-bold',
+                    border: isDarkMode ? 'border-red-500/20' : 'border-red-200'
                 };
             case 'WARM LEAD':
             case 'WARM':
                 return {
                     bg: isDarkMode ? 'bg-orange-500/10' : 'bg-orange-50',
-                    text: 'text-orange-500',
-                    border: 'border-orange-500/20'
+                    text: isDarkMode ? 'text-orange-400 font-bold' : 'text-orange-600 font-bold',
+                    border: isDarkMode ? 'border-orange-500/20' : 'border-orange-200'
                 };
             case 'COLD LEAD':
             case 'COLD':
                 return {
                     bg: isDarkMode ? 'bg-blue-500/10' : 'bg-blue-50',
-                    text: 'text-blue-500',
-                    border: 'border-blue-500/20'
+                    text: isDarkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold',
+                    border: isDarkMode ? 'border-blue-500/20' : 'border-blue-200'
                 };
             case 'NORMAL ADM':
             case 'BOARD ADM':
                 return {
                     bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50',
-                    text: 'text-purple-500',
-                    border: 'border-purple-500/20'
+                    text: isDarkMode ? 'text-purple-400 font-bold' : 'text-purple-600 font-bold',
+                    border: isDarkMode ? 'border-purple-500/20' : 'border-purple-200'
                 };
             case 'WALK-IN':
                 return {
                     bg: isDarkMode ? 'bg-indigo-500/10' : 'bg-indigo-50',
-                    text: 'text-indigo-500',
-                    border: 'border-indigo-500/20'
+                    text: isDarkMode ? 'text-indigo-400 font-bold' : 'text-indigo-600 font-bold',
+                    border: isDarkMode ? 'border-indigo-500/20' : 'border-indigo-200'
                 };
             default:
                 return {
                     bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50',
                     text: isDarkMode ? 'text-gray-300' : 'text-gray-600',
-                    border: 'border-gray-500/20'
+                    border: isDarkMode ? 'border-gray-500/20' : 'border-gray-200'
                 };
         }
     };
@@ -103,7 +103,7 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                                                         <FaCheckCircle size={10} />
                                                         {item.tag || 'UNCATEGORIZED'}
                                                     </span>
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                         <FaClock className="inline mr-1" />
                                                         {new Date(item.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} - {new Date(item.dateTime).toLocaleDateString()}
                                                     </span>
@@ -129,14 +129,14 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                                                 </div>
 
                                                 <div className={`p-4 rounded-[2px] border-l-2 border-cyan-500 ${isDarkMode ? 'bg-[#0a0a0b]' : 'bg-gray-50'}`}>
-                                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Description / Remarks</p>
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Description / Remarks</p>
                                                     <p className={`text-xs font-medium leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{item.feedback}</p>
                                                 </div>
                                             </div>
 
                                             <div className="flex flex-col justify-between items-end gap-4 min-w-[150px]">
                                                 <div className="text-right">
-                                                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Handled By</p>
+                                                    <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Handled By</p>
                                                     <p className="text-[11px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-1.5 justify-end">
                                                         <FaUser size={10} className="inline" />
                                                         {item.handledBy}
