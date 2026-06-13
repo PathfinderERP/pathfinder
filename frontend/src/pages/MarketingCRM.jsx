@@ -382,18 +382,15 @@ const MarketingCRM = () => {
         });
     };
 
-<<<<<<< HEAD
     const handleDeleteTomorrowTask = async (taskId) => {
         if (!taskId) return;
 
-        // 1. Remove from local Tomorrow Tasks state immediately
-=======
-    const handleDeleteTomorrowTask = (taskId) => {
         if (editingTaskId === taskId) {
             setEditingTaskId(null);
             setEditTaskForm({});
         }
->>>>>>> fa4e211a9ad501525c8633f4da4526ee626d5fe4
+
+        // 1. Remove from local Tomorrow Tasks state immediately
         setTomorrowTasks(prev => prev.filter(t => t._id !== taskId));
 
         // 2. If planDate matches tomorrowPlanDate, also remove from Today Activities state
