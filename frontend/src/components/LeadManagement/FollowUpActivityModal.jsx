@@ -1,7 +1,8 @@
-import React from 'react';
-import { FaStar, FaTimes, FaPhoneAlt, FaEnvelope, FaClock, FaCalendarAlt, FaHistory, FaTimesCircle, FaCheckCircle, FaExclamationCircle, FaCommentAlt } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaStar, FaTimes, FaPhoneAlt, FaEnvelope, FaClock, FaCalendarAlt, FaHistory, FaTimesCircle, FaCheckCircle, FaExclamationCircle, FaCommentAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAddFollowUp }) => {
+    const [expandedLeads, setExpandedLeads] = useState({});
     if (!isOpen) return null;
 
     const getStatusStyles = (status) => {
@@ -123,6 +124,70 @@ const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAdd
                                                         </>
                                                     )}
                                                 </div>
+
+                                                {/* Collapsible Follow-up History */}
+                                                {item.history && Array.isArray(item.history) && item.history.length > 0 && (
+                                                    <div className="mt-4 pt-3 border-t border-dashed border-gray-800/20 dark:border-gray-700/30">
+                                                        <button
+                                                            onClick={() => {
+                                                                const leadId = item.leadId;
+                                                                setExpandedLeads(prev => ({
+                                                                    ...prev,
+                                                                    [leadId]: !prev[leadId]
+                                                                }));
+                                                            }}
+                                                            className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                                isDarkMode 
+                                                                    ? 'text-cyan-500 hover:text-cyan-400' 
+                                                                    : 'text-cyan-600 hover:text-cyan-700'
+                                                            }`}
+                                                        >
+                                                            <FaHistory size={11} />
+                                                            {expandedLeads[item.leadId] ? 'Hide' : 'View'} Follow-up History ({item.history.length})
+                                                            {expandedLeads[item.leadId] ? <FaChevronUp size={10} /> : <FaChevronDown size={10} />}
+                                                        </button>
+                                                        
+                                                        {expandedLeads[item.leadId] && (
+                                                            <div className="mt-4 space-y-3 pl-3 border-l-2 border-dashed border-gray-200 dark:border-gray-800">
+                                                                {[...item.history]
+                                                                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                                                                    .map((hist, histIdx) => {
+                                                                        const histStyles = getStatusStyles(hist.status);
+                                                                        return (
+                                                                            <div key={histIdx} className="relative flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 rounded-[2px] bg-gray-50/50 dark:bg-[#0a0a0b]/40 border border-gray-100 dark:border-gray-900">
+                                                                                {/* Dot timeline indicator */}
+                                                                                <div className="absolute -left-[18px] top-4 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#131619] bg-cyan-500"></div>
+                                                                                
+                                                                                <div className="flex-1 space-y-1">
+                                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                                        <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${histStyles.bg} ${histStyles.text} ${histStyles.border} flex items-center gap-1`}>
+                                                                                            {histStyles.icon}
+                                                                                            {hist.status || 'UNCATEGORIZED'}
+                                                                                        </span>
+                                                                                        <span className="text-[9px] font-bold text-gray-400">
+                                                                                            {new Date(hist.date).toLocaleDateString()} - {new Date(hist.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">{hist.feedback}</p>
+                                                                                    {hist.remarks && (
+                                                                                        <p className="text-[11px] font-medium italic text-gray-500 dark:text-gray-400">Remarks: {hist.remarks}</p>
+                                                                                    )}
+                                                                                </div>
+                                                                                
+                                                                                <div className="flex flex-col items-start md:items-end gap-1 min-w-[100px] text-left md:text-right">
+                                                                                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Handled By</span>
+                                                                                    <span className="text-[10px] font-black text-cyan-500 uppercase">{hist.updatedBy || 'System'}</span>
+                                                                                    {hist.callDuration && (
+                                                                                        <span className="text-[9px] font-bold text-emerald-500">{hist.callDuration}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="flex flex-col justify-between items-end gap-4 min-w-[120px]">

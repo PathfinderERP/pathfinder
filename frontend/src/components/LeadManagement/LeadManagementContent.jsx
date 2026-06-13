@@ -104,7 +104,8 @@ const LeadManagementContent = () => {
         feedback: [],
         followUpStatus: [],
         marketingBy: [],
-        isPriority: ""
+        isPriority: "",
+        schoolName: []
     });
 
     // Dropdown data for filters
@@ -115,6 +116,7 @@ const LeadManagementContent = () => {
     const [telecallers, setTelecallers] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]);
     const [feedbackCategories, setFeedbackCategories] = useState([]);
+    const [schoolsList, setSchoolsList] = useState([]);
 
     const fetchLeadStats = useCallback(async () => {
         try {
@@ -397,6 +399,15 @@ const LeadManagementContent = () => {
             if (feedbackResponse.ok) {
                 setFeedbackCategories(Array.isArray(feedbackData) ? feedbackData : []);
             }
+
+            // Fetch distinct school names
+            const schoolResponse = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/distinct-schools`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const schoolData = await schoolResponse.json();
+            if (schoolResponse.ok) {
+                setSchoolsList(schoolData.schools || []);
+            }
         } catch (error) {
             console.error("Error fetching filter data:", error);
         }
@@ -494,7 +505,8 @@ const LeadManagementContent = () => {
             feedback: [],
             followUpStatus: [],
             marketingBy: [],
-            isPriority: ""
+            isPriority: "",
+            schoolName: []
         });
         setSearchTerm("");
         setCurrentPage(1);
@@ -1398,6 +1410,16 @@ const LeadManagementContent = () => {
                                 value={filters.className}
                                 onChange={(selected) => handleFilterChange('className', selected)}
                                 placeholder="Select Class"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>School</label>
+                            <CustomMultiSelect
+                                options={schoolsList.map(s => ({ value: s, label: s }))}
+                                value={filters.schoolName}
+                                onChange={(selected) => handleFilterChange('schoolName', selected)}
+                                placeholder="Select School"
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

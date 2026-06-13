@@ -5,7 +5,22 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import Centre from "../../models/Master_data/Centre.js";
 import Department from "../../models/Master_data/Department.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import Boards from "../../models/Master_data/Boards.js";
 import mongoose from "mongoose";
+
+const isBoardMatchingDept = (boardCourse, deptName) => {
+    const bName = (boardCourse || "").toUpperCase();
+    const dName = (deptName || "").toUpperCase();
+    
+    if (dName.includes(bName) || bName.includes(dName)) return true;
+    
+    if (bName === 'WBBSE' && dName.includes('MADHYAMIK')) return true;
+    if (dName.includes('WBBSE') && bName.includes('MADHYAMIK')) return true;
+    
+    if (bName === 'WBCHSE' && (dName.includes('HS') || dName.includes('HIGHER SECONDARY'))) return true;
+    
+    return false;
+};
 
 const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -215,14 +230,13 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             boardAdmissions.forEach(a => {
                 if (a._id) {
-                    const boardName = a._id.toString().toUpperCase();
-                    const matchingDept = masterDepartments.find(d =>
-                        d.departmentName.toUpperCase().includes(boardName) ||
-                        boardName.includes(d.departmentName.toUpperCase())
+                    const boardName = a._id.toString();
+                    const matchingDepts = masterDepartments.filter(d =>
+                        isBoardMatchingDept(boardName, d.departmentName)
                     );
 
-                    if (matchingDept) {
-                        const dId = matchingDept._id.toString();
+                    matchingDepts.forEach(dept => {
+                        const dId = dept._id.toString();
                         deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + a.count;
 
                         if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
@@ -231,7 +245,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                             tagName: boardName,
                             count: a.count
                         });
-                    }
+                    });
                 }
             });
 
@@ -291,8 +305,7 @@ export const getAdmissionDetails = async (req, res) => {
             .populate('student', 'studentsDetails mobileNum')
             .lean();
 
-        // Standardize output
-        const results = admissions.map(a => ({
+        const normalResults = admissions.map(a => ({
             _id: a._id,
             admissionNumber: a.admissionNumber,
             studentName: a.student?.studentsDetails?.[0]?.studentName || "N/A",
@@ -304,7 +317,44 @@ export const getAdmissionDetails = async (req, res) => {
             totalFees: a.totalFees || 0
         }));
 
-        res.status(200).json({ success: true, data: results });
+        // Fetch Board Course Admissions matching this department
+        let boardResults = [];
+        const dept = await Department.findById(departmentId).lean();
+        if (dept) {
+            const deptName = dept.departmentName;
+            const allBoards = await Boards.find({}).lean();
+            const matchingBoardIds = allBoards
+                .filter(b => isBoardMatchingDept(b.boardCourse, deptName))
+                .map(b => b._id);
+
+            if (matchingBoardIds.length > 0) {
+                const boardAdmissions = await BoardCourseAdmission.find({
+                    centre: centreRegex,
+                    boardId: { $in: matchingBoardIds },
+                    admissionDate: { $gte: start, $lte: end },
+                    status: "ACTIVE"
+                })
+                    .populate('studentId')
+                    .populate('boardId')
+                    .lean();
+
+                boardResults = boardAdmissions.map(a => ({
+                    _id: a._id,
+                    admissionNumber: a.admissionNumber,
+                    studentName: a.studentName || a.studentId?.studentsDetails?.[0]?.studentName || "N/A",
+                    phone: a.mobileNum || a.studentId?.studentsDetails?.[0]?.mobileNum || a.studentId?.mobileNum || "N/A",
+                    admissionDate: a.admissionDate,
+                    examTag: a.boardId?.boardCourse || "BOARD",
+                    course: a.boardId?.boardCourse || "N/A",
+                    downPayment: a.totalPaidAmount || a.admissionFee || 0,
+                    totalFees: a.totalExpectedAmount || 0
+                }));
+            }
+        }
+
+        const combinedResults = [...normalResults, ...boardResults];
+
+        res.status(200).json({ success: true, data: combinedResults });
 
     } catch (error) {
         console.error("getAdmissionDetails error:", error);

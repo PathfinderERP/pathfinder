@@ -270,7 +270,8 @@ export const getAdmissionReport = async (req, res) => {
                     class: 1,
                     boardCourseName: 1,
                     admissionType: 1,
-                    downPayment: 1
+                    downPayment: 1,
+                    examTag: 1
                 }
             },
             {
@@ -286,7 +287,8 @@ export const getAdmissionReport = async (req, res) => {
                                 class: "$lastClass",
                                 boardCourseName: 1,
                                 admissionType: { $literal: "BOARD" },
-                                downPayment: "$admissionFee"
+                                downPayment: "$admissionFee",
+                                examTag: { $literal: null }
                             }
                         }
                     ]
@@ -301,7 +303,8 @@ export const getAdmissionReport = async (req, res) => {
                         course: "$course",
                         class: "$class",
                         boardCourseName: "$boardCourseName",
-                        admissionType: "$admissionType"
+                        admissionType: "$admissionType",
+                        examTag: "$examTag"
                     },
                     count: { $sum: 1 },
                     downPaymentTotal: { $sum: { $ifNull: ["$downPayment", 0] } }
@@ -326,11 +329,20 @@ export const getAdmissionReport = async (req, res) => {
             },
             { $unwind: { path: "$classInfo", preserveNullAndEmptyArrays: true } },
             {
+                $lookup: {
+                    from: "examtags",
+                    localField: "_id.examTag",
+                    foreignField: "_id",
+                    as: "examTagInfo"
+                }
+            },
+            { $unwind: { path: "$examTagInfo", preserveNullAndEmptyArrays: true } },
+            {
                 $project: {
                     date: "$_id.date",
                     month: "$_id.month",
                     centre: "$_id.centre",
-                    courseName: { $ifNull: ["$courseInfo.courseName", "$_id.boardCourseName", "Generic Admission"] },
+                    courseName: { $ifNull: ["$courseInfo.courseName", "$_id.boardCourseName", "$examTagInfo.name", "Generic Admission"] },
                     className: { $ifNull: ["$classInfo.name", { $cond: [{ $eq: ["$_id.admissionType", "BOARD"] }, "Board", "N/A"] }] },
                     count: "$count",
                     downPayment: "$downPaymentTotal",

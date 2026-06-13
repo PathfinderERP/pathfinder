@@ -140,7 +140,8 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
 export const buildLeadQuery = async (queryParams, user) => {
     const { 
         search, leadType, source, centre, course, leadResponsibility, 
-        board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus 
+        board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus,
+        schoolName
     } = queryParams;
 
     const query = {};
@@ -204,6 +205,10 @@ export const buildLeadQuery = async (queryParams, user) => {
     if (queryParams.marketingBy && (!Array.isArray(queryParams.marketingBy) || queryParams.marketingBy.length > 0)) {
         const values = Array.isArray(queryParams.marketingBy) ? normalizeValue(queryParams.marketingBy) : [normalizeValue(queryParams.marketingBy)];
         query.marketingBy = { $in: values };
+    }
+    if (schoolName && (!Array.isArray(schoolName) || schoolName.length > 0)) {
+        const values = Array.isArray(schoolName) ? normalizeValue(schoolName) : [normalizeValue(schoolName)];
+        query.schoolName = { $in: values };
     }
 
     if (queryParams.isPriority !== undefined && queryParams.isPriority !== '') {

@@ -141,10 +141,10 @@ export const getFollowUpStats = async (req, res) => {
                 $facet: {
                     "activityStats": [
                         { $match: baseMatch },
-                        { $unwind: "$followUps" },
                         {
                             $project: {
                                 name: 1,
+                                followUpsHistory: "$followUps",
                                 followUp: "$followUps",
                                 leadType: 1,
                                 leadResponsibility: 1,
@@ -152,6 +152,7 @@ export const getFollowUpStats = async (req, res) => {
                                 email: 1
                             }
                         },
+                        { $unwind: "$followUp" },
                         {
                             $match: {
                                 ...(Object.keys(activityDateFilter).length > 0 ? { "followUp.date": activityDateFilter } : {}),
@@ -173,10 +174,14 @@ export const getFollowUpStats = async (req, res) => {
                                         leadId: "$_id",
                                         leadName: "$name",
                                         phoneNumber: "$phoneNumber",
+                                        email: "$email",
                                         status: { $ifNull: ["$followUp.status", "$leadType"] },
                                         time: "$followUp.date",
                                         updatedBy: "$followUp.updatedBy",
-                                        feedback: "$followUp.feedback"
+                                        feedback: "$followUp.feedback",
+                                        remarks: "$followUp.remarks",
+                                        callDuration: "$followUp.callDuration",
+                                        history: "$followUpsHistory"
                                     }
                                 }
                             }
@@ -193,9 +198,11 @@ export const getFollowUpStats = async (req, res) => {
                                         leadId: "$_id",
                                         leadName: "$name",
                                         phoneNumber: "$phoneNumber",
+                                        email: "$email",
                                         status: "$leadType",
                                         time: "$nextFollowUpDate",
-                                        updatedBy: "$leadResponsibility"
+                                        updatedBy: "$leadResponsibility",
+                                        history: "$followUps"
                                     }
                                 }
                             }

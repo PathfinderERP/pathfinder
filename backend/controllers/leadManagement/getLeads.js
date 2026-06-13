@@ -126,3 +126,17 @@ export const getLeadById = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+export const getDistinctSchools = async (req, res) => {
+    try {
+        const schools = await LeadManagement.distinct("schoolName", { 
+            schoolName: { $ne: null, $exists: true, $ne: "" } 
+        });
+        const cleanSchools = schools.filter(s => s && s.trim() !== "");
+        cleanSchools.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        res.status(200).json({ success: true, schools: cleanSchools });
+    } catch (err) {
+        console.error("Error fetching distinct schools:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
