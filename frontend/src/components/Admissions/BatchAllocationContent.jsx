@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { FaSearch, FaFilter, FaSync, FaCheckSquare, FaSquare, FaUsers, FaPlus, FaTimes, FaUserGraduate } from "react-icons/fa";
+import { FaSearch, FaFilter, FaSync, FaCheckSquare, FaSquare, FaUsers, FaPlus, FaTimes, FaUserGraduate, FaFileExcel } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MultiSelectFilter from "../common/MultiSelectFilter";
@@ -326,6 +328,55 @@ const BatchAllocationContent = () => {
         }
     };
 
+    const handleExport = () => {
+        try {
+            if (filteredStudents.length === 0) {
+                toast.warning("No data to export");
+                return;
+            }
+
+            const exportData = filteredStudents.map((student, index) => {
+                const details = student.studentsDetails?.[0] || {};
+                const batchesNames = student.batches && student.batches.length > 0 
+                    ? student.batches.map(b => b.batchName).join(", ") 
+                    : "NOT ASSIGNED";
+                
+                return {
+                    "Sl No.": index + 1,
+                    "Student Name": details.studentName || "N/A",
+                    "Admission Number": student.latestAdmission?.admissionNumber || "PENDING",
+                    "Mobile Number": details.mobileNum || "N/A",
+                    "Email": details.studentEmail || "N/A",
+                    "Class": student.latestAdmission?.class?.name || student.latestAdmission?.class?.className || "N/A",
+                    "Centre": details.centre || "N/A",
+                    "Course": student.latestAdmission?.course?.courseName || 
+                              student.latestAdmission?.boardCourseName || 
+                              student.latestAdmission?.board?.boardCourse || 
+                              "No Course",
+                    "Session": student.latestAdmission?.academicSession || "N/A",
+                    "Programme": details.programme || "N/A",
+                    "Father's Name": details.fatherName || "N/A",
+                    "Mother's Name": details.motherName || "N/A",
+                    "Gender": details.gender || "N/A",
+                    "Current Batches": batchesNames
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Enrolled Students");
+            
+            const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+            const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+            
+            saveAs(blob, `Batch_Allocation_Students_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            toast.success("Excel exported successfully");
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.error("Failed to export Excel");
+        }
+    };
+
     return (
         <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
             <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
@@ -363,6 +414,12 @@ const BatchAllocationContent = () => {
                             {processing ? "Assigning..." : "Assign Bulk"}
                         </button>
                     </div>
+                    <button 
+                        onClick={handleExport}
+                        className={`flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest rounded-[4px] transition-all`}
+                    >
+                        <FaFileExcel className="text-sm" /> Export Excel
+                    </button>
                 </div>
             </div>
 
