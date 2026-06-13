@@ -421,25 +421,12 @@ export const getDailyUserActivity = async (req, res) => {
                 { followUps: { $size: 0 } }
             ]
         };
-        if (centerId) freshQuery.centre = centerId;
         const freshLeadsCount = await LeadManagement.countDocuments(freshQuery);
 
-        // Contacted leads = old leads (created before today) where user added a follow-up today
-        const contactedQuery = {
-            createdAt: { $lt: startDate },
+        // Fetch all leads followed up by the user today (old and new)
+        const allFollowUpLeads = await LeadManagement.find({
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        };
-        if (centerId) contactedQuery.centre = centerId;
-        const contactedLeadsCount = await LeadManagement.countDocuments(contactedQuery);
-
-        // Uploaded as contacted = fresh leads created today that also have a follow-up added today
-        const uploadedAsContactedQuery = {
-            createdBy: userId,
-            createdAt: dateFilter,
-            followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        };
-        if (centerId) uploadedAsContactedQuery.centre = centerId;
-        const uploadedAsContactedCount = await LeadManagement.countDocuments(uploadedAsContactedQuery);
+        }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').populate('centre').lean();
 
         // 3. Counseling Analysis
         const normalCounsQuery = {
@@ -450,14 +437,12 @@ export const getDailyUserActivity = async (req, res) => {
                 { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
             ]
         };
-        if (centerId) normalCounsQuery.centre = centerId;
         const normalCounsellingLeads = await LeadManagement.find(normalCounsQuery).distinct('_id');
 
         const normalAdmStudentQuery = {
             createdBy: userId,
             createdAt: dateFilter
         };
-        if (center) normalAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         const normalAdmittedStudents = await Admission.find(normalAdmStudentQuery).distinct('student');
 
         const counselledNormal = new Set([
@@ -469,14 +454,12 @@ export const getDailyUserActivity = async (req, res) => {
             counselledBy: userId,
             counselledDate: dateFilter
         };
-        if (centerId) boardCounsStudentQuery.centre = centerId;
         const boardCounsellingStudents = await BoardCourseCounselling.find(boardCounsStudentQuery).distinct('studentId');
 
         const boardAdmStudentQuery = {
             createdBy: userId,
             createdAt: dateFilter
         };
-        if (center) boardAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         const boardAdmittedStudents = await BoardCourseAdmission.find(boardAdmStudentQuery).distinct('studentId');
 
         const counselledBoard = new Set([
@@ -486,11 +469,9 @@ export const getDailyUserActivity = async (req, res) => {
 
         // 4. Admission Breakdown
         const admNormalQuery = { createdBy: userId, createdAt: dateFilter };
-        if (center) admNormalQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         const admissionNormal = await Admission.countDocuments(admNormalQuery);
 
         const admBoardQuery = { createdBy: userId, createdAt: dateFilter };
-        if (center) admBoardQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         const admissionBoard = await BoardCourseAdmission.countDocuments(admBoardQuery);
 
         // 5. Detailed Collection Analysis
@@ -504,19 +485,6 @@ export const getDailyUserActivity = async (req, res) => {
                 ]
             }
         }).lean();
-
-        if (center) {
-            const admissionIds = collections.map(p => p.admission).filter(Boolean);
-            const [normalAdms, boardAdms] = await Promise.all([
-                Admission.find({ _id: { $in: admissionIds }, centre: new RegExp(`^${center.centreName}$`, 'i') }).distinct('_id'),
-                BoardCourseAdmission.find({ _id: { $in: admissionIds }, centre: new RegExp(`^${center.centreName}$`, 'i') }).distinct('_id')
-            ]);
-            const centerAdmIds = new Set([
-                ...normalAdms.map(id => id.toString()),
-                ...boardAdms.map(id => id.toString())
-            ]);
-            collections = collections.filter(p => p.admission && centerAdmIds.has(p.admission.toString()));
-        }
 
         const admissionIds = collections.map(p => p.admission).filter(Boolean);
         const [normalAdmissions, boardAdmissions] = await Promise.all([
@@ -550,11 +518,6 @@ export const getDailyUserActivity = async (req, res) => {
         // Fresh = created today with NO followUps (pure fresh section uploads, no feedback/remarks)
         const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
 
-        const contactedLeadsDetailed = await LeadManagement.find(contactedQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
-
-        // Leads uploaded today WITH followUps (from the contacted/bulk upload section)
-        const uploadedAsContactedDetailed = await LeadManagement.find(uploadedAsContactedQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
-
         let hotCount = 0, warmCount = 0, coldCount = 0;
         const callDetails = [];
 
@@ -580,50 +543,26 @@ export const getDailyUserActivity = async (req, res) => {
             });
         });
 
-        // Process uploaded-as-contacted leads (created today WITH followUps)
-        uploadedAsContactedDetailed.forEach(lead => {
-            const todayFollowUps = (lead.followUps || []).filter(fu => {
-                const fuDate = new Date(fu.date);
-                return fuDate >= startDate && fuDate <= endDate;
-            });
-            const fu = todayFollowUps[0] || lead.followUps?.[0] || {};
-            const status = (fu.status || lead.leadType || '').toUpperCase();
-            if (status.includes('HOT')) hotCount++;
-            else if (status.includes('WARM')) warmCount++;
-            else if (status.includes('COLD')) coldCount++;
-
-            callDetails.push({
-                leadId: lead._id,
-                studentName: lead.name,
-                phoneNumber: lead.phoneNumber || '-',
-                callType: 'CONTACTED_UPLOAD',
-                leadType: fu.status || lead.leadType || 'UNTAGGED',
-                isCounseled: lead.isCounseled,
-                feedback: fu.feedback || '-',
-                remarks: fu.remarks || '',
-                nextFollowUpDate: fu.nextFollowUpDate || null,
-                date: lead.createdAt,
-                updatedAt: lead.updatedAt
-            });
-        });
-
-        // Process follow-up calls (old leads with follow-up today)
-        contactedLeadsDetailed.forEach(lead => {
+        // Process all follow-up calls today
+        allFollowUpLeads.forEach(lead => {
             const todayFollowUps = (lead.followUps || []).filter(fu => {
                 const fuDate = new Date(fu.date);
                 return fuDate >= startDate && fuDate <= endDate && fu.updatedBy === user.name;
             });
+
             todayFollowUps.forEach(fu => {
                 const status = (fu.status || lead.leadType || '').toUpperCase();
                 if (status.includes('HOT')) hotCount++;
                 else if (status.includes('WARM')) warmCount++;
                 else if (status.includes('COLD')) coldCount++;
 
+                const isFresh = new Date(lead.createdAt) >= startDate && new Date(lead.createdAt) <= endDate;
+
                 callDetails.push({
                     leadId: lead._id,
                     studentName: lead.name,
                     phoneNumber: lead.phoneNumber || '-',
-                    callType: 'FOLLOW-UP',
+                    callType: isFresh ? 'CONTACTED_UPLOAD' : 'FOLLOW-UP',
                     leadType: fu.status || lead.leadType || 'UNTAGGED',
                     isCounseled: lead.isCounseled,
                     feedback: fu.feedback || '-',
@@ -634,6 +573,14 @@ export const getDailyUserActivity = async (req, res) => {
                 });
             });
         });
+
+        const contactedLeadsCount = new Set(
+            callDetails.filter(c => c.callType === 'FOLLOW-UP').map(c => c.leadId?.toString()).filter(Boolean)
+        ).size;
+
+        const uploadedAsContactedCount = new Set(
+            callDetails.filter(c => c.callType === 'CONTACTED_UPLOAD').map(c => c.leadId?.toString()).filter(Boolean)
+        ).size;
 
         // Fetch all direct admissions and counselling today to populate them if they are not in lead list
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
@@ -1034,25 +981,12 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 { followUps: { $size: 0 } }
             ]
         };
-        if (centerId) freshQuery.centre = centerId;
         const freshLeadsDetailed = await LeadManagement.find(freshQuery).populate('centre').lean();
 
-        // 2. Uploaded as contacted (created by user today with followUps today)
-        const uploadedAsContactedQuery = {
-            createdBy: userId,
-            createdAt: dateFilter,
-            followUps: { $exists: true, $not: { $size: 0 } }
-        };
-        if (centerId) uploadedAsContactedQuery.centre = centerId;
-        const uploadedAsContactedDetailed = await LeadManagement.find(uploadedAsContactedQuery).populate('centre').lean();
-
-        // 3. Contacted Leads (created before today, with follow-up by this user today)
-        const contactedQuery = {
-            createdAt: { $lt: startDate },
+        // Fetch all leads followed up by the user today (old and new)
+        const allFollowUpLeads = await LeadManagement.find({
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        };
-        if (centerId) contactedQuery.centre = centerId;
-        const contactedLeadsDetailed = await LeadManagement.find(contactedQuery).populate('centre').lean();
+        }).populate('centre').lean();
 
         const callDetails = [];
 
@@ -1070,36 +1004,19 @@ export const exportUserCallingReportExcel = async (req, res) => {
             });
         });
 
-        uploadedAsContactedDetailed.forEach(lead => {
-            const todayFollowUps = (lead.followUps || []).filter(fu => {
-                const fuDate = new Date(fu.date);
-                return fuDate >= startDate && fuDate <= endDate;
-            });
-            const fu = todayFollowUps[0] || lead.followUps?.[0] || {};
-            callDetails.push({
-                centreName: lead.centre?.centreName || '-',
-                studentName: lead.name,
-                phoneNumber: lead.phoneNumber || '-',
-                callType: 'CONTACTED_UPLOAD',
-                leadType: fu.status || lead.leadType || 'UNTAGGED',
-                feedback: fu.feedback || '-',
-                remarks: fu.remarks || '',
-                nextFollowUpDate: fu.nextFollowUpDate || null,
-                date: lead.createdAt
-            });
-        });
-
-        contactedLeadsDetailed.forEach(lead => {
+        allFollowUpLeads.forEach(lead => {
             const todayFollowUps = (lead.followUps || []).filter(fu => {
                 const fuDate = new Date(fu.date);
                 return fuDate >= startDate && fuDate <= endDate && fu.updatedBy === user.name;
             });
+
             todayFollowUps.forEach(fu => {
+                const isFresh = new Date(lead.createdAt) >= startDate && new Date(lead.createdAt) <= endDate;
                 callDetails.push({
                     centreName: lead.centre?.centreName || '-',
                     studentName: lead.name,
                     phoneNumber: lead.phoneNumber || '-',
-                    callType: 'FOLLOW-UP',
+                    callType: isFresh ? 'CONTACTED_UPLOAD' : 'FOLLOW-UP',
                     leadType: fu.status || lead.leadType || 'UNTAGGED',
                     feedback: fu.feedback || '-',
                     remarks: fu.remarks || '',
@@ -1111,13 +1028,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
         // 4. Also fetch admissions/counsellings to align with front-end
         const normalAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
-        if (center) normalAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
-
         const boardAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
-        if (center) boardAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
-
         const boardCounsStudentQuery = { counselledBy: userId, counselledDate: dateFilter };
-        if (centerId) boardCounsStudentQuery.centre = centerId;
 
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
             Admission.find(normalAdmStudentQuery).populate('student').lean(),

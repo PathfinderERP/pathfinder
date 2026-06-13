@@ -373,12 +373,10 @@ const DailyUserActivityLog = () => {
                                 </div>
                             </div>
 
-                            {/* Lower row: Six KPI cards side-by-side */}
-                            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+                            {/* Lower row: Four KPI cards side-by-side */}
+                            <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4">
                                 {[
-                                    { label: 'Fresh Leads', value: data.leads.fresh, color: 'text-blue-400', bg: 'bg-blue-500/10', icon: <FaIdCard />, section: 'FRESH', activeBorder: 'border-blue-500 shadow-lg shadow-blue-900/20 bg-blue-950/10' },
-                                    { label: 'Contacted Uploads', value: data.leads.uploadedAsContacted, color: 'text-indigo-400', bg: 'bg-indigo-500/10', icon: <FaCloudUploadAlt />, section: 'CONTACTED_UPLOADS', activeBorder: 'border-indigo-500 shadow-lg shadow-indigo-900/20 bg-indigo-950/10' },
-                                    { label: 'Contacted Leads', value: data.leads.contacted, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
+                                    { label: 'Folloups counts', value: filteredCalls.filter(c => c.callType === 'FOLLOW-UP' || c.callType === 'CONTACTED_UPLOAD').length, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
                                     { label: 'Counselled', value: data.counselled.total, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: <FaUsers />, section: 'COUNSELLED', activeBorder: 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' },
                                     { label: 'Admissions', value: data.admissions.total, color: 'text-green-400', bg: 'bg-green-500/10', icon: <FaUserGraduate />, section: 'ADMISSIONS', activeBorder: 'border-green-500 shadow-lg shadow-green-900/20 bg-green-950/10' },
                                     { label: 'Collection', value: `₹${collectionTotal.toLocaleString('en-IN')}`, color: 'text-amber-400', bg: 'bg-amber-500/10', icon: <FaMoneyBillWave />, section: 'COLLECTION', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
@@ -507,8 +505,8 @@ const DailyUserActivityLog = () => {
                                         setSelectedSection('ALL');
                                     }}
                                     className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isDark
-                                            ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
-                                            : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                                        ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+                                        : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
                                         }`}
                                 >
                                     Reset Filter
@@ -561,14 +559,14 @@ const DailyUserActivityLog = () => {
                                             <td className={`px-5 py-3 text-xs font-mono ${subText}`}>{call.phoneNumber}</td>
                                             <td className="px-5 py-3 text-center">
                                                 <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${call.callType === 'FRESH'
-                                                        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                                                        : call.callType === 'ADMISSION'
-                                                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                            : call.callType === 'BOARD-ADMIT'
-                                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                                : call.callType === 'BOARD-COUNSEL'
-                                                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                                                                    : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                                    : call.callType === 'ADMISSION'
+                                                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                        : call.callType === 'BOARD-ADMIT'
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                            : call.callType === 'BOARD-COUNSEL'
+                                                                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                                                : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                                                     }`}>
                                                     {call.callType}
                                                 </span>
