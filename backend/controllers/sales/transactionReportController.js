@@ -199,7 +199,8 @@ export const getTransactionReport = async (req, res) => {
         const aggregateMatchStage = aggregateFilters.length > 0 ? { $match: { $and: aggregateFilters } } : { $match: {} };
 
         // Check if we need Admission/Course lookups for the charts
-        const needsAdmissionLookup = session || centreIds || courseIds || examTagId || departmentIds;
+        // Non-superAdmin users ALWAYS need the admission lookup so their centre filter is enforced
+        const needsAdmissionLookup = !isSuperAdmin || session || centreIds || courseIds || examTagId || departmentIds;
 
         const chartPipeline = [
             { $match: baseAttributesMatch },
