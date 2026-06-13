@@ -73,7 +73,7 @@ export const getLeads = async (req, res) => {
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
             .populate('board', 'boardCourse')
-            .sort({ createdAt: -1 })
+            .sort({ isPriority: -1, createdAt: -1 })
             .skip(skip)
             .limit(limit);
 
