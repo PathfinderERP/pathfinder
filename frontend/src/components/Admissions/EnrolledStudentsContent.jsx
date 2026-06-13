@@ -7,6 +7,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AdmissionDetailsModal from './AdmissionDetailsModal';
 import EditEnrolledStudentModal from './EditEnrolledStudentModal';
+import BulkUpdateStudentModal from './BulkUpdateStudentModal';
 import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
@@ -52,6 +53,9 @@ const EnrolledStudentsContent = () => {
     const [masterCourses, setMasterCourses] = useState([]);
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterSessions, setMasterSessions] = useState([]);
+    const [masterExamTags, setMasterExamTags] = useState([]);
+    const [selectedAdmissionIds, setSelectedAdmissionIds] = useState([]);
+    const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [activeEmployees, setActiveEmployees] = useState([]);
     const [masterAccounts, setMasterAccounts] = useState([]);
@@ -132,13 +136,14 @@ const EnrolledStudentsContent = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes, tagRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/session/list`, { headers }),
                 fetch(`${apiUrl}/admission/active-employees`, { headers }),
-                fetch(`${apiUrl}/master-data/account`, { headers })
+                fetch(`${apiUrl}/master-data/account`, { headers }),
+                fetch(`${apiUrl}/examTag`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -154,6 +159,9 @@ const EnrolledStudentsContent = () => {
             }
             if (accountRes && accountRes.ok) {
                 setMasterAccounts(await accountRes.json());
+            }
+            if (tagRes && tagRes.ok) {
+                setMasterExamTags(await tagRes.json());
             }
         } catch (error) {
             console.error("Error fetching master data:", error);
@@ -320,6 +328,49 @@ const EnrolledStudentsContent = () => {
     useEffect(() => {
         fetchAdmissions();
     }, [fetchAdmissions]);
+
+    // Reset selected IDs when any filter or view mode changes
+    useEffect(() => {
+        setSelectedAdmissionIds([]);
+    }, [viewMode, currentPage, searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, startDate, endDate]);
+
+    const toggleSelection = (admissionId) => {
+        if (!admissionId) return;
+        setSelectedAdmissionIds(prev =>
+            prev.includes(admissionId)
+                ? prev.filter(id => id !== admissionId)
+                : [...prev, admissionId]
+        );
+    };
+
+    const handleSelectAll = (e) => {
+        const pageItems = filteredStudents
+            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+            .map(studentItem => {
+                const relevantAdmissions = studentItem.admissions.filter(a => {
+                    const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                    if (!isTypeMatch) return false;
+                    const admDate = new Date(a.admissionDate);
+                    if (startDate && admDate < new Date(startDate)) return false;
+                    if (endDate) {
+                        const end = new Date(endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (admDate > end) return false;
+                    }
+                    return true;
+                });
+                return relevantAdmissions[0] || studentItem.latestAdmission;
+            })
+            .filter(Boolean);
+
+        if (e.target.checked) {
+            const newIds = pageItems.map(a => a._id).filter(id => !selectedAdmissionIds.includes(id));
+            setSelectedAdmissionIds(prev => [...prev, ...newIds]);
+        } else {
+            const pageIds = pageItems.map(a => a._id);
+            setSelectedAdmissionIds(prev => prev.filter(id => !pageIds.includes(id)));
+        }
+    };
 
     // Sync modal data when master list updates
     useEffect(() => {
@@ -872,6 +923,18 @@ const EnrolledStudentsContent = () => {
     };
 
     const uniqueCentres = allowedCentres;
+    const uniqueCourses = React.useMemo(() => {
+        const coursesSet = new Set(masterCourses.map(c => c.courseName));
+        students.forEach(item => {
+            item.admissions.forEach(a => {
+                const name = resolveCourseName(a);
+                if (name && name !== "N/A" && name !== "UNKNOWN COURSE" && !name.startsWith("COURSE ID:")) {
+                    coursesSet.add(name);
+                }
+            });
+        });
+        return Array.from(coursesSet).sort((a, b) => a.localeCompare(b));
+    }, [masterCourses, students, resolveCourseName]);
     const uniqueBoards = [...new Set(students.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))];
     const uniqueExamTags = [...new Set(students.flatMap(item => item.admissions.map(a => a.examTag?.name)).filter(Boolean))];
     const uniqueProgrammes = [...new Set(masterCourses.map(c => c.programme).filter(Boolean))];
@@ -1330,6 +1393,15 @@ const EnrolledStudentsContent = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
+                    {canEdit && selectedAdmissionIds.length > 0 && (
+                        <button
+                            onClick={() => setIsBulkUpdateModalOpen(true)}
+                            className="p-3 rounded-[4px] border border-blue-500/20 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-pulse"
+                        >
+                            <FaEdit /> Bulk Update ({selectedAdmissionIds.length})
+                        </button>
+                    )}
+
                     <button
                         onClick={toggleTheme}
                         className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
@@ -1576,7 +1648,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Course"
                                 placeholder="ALL COURSES"
-                                options={Array.from(new Set([...masterCourses.map(c => c.courseName), "Foundation (NORMAL)"])).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
+                                options={uniqueCourses.map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterCourse}
                                 onChange={setFilterCourse}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -1734,6 +1806,34 @@ const EnrolledStudentsContent = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>
+                                {canEdit && (
+                                    <th className="p-4 w-[50px]">
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
+                                            onChange={handleSelectAll}
+                                            checked={
+                                                filteredStudents.length > 0 &&
+                                                filteredStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).every(s => {
+                                                    const relevantAdmissions = s.admissions.filter(a => {
+                                                        const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                                                        if (!isTypeMatch) return false;
+                                                        const admDate = new Date(a.admissionDate);
+                                                        if (startDate && admDate < new Date(startDate)) return false;
+                                                        if (endDate) {
+                                                            const end = new Date(endDate);
+                                                            end.setHours(23, 59, 59, 999);
+                                                            if (admDate > end) return false;
+                                                        }
+                                                        return true;
+                                                    });
+                                                    const latestAdm = relevantAdmissions[0] || s.latestAdmission;
+                                                    return latestAdm && selectedAdmissionIds.includes(latestAdm._id);
+                                                })
+                                            }
+                                        />
+                                    </th>
+                                )}
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Enrollment ID</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admission Date</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Session</th>
@@ -1755,11 +1855,11 @@ const EnrolledStudentsContent = () => {
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
                                 [...Array(10)].map((_, i) => (
-                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={16} />
+                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={canEdit ? 17 : 16} />
                                 ))
                             ) : filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan="16" className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                                    <td colSpan={canEdit ? 17 : 16} className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
                                         {searchQuery ? "No matches found" : "No records available"}
                                     </td>
                                 </tr>
@@ -1808,6 +1908,17 @@ const EnrolledStudentsContent = () => {
                                                 className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} ${studentItem.student.status === 'Deactivated' ? (isDarkMode ? 'bg-red-500/5' : 'bg-red-50') : ''}`}
                                                 onClick={() => openStudentModal(studentItem)}
                                             >
+                                                {canEdit && (
+                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
+                                                            checked={latestAdmission && selectedAdmissionIds.includes(latestAdmission._id)}
+                                                            onChange={() => toggleSelection(latestAdmission?._id)}
+                                                            disabled={!latestAdmission}
+                                                        />
+                                                    </td>
+                                                )}
                                                 <td className="p-4 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
@@ -3291,6 +3402,27 @@ const EnrolledStudentsContent = () => {
                     onUpdate={() => {
                         fetchAdmissions();
                     }}
+                />
+            )}
+
+            {/* Bulk Update Student Modal */}
+            {isBulkUpdateModalOpen && (
+                <BulkUpdateStudentModal
+                    selectedAdmissionIds={selectedAdmissionIds}
+                    onClose={() => setIsBulkUpdateModalOpen(false)}
+                    onSuccess={() => {
+                        setIsBulkUpdateModalOpen(false);
+                        setSelectedAdmissionIds([]);
+                        fetchAdmissions();
+                    }}
+                    sessions={masterSessions}
+                    allowedCentres={allowedCentres}
+                    classes={masterClasses}
+                    departments={masterDepartments}
+                    courses={masterCourses}
+                    examTags={masterExamTags}
+                    activeEmployees={activeEmployees}
+                    isDarkMode={isDarkMode}
                 />
             )}
 

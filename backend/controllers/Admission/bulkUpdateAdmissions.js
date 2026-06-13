@@ -1,7 +1,10 @@
 import Admission from "../../models/Admission/Admission.js";
 import Student from "../../models/Students.js";
+<<<<<<< HEAD
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import Class from "../../models/Master_data/Class.js";
+=======
+>>>>>>> fa4e211a9ad501525c8633f4da4526ee626d5fe4
 import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
 
 export const bulkUpdateAdmissions = async (req, res) => {
@@ -25,6 +28,7 @@ export const bulkUpdateAdmissions = async (req, res) => {
             }
         });
 
+<<<<<<< HEAD
         // Fetch ExamTag and Class details once before the loop (avoiding N+1 queries)
         let examTagName = null;
         if (cleanUpdateData.examTag) {
@@ -42,6 +46,8 @@ export const bulkUpdateAdmissions = async (req, res) => {
             }
         }
 
+=======
+>>>>>>> fa4e211a9ad501525c8633f4da4526ee626d5fe4
         let modifiedCount = 0;
 
         for (const admissionId of ids) {
@@ -70,6 +76,7 @@ export const bulkUpdateAdmissions = async (req, res) => {
                         { student: studentId },
                         { centre: cleanUpdateData.centre }
                     );
+<<<<<<< HEAD
                 }
             }
 
@@ -142,11 +149,29 @@ export const bulkUpdateAdmissions = async (req, res) => {
                     if (studentModified) {
                         student.updatedBy = req.user?.name || "System";
                         student.updatedByUserId = req.user?._id;
+=======
+
+                    // Sync to Student profile details
+                    const student = await Student.findById(studentId);
+                    if (student && student.studentsDetails && student.studentsDetails[0]) {
+                        student.studentsDetails[0].centre = cleanUpdateData.centre;
+                        student.markModified('studentsDetails');
+>>>>>>> fa4e211a9ad501525c8633f4da4526ee626d5fe4
                         await student.save();
                     }
                 }
             }
 
+<<<<<<< HEAD
+=======
+            // Sync Counselled By to the student record
+            if (cleanUpdateData.counselledBy !== undefined && studentId) {
+                await Student.findByIdAndUpdate(studentId, {
+                    counselledBy: cleanUpdateData.counselledBy
+                });
+            }
+
+>>>>>>> fa4e211a9ad501525c8633f4da4526ee626d5fe4
             // Apply updates to the current admission record
             if (Object.keys(admissionUpdates).length > 0) {
                 await Admission.findByIdAndUpdate(admissionId, admissionUpdates, { runValidators: true });

@@ -242,6 +242,8 @@ const MarketingCRM = () => {
         notes: "",
         priority: "Medium"
     });
+    const [editingTaskId, setEditingTaskId] = useState(null);
+    const [editTaskForm, setEditTaskForm] = useState({});
 
     const fetchTomorrowPlan = async () => {
         try {
@@ -380,10 +382,18 @@ const MarketingCRM = () => {
         });
     };
 
+<<<<<<< HEAD
     const handleDeleteTomorrowTask = async (taskId) => {
         if (!taskId) return;
 
         // 1. Remove from local Tomorrow Tasks state immediately
+=======
+    const handleDeleteTomorrowTask = (taskId) => {
+        if (editingTaskId === taskId) {
+            setEditingTaskId(null);
+            setEditTaskForm({});
+        }
+>>>>>>> fa4e211a9ad501525c8633f4da4526ee626d5fe4
         setTomorrowTasks(prev => prev.filter(t => t._id !== taskId));
 
         // 2. If planDate matches tomorrowPlanDate, also remove from Today Activities state
@@ -427,6 +437,35 @@ const MarketingCRM = () => {
                 fetchTodayPlanActivities();
             }
         }
+    };
+
+    const handleEditTomorrowTask = (task) => {
+        setEditingTaskId(task._id);
+        setEditTaskForm({
+            activityType: task.activityType || "",
+            place: task.place || "",
+            time: task.time || "",
+            estimatedDuration: task.estimatedDuration || "",
+            notes: task.notes || "",
+            priority: task.priority || "Medium"
+        });
+    };
+
+    const handleUpdateTomorrowTask = (taskId) => {
+        if (!editTaskForm.place) { toast.error("Place / Institution is required."); return; }
+        if (!editTaskForm.time) { toast.error("Time is required."); return; }
+        if (!editTaskForm.estimatedDuration) { toast.error("Duration is required."); return; }
+        setTomorrowTasks(prev => prev.map(t =>
+            t._id === taskId ? { ...t, ...editTaskForm } : t
+        ));
+        setEditingTaskId(null);
+        setEditTaskForm({});
+        toast.success("Task updated. Remember to save your plan!");
+    };
+
+    const handleCancelEdit = () => {
+        setEditingTaskId(null);
+        setEditTaskForm({});
     };
 
     const handleSaveTomorrowPlan = async () => {
@@ -2048,7 +2087,7 @@ const MarketingCRM = () => {
                                                 <div className="hidden md:grid grid-cols-12 gap-4 px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
                                                     <div className="col-span-2">Activity Type</div>
                                                     <div className="col-span-3">Place / Institution Name</div>
-                                                    <div className="col-span-1 text-center"> From Time</div>
+                                                    <div className="col-span-1 text-center">From Time</div>
                                                     <div className="col-span-2 text-center">Duration (In Hours)</div>
                                                     <div className="col-span-2">Notes (Optional)</div>
                                                     <div className="col-span-1 text-center">Priority</div>
@@ -2056,54 +2095,162 @@ const MarketingCRM = () => {
                                                 </div>
 
                                                 {tomorrowTasks.map((task, idx) => (
-                                                    <div key={task._id || idx} className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619]/40 border-gray-800/60 text-white' : 'bg-gray-50/50 border-gray-100 text-gray-900'}`}>
-                                                        <div className="col-span-1 md:col-span-2">
-                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
-                                                            <span className="text-[11px] font-black uppercase">{task.activityType || task.taskDetails || "Activity"}</span>
+                                                    editingTaskId === task._id ? (
+                                                        /* ── EDIT MODE ROW ── */
+                                                        <div key={task._id || idx} className={`grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-4 rounded-xl border-2 transition-all ${isDarkMode ? 'bg-blue-950/20 border-blue-500/40 text-white' : 'bg-blue-50/60 border-blue-300 text-gray-900'}`}>
+                                                            {/* Activity Type */}
+                                                            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Activity Type</label>
+                                                                <select
+                                                                    value={editTaskForm.activityType}
+                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, activityType: e.target.value })}
+                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                >
+                                                                    {activitySources.length > 0 ? activitySources.map((src, sIdx) => (
+                                                                        <option key={sIdx} value={src}>{src}</option>
+                                                                    )) : ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity", "Others Activity"].map((s, sIdx) => (
+                                                                        <option key={sIdx} value={s}>{s}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            {/* Place */}
+                                                            <div className="col-span-1 md:col-span-3 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Place / Institution *</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editTaskForm.place}
+                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, place: e.target.value })}
+                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                />
+                                                            </div>
+                                                            {/* Time */}
+                                                            <div className="col-span-1 md:col-span-1 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Time *</label>
+                                                                <input
+                                                                    type="time"
+                                                                    value={editTaskForm.time}
+                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, time: e.target.value })}
+                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                />
+                                                            </div>
+                                                            {/* Duration */}
+                                                            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Duration *</label>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="e.g. 2 hours"
+                                                                    value={editTaskForm.estimatedDuration}
+                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, estimatedDuration: e.target.value })}
+                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                />
+                                                            </div>
+                                                            {/* Notes */}
+                                                            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Notes</label>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Remarks"
+                                                                    value={editTaskForm.notes}
+                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, notes: e.target.value })}
+                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                />
+                                                            </div>
+                                                            {/* Priority */}
+                                                            <div className="col-span-1 md:col-span-1 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Priority</label>
+                                                                <select
+                                                                    value={editTaskForm.priority}
+                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, priority: e.target.value })}
+                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                >
+                                                                    <option value="High">High</option>
+                                                                    <option value="Medium">Medium</option>
+                                                                    <option value="Low">Low</option>
+                                                                </select>
+                                                            </div>
+                                                            {/* Save / Cancel */}
+                                                            <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center items-center gap-1.5">
+                                                                <button
+                                                                    onClick={() => handleUpdateTomorrowTask(task._id)}
+                                                                    className="p-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500 hover:text-white transition-all cursor-pointer"
+                                                                    title="Save Changes"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                                    </svg>
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleCancelEdit}
+                                                                    className="p-2 rounded-lg bg-gray-500/10 border border-gray-500/30 text-gray-400 hover:bg-gray-500 hover:text-white transition-all cursor-pointer"
+                                                                    title="Cancel Edit"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
                                                         </div>
+                                                    ) : (
+                                                        /* ── VIEW MODE ROW ── */
+                                                        <div key={task._id || idx} className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619]/40 border-gray-800/60 text-white hover:border-gray-700' : 'bg-gray-50/50 border-gray-100 text-gray-900 hover:border-gray-200'}`}>
+                                                            <div className="col-span-1 md:col-span-2">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
+                                                                <span className="text-[11px] font-black uppercase">{task.activityType || task.taskDetails || "Activity"}</span>
+                                                            </div>
 
-                                                        <div className="col-span-1 md:col-span-3">
-                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
-                                                            <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.place || "-"}</span>
-                                                        </div>
+                                                            <div className="col-span-1 md:col-span-3">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
+                                                                <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.place || "-"}</span>
+                                                            </div>
 
-                                                        <div className="col-span-1 md:col-span-1 text-left md:text-center">
-                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">From Time</label>
-                                                            <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.time || "-"}</span>
-                                                        </div>
+                                                            <div className="col-span-1 md:col-span-1 text-left md:text-center">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">From Time</label>
+                                                                <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.time || "-"}</span>
+                                                            </div>
 
-                                                        <div className="col-span-1 md:col-span-2 text-left md:text-center">
-                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration (In Hours)</label>
-                                                            <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.estimatedDuration || "-"}</span>
-                                                        </div>
+                                                            <div className="col-span-1 md:col-span-2 text-left md:text-center">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration (In Hours)</label>
+                                                                <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.estimatedDuration || "-"}</span>
+                                                            </div>
 
-                                                        <div className="col-span-1 md:col-span-2 truncate">
-                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
-                                                            <span className={`text-[11px] font-bold italic ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} title={task.notes}>{task.notes || "-"}</span>
-                                                        </div>
+                                                            <div className="col-span-1 md:col-span-2 truncate">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
+                                                                <span className={`text-[11px] font-bold italic ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} title={task.notes}>{task.notes || "-"}</span>
+                                                            </div>
 
-                                                        <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center">
-                                                            <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Priority</label>
-                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                                                task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                                                            <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Priority</label>
+                                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                                    task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                                                    task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
                                                                     'bg-blue-500/10 text-blue-500 border-blue-500/20'
                                                                 }`}>
-                                                                {task.priority || "Medium"}
-                                                            </span>
-                                                        </div>
+                                                                    {task.priority || "Medium"}
+                                                                </span>
+                                                            </div>
 
-                                                        <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center items-center">
-                                                            <button
-                                                                onClick={() => handleDeleteTomorrowTask(task._id)}
-                                                                className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer"
-                                                                title="Delete Row"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                                                </svg>
-                                                            </button>
+                                                            <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center items-center gap-1.5">
+                                                                <button
+                                                                    onClick={() => handleEditTomorrowTask(task)}
+                                                                    className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-500 hover:bg-blue-500 hover:text-white transition-all cursor-pointer"
+                                                                    title="Edit Task"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                                                    </svg>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteTomorrowTask(task._id)}
+                                                                    className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                                                                    title="Delete Task"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )
                                                 ))}
                                             </div>
                                         )}

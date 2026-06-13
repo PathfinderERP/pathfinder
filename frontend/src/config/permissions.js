@@ -596,6 +596,14 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         }
     }
 
+    // Grant automatic access to dailyTrackingLog module actions for marketing role or users with marketingCRM access
+    if (module === 'dailyTrackingLog') {
+        const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
+        if (role?.toLowerCase() === 'marketing' || granularPermissions?.['marketingCRM']) {
+            return true;
+        }
+    }
+
     // Otherwise treat it as granularPermissions object
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
 

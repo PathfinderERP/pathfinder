@@ -212,6 +212,13 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
+            // Grant automatic access to dailyTrackingLog module actions for marketing role or users with marketingCRM access
+            if (!hasAccess && module === 'dailyTrackingLog') {
+                if (user.role?.toLowerCase() === 'marketing' || user.granularPermissions?.['marketingCRM']) {
+                    hasAccess = true;
+                }
+            }
+
             if (!hasAccess) {
                 if (action === "view") {
                     // If checking for view, any entry in that section means they have access to view the list
