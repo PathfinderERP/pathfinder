@@ -206,6 +206,14 @@ export const buildLeadQuery = async (queryParams, user) => {
         query.marketingBy = { $in: values };
     }
 
+    if (queryParams.isPriority !== undefined && queryParams.isPriority !== '') {
+        if (queryParams.isPriority === 'true' || queryParams.isPriority === true) {
+            query.isPriority = true;
+        } else if (queryParams.isPriority === 'false' || queryParams.isPriority === false) {
+            query.isPriority = { $ne: true };
+        }
+    }
+
     // Responsibility filter (Telecaller names / IDs / unique display names)
     if (leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0)) {
         const values = Array.isArray(leadResponsibility) ? normalizeValue(leadResponsibility) : [normalizeValue(leadResponsibility)];

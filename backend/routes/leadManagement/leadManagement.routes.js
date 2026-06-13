@@ -2,7 +2,7 @@ import express from "express";
 import { createLead } from "../../controllers/leadManagement/createLead.js";
 import { getLeads, getLeadById } from "../../controllers/leadManagement/getLeads.js";
 import { getFollowUpLeads } from "../../controllers/leadManagement/getFollowUpLeads.js";
-import { updateLead, tagWalkIn } from "../../controllers/leadManagement/updateLead.js";
+import { updateLead, tagWalkIn, toggleLeadPriority } from "../../controllers/leadManagement/updateLead.js";
 import { deleteLead } from "../../controllers/leadManagement/deleteLead.js";
 import { bulkDeleteLeads } from "../../controllers/leadManagement/bulkDeleteLeads.js";
 import { bulkDeleteLeadsByFilter } from "../../controllers/leadManagement/bulkDeleteLeadsByFilter.js";
@@ -61,6 +61,7 @@ router.put("/:id", requireAuth, updateLead);
 router.put("/:id/follow-up", requireAuth, addFollowUp);
 router.post("/:leadId/upload-recording", requireAuth, upload.single('audio'), uploadRecording);
 router.put("/:id/walk-in", requireAuth, tagWalkIn);
+router.put("/:id/toggle-priority", requireAuth, toggleLeadPriority);
 router.delete("/:id", requireAuth, deleteLead);
 
 export default router;

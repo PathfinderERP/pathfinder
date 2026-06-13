@@ -13,12 +13,16 @@ export const bulkUpdateLeads = async (req, res) => {
         // Only include fields that are explicitly provided and not null/undefined
         const fields = [
             'name', 'email', 'phoneNumber', 'schoolName', 'className', 'centre',
-            'course', 'board', 'source', 'targetExam', 'leadType', 'leadResponsibility', 'isCounseled'
+            'course', 'board', 'source', 'targetExam', 'leadType', 'leadResponsibility', 'isCounseled', 'isPriority'
         ];
 
         fields.forEach(field => {
             if (updateData[field] !== undefined && updateData[field] !== null && updateData[field] !== "") {
-                dataToUpdate[field] = updateData[field];
+                if (field === 'isPriority') {
+                    dataToUpdate[field] = updateData[field] === "true" || updateData[field] === true;
+                } else {
+                    dataToUpdate[field] = updateData[field];
+                }
             }
         });
 

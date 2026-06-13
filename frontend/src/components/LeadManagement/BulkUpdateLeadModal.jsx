@@ -13,7 +13,8 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
         source: false,
         targetExam: false,
         leadType: false,
-        leadResponsibility: false
+        leadResponsibility: false,
+        isPriority: false
     });
 
     const [formData, setFormData] = useState({
@@ -25,7 +26,8 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
         source: "",
         targetExam: "",
         leadType: "",
-        leadResponsibility: ""
+        leadResponsibility: "",
+        isPriority: ""
     });
 
     const [loading, setLoading] = useState(false);
@@ -348,13 +350,13 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
                                     </select>
                                 </div>
 
-                                {/* Lead Priority */}
+                                {/* Lead Type */}
                                 <div className={`p-3 rounded border transition-all ${enabledFields.leadType ? (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200') : (isDarkMode ? 'border-gray-800' : 'border-gray-200')}`}>
                                     <div className="flex items-center gap-2 mb-2 cursor-pointer select-none" onClick={() => toggleField('leadType')}>
                                         {enabledFields.leadType ? <FaCheckSquare className="text-cyan-500" /> : <FaSquare className="text-gray-500" />}
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-white">Enable Priority</span>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-white">Enable Lead Type</span>
                                     </div>
-                                    <label className={labelClasses(enabledFields.leadType)}>Lead Priority</label>
+                                    <label className={labelClasses(enabledFields.leadType)}>Lead Type</label>
                                     <select 
                                         name="leadType" 
                                         disabled={!enabledFields.leadType}
@@ -362,7 +364,7 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
                                         onChange={handleChange} 
                                         className={selectClasses(enabledFields.leadType)}
                                     >
-                                        <option value="">Select Priority</option>
+                                        <option value="">Select Lead Type</option>
                                         <option value="HOT LEAD">HOT LEAD</option>
                                         <option value="WARM LEAD">WARM LEAD</option>
                                         <option value="COLD LEAD">COLD LEAD</option>
@@ -386,6 +388,26 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
                                         isDisabled={!enabledFields.leadResponsibility}
                                         isDarkMode={isDarkMode}
                                     />
+                                </div>
+
+                                {/* Lead Priority */}
+                                <div className={`p-3 rounded border transition-all ${enabledFields.isPriority ? (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200') : (isDarkMode ? 'border-gray-800' : 'border-gray-200')}`}>
+                                    <div className="flex items-center gap-2 mb-2 cursor-pointer select-none" onClick={() => toggleField('isPriority')}>
+                                        {enabledFields.isPriority ? <FaCheckSquare className="text-cyan-500" /> : <FaSquare className="text-gray-500" />}
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-white">Enable Priority Tag</span>
+                                    </div>
+                                    <label className={labelClasses(enabledFields.isPriority)}>Lead Priority</label>
+                                    <select 
+                                        name="isPriority" 
+                                        disabled={!enabledFields.isPriority}
+                                        value={formData.isPriority} 
+                                        onChange={handleChange} 
+                                        className={selectClasses(enabledFields.isPriority)}
+                                    >
+                                        <option value="">Select Priority Option</option>
+                                        <option value="true">YES, MARK AS PRIORITY</option>
+                                        <option value="false">NO, REMOVE PRIORITY</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>

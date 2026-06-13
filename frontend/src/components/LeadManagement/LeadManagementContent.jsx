@@ -103,7 +103,8 @@ const LeadManagementContent = () => {
         toDate: "",   // These are for the table
         feedback: [],
         followUpStatus: [],
-        marketingBy: []
+        marketingBy: [],
+        isPriority: ""
     });
 
     // Dropdown data for filters
@@ -492,7 +493,8 @@ const LeadManagementContent = () => {
             toDate: "",
             feedback: [],
             followUpStatus: [],
-            marketingBy: []
+            marketingBy: [],
+            isPriority: ""
         });
         setSearchTerm("");
         setCurrentPage(1);
@@ -664,6 +666,30 @@ const LeadManagementContent = () => {
         } catch (error) {
             console.error("Error tagging walk-in:", error);
             toast.error("Error marking student as Walk-In");
+        }
+    };
+
+    const handleTogglePriority = async (leadId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/${leadId}/toggle-priority`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message || "Lead priority updated");
+                fetchLeads();
+            } else {
+                toast.error(data.message || "Failed to update priority");
+            }
+        } catch (error) {
+            console.error("Error toggling priority:", error);
+            toast.error("Error updating priority");
         }
     };
 
@@ -1456,6 +1482,18 @@ const LeadManagementContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Priority Status</label>
+                            <select
+                                value={filters.isPriority || ""}
+                                onChange={(e) => handleFilterChange('isPriority', e.target.value)}
+                                className={`w-full px-4 py-2.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            >
+                                <option value="">ALL LEADS</option>
+                                <option value="true">PRIORITY LEADS ONLY</option>
+                                <option value="false">NON-PRIORITY LEADS ONLY</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* Follow Up Stats Summary */}
@@ -1558,7 +1596,7 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Source</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[260px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[350px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
@@ -1641,7 +1679,16 @@ const LeadManagementContent = () => {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{lead.name}</div>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
+                                                        {lead.name}
+                                                    </div>
+                                                    {lead.isPriority && (
+                                                        <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-red-500 bg-red-500/20 text-red-400 self-start leading-none">
+                                                            Priority
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.email || "N/A"}</div>
@@ -1699,8 +1746,21 @@ const LeadManagementContent = () => {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 min-w-[260px]">
+                                            <td className="px-6 py-4 min-w-[350px]">
                                                 <div className="flex items-center gap-2.5 whitespace-nowrap min-w-max">
+
+                                                    {['superadmin', 'zonalmanager'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, '')) && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleTogglePriority(lead._id); }}
+                                                            className={`px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all whitespace-nowrap ${lead.isPriority
+                                                                ? 'bg-red-500 hover:bg-red-400 text-white shadow-red-600/20'
+                                                                : 'bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white'
+                                                                }`}
+                                                        >
+                                                            {lead.isPriority ? "★ Priority" : "☆ Priority"}
+                                                        </button>
+                                                    )}
+
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleCounseling(lead); }}
                                                         className="bg-cyan-500 hover:bg-cyan-400 text-black px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-95 transition-all whitespace-nowrap"
@@ -1719,6 +1779,7 @@ const LeadManagementContent = () => {
                                                             Walk In
                                                         </button>
                                                     )}
+
                                                     {(canEdit || (lead.createdBy === user?._id || lead.createdBy === user?.id)) && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleEdit(lead); }}
@@ -1761,13 +1822,12 @@ const LeadManagementContent = () => {
                                     <button
                                         key={n}
                                         onClick={() => { setLimit(n); setCurrentPage(1); }}
-                                        className={`px-2.5 py-1 rounded-[2px] text-[10px] font-black uppercase tracking-wider transition-all border ${
-                                            limit === n
-                                                ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
-                                                : isDarkMode
-                                                    ? 'bg-gray-800 text-gray-500 border-gray-700 hover:border-cyan-500/40 hover:text-cyan-400'
-                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-400 hover:text-cyan-600'
-                                        }`}
+                                        className={`px-2.5 py-1 rounded-[2px] text-[10px] font-black uppercase tracking-wider transition-all border ${limit === n
+                                            ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                                            : isDarkMode
+                                                ? 'bg-gray-800 text-gray-500 border-gray-700 hover:border-cyan-500/40 hover:text-cyan-400'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-400 hover:text-cyan-600'
+                                            }`}
                                     >
                                         {n}
                                     </button>

@@ -77,6 +77,10 @@ const leadManagementSchema = new mongoose.Schema({
     marketingBy: {
         type: String,
     },
+    isPriority: {
+        type: Boolean,
+        default: false
+    },
     // New fields for easier querying
     lastFollowUpDate: {
         type: Date

@@ -70,3 +70,36 @@ export const tagWalkIn = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+export const toggleLeadPriority = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if user is SuperAdmin or Zonal Manager
+        const userRole = req.user.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+        const allowedRoles = ['superadmin', 'zonalmanager'];
+        if (!allowedRoles.includes(userRole)) {
+            return res.status(403).json({ message: "Access denied. Only SuperAdmin or Zonal Manager can toggle lead priority." });
+        }
+
+        const lead = await LeadManagement.findById(id);
+        if (!lead) {
+            return res.status(404).json({ message: "Lead not found" });
+        }
+
+        lead.isPriority = !lead.isPriority;
+        await lead.save();
+
+        const updatedLead = await LeadManagement.findById(id)
+            .populate(['className', 'centre', 'course', 'board']);
+
+        res.status(200).json({
+            message: `Lead priority updated successfully`,
+            lead: updatedLead
+        });
+    } catch (err) {
+        console.error("Toggle lead priority error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
