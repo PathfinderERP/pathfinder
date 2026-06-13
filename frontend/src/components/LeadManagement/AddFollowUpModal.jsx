@@ -112,7 +112,8 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
             return;
         }
 
-        if (formData.leadType !== "COLD LEAD" && !formData.nextFollowUpDate) {
+        const noDateRequired = ["COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"].includes(formData.leadType);
+        if (!noDateRequired && !formData.nextFollowUpDate) {
             toast.warning("Please select a next follow up date");
             setLoading(false);
             return;
@@ -232,10 +233,11 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
                                 value={formData.leadType || ""}
                                 onChange={(e) => {
                                     const val = e.target.value;
+                                    const clearDate = ["COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"].includes(val);
                                     setFormData(prev => ({
                                         ...prev,
                                         leadType: val,
-                                        nextFollowUpDate: val === "COLD LEAD" ? "" : prev.nextFollowUpDate
+                                        nextFollowUpDate: clearDate ? "" : prev.nextFollowUpDate
                                     }));
                                 }}
                                 className={`w-full rounded-[4px] border px-4 py-3 text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
@@ -251,13 +253,13 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
 
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest flex items-center gap-0.5">
-                                NEXT FOLLOW UP DATE {formData.leadType !== "COLD LEAD" && <span className="text-red-500 font-bold">*</span>}
+                                NEXT FOLLOW UP DATE {!["COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"].includes(formData.leadType) && <span className="text-red-500 font-bold">*</span>}
                             </label>
                             <div className="relative group">
                                 <FaCalendarAlt className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
                                 <input
                                     type="date"
-                                    required={formData.leadType !== "COLD LEAD"}
+                                    required={!["COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"].includes(formData.leadType)}
                                     value={formData.nextFollowUpDate}
                                     onChange={(e) => setFormData({ ...formData, nextFollowUpDate: e.target.value })}
                                     className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
