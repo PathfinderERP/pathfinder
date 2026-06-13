@@ -468,8 +468,8 @@ const DailyUserActivityLog = () => {
                                     className="bg-transparent outline-none w-44 text-xs"
                                 />
                             </div>
-                            {/* Call Type Filter */}
-                            <div className={`flex rounded-lg overflow-hidden border text-[10px] font-black uppercase ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+
+                            {/* <div className={`flex rounded-lg overflow-hidden border text-[10px] font-black uppercase ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                                 {['ALL', 'FRESH', 'FOLLOW-UP'].map(f => (
                                     <button key={f} onClick={() => setCallTypeFilter(f)}
                                         className={`px-3 py-1.5 transition-all ${callTypeFilter === f
@@ -478,9 +478,9 @@ const DailyUserActivityLog = () => {
                                         {f}
                                     </button>
                                 ))}
-                            </div>
+                            </div> */}
                             {/* Lead Type Filter */}
-                            <div className={`flex rounded-lg overflow-hidden border text-[10px] font-black uppercase ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                            {/* <div className={`flex rounded-lg overflow-hidden border text-[10px] font-black uppercase ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                                 {['ALL', 'HOT', 'WARM', 'COLD'].map(f => {
                                     const cfgMap = { HOT: LEAD_TYPE_CONFIG['HOT LEAD'], WARM: LEAD_TYPE_CONFIG['WARM LEAD'], COLD: LEAD_TYPE_CONFIG['COLD LEAD'] };
                                     const active = leadTypeFilter === f;
@@ -494,7 +494,7 @@ const DailyUserActivityLog = () => {
                                         </button>
                                     );
                                 })}
-                            </div>
+                            </div> */}
                             {/* Reset Filter Button */}
                             {(callSearch !== '' || callTypeFilter !== 'ALL' || leadTypeFilter !== 'ALL' || selectedSection !== 'ALL') && (
                                 <button

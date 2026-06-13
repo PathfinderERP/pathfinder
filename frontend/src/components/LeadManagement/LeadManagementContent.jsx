@@ -83,7 +83,7 @@ const LeadManagementContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalLeads, setTotalLeads] = useState(0);
-    const [limit, setLimit] = useState(10);
+    const limit = 10;
 
     const [dashboardFilters, setDashboardFilters] = useState({
         fromDate: "",
@@ -987,7 +987,7 @@ const LeadManagementContent = () => {
 
                 {/* Activity Analysis */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                         {statsLoading ? (
                             <>
                                 <CardSkeleton isDarkMode={isDarkMode} />
@@ -1809,7 +1809,7 @@ const LeadManagementContent = () => {
 
                 {/* Pagination */}
                 <div className="flex flex-col xl:flex-row justify-between items-center gap-6 pt-6 border-t border-gray-800">
-                    <div className="flex flex-col md:flex-row items-center gap-6 flex-wrap">
+                    <div className="flex flex-col md:flex-row items-center gap-6">
                         <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
                             Showing: {leads.length === 0 ? 0 : (currentPage - 1) * limit + 1}-{Math.min(currentPage * limit, totalLeads)} / {totalLeads} Records
                         </div>
