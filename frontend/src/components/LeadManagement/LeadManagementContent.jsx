@@ -83,7 +83,7 @@ const LeadManagementContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalLeads, setTotalLeads] = useState(0);
-    const limit = 10;
+    const [limit, setLimit] = useState(10);
 
     const [dashboardFilters, setDashboardFilters] = useState({
         fromDate: "",
@@ -1748,9 +1748,31 @@ const LeadManagementContent = () => {
 
                 {/* Pagination */}
                 <div className="flex flex-col xl:flex-row justify-between items-center gap-6 pt-6 border-t border-gray-800">
-                    <div className="flex flex-col md:flex-row items-center gap-6">
+                    <div className="flex flex-col md:flex-row items-center gap-6 flex-wrap">
                         <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
                             Showing: {leads.length === 0 ? 0 : (currentPage - 1) * limit + 1}-{Math.min(currentPage * limit, totalLeads)} / {totalLeads} Records
+                        </div>
+
+                        {/* Rows per page selector */}
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-black uppercase tracking-widest shrink-0 ${isDarkMode ? 'text-gray-600' : 'text-gray-500'}`}>Rows:</span>
+                            <div className="flex gap-1">
+                                {[10, 20, 50, 100].map((n) => (
+                                    <button
+                                        key={n}
+                                        onClick={() => { setLimit(n); setCurrentPage(1); }}
+                                        className={`px-2.5 py-1 rounded-[2px] text-[10px] font-black uppercase tracking-wider transition-all border ${
+                                            limit === n
+                                                ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                                                : isDarkMode
+                                                    ? 'bg-gray-800 text-gray-500 border-gray-700 hover:border-cyan-500/40 hover:text-cyan-400'
+                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-cyan-400 hover:text-cyan-600'
+                                        }`}
+                                    >
+                                        {n}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Jump to Page */}
