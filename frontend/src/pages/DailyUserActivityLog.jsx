@@ -198,23 +198,33 @@ const DailyUserActivityLog = () => {
                                 </>
                             ) : (
                                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-600/10 to-blue-600/10 flex items-center justify-center">
-                                    <FaUserTie className="absolute -right-4 -bottom-4 text-8xl text-cyan-500/5 pointer-events-none" />
+                                    <FaUserTie className={`absolute -right-4 -bottom-4 text-8xl pointer-events-none ${
+                                        (isDark || data.profileImage) ? 'text-cyan-500/5' : 'text-cyan-500/10'
+                                    }`} />
                                 </div>
                             )}
 
                             {/* Content Overlaid */}
                             <div className="absolute inset-0 p-5 flex flex-col justify-between z-10">
                                 <div className="flex justify-between items-start">
-                                    <span className="text-[9px] font-black uppercase tracking-widest bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/30">
+                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                                        (isDark || data.profileImage)
+                                            ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+                                            : 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                                    }`}>
                                         {data.role}
                                     </span>
                                 </div>
                                 <div>
-                                    <h1 className="text-xl font-black uppercase tracking-wide text-white drop-shadow-md leading-none mb-2">
+                                    <h1 className={`text-xl font-black uppercase tracking-wide drop-shadow-md leading-none mb-2 ${
+                                        (isDark || data.profileImage) ? 'text-white' : 'text-gray-900'
+                                    }`}>
                                         {data.userName}
                                     </h1>
-                                    <span className="text-[9px] font-medium text-gray-300 flex items-center gap-1 drop-shadow-md">
-                                        <FaCalendarAlt className="text-cyan-400" />
+                                    <span className={`text-[9px] font-medium flex items-center gap-1 drop-shadow-md ${
+                                        (isDark || data.profileImage) ? 'text-gray-300' : 'text-gray-600'
+                                    }`}>
+                                        <FaCalendarAlt className={(isDark || data.profileImage) ? 'text-cyan-400' : 'text-cyan-600'} />
                                         {new Date(fromDate).toLocaleDateString('en-GB')} – {new Date(toDate).toLocaleDateString('en-GB')}
                                     </span>
                                 </div>
