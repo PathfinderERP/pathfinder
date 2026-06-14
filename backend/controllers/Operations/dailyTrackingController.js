@@ -426,7 +426,7 @@ export const getDailyUserActivity = async (req, res) => {
         // Fetch all leads followed up by the user today (old and new)
         const allFollowUpLeads = await LeadManagement.find({
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').populate('centre').lean();
+        }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText').populate('centre').populate('course', 'courseName').lean();
 
         // 3. Counseling Analysis
         const normalCounsQuery = {
@@ -516,7 +516,7 @@ export const getDailyUserActivity = async (req, res) => {
 
         // 6. HOT / WARM / COLD Lead Breakdown + Detailed Call List
         // Fresh = created today with NO followUps (pure fresh section uploads, no feedback/remarks)
-        const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt').lean();
+        const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText').populate('course', 'courseName').lean();
 
         let hotCount = 0, warmCount = 0, coldCount = 0;
         const callDetails = [];
@@ -539,7 +539,8 @@ export const getDailyUserActivity = async (req, res) => {
                 remarks: '',
                 nextFollowUpDate: null,
                 date: lead.createdAt,
-                updatedAt: lead.updatedAt
+                updatedAt: lead.updatedAt,
+                courseName: lead.course?.courseName || lead.courseText || '-'
             });
         });
 
@@ -569,7 +570,8 @@ export const getDailyUserActivity = async (req, res) => {
                     remarks: fu.remarks || '',
                     nextFollowUpDate: fu.nextFollowUpDate || null,
                     date: fu.date,
-                    updatedAt: lead.updatedAt
+                    updatedAt: lead.updatedAt,
+                    courseName: lead.course?.courseName || lead.courseText || '-'
                 });
             });
         });
@@ -584,9 +586,9 @@ export const getDailyUserActivity = async (req, res) => {
 
         // Fetch all direct admissions and counselling today to populate them if they are not in lead list
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-            Admission.find(normalAdmStudentQuery).populate('student').lean(),
+            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').lean(),
             BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').lean(),
-            BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').lean()
+            BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean()
         ]);
 
         const extraPhones = [
@@ -597,7 +599,7 @@ export const getDailyUserActivity = async (req, res) => {
 
         let leadMapByPhone = {};
         if (extraPhones.length > 0) {
-            const leads = await LeadManagement.find({ phoneNumber: { $in: extraPhones } }).lean();
+            const leads = await LeadManagement.find({ phoneNumber: { $in: extraPhones } }).populate('centre').populate('course', 'courseName').lean();
             leads.forEach(l => {
                 leadMapByPhone[l.phoneNumber] = l;
             });
@@ -633,7 +635,8 @@ export const getDailyUserActivity = async (req, res) => {
                 counselledTick: true,
                 counselledDate: adm.createdAt,
                 enrolledTick: true,
-                enrolledDate: adm.createdAt
+                enrolledDate: adm.createdAt,
+                courseName: adm.course?.courseName || existingLead?.course?.courseName || existingLead?.courseText || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -667,7 +670,8 @@ export const getDailyUserActivity = async (req, res) => {
                 counselledTick: true,
                 counselledDate: adm.createdAt,
                 enrolledTick: true,
-                enrolledDate: adm.createdAt
+                enrolledDate: adm.createdAt,
+                courseName: adm.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -704,7 +708,8 @@ export const getDailyUserActivity = async (req, res) => {
                 counselledTick: true,
                 counselledDate: couns.counselledDate,
                 enrolledTick: hasAdmission,
-                enrolledDate: hasAdmission ? couns.counselledDate : null
+                enrolledDate: hasAdmission ? couns.counselledDate : null,
+                courseName: couns.boardId?.boardName || couns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -981,12 +986,12 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 { followUps: { $size: 0 } }
             ]
         };
-        const freshLeadsDetailed = await LeadManagement.find(freshQuery).populate('centre').lean();
+        const freshLeadsDetailed = await LeadManagement.find(freshQuery).populate('centre').populate('course', 'courseName').lean();
 
         // Fetch all leads followed up by the user today (old and new)
         const allFollowUpLeads = await LeadManagement.find({
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        }).populate('centre').lean();
+        }).populate('centre').populate('course', 'courseName').lean();
 
         const callDetails = [];
 
@@ -1000,7 +1005,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 feedback: '-',
                 remarks: lead.remarks || '',
                 nextFollowUpDate: null,
-                date: lead.createdAt
+                date: lead.createdAt,
+                courseName: lead.course?.courseName || lead.courseText || '-'
             });
         });
 
@@ -1021,7 +1027,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                     feedback: fu.feedback || '-',
                     remarks: fu.remarks || '',
                     nextFollowUpDate: fu.nextFollowUpDate || null,
-                    date: fu.date
+                    date: fu.date,
+                    courseName: lead.course?.courseName || lead.courseText || '-'
                 });
             });
         });
@@ -1032,9 +1039,9 @@ export const exportUserCallingReportExcel = async (req, res) => {
         const boardCounsStudentQuery = { counselledBy: userId, counselledDate: dateFilter };
 
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-            Admission.find(normalAdmStudentQuery).populate('student').lean(),
+            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').lean(),
             BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').lean(),
-            BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('centre').lean()
+            BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').populate('centre').lean()
         ]);
 
         const extraPhones = [
@@ -1045,7 +1052,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
         let leadMapByPhone = {};
         if (extraPhones.length > 0) {
-            const leads = await LeadManagement.find({ phoneNumber: { $in: extraPhones } }).populate('centre').lean();
+            const leads = await LeadManagement.find({ phoneNumber: { $in: extraPhones } }).populate('centre').populate('course', 'courseName').lean();
             leads.forEach(l => {
                 leadMapByPhone[l.phoneNumber] = l;
             });
@@ -1069,6 +1076,13 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 ? admOrCouns.centre 
                 : (admOrCouns.centre?.centreName || '-');
 
+            let courseName = '-';
+            if (isAdm) {
+                courseName = admOrCouns.course?.courseName || admOrCouns.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-';
+            } else {
+                courseName = admOrCouns.boardId?.boardName || admOrCouns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-';
+            }
+
             callDetails.push({
                 centreName: itemCentreName || (existingLead?.centre?.centreName) || '-',
                 studentName: name,
@@ -1078,7 +1092,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 feedback: typeStr,
                 remarks: remarksStr,
                 nextFollowUpDate: null,
-                date: admOrCouns.createdAt || admOrCouns.counselledDate || new Date()
+                date: admOrCouns.createdAt || admOrCouns.counselledDate || new Date(),
+                courseName
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1098,6 +1113,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
             "Centre": call.centreName,
             "Student Name": call.studentName,
             "Phone Number": call.phoneNumber,
+            "Course Name": call.courseName || '-',
             "Call Type": call.callType,
             "Lead Status": call.leadType,
             "Feedback": call.feedback,
