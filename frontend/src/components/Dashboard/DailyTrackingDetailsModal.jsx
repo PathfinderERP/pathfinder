@@ -1,8 +1,24 @@
-import React from 'react';
-import { FaTimes, FaPhoneAlt, FaEnvelope, FaClock, FaHistory, FaBuilding, FaUser, FaCheckCircle } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaTimes, FaPhoneAlt, FaEnvelope, FaClock, FaHistory, FaBuilding, FaUser, FaCheckCircle, FaArrowLeft, FaBookOpen, FaRupeeSign } from 'react-icons/fa';
 
 const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDarkMode }) => {
+    const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+
+    // Reset selectedSubCategory when modal opens/closes or title changes
+    useEffect(() => {
+        setSelectedSubCategory(null);
+    }, [isOpen, title]);
+
     if (!isOpen) return null;
+
+    const isCollectionType = title === "Total Collection";
+
+    const admissionTotal = data.filter(item => item.isAdmission).reduce((sum, item) => sum + (item.amount || 0), 0);
+    const installmentTotal = data.filter(item => !item.isAdmission).reduce((sum, item) => sum + (item.amount || 0), 0);
+
+    const filteredList = isCollectionType && selectedSubCategory
+        ? data.filter(item => selectedSubCategory === "admission" ? item.isAdmission : !item.isAdmission)
+        : data;
 
     const getTagStyles = (tag) => {
         // If it starts with ₹, it's a collection amount
@@ -77,12 +93,31 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
             <div className={`w-full max-w-4xl h-[85vh] flex flex-col rounded-[2px] border shadow-2xl scale-in ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                    <div>
-                        <h2 className={`text-xl font-black italic uppercase tracking-tighter flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            <div className="w-2 h-8 bg-cyan-500 rounded-full animate-pulse"></div>
-                            {title}
-                        </h2>
-                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em] mt-1">Detailed breakdown of recorded activities</p>
+                    <div className="flex items-center gap-3">
+                        {isCollectionType && selectedSubCategory && (
+                            <button
+                                onClick={() => setSelectedSubCategory(null)}
+                                className={`mr-2 p-2 rounded-lg transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                title="Back to collection categories"
+                            >
+                                <FaArrowLeft size={16} />
+                            </button>
+                        )}
+                        <div>
+                            <h2 className={`text-xl font-black italic uppercase tracking-tighter flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                <div className="w-2 h-8 bg-cyan-500 rounded-full animate-pulse"></div>
+                                {isCollectionType && selectedSubCategory
+                                    ? selectedSubCategory === "admission" ? "Admission Fee Collections" : "Installment Collections"
+                                    : title
+                                }
+                            </h2>
+                            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em] mt-1">
+                                {isCollectionType && selectedSubCategory
+                                    ? `Breakdown details for ${selectedSubCategory} collections`
+                                    : "Detailed breakdown of recorded activities"
+                                }
+                            </p>
+                        </div>
                     </div>
                     <button
                         onClick={onClose}
@@ -99,14 +134,67 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                             <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                             <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading activities...</p>
                         </div>
-                    ) : data.length === 0 ? (
+                    ) : isCollectionType && !selectedSubCategory ? (
+                        /* Dual Cards Selection Mode for Collections */
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-10 px-4">
+                            <div
+                                onClick={() => setSelectedSubCategory("admission")}
+                                className={`group p-8 rounded-xl border-2 cursor-pointer transition-all duration-300 hover:scale-[1.03] flex flex-col items-center justify-center gap-4 text-center ${
+                                    isDarkMode
+                                        ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/50 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
+                                        : 'bg-white border-gray-200 hover:border-cyan-400 hover:shadow-xl'
+                                }`}
+                            >
+                                <div className="p-5 rounded-full bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-black transition-all duration-300">
+                                    <FaRupeeSign size={32} />
+                                </div>
+                                <div>
+                                    <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-950'}`}>Admission Collection</h3>
+                                    <p className={`text-xs mt-1 font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>New enrollment payments collected today</p>
+                                </div>
+                                <div className={`text-3xl font-black mt-2 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                    ₹{admissionTotal.toLocaleString()}
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${
+                                    isDarkMode ? 'bg-cyan-950/80 text-cyan-400' : 'bg-cyan-50 text-cyan-700'
+                                }`}>
+                                    View Details &rarr;
+                                </span>
+                            </div>
+
+                            <div
+                                onClick={() => setSelectedSubCategory("installment")}
+                                className={`group p-8 rounded-xl border-2 cursor-pointer transition-all duration-300 hover:scale-[1.03] flex flex-col items-center justify-center gap-4 text-center ${
+                                    isDarkMode
+                                        ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/50 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
+                                        : 'bg-white border-gray-200 hover:border-cyan-400 hover:shadow-xl'
+                                }`}
+                            >
+                                <div className="p-5 rounded-full bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-black transition-all duration-300">
+                                    <FaRupeeSign size={32} />
+                                </div>
+                                <div>
+                                    <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-950'}`}>Installment Collection</h3>
+                                    <p className={`text-xs mt-1 font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Recurring fee payments collected today</p>
+                                </div>
+                                <div className={`text-3xl font-black mt-2 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                                    ₹{installmentTotal.toLocaleString()}
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${
+                                    isDarkMode ? 'bg-emerald-950/80 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
+                                }`}>
+                                    View Details &rarr;
+                                </span>
+                            </div>
+                        </div>
+                    ) : filteredList.length === 0 ? (
                         <div className="py-20 text-center">
                             <FaHistory className={`mx-auto mb-4 text-4xl ${isDarkMode ? 'text-gray-800' : 'text-gray-200'}`} />
                             <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>No activities found for this category</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {data.map((item, index) => {
+                            {filteredList.map((item, index) => {
                                 const styles = getTagStyles(item.tag);
                                 return (
                                     <div key={index} className={`group p-5 rounded-[2px] border transition-all hover:scale-[1.01] ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/30' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
@@ -142,6 +230,13 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                                                     </div>
                                                 </div>
 
+                                                {item.course && item.course !== "N/A" && (
+                                                    <div className="flex items-center gap-2 text-[11px] font-bold text-cyan-600 dark:text-cyan-400 mt-1">
+                                                        <FaBookOpen className="shrink-0" />
+                                                        <span>Course: {item.course}</span>
+                                                    </div>
+                                                )}
+
                                                 <div className={`p-4 rounded-[2px] border-l-2 border-cyan-500 ${isDarkMode ? 'bg-[#0a0a0b]' : 'bg-gray-50'}`}>
                                                     <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Description / Remarks</p>
                                                     <p className={`text-xs font-medium leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{item.feedback}</p>
@@ -168,7 +263,7 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                 {/* Footer */}
                 <div className={`px-6 py-4 border-t flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                     <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                        Total Entries: {data.length}
+                        Total Entries: {filteredList.length}
                     </p>
                     <button
                         onClick={onClose}

@@ -1301,7 +1301,7 @@ export const getDailyTrackingDetails = async (req, res) => {
 
             const admissionIds = payments.map(p => p.admission).filter(Boolean);
             const [normalAdms, boardAdms] = await Promise.all([
-                Admission.find({ _id: { $in: admissionIds } }).populate('student').lean(),
+                Admission.find({ _id: { $in: admissionIds } }).populate('student').populate('course', 'courseName').lean(),
                 BoardCourseAdmission.find({ _id: { $in: admissionIds } }).populate('studentId').lean()
             ]);
 
@@ -1310,13 +1310,15 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const studentName = adm.student?.studentsDetails?.[0]?.studentName || "Unknown Student";
                 const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
-                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre };
+                const courseName = adm.course?.courseName || "N/A";
+                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName };
             });
             boardAdms.forEach(adm => {
-                const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || "Unknown Student";
-                const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                const studentName = adm.studentName || adm.studentId?.studentsDetails?.[0]?.studentName || "Unknown Student";
+                const phone = adm.mobileNum || adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
-                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre };
+                const courseName = adm.boardCourseName || (adm.boardId ? "Board Course" : "N/A");
+                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName };
             });
 
             detailsList = payments.map(p => {
@@ -1331,6 +1333,9 @@ export const getDailyTrackingDetails = async (req, res) => {
                     centreName: admInfo?.centreName || 'N/A',
                     dateTime: p.receivedDate || p.paidDate,
                     tag: `₹${p.paidAmount.toLocaleString()}`,
+                    amount: p.paidAmount,
+                    course: admInfo?.courseName || "N/A",
+                    isAdmission: p.installmentNumber === 0,
                     feedback: `Method: ${p.paymentMethod || 'Other'} | Type: ${type}`
                 };
             });
