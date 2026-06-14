@@ -160,9 +160,9 @@ export const getDailyTracking = async (req, res) => {
                 }
             ]);
 
-            const totalCollections = collections.length > 0 ? collections[0].total : 0;
-            const collectionsAdmission = collections.length > 0 ? collections[0].admission : 0;
-            const collectionsInstallment = collections.length > 0 ? collections[0].installment : 0;
+            const totalCollections = collections.length > 0 ? Math.round(collections[0].total / 1.18) : 0;
+            const collectionsAdmission = collections.length > 0 ? Math.round(collections[0].admission / 1.18) : 0;
+            const collectionsInstallment = collections.length > 0 ? Math.round(collections[0].installment / 1.18) : 0;
 
             return {
                 id: center._id,
@@ -1324,6 +1324,7 @@ export const getDailyTrackingDetails = async (req, res) => {
             detailsList = payments.map(p => {
                 const admInfo = admissionMap[p.admission?.toString()];
                 const type = p.installmentNumber === 0 ? "Admission Fee" : `Installment #${p.installmentNumber}`;
+                const amountWithoutGst = Math.round(p.paidAmount / 1.18);
                 return {
                     id: p._id,
                     name: admInfo?.studentName || "Unknown Student",
@@ -1332,8 +1333,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                     handledBy: p.recordedBy?.name || 'System',
                     centreName: admInfo?.centreName || 'N/A',
                     dateTime: p.receivedDate || p.paidDate,
-                    tag: `₹${p.paidAmount.toLocaleString()}`,
-                    amount: p.paidAmount,
+                    tag: `₹${amountWithoutGst.toLocaleString()}`,
+                    amount: amountWithoutGst,
                     course: admInfo?.courseName || "N/A",
                     isAdmission: p.installmentNumber === 0,
                     feedback: `Method: ${p.paymentMethod || 'Other'} | Type: ${type}`
