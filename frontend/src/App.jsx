@@ -21,6 +21,7 @@ import AdmissionCourseReport from "./pages/Sales/AdmissionCourseReport";
 import BoardReport from "./pages/Sales/BoardReport";
 import QuarterlyTargetReport from "./pages/Sales/QuarterlyTargetReport";
 import WeeklyTarget from "./pages/Sales/WeeklyTarget";
+import AverageAdmissionFee from "./pages/Sales/AverageAdmissionFee";
 import FinalWeekendTarget from "./pages/Sales/FinalWeekendTarget";
 import CourseTarget from "./pages/Sales/CourseTarget";
 import TransactionList from "./pages/Finance/TransactionList";
@@ -243,6 +244,7 @@ function App() {
         <Route path="/sales/daily-collection" element={<ProtectedRoute><DailyCollection /></ProtectedRoute>} />
         <Route path="/sales/admission-course-report" element={<ProtectedRoute><AdmissionCourseReport /></ProtectedRoute>} />
         <Route path="/sales/board-report" element={<ProtectedRoute><BoardReport /></ProtectedRoute>} />
+        <Route path="/sales/average-admission-fee" element={<ProtectedRoute><AverageAdmissionFee /></ProtectedRoute>} />
         <Route path="/sales/quarterly-target-report" element={<ProtectedRoute><QuarterlyTargetReport /></ProtectedRoute>} />
         <Route path="/sales/weekly-target" element={<ProtectedRoute><WeeklyTarget /></ProtectedRoute>} />
         <Route path="/sales/final-weekend-target" element={<ProtectedRoute><FinalWeekendTarget /></ProtectedRoute>} />

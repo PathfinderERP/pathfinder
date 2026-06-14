@@ -124,6 +124,31 @@ const tagBadge = (i) => TAG_BADGE[i % TAG_BADGE.length];
 // ─── Month names ──────────────────────────────────────────────────────────────
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+const formatDate = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
+const getTodayRange = () => {
+    const today = new Date();
+    return { start: formatDate(today), end: formatDate(today) };
+};
+
+const getYesterdayRange = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return { start: formatDate(yesterday), end: formatDate(yesterday) };
+};
+
+const getLast7DaysRange = () => {
+    const today = new Date();
+    const last7 = new Date();
+    last7.setDate(today.getDate() - 6);
+    return { start: formatDate(last7), end: formatDate(today) };
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 const AdmissionCourseReport = () => {
     const { theme } = useTheme();
@@ -136,6 +161,7 @@ const AdmissionCourseReport = () => {
     // ── filters ───────────────────────────────────────────────────────────────
     const [selCentres,  setSelCentres]  = useState([]);
     const [selTags,     setSelTags]     = useState([]);
+    const [selectedProgramme, setSelectedProgramme] = useState("");
     const [timePeriod,  setTimePeriod]  = useState("This Year");
     const [startDate,   setStartDate]   = useState("");
     const [endDate,     setEndDate]     = useState("");
@@ -189,11 +215,24 @@ const AdmissionCourseReport = () => {
         if (timePeriod === "Custom") {
             p.append("startDate", startDate);
             p.append("endDate",   endDate);
+        } else if (timePeriod === "Today") {
+            const { start, end } = getTodayRange();
+            p.append("startDate", start);
+            p.append("endDate",   end);
+        } else if (timePeriod === "Yesterday") {
+            const { start, end } = getYesterdayRange();
+            p.append("startDate", start);
+            p.append("endDate",   end);
+        } else if (timePeriod === "Last 7 Days") {
+            const { start, end } = getLast7DaysRange();
+            p.append("startDate", start);
+            p.append("endDate",   end);
         } else {
             const yr = new Date().getFullYear();
             p.append("year", timePeriod === "This Year" ? yr : yr - 1);
         }
         if (selCentres.length) p.append("centreIds", selCentres.join(","));
+        if (selectedProgramme) p.append("programme", selectedProgramme);
         if (tagId)             p.append("examTagId", tagId);  // backend uses examTagId
         return p.toString();
     };
@@ -275,16 +314,16 @@ const AdmissionCourseReport = () => {
         } finally {
             setLoading(false);
         }
-    }, [selCentres, selTags, timePeriod, startDate, endDate, examTags]);
+    }, [selCentres, selTags, timePeriod, startDate, endDate, examTags, selectedProgramme]);
 
     // Trigger fetch on filter changes
     useEffect(() => {
         if (examTags.length > 0) fetchReport();
-    }, [selCentres, selTags, timePeriod, startDate, endDate, examTags]);
+    }, [selCentres, selTags, timePeriod, startDate, endDate, examTags, selectedProgramme]);
 
     // ── helpers ───────────────────────────────────────────────────────────────
     const toggle     = setter => id => setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    const resetAll   = () => { setSelCentres([]); setSelTags([]); setTimePeriod("This Year"); setStartDate(""); setEndDate(""); setSearch(""); };
+    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelectedProgramme(""); setTimePeriod("This Year"); setStartDate(""); setEndDate(""); setSearch(""); };
 
     // Unique tag → index for stable colour
     const tagIndexMap = {};
@@ -322,7 +361,32 @@ const AdmissionCourseReport = () => {
         allTagsInPivot.add(r.examTagName);
     });
 
-    const uniqueTags = Array.from(allTagsInPivot).sort();
+    const CUSTOM_ORDER = [
+        "JEE 1 YEAR",
+        "JEE 2 YEAR",
+        "NEET 1 YEAR",
+        "NEET 2 YEAR",
+        "REPEATER",
+        "FOUNDATION CLASS 10",
+        "FOUNDATION CLASS 9",
+        "FOUNDATION CLASS 8",
+        "FOUNDATION CLASS 7",
+        "FOUNDATION CLASS 6",
+        "FOUNDATION CLASS 5"
+    ];
+
+    const uniqueTags = Array.from(allTagsInPivot).sort((a, b) => {
+        const aIdx = CUSTOM_ORDER.indexOf(a.trim().toUpperCase());
+        const bIdx = CUSTOM_ORDER.indexOf(b.trim().toUpperCase());
+        
+        if (aIdx !== -1 && bIdx !== -1) {
+            return aIdx - bIdx;
+        }
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+        
+        return a.localeCompare(b);
+    });
 
     // Grand total for share %
     const grandTotal = rows.reduce((a, r) => a + r.count, 0);
@@ -483,12 +547,29 @@ const AdmissionCourseReport = () => {
                             isDarkMode={isDark}
                         />
 
+                        {/* Programme */}
+                        <div className="min-w-[120px]">
+                            <select
+                                value={selectedProgramme}
+                                onChange={(e) => setSelectedProgramme(e.target.value)}
+                                className={`h-10 px-3 border rounded-lg text-sm outline-none font-bold transition-all
+                                    ${isDark ? "bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500" : "bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm"}`}
+                            >
+                                <option value="">All Programs</option>
+                                <option value="CRP">CRP</option>
+                                <option value="NCRP">NCRP</option>
+                            </select>
+                        </div>
+
                         {/* Time Period */}
                         <select value={timePeriod} onChange={e => setTimePeriod(e.target.value)}
                             className={`h-10 px-3 border rounded-lg text-sm outline-none transition-all
                                 ${isDark ? "bg-[#1a1f24] border-gray-700 text-gray-300" : "bg-white border-gray-300 text-gray-700 shadow-sm"}`}>
                             <option value="This Year">This Year</option>
                             <option value="Last Year">Last Year</option>
+                            <option value="Today">Today</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Last 7 Days">Last 7 Days</option>
                             <option value="Custom">Custom Range</option>
                         </select>
 

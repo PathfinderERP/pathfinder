@@ -81,16 +81,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaHistory />,
             permissionModule: "dailyTrackingLog",
             subItems: [
-                { 
-                    name: "My Daily Log", 
-                    path: "/daily-tracking-log?tab=myLog", 
+                {
+                    name: "My Daily Log",
+                    path: "/daily-tracking-log?tab=myLog",
                     icon: <FaTasks />,
                     permissionModule: "dailyTrackingLog",
                     permissionSection: "myDailyLog"
                 },
-                { 
-                    name: "Log Tracking", 
-                    path: "/daily-tracking-log?tab=deptBoard", 
+                {
+                    name: "Log Tracking",
+                    path: "/daily-tracking-log?tab=deptBoard",
                     icon: <FaBuilding />,
                     permissionModule: "dailyTrackingLog",
                     permissionSection: "logTracking"
@@ -196,11 +196,12 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },
                 { name: "Course Target", path: "/sales/course-target", permissionSection: "centreTarget" },
                 { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
-                { name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },
+                //{ name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },
                 //{ name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
                 //{ name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },
                 { name: "Admission & Course Report", path: "/sales/admission-course-report", permissionSection: "admissionReport" },
-                //  { name: "Discount Report Analysis", path: "/sales/discount-report", permissionSection: "discountReport" },
+                { name: "Average Admission Fee", path: "/sales/average-admission-fee", permissionSection: "admissionReport" },
+                { name: "Discount Report Analysis", path: "/sales/discount-report", permissionSection: "discountReport" },
                 //{ name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
                 { name: "Daily Collection", path: "/sales/daily-collection", permissionSection: "transactionReport" },
             ]

@@ -1,6 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import LeadManagement from "../../models/LeadManagement.js";
+import Student from "../../models/Students.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Course from "../../models/Master_data/Courses.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
@@ -19,7 +20,8 @@ export const getAdmissionReport = async (req, res) => {
             classIds,  // comma separated or array
             subjectIds, // comma separated or array
             boardIds,  // comma separated or array
-            examTagId
+            examTagId,
+            programme
         } = req.query;
 
         console.log("Admission Report Query:", req.query);
@@ -99,6 +101,27 @@ export const getAdmissionReport = async (req, res) => {
             }
         }
 
+        // Programme Filter
+        if (programme) {
+            const studentsWithProg = await Student.find({ "studentsDetails.programme": programme }).select("_id").lean();
+            const studentIdsWithProg = studentsWithProg.map(s => s._id);
+            admissionQuery.student = { $in: studentIdsWithProg };
+
+            // For leadQuery, filter by course programme since leads don't have student profiles
+            const coursesWithProg = await Course.find({ programme }).select("_id").lean();
+            const courseIdsWithProg = coursesWithProg.map(c => c._id);
+            
+            if (leadQuery.course) {
+                const existingLeadCourseIds = leadQuery.course.$in || [];
+                const intersectedLeadIds = existingLeadCourseIds.filter(id => 
+                    courseIdsWithProg.some(pid => pid.toString() === id.toString())
+                );
+                leadQuery.course = { $in: intersectedLeadIds };
+            } else {
+                leadQuery.course = { $in: courseIdsWithProg };
+            }
+        }
+
         // Class Filter
         if (classIds) {
             const rawIds = typeof classIds === 'string' ? classIds.split(',') : classIds;
@@ -125,6 +148,13 @@ export const getAdmissionReport = async (req, res) => {
 
         // Dedicated Query for Board Course Admissions (includes board, subject filtering)
         let boardAdmissionQuery = { ...admissionQuery };
+        if (programme) {
+            delete boardAdmissionQuery.course;
+            delete boardAdmissionQuery.student;
+            const studentsWithProg = await Student.find({ "studentsDetails.programme": programme }).select("_id").lean();
+            const studentIdsWithProg = studentsWithProg.map(s => s._id);
+            boardAdmissionQuery.studentId = { $in: studentIdsWithProg };
+        }
         // Remove centre from boardAdmissionQuery if it references ObjectId (board admission uses string centre)
         // boardAdmissionQuery already has date filter inherited from admissionQuery
 
