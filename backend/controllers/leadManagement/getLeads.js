@@ -129,9 +129,14 @@ export const getLeadById = async (req, res) => {
 
 export const getDistinctSchools = async (req, res) => {
     try {
-        const schools = await LeadManagement.distinct("schoolName", { 
-            schoolName: { $ne: null, $exists: true, $ne: "" } 
-        });
+        // Build user-scoped query — non-SuperAdmin users will only see schools
+        // from leads they created or are assigned to (via buildLeadQuery access control).
+        const baseQuery = await buildLeadQuery({}, req.user);
+
+        // Add schoolName existence constraint on top of user scope
+        baseQuery.schoolName = { $exists: true, $nin: [null, ""] };
+
+        const schools = await LeadManagement.distinct("schoolName", baseQuery);
         const cleanSchools = schools.filter(s => s && s.trim() !== "");
         cleanSchools.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
         res.status(200).json({ success: true, schools: cleanSchools });
