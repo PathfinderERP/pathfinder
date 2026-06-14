@@ -2,6 +2,7 @@ import CourseTarget from "../../models/Sales/CourseTarget.js";
 import Course from "../../models/Master_data/Courses.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import Student from "../../models/Students.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Department from "../../models/Master_data/Department.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
@@ -178,16 +179,16 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     },
                     {
                         $lookup: {
-                            from: "courses",
-                            localField: "course",
+                            from: "students",
+                            localField: "student",
                             foreignField: "_id",
-                            as: "courseInfo"
+                            as: "studentInfo"
                         }
                     },
-                    { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+                    { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
                     ...(programme ? [{
                         $match: {
-                            "courseInfo.programme": programme
+                            "studentInfo.studentsDetails.programme": programme
                         }
                     }] : []),
                     {
@@ -202,10 +203,23 @@ export const getCourseTargetAnalysis = async (req, res) => {
                         $match: {
                             centre: centreRegex,
                             admissionDate: { $gte: startDate, $lte: endDate },
-                            status: "ACTIVE",
-                            ...(programme ? { programme } : {})
+                            status: "ACTIVE"
                         }
                     },
+                    {
+                        $lookup: {
+                            from: "students",
+                            localField: "studentId",
+                            foreignField: "_id",
+                            as: "studentInfo"
+                        }
+                    },
+                    { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
+                    ...(programme ? [{
+                        $match: {
+                            "studentInfo.studentsDetails.programme": programme
+                        }
+                    }] : []),
                     {
                         $lookup: {
                             from: "boards",
@@ -329,7 +343,7 @@ export const getAdmissionDetails = async (req, res) => {
             admissionDate: a.admissionDate,
             examTag: a.examTag?.name || a.examTag?.tagName || "NORMAL",
             course: a.course?.courseName || "N/A",
-            programme: a.course?.programme || "",
+            programme: a.student?.studentsDetails?.[0]?.programme || a.course?.programme || "",
             downPayment: a.downPayment || 0,
             totalFees: a.totalFees || 0
         }));
@@ -355,9 +369,6 @@ export const getAdmissionDetails = async (req, res) => {
                     admissionDate: { $gte: start, $lte: end },
                     status: "ACTIVE"
                 };
-                if (programme) {
-                    boardQuery.programme = programme;
-                }
                 const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
                     .populate('studentId')
                     .populate('boardId')
@@ -371,9 +382,14 @@ export const getAdmissionDetails = async (req, res) => {
                     admissionDate: a.admissionDate,
                     examTag: a.boardId?.boardCourse || "BOARD",
                     course: a.boardId?.boardCourse || "N/A",
+                    programme: a.studentId?.studentsDetails?.[0]?.programme || a.programme || "",
                     downPayment: a.totalPaidAmount || a.admissionFee || 0,
                     totalFees: a.totalExpectedAmount || 0
                 }));
+
+                if (programme) {
+                    boardResults = boardResults.filter(a => a.programme === programme);
+                }
             }
         }
 

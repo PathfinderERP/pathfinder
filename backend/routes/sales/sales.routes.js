@@ -18,6 +18,7 @@ import { getBoardReport } from "../../controllers/sales/boardReportController.js
 import { getWeeklyTarget, getFinalWeekendTarget } from "../../controllers/sales/weeklyTargetController.js";
 import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
 import { getComparisonAnalysis, saveComparisonManualData } from "../../controllers/sales/comparisonAnalysisController.js";
+import { getAverageAdmissionFee } from "../../controllers/sales/averageAdmissionFeeController.js";
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ router.get("/discount-report", requireAuth, getDiscountReport);
 router.get("/transaction-report", requireAuth, getTransactionReport);
 router.get("/daily-collection", requireAuth, getDailyCollectionReport);
 router.get("/board-report", requireAuth, getBoardReport);
+router.get("/average-admission-fee", requireAuth, getAverageAdmissionFee);
 
 router.post("/centre-target", requireAuth, createCentreTarget);
 router.get("/centre-target", requireAuth, getCentreTargets);
