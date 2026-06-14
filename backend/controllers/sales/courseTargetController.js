@@ -62,7 +62,7 @@ export const saveCourseTarget = async (req, res) => {
 // GET /sales/course-target/analysis
 export const getCourseTargetAnalysis = async (req, res) => {
     try {
-        const { centre, year, month, quarter, week, targetType } = req.query;
+        const { centre, year, month, quarter, week, targetType, programme } = req.query;
 
         if (!centre || !year || !targetType) {
             return res.status(400).json({ message: "Centre(s), Year, and Target Type are required" });
@@ -177,6 +177,20 @@ export const getCourseTargetAnalysis = async (req, res) => {
                         }
                     },
                     {
+                        $lookup: {
+                            from: "courses",
+                            localField: "course",
+                            foreignField: "_id",
+                            as: "courseInfo"
+                        }
+                    },
+                    { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+                    ...(programme ? [{
+                        $match: {
+                            "courseInfo.programme": programme
+                        }
+                    }] : []),
+                    {
                         $group: {
                             _id: { department: "$department", examTag: "$examTag" },
                             count: { $sum: 1 }
@@ -188,7 +202,8 @@ export const getCourseTargetAnalysis = async (req, res) => {
                         $match: {
                             centre: centreRegex,
                             admissionDate: { $gte: startDate, $lte: endDate },
-                            status: "ACTIVE"
+                            status: "ACTIVE",
+                            ...(programme ? { programme } : {})
                         }
                     },
                     {
@@ -277,10 +292,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
 // GET /sales/course-target/admissions
 export const getAdmissionDetails = async (req, res) => {
     try {
-        const { centreName, departmentId, startDate, endDate } = req.query;
+        const { centreName, departmentId, startDate, endDate, programme } = req.query;
 
         if (!centreName || !departmentId || !startDate || !endDate) {
             return res.status(400).json({ message: "Missing required parameters" });
@@ -300,12 +316,12 @@ export const getAdmissionDetails = async (req, res) => {
             admissionStatus: "ACTIVE",
             admissionType: "NORMAL"
         })
-            .populate('course', 'courseName')
+            .populate('course', 'courseName programme')
             .populate('examTag', 'name tagName')
             .populate('student', 'studentsDetails mobileNum')
             .lean();
 
-        const normalResults = admissions.map(a => ({
+        let normalResults = admissions.map(a => ({
             _id: a._id,
             admissionNumber: a.admissionNumber,
             studentName: a.student?.studentsDetails?.[0]?.studentName || "N/A",
@@ -313,9 +329,14 @@ export const getAdmissionDetails = async (req, res) => {
             admissionDate: a.admissionDate,
             examTag: a.examTag?.name || a.examTag?.tagName || "NORMAL",
             course: a.course?.courseName || "N/A",
+            programme: a.course?.programme || "",
             downPayment: a.downPayment || 0,
             totalFees: a.totalFees || 0
         }));
+
+        if (programme) {
+            normalResults = normalResults.filter(a => a.programme === programme);
+        }
 
         // Fetch Board Course Admissions matching this department
         let boardResults = [];
@@ -328,12 +349,16 @@ export const getAdmissionDetails = async (req, res) => {
                 .map(b => b._id);
 
             if (matchingBoardIds.length > 0) {
-                const boardAdmissions = await BoardCourseAdmission.find({
+                const boardQuery = {
                     centre: centreRegex,
                     boardId: { $in: matchingBoardIds },
                     admissionDate: { $gte: start, $lte: end },
                     status: "ACTIVE"
-                })
+                };
+                if (programme) {
+                    boardQuery.programme = programme;
+                }
+                const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
                     .populate('studentId')
                     .populate('boardId')
                     .lean();

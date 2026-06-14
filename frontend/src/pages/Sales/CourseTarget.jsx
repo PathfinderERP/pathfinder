@@ -27,6 +27,7 @@ const CourseTarget = () => {
     // Student drill-down modal
     const [showStudentModal, setShowStudentModal] = useState(false);
     const [studentModalData, setStudentModalData] = useState({ centreName: "", deptName: "", tagName: "", students: [], loading: false });
+    const [selectedProgramme, setSelectedProgramme] = useState("");
 
     const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
         setTargetModalData({
@@ -90,6 +91,9 @@ const CourseTarget = () => {
             const token = localStorage.getItem("token");
             const { startDate, endDate } = getDateRange();
             const params = new URLSearchParams({ centreName, departmentId: deptId, startDate, endDate });
+            if (selectedProgramme) {
+                params.append("programme", selectedProgramme);
+            }
             const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-target/admissions?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -199,6 +203,10 @@ const CourseTarget = () => {
                 endDate: customEndDate
             };
 
+            if (selectedProgramme) {
+                params.programme = selectedProgramme;
+            }
+
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/course-target/analysis`, {
                 params,
                 headers: { Authorization: `Bearer ${token}` }
@@ -215,7 +223,7 @@ const CourseTarget = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate]);
+    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgramme]);
 
     useEffect(() => {
         fetchData();
@@ -385,6 +393,18 @@ const CourseTarget = () => {
                                 placeholder="Select Centres"
                                 isDarkMode={isDarkMode}
                             />
+                        </div>
+
+                        <div className="min-w-[120px] z-20">
+                            <select
+                                value={selectedProgramme}
+                                onChange={(e) => setSelectedProgramme(e.target.value)}
+                                className={`border text-xs rounded-lg block w-full px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
+                            >
+                                <option value="">All Programs</option>
+                                <option value="CRP">CRP</option>
+                                <option value="NCRP">NCRP</option>
+                            </select>
                         </div>
 
                         {(viewMode === "MONTHLY" || viewMode === "WEEKLY") && (
