@@ -35,6 +35,11 @@ const leadManagementSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: Course,
     },
+    // Free-text course name — used when course string from Excel doesn't match master data
+    courseText: {
+        type: String,
+        default: "",
+    },
     board: {
         type: mongoose.Schema.Types.ObjectId,
         ref: Boards,

@@ -29,6 +29,7 @@ export const bulkContactedLeads = async (req, res) => {
                     className,
                     centre,
                     course,
+                    courseText,
                     board,
                     source,
                     targetExam,
@@ -76,6 +77,7 @@ export const bulkContactedLeads = async (req, res) => {
                     if (className) leadData.className = className;
                     if (centre) leadData.centre = centre;
                     if (course) leadData.course = course;
+                    if (courseText) leadData.courseText = courseText;
                     if (board) leadData.board = board;
 
                     lead = new LeadManagement(leadData);
@@ -85,7 +87,13 @@ export const bulkContactedLeads = async (req, res) => {
                     if (schoolName) lead.schoolName = schoolName;
                     if (className) lead.className = className;
                     if (centre) lead.centre = centre;
-                    if (course) lead.course = course;
+                    if (course) {
+                        lead.course = course;
+                        lead.courseText = "";
+                    } else if (courseText) {
+                        lead.courseText = courseText;
+                        lead.course = undefined;
+                    }
                     if (board) lead.board = board;
                     if (source) lead.source = source;
                     if (targetExam) lead.targetExam = targetExam;

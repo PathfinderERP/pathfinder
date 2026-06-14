@@ -278,9 +278,14 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     }
 
                     let courseId = null;
+                    let courseText = "";
                     if (row.Course) {
-                        const crs = courses.find(c => c.courseName.toLowerCase() === row.Course.toLowerCase());
-                        if (crs) courseId = crs._id;
+                        const crs = courses.find(c => c.courseName.toLowerCase() === row.Course.toString().toLowerCase().trim());
+                        if (crs) {
+                            courseId = crs._id;
+                        } else {
+                            courseText = row.Course.toString().trim();
+                        }
                     }
 
                     let boardId = null;
@@ -297,6 +302,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         className: classId,
                         centre: centreId,
                         course: courseId,
+                        courseText: courseText,
                         board: boardId,
                         source: row.Source,
                         leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'].includes(row.LeadType?.toUpperCase()) ? row.LeadType.toUpperCase() : "COLD LEAD",
@@ -441,9 +447,14 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     }
 
                     let courseId = null;
+                    let courseText = "";
                     if (row.Course) {
-                        const crs = courses.find(c => c.courseName.toLowerCase() === row.Course.toLowerCase());
-                        if (crs) courseId = crs._id;
+                        const crs = courses.find(c => c.courseName.toLowerCase() === row.Course.toString().toLowerCase().trim());
+                        if (crs) {
+                            courseId = crs._id;
+                        } else {
+                            courseText = row.Course.toString().trim();
+                        }
                     }
 
                     let boardId = null;
@@ -467,6 +478,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         className: classId,
                         centre: centreId,
                         course: courseId,
+                        courseText: courseText,
                         board: boardId,
                         source: row.Source,
                         leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'].includes(row.LeadType?.toString().toUpperCase()) ? row.LeadType.toString().toUpperCase() : "COLD LEAD",

@@ -31,7 +31,7 @@ export const exportLeadsExcel = async (req, res) => {
             "Class": lead.className?.name || "N/A",
             "Board": lead.board?.boardName || lead.board?.boardCourse || "N/A",
             "Centre": lead.centre?.centreName || "N/A",
-            "Course": lead.course?.courseName || "N/A",
+            "Course": lead.course?.courseName || lead.courseText || "N/A",
             "Lead Type": lead.leadType || "N/A",
             "Source": lead.source || "N/A",
             "Telecaller": lead.leadResponsibility || "N/A",

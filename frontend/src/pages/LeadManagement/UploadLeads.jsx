@@ -614,7 +614,7 @@ const UploadLeads = () => {
                                                         {lead.className?.name || "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-xs font-semibold ${sub}`}>
-                                                        {lead.course?.name || lead.course?.courseName || "—"}
+                                                        {lead.course?.name || lead.course?.courseName || lead.courseText || "—"}
                                                     </td>
                                                     <td className={`px-4 py-3 text-[10px] font-bold ${sub} whitespace-nowrap`}>
                                                         {formatDate(lead.createdAt)}

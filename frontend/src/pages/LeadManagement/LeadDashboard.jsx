@@ -702,7 +702,7 @@ const LeadDashboard = () => {
                                                 </div>
                                                 <div className="mt-2 flex items-center gap-3 border-t border-dashed border-gray-800/50 pt-2">
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-gray-600">Protocol Course</span>
-                                                    <span className={`text-[10px] font-black uppercase text-right flex-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{lead.course?.courseName || 'UNASSIGNED'}</span>
+                                                    <span className={`text-[10px] font-black uppercase text-right flex-1 tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{lead.course?.courseName || lead.courseText || 'UNASSIGNED'}</span>
                                                 </div>
                                             </div>
 

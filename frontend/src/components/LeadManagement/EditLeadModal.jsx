@@ -365,8 +365,11 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                 />
                             </div>
 
-                            <select name="course" required value={formData.course} onChange={handleChange} className={selectClasses}>
+                            <select name="course" required={!lead?.courseText} value={formData.course} onChange={handleChange} className={selectClasses}>
                                 <option value="">Select Course</option>
+                                {lead?.courseText && !formData.course && (
+                                    <option value="" disabled>{lead.courseText.toUpperCase()} (EXCEL IMPORT)</option>
+                                )}
                                 {filteredCourses.map(c => <option key={c._id} value={c._id}>{c.courseName.toUpperCase()}</option>)}
                             </select>
                         </div>

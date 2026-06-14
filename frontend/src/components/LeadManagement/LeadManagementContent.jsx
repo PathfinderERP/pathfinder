@@ -1725,7 +1725,7 @@ const LeadManagementContent = () => {
                                                 <div className={`text-[10px] font-black uppercase group-hover:text-cyan-500 transition-colors ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.centre?.centreName || "N/A"}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-[9px] font-bold text-cyan-500 mt-0.5 truncate max-w-[120px]">{lead.course?.courseName || "Not provided"}</div>
+                                                <div className="text-[9px] font-bold text-cyan-500 mt-0.5 truncate max-w-[120px]">{lead.course?.courseName || lead.courseText || "Not provided"}</div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.className?.name || "N/A"}</div>

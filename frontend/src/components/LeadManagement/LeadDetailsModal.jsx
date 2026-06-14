@@ -166,7 +166,7 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                 <div className="flex-1">
                                     <p className="text-[9px] font-black uppercase text-gray-500 tracking-wider">Course & Target</p>
                                     <p className={`text-[12px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {lead.course?.courseName || "N/A"}
+                                        {lead.course?.courseName || lead.courseText || "N/A"}
                                         {lead.targetExam && <span className="text-gray-500 text-[10px] font-bold uppercase ml-1">({lead.targetExam})</span>}
                                     </p>
                                 </div>

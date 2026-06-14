@@ -8,7 +8,11 @@ export const updateLead = async (req, res) => {
         // Handle empty strings for ObjectId fields
         if (!updateData.className) delete updateData.className;
         if (!updateData.centre) delete updateData.centre;
-        if (!updateData.course) delete updateData.course;
+        if (!updateData.course) {
+            delete updateData.course;
+        } else {
+            updateData.courseText = ""; // Clear courseText if we map to a master course
+        }
         if (!updateData.board) delete updateData.board;
 
         // If leadResponsibility is being updated, set assignedAt

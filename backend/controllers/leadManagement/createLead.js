@@ -11,6 +11,7 @@ export const createLead = async (req, res) => {
             className,
             centre,
             course,
+            courseText,
             source,
             targetExam,
             leadType,
@@ -39,6 +40,7 @@ export const createLead = async (req, res) => {
         if (className) leadData.className = className;
         if (centre) leadData.centre = centre;
         if (course) leadData.course = course;
+        if (courseText) leadData.courseText = courseText;
         if (req.body.board) leadData.board = req.body.board;
 
         const newLead = new LeadManagement(leadData);

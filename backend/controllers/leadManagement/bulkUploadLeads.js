@@ -44,8 +44,13 @@ export const bulkUploadLeads = async (req, res) => {
                 doc.className = row.className;
             if (row.centre && mongoose.Types.ObjectId.isValid(row.centre))
                 doc.centre = row.centre;
-            if (row.course && mongoose.Types.ObjectId.isValid(row.course))
-                doc.course = row.course;
+            // course: if it's a valid ObjectId, store as ref; otherwise store raw string in courseText
+            if (row.course) {
+                if (mongoose.Types.ObjectId.isValid(row.course))
+                    doc.course = row.course;
+                else if (typeof row.course === 'string' && row.course.trim())
+                    doc.courseText = row.course.trim();
+            }
             if (row.board && mongoose.Types.ObjectId.isValid(row.board))
                 doc.board = row.board;
 

@@ -124,7 +124,7 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
                 "Mobile Number": lead.phoneNumber,
                 "Email": lead.email,
                 "Centre": lead.centre?.centreName || "N/A",
-                "Course": lead.course?.courseName || "N/A",
+                "Course": lead.course?.courseName || lead.courseText || "N/A",
                 "Telecaller": lastInfo?.updatedBy || lead.leadResponsibility || "N/A",
                 "Next Follow Up": lastInfo?.nextFollowUpDate ? new Date(lastInfo.nextFollowUpDate).toLocaleDateString() : "N/A",
                 "Last Remark": lastInfo?.remarks || "N/A"
