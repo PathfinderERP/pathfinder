@@ -83,7 +83,7 @@ const LeadManagementContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalLeads, setTotalLeads] = useState(0);
-    const limit = 10;
+    const [limit, setLimit] = useState(10);
 
     const [dashboardFilters, setDashboardFilters] = useState({
         fromDate: "",
