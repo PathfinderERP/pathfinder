@@ -72,6 +72,7 @@ import ceoRoutes from "./routes/ceoControlTower.js";
 import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
+import teacherBookingRoutes from "./routes/Academics/teacherBooking.routes.js";
 //updated
 import categoryRoutes from "./routes/masterData/category.route.js";
 
@@ -157,6 +158,7 @@ app.use("/api/academics/rm", rmRoutes);
 app.use("/api/academics/hod", hodRoutes);
 app.use("/api/academics/coordinator", coordinatorRoutes);
 app.use("/api/academics/teacher-routine", teacherRoutineRoutes);
+app.use("/api/academics/teacher-booking", teacherBookingRoutes);
 
 
 // HR Routes
