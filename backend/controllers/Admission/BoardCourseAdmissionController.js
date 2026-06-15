@@ -870,8 +870,8 @@ export const collectBoardInstallment = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const totalPaidToday = Number(amount) + Number(paidExamFee) + Number(paidAdditionalThings);
-            if (totalPaidToday <= 0) return; // Nothing to record
+            const totalPaidToday = Number(amount || 0) + Number(paidExamFee || 0) + Number(paidAdditionalThings || 0);
+            if (isNaN(totalPaidToday) || totalPaidToday <= 0) return; // Nothing to record
 
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
