@@ -107,10 +107,20 @@ export const getAverageAdmissionFee = async (req, res) => {
             },
             { $unwind: { path: "$examTagInfo", preserveNullAndEmptyArrays: true } },
             {
+                $lookup: {
+                    from: "courses",
+                    localField: "course",
+                    foreignField: "_id",
+                    as: "courseInfo"
+                }
+            },
+            { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+            {
                 $project: {
                     date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
                     centre: "$centre",
                     examTagName: { $ifNull: ["$examTagInfo.name", "Generic Tag"] },
+                    courseName: { $ifNull: ["$courseInfo.courseName", "Generic Course"] },
                     admissionFee: "$downPayment",
                     type: { $literal: "Normal" }
                 }
@@ -134,6 +144,7 @@ export const getAverageAdmissionFee = async (req, res) => {
                                 date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
                                 centre: "$centre",
                                 examTagName: { $ifNull: ["$boardCourseName", "$boardInfo.boardCourse", "Board Course"] },
+                                courseName: { $ifNull: ["$boardCourseName", "$boardInfo.boardCourse", "Board Course"] },
                                 admissionFee: {
                                     $cond: {
                                         if: { $eq: ["$programme", "NCRP"] },
@@ -164,6 +175,7 @@ export const getAverageAdmissionFee = async (req, res) => {
                         date: "$date",
                         centre: "$centre",
                         examTagName: "$examTagName",
+                        courseName: "$courseName",
                         type: "$type"
                     },
                     totalAdmissions: { $sum: 1 },
@@ -176,6 +188,7 @@ export const getAverageAdmissionFee = async (req, res) => {
                     date: "$_id.date",
                     centre: "$_id.centre",
                     examTagName: "$_id.examTagName",
+                    courseName: "$_id.courseName",
                     type: "$_id.type",
                     totalAdmissions: 1,
                     totalAdmissionFee: 1,

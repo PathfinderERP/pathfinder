@@ -30,7 +30,7 @@ const UserManagementContent = () => {
     const [filterTeacherType, setFilterTeacherType] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterBoardType, setFilterBoardType] = useState([]);
-    const [filterStatus, setFilterStatus] = useState([]); // [{value: 'active', label: 'Active'}, {value: 'deactivated', label: 'Deactivated'}]
+    const [filterStatus, setFilterStatus] = useState([{ value: 'active', label: 'Active' }]); // [{value: 'active', label: 'Active'}, {value: 'deactivated', label: 'Deactivated'}]
     const [allCentres, setAllCentres] = useState([]);
     const [allScripts, setAllScripts] = useState([]);
     const [allDepartments, setAllDepartments] = useState([]);
@@ -148,7 +148,7 @@ const UserManagementContent = () => {
         setFilterTeacherType([]);
         setFilterDepartment([]);
         setFilterBoardType([]);
-        setFilterStatus([]);
+        setFilterStatus([{ value: 'active', label: 'Active' }]);
         toast.info("Filters reset to default");
     };
 

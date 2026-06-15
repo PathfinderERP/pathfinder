@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Select from "react-select";
+import { useTheme } from "../../context/ThemeContext";
 import {
     BarChart,
     Bar,
@@ -18,6 +19,8 @@ import {
 } from 'recharts';
 
 const CancelChequePayment = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [searchTerm, setSearchTerm] = useState("");
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -183,13 +186,13 @@ const CancelChequePayment = () => {
     const customStyles = {
         control: (provided) => ({
             ...provided,
-            backgroundColor: 'rgba(0, 0, 0, 0.4)',
-            borderColor: '#1f2937',
+            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.4)' : '#ffffff',
+            borderColor: isDarkMode ? '#1f2937' : '#d1d5db',
             borderRadius: '0.75rem',
             padding: '4px',
             fontSize: '0.75rem',
             fontWeight: 'bold',
-            color: 'white',
+            color: isDarkMode ? 'white' : '#111827',
             outline: 'none',
             '&:hover': {
                 borderColor: 'rgba(59, 130, 246, 0.5)',
@@ -197,15 +200,23 @@ const CancelChequePayment = () => {
         }),
         menu: (provided) => ({
             ...provided,
-            backgroundColor: '#131619',
-            border: '1px solid #1f2937',
+            backgroundColor: isDarkMode ? '#131619' : '#ffffff',
+            border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
             borderRadius: '0.75rem',
             zIndex: 999
         }),
         option: (provided, state) => ({
             ...provided,
-            backgroundColor: state.isFocused ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-            color: state.isFocused ? '#3b82f6' : '#9ca3af',
+            backgroundColor: state.isSelected 
+                ? '#3b82f6' 
+                : state.isFocused 
+                    ? (isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)')
+                    : 'transparent',
+            color: state.isSelected 
+                ? 'white' 
+                : state.isFocused 
+                    ? '#3b82f6' 
+                    : (isDarkMode ? '#9ca3af' : '#374151'),
             fontSize: '0.75rem',
             fontWeight: 'bold',
             cursor: 'pointer',
@@ -236,11 +247,11 @@ const CancelChequePayment = () => {
         }),
         input: (provided) => ({
             ...provided,
-            color: 'white',
+            color: isDarkMode ? 'white' : '#111827',
         }),
         singleValue: (provided) => ({
             ...provided,
-            color: 'white',
+            color: isDarkMode ? 'white' : '#111827',
         }),
     };
 
@@ -250,7 +261,7 @@ const CancelChequePayment = () => {
                 {/* Header */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
-                        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                             Cheque Payment <span className="text-cyan-500">Records</span>
                         </h1>
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
@@ -258,8 +269,8 @@ const CancelChequePayment = () => {
                         </p>
                     </div>
 
-                    <div className="bg-[#131619] border border-gray-800 rounded-2xl p-4" style={{ width: '480px', height: '140px' }}>
-                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Cheque Processing Analytics</div>
+                    <div className={`border rounded-2xl p-4 shadow-md ${isDarkMode ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`} style={{ width: '480px', height: '140px' }}>
+                        <div className={`text-[10px] font-black uppercase tracking-widest mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Cheque Processing Analytics</div>
                         <ResponsiveContainer width="100%" height={90}>
                             <BarChart
                                 data={[
@@ -278,32 +289,33 @@ const CancelChequePayment = () => {
                                 ]}
                                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
                             >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#1f2937" : "#e5e7eb"} vertical={false} />
                                 <XAxis
                                     dataKey="name"
                                     stroke="#6b7280"
                                     style={{ fontSize: '10px', fontWeight: 'bold' }}
-                                    tick={{ fill: '#9ca3af' }}
+                                    tick={{ fill: isDarkMode ? '#9ca3af' : '#4b5563' }}
                                     axisLine={false}
                                     tickLine={false}
                                 />
                                 <YAxis
                                     stroke="#6b7280"
                                     style={{ fontSize: '9px' }}
-                                    tick={{ fill: '#9ca3af' }}
+                                    tick={{ fill: isDarkMode ? '#9ca3af' : '#4b5563' }}
                                     axisLine={false}
                                     tickLine={false}
                                 />
                                 <Tooltip
                                     contentStyle={{
-                                        backgroundColor: '#1f2937',
-                                        border: '1px solid #374151',
+                                        backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                                        border: isDarkMode ? '1px solid #374151' : '1px solid #e5e7eb',
                                         borderRadius: '8px',
                                         fontSize: '11px',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        color: isDarkMode ? '#fff' : '#111827'
                                     }}
-                                    labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
-                                    itemStyle={{ color: '#e5e7eb' }}
+                                    labelStyle={{ color: isDarkMode ? '#fff' : '#111827', fontWeight: 'bold', fontSize: '10px' }}
+                                    itemStyle={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}
                                     cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                                     formatter={(value, name) => {
                                         if (name === 'value') return [value + ' Cheques', 'Count'];
@@ -327,7 +339,7 @@ const CancelChequePayment = () => {
                 </div>
 
                 {/* Filters Section */}
-                <div className="bg-[#131619] border border-gray-800 rounded-3xl p-6 mb-8">
+                <div className={`border rounded-3xl p-6 mb-8 ${isDarkMode ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900 shadow-md"}`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end mb-6">
                         <div>
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
@@ -394,7 +406,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.startDate}
                                 onChange={(e) => handleFilterChange("startDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
                             />
                         </div>
                         <div>
@@ -403,7 +415,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.endDate}
                                 onChange={(e) => handleFilterChange("endDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
                             />
                         </div>
                         <div>
@@ -412,7 +424,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.chequeStartDate}
                                 onChange={(e) => handleFilterChange("chequeStartDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
                             />
                         </div>
                         <div>
@@ -421,7 +433,7 @@ const CancelChequePayment = () => {
                                 type="date"
                                 value={filters.chequeEndDate}
                                 onChange={(e) => handleFilterChange("chequeEndDate", e.target.value)}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-400 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
                             />
                         </div>
                     </div>
@@ -429,7 +441,7 @@ const CancelChequePayment = () => {
                     <div className="flex flex-col md:flex-row gap-4 pt-6 border-t border-gray-800/50">
                         <button
                             onClick={clearFilters}
-                            className="flex-1 py-3 bg-gray-800 text-gray-400 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-gray-700 hover:text-white transition-all border border-gray-700 flex items-center justify-center gap-2"
+                            className={`flex-1 py-3 font-black uppercase text-xs tracking-widest rounded-xl border flex items-center justify-center gap-2 transition-all ${isDarkMode ? "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-white" : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 hover:text-gray-900"}`}
                         >
                             <FaTimes /> Clear Filters
                         </button>
@@ -450,16 +462,16 @@ const CancelChequePayment = () => {
                         placeholder="SEARCH BY NAME, ADMISSION NO, OR CHEQUE NUMBER..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#131619] border border-gray-800 rounded-xl py-4 pl-12 pr-4 text-gray-200 font-bold text-xs uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all shadow-inner"
+                        className={`w-full border rounded-xl py-4 pl-12 pr-4 font-bold text-xs uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all shadow-inner ${isDarkMode ? "bg-[#131619] border-gray-800 text-gray-200" : "bg-white border-gray-300 text-gray-800"}`}
                     />
                 </div>
 
                 {/* Table */}
-                <div className="bg-[#131619] border border-gray-800 rounded-[2rem] overflow-hidden shadow-2xl">
+                <div className={`border rounded-[2rem] overflow-hidden shadow-2xl ${isDarkMode ? "bg-[#131619] border-gray-800" : "bg-white border-gray-200"}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[1400px]">
                             <thead>
-                                <tr className="bg-gray-900/50 border-b border-gray-800 text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? "bg-gray-900/50 border-gray-800" : "bg-gray-100 border-gray-200"}`}>
                                     <th className="p-6">Cheque No.</th>
                                     <th className="p-6">Student</th>
                                     <th className="p-6">Bank</th>
@@ -473,7 +485,7 @@ const CancelChequePayment = () => {
                                     <th className="p-6 text-right">Remarks / Notes</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-800">
+                            <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
                                 {loading ? (
                                     <tr>
                                         <td colSpan="11" className="p-12 text-center">
@@ -494,20 +506,20 @@ const CancelChequePayment = () => {
                                                 <span className="text-cyan-500 font-black">{cheque.chequeNumber}</span>
                                             </td>
                                             <td className="p-6">
-                                                <div className="font-bold text-white uppercase">{cheque.studentName}</div>
+                                                <div className={`font-bold uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>{cheque.studentName}</div>
                                                 <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">{cheque.admissionNo}</div>
                                             </td>
-                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                            <td className={`p-6 font-bold text-xs ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                                 {cheque.bankName && cheque.bankName !== "N/A" ? cheque.bankName : (cheque.accountHolderName || "N/A")}
                                             </td>
-                                            <td className="p-6 text-white font-black">₹{cheque.amount.toLocaleString()}</td>
-                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                            <td className={`p-6 font-black ${isDarkMode ? "text-white" : "text-gray-900"}`}>₹{cheque.amount.toLocaleString()}</td>
+                                            <td className={`p-6 font-bold text-xs ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                                 {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
                                             </td>
-                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                            <td className={`p-6 font-bold text-xs ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                                 {cheque.depositedDate ? new Date(cheque.depositedDate).toLocaleDateString('en-IN') : "N/A"}
                                             </td>
-                                            <td className="p-6 text-gray-300 font-bold text-xs">
+                                            <td className={`p-6 font-bold text-xs ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                                 {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"}
                                             </td>
                                             <td className="p-6">
@@ -536,12 +548,12 @@ const CancelChequePayment = () => {
                                                 </span>
                                             </td>
                                             <td className="p-6">
-                                                <div className="text-gray-300 text-xs font-black uppercase italic tracking-tighter">
+                                                <div className={`text-xs font-black uppercase italic tracking-tighter ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                                     {cheque.processedBy || "N/A"}
                                                 </div>
                                             </td>
                                             <td className="p-6 text-right">
-                                                <div className="text-gray-400 text-[10px] font-bold uppercase leading-relaxed max-w-[300px] ml-auto">
+                                                <div className={`text-[10px] font-bold uppercase leading-relaxed max-w-[300px] ml-auto ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                                                     {cheque.remarks || "No additional notes"}
                                                 </div>
                                             </td>

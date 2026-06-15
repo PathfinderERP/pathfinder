@@ -10,8 +10,11 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import CustomSearchSelect from "../../components/common/CustomSearchSelect";
+import { useTheme } from "../../context/ThemeContext";
 
 const ChequeDepositEntry = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [validating, setValidating] = useState(false);
@@ -292,16 +295,16 @@ const ChequeDepositEntry = () => {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
+                        <h1 className={`text-2xl md:text-3xl font-bold flex items-center gap-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                             <FaMoneyCheckAlt className="text-cyan-400" />
                             Cheque Deposit Entry
                         </h1>
-                        <p className="text-gray-400 text-sm mt-1">Record bank deposits for cheques collected from student fees</p>
+                        <p className={`text-sm mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Record bank deposits for cheques collected from student fees</p>
                     </div>
                     {hasDashboardAccess && (
                         <button
                             onClick={() => navigate("/finance/cheque-management")}
-                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-cyan-400 rounded-2xl border border-gray-700 transition-all font-bold text-xs uppercase tracking-widest shadow-lg active:scale-95 self-start sm:self-auto"
+                            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl border transition-all font-bold text-xs uppercase tracking-widest shadow-lg active:scale-95 self-start sm:self-auto ${isDarkMode ? "bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-cyan-400 border-gray-700" : "bg-gray-200 hover:bg-gray-300 text-gray-800 hover:text-cyan-600 border-gray-300"}`}
                         >
                             <FaHistory />
                             Cheque Dashboard
@@ -313,8 +316,8 @@ const ChequeDepositEntry = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
                     {/* Left Column - Deposit Form */}
-                    <div className="lg:col-span-7 bg-gray-900/40 backdrop-blur-md border border-gray-800 p-6 md:p-8 rounded-3xl shadow-2xl space-y-8">
-                        <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                    <div className={`lg:col-span-7 border p-6 md:p-8 rounded-3xl shadow-2xl space-y-8 ${isDarkMode ? "bg-gray-900/40 border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
+                        <h3 className={`text-xl font-bold flex items-center gap-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                             <span className="w-1.5 h-6 bg-cyan-400 rounded-full"></span>
                             Deposit Details Form
                         </h3>
@@ -323,7 +326,7 @@ const ChequeDepositEntry = () => {
 
                             {/* Cheque Number Validation */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 ml-1">
+                                <label className={`text-sm font-medium ml-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                                     Cheque Number <span className="text-red-500">*</span>
                                 </label>
                                 <div className="flex gap-3">
@@ -331,7 +334,7 @@ const ChequeDepositEntry = () => {
                                         <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="text"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-white border-gray-300 text-gray-900"}`}
                                             placeholder="Enter cheque number to search & validate"
                                             value={chequeNo}
                                             onChange={(e) => setChequeNo(e.target.value)}
@@ -348,7 +351,7 @@ const ChequeDepositEntry = () => {
                                         type="button"
                                         disabled={validating || !chequeNo.trim()}
                                         onClick={() => handleChequeValidation()}
-                                        className="px-6 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-800 disabled:text-gray-500 text-white font-bold rounded-xl transition-all flex items-center gap-2"
+                                        className={`px-6 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-800 disabled:text-gray-500 text-white font-bold rounded-xl transition-all flex items-center gap-2 ${!isDarkMode && "disabled:bg-gray-100 disabled:text-gray-400"}`}
                                     >
                                         {validating ? <FaSpinner className="animate-spin" /> : "Verify"}
                                     </button>
@@ -365,23 +368,23 @@ const ChequeDepositEntry = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                                         <div>
                                             <p className="text-gray-500 text-xs">Student Name</p>
-                                            <p className="text-white font-semibold">{validatedCheque.studentName}</p>
+                                            <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{validatedCheque.studentName}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500 text-xs">Admission No.</p>
-                                            <p className="text-white font-semibold font-mono">{validatedCheque.admissionNumber}</p>
+                                            <p className={`font-semibold font-mono ${isDarkMode ? "text-white" : "text-gray-900"}`}>{validatedCheque.admissionNumber}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500 text-xs">Collected Centre</p>
-                                            <p className="text-white font-semibold">{validatedCheque.centre}</p>
+                                            <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{validatedCheque.centre}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500 text-xs">Bank Name</p>
-                                            <p className="text-white font-semibold">{validatedCheque.bankName}</p>
+                                            <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{validatedCheque.bankName}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500 text-xs">Cheque Date</p>
-                                            <p className="text-white font-semibold">
+                                            <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                                                 {validatedCheque.chequeDate ? new Date(validatedCheque.chequeDate).toLocaleDateString() : "N/A"}
                                             </p>
                                         </div>
@@ -404,11 +407,11 @@ const ChequeDepositEntry = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* From Centre */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">From Centre</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>From Centre</label>
                                     <div className="relative">
                                         <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <select
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-50"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all appearance-none disabled:opacity-50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-white border-gray-300 text-gray-900"}`}
                                             value={selectedCentreId}
                                             onChange={(e) => setSelectedCentreId(e.target.value)}
                                             disabled={userCentres.length <= 1}
@@ -421,12 +424,12 @@ const ChequeDepositEntry = () => {
 
                                 {/* Amount */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">Amount (₹)</label>
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Amount (₹)</label>
                                     <div className="relative">
                                         <FaWallet className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="text"
-                                            className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-gray-400 cursor-not-allowed font-bold"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 cursor-not-allowed font-bold ${isDarkMode ? "bg-gray-800/50 border-gray-700 text-gray-400" : "bg-gray-100 border-gray-300 text-gray-500"}`}
                                             value={validatedCheque ? `₹ ${validatedCheque.amount?.toLocaleString()}` : ""}
                                             placeholder="Auto-populated from Cheque"
                                             disabled
@@ -438,7 +441,7 @@ const ChequeDepositEntry = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Account Number */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                                         Deposit Bank Account <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
@@ -451,7 +454,7 @@ const ChequeDepositEntry = () => {
                                             value={accountNumber}
                                             onChange={(val) => setAccountNumber(val)}
                                             placeholder="Select Account"
-                                            isDarkMode={true}
+                                            isDarkMode={isDarkMode}
                                             className="pl-8"
                                         />
                                     </div>
@@ -459,14 +462,14 @@ const ChequeDepositEntry = () => {
 
                                 {/* Deposit Date */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-400 ml-1">
+                                    <label className={`text-sm font-medium ml-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                                         Cheque Deposit Date <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                                         <input
                                             type="date"
-                                            className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-cyan-500 transition-all [color-scheme:dark]"
+                                            className={`w-full border rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white [color-scheme:dark]" : "bg-white border-gray-300 text-gray-900"}`}
                                             value={depositDate}
                                             onChange={(e) => setDepositDate(e.target.value)}
                                             required
@@ -477,7 +480,7 @@ const ChequeDepositEntry = () => {
 
                             {/* Bank Receipt Upload */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 ml-1">
+                                <label className={`text-sm font-medium ml-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                                     Cheque Deposit Slip (Img/PDF) (Within 1MB) <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
@@ -490,7 +493,7 @@ const ChequeDepositEntry = () => {
                                     />
                                     <label
                                         htmlFor="receiptInput"
-                                        className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3.5 px-4 text-gray-400 cursor-pointer flex items-center justify-between hover:border-cyan-500 transition-all border-dashed"
+                                        className={`w-full border rounded-xl py-3.5 px-4 cursor-pointer flex items-center justify-between hover:border-cyan-500 transition-all border-dashed ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-gray-400" : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50"}`}
                                     >
                                         <span className="truncate">
                                             {receiptFile ? receiptFile.name : "Choose receipt image or PDF file"}
@@ -502,7 +505,7 @@ const ChequeDepositEntry = () => {
 
                             {/* File Upload Preview */}
                             {receiptPreview && (
-                                <div className="relative w-full h-40 bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden flex items-center justify-center group">
+                                <div className={`relative w-full h-40 rounded-2xl border overflow-hidden flex items-center justify-center group ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-300"}`}>
                                     {receiptPreview === 'pdf' ? (
                                         <div className="flex flex-col items-center">
                                             <FaFileInvoice className="text-5xl text-cyan-400" />
@@ -523,9 +526,9 @@ const ChequeDepositEntry = () => {
 
                             {/* Remarks */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 ml-1">Remarks (Optional)</label>
+                                <label className={`text-sm font-medium ml-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Remarks (Optional)</label>
                                 <textarea
-                                    className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-cyan-500 transition-all resize-none"
+                                    className={`w-full border rounded-xl py-3 px-4 focus:outline-none focus:border-cyan-500 transition-all resize-none ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-white border-gray-300 text-gray-900"}`}
                                     rows="3"
                                     placeholder="Enter deposit remarks or references..."
                                     value={remarks}
@@ -556,8 +559,8 @@ const ChequeDepositEntry = () => {
                     </div>
 
                     {/* Right Column - Recent History */}
-                    <div className="lg:col-span-5 bg-gray-900/40 backdrop-blur-md border border-gray-800 p-6 rounded-3xl shadow-2xl space-y-6 flex flex-col max-h-[780px]">
-                        <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                    <div className={`lg:col-span-5 border p-6 rounded-3xl shadow-2xl space-y-6 flex flex-col max-h-[780px] ${isDarkMode ? "bg-gray-900/40 border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
+                        <h3 className={`text-xl font-bold flex items-center gap-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                             <span className="w-1.5 h-6 bg-cyan-400 rounded-full"></span>
                             Recent Deposits
                         </h3>
@@ -570,7 +573,7 @@ const ChequeDepositEntry = () => {
                                 <input
                                     type="text"
                                     placeholder="Search by Cheque #, Student..."
-                                    className="w-full bg-gray-800/80 border border-gray-700 rounded-xl py-2 pl-10 pr-4 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                                    className={`w-full border rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-cyan-500 transition-all ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500" : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"}`}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
@@ -581,7 +584,7 @@ const ChequeDepositEntry = () => {
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-gray-500 font-bold uppercase">Centre</label>
                                     <select
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-2 text-xs text-white focus:outline-none focus:border-cyan-500 appearance-none [color-scheme:dark]"
+                                        className={`w-full border rounded-lg py-2 px-2 text-xs focus:outline-none focus:border-cyan-500 appearance-none ${isDarkMode ? "bg-gray-800 border-gray-700 text-white [color-scheme:dark]" : "bg-white border-gray-300 text-gray-900"}`}
                                         value={filterCentre}
                                         onChange={(e) => setFilterCentre(e.target.value)}
                                     >
@@ -595,7 +598,7 @@ const ChequeDepositEntry = () => {
                                     <label className="text-[10px] text-gray-500 font-bold uppercase">Start Date</label>
                                     <input
                                         type="date"
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-2 text-xs text-white focus:outline-none focus:border-cyan-500 [color-scheme:dark]"
+                                        className={`w-full border rounded-lg py-2 px-2 text-xs focus:outline-none focus:border-cyan-500 ${isDarkMode ? "bg-gray-800 border-gray-700 text-white [color-scheme:dark]" : "bg-white border-gray-300 text-gray-900"}`}
                                         value={filterStartDate}
                                         onChange={(e) => setFilterStartDate(e.target.value)}
                                     />
@@ -606,7 +609,7 @@ const ChequeDepositEntry = () => {
                                     <label className="text-[10px] text-gray-500 font-bold uppercase">End Date</label>
                                     <input
                                         type="date"
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-2 text-xs text-white focus:outline-none focus:border-cyan-500 [color-scheme:dark]"
+                                        className={`w-full border rounded-lg py-2 px-2 text-xs focus:outline-none focus:border-cyan-500 ${isDarkMode ? "bg-gray-800 border-gray-700 text-white [color-scheme:dark]" : "bg-white border-gray-300 text-gray-900"}`}
                                         value={filterEndDate}
                                         onChange={(e) => setFilterEndDate(e.target.value)}
                                     />
@@ -620,7 +623,7 @@ const ChequeDepositEntry = () => {
                                         setFilterStartDate("");
                                         setFilterEndDate("");
                                     }}
-                                    className="w-full py-2 bg-gray-800 hover:bg-gray-700 text-gray-400 text-[10px] font-bold uppercase rounded-lg border border-gray-700 transition-all flex items-center justify-center gap-2"
+                                    className={`w-full py-2 text-[10px] font-bold uppercase rounded-lg border transition-all flex items-center justify-center gap-2 ${isDarkMode ? "bg-gray-800 hover:bg-gray-700 text-gray-400 border-gray-700" : "bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-300"}`}
                                 >
                                     <FaTimes /> Clear Filters
                                 </button>
@@ -637,7 +640,7 @@ const ChequeDepositEntry = () => {
                                 filteredHistoryList.map((item) => (
                                     <div
                                         key={item.paymentId}
-                                        className="bg-gray-800/40 border border-gray-800/80 p-4 rounded-2xl hover:border-gray-700 transition-all flex justify-between items-start gap-4 relative group"
+                                        className={`p-4 rounded-2xl border transition-all flex justify-between items-start gap-4 relative group ${isDarkMode ? "bg-gray-800/40 border-gray-800/80 hover:border-gray-700" : "bg-gray-50 border-gray-200 hover:border-gray-300"}`}
                                     >
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2">
@@ -647,11 +650,11 @@ const ChequeDepositEntry = () => {
                                                 </span>
                                             </div>
 
-                                            <div className="space-y-0.5 text-xs text-gray-400">
-                                                <p className="font-semibold text-white">{item.studentName}</p>
-                                                <p className="text-[10px]">Centre: <span className="text-gray-300">{item.centre}</span></p>
-                                                <p className="text-[10px]">Account: <span className="text-gray-300 font-mono">{item.depositAccount}</span></p>
-                                                <p className="text-[10px]">Dep. Date: <span className="text-gray-300">{new Date(item.depositedDate).toLocaleDateString()}</span></p>
+                                            <div className={`space-y-0.5 text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                                                <p className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{item.studentName}</p>
+                                                <p className="text-[10px]">Centre: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>{item.centre}</span></p>
+                                                <p className="text-[10px]">Account: <span className={`font-mono ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{item.depositAccount}</span></p>
+                                                <p className="text-[10px]">Dep. Date: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>{new Date(item.depositedDate).toLocaleDateString()}</span></p>
                                             </div>
 
                                             {/* Status Pill */}
@@ -673,7 +676,7 @@ const ChequeDepositEntry = () => {
                                                 href={item.receiptFile}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="p-2.5 bg-gray-800 hover:bg-gray-700 text-cyan-400 rounded-xl border border-gray-700 transition-all flex items-center justify-center shrink-0 shadow-md self-center"
+                                                className={`p-2.5 rounded-xl border transition-all flex items-center justify-center shrink-0 shadow-md self-center ${isDarkMode ? "bg-gray-800 hover:bg-gray-700 text-cyan-400 border-gray-700" : "bg-white hover:bg-gray-100 text-cyan-600 border-gray-300"}`}
                                                 title="View Receipt"
                                             >
                                                 <FaRegFileAlt className="text-base" />
