@@ -14,7 +14,20 @@ const API_URL = import.meta.env.VITE_API_URL;
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const emptyStudent = { studentName: "", phoneNumber: "", email: "", className: "", course: "", notes: "" };
-const emptyBooking = { teacherId: "", centreId: "", day: "", startTime: "", endTime: "", notes: "", students: [] };
+const emptyBooking = { teacherId: "", centreId: "", day: "", startTime: "", endTime: "", notes: "", scheduleDate: "", students: [] };
+
+// Returns YYYY-MM-DD of the next (or today) occurrence of a given day name
+const getNextDayDate = (dayName) => {
+    const dayIndex = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+    const today = new Date();
+    const todayDay = today.getDay();
+    const target = dayIndex[dayName] ?? 1;
+    let diff = target - todayDay;
+    if (diff < 0) diff += 7;
+    const result = new Date(today);
+    result.setDate(today.getDate() + diff);
+    return result.toISOString().split("T")[0];
+};
 
 export default function TeacherSchedulePage() {
     const navigate = useNavigate();
@@ -68,7 +81,8 @@ export default function TeacherSchedulePage() {
             day,
             startTime: freeSlot.startTime,
             endTime: freeSlot.endTime,
-            notes: ""
+            notes: "",
+            scheduleDate: getNextDayDate(day),
         });
         setStudents([{ ...emptyStudent }]);
         setShowModal(true);
@@ -418,6 +432,36 @@ export default function TeacherSchedulePage() {
                                         <div><span className="font-black opacity-50 uppercase">Free Until:</span> <span className="font-bold font-mono">{modalSlot.slot.endTime}</span></div>
                                         <div><span className="font-black opacity-50 uppercase">Duration:</span> <span className="font-bold text-emerald-400">{fmtDuration(modalSlot.slot.durationMins)}</span></div>
                                     </div>
+                                </div>
+
+                                {/* Date Picker */}
+                                <div>
+                                    <label className={labelCls}>Schedule Date <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <FaCalendarAlt className={`absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 text-sm pointer-events-none`} />
+                                        <input
+                                            type="date"
+                                            required
+                                            value={bookingForm.scheduleDate}
+                                            onChange={e => setBookingForm(f => ({ ...f, scheduleDate: e.target.value }))}
+                                            className={`${inputCls} pl-12`}
+                                        />
+                                    </div>
+                                    {bookingForm.scheduleDate && (() => {
+                                        const d = new Date(bookingForm.scheduleDate + "T00:00:00");
+                                        const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+                                        const selectedDay = dayNames[d.getDay()];
+                                        const isWrongDay = selectedDay !== modalSlot.day;
+                                        return isWrongDay ? (
+                                            <p className="text-[10px] font-bold text-amber-400 mt-1.5 flex items-center gap-1">
+                                                ⚠ Selected date falls on a {selectedDay}. Slot is for {modalSlot.day}.
+                                            </p>
+                                        ) : (
+                                            <p className="text-[10px] font-bold text-emerald-400 mt-1.5">
+                                                ✓ {d.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                                            </p>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Notes */}

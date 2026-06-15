@@ -134,7 +134,7 @@ export const bookTeacherSlot = async (req, res) => {
         const {
             teacherId, routineId, centreId, day,
             startTime, endTime, subject, className,
-            students, notes
+            students, notes, scheduleDate
         } = req.body;
 
         if (!teacherId || !day || !startTime || !endTime) {
@@ -153,6 +153,7 @@ export const bookTeacherSlot = async (req, res) => {
             bookedBy: req.user._id,
             students: students || [],
             notes,
+            scheduleDate: scheduleDate ? new Date(scheduleDate) : null,
             status: "pending",
             createdBy: req.user._id
         });
@@ -169,6 +170,7 @@ export const bookTeacherSlot = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
 
 // ─── TEACHER: Get all bookings assigned to the logged-in teacher ──────────────
 export const getBookingsForTeacher = async (req, res) => {

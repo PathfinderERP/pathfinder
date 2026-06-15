@@ -6,8 +6,14 @@ import { toast } from "react-toastify";
 import {
     FaArrowLeft, FaCalendarAlt, FaClock, FaUserGraduate, FaSearch,
     FaPhone, FaBook, FaSync, FaCheck, FaTimes, FaFilter,
-    FaChevronDown, FaChevronUp, FaBan, FaInfoCircle, FaBookmark
+    FaChevronDown, FaChevronUp, FaBan, FaInfoCircle, FaBookmark, FaUserTie
 } from "react-icons/fa";
+
+const fmt = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+};
 
 const API_URL = import.meta.env.VITE_API_URL;
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -33,20 +39,17 @@ export default function TeacherStudentSchedule() {
     const isDark = theme === "dark";
 
     const [bookings, setBookings] = useState([]);
-    const [grouped, setGrouped] = useState({});
     const [loading, setLoading] = useState(false);
 
     // Filters
     const [filterDay, setFilterDay] = useState("All");
     const [filterStatus, setFilterStatus] = useState("All");
+    const [filterDate, setFilterDate] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [filterTeacher, setFilterTeacher] = useState("All");
 
-    // Expanded day sections
-    const [expandedDays, setExpandedDays] = useState(() => {
-        const obj = {};
-        DAYS.forEach(d => (obj[d] = true));
-        return obj;
-    });
+    // Expanded teacher sections
+    const [expandedTeachers, setExpandedTeachers] = useState({});
 
     // Updating status
     const [updatingId, setUpdatingId] = useState(null);
@@ -58,13 +61,18 @@ export default function TeacherStudentSchedule() {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/academics/teacher-booking/for-teacher`, {
+            const res = await fetch(`${API_URL}/academics/teacher-booking/all`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
                 const data = await res.json();
-                setBookings(data.bookings || []);
-                setGrouped(data.grouped || {});
+                const allBookings = data.bookings || [];
+                setBookings(allBookings);
+                // Auto-expand all teachers on first load
+                const teacherIds = [...new Set(allBookings.map(b => b.teacherId?._id))];
+                const expanded = {};
+                teacherIds.forEach(id => { if (id) expanded[id] = true; });
+                setExpandedTeachers(prev => ({ ...expanded, ...prev }));
             } else {
                 toast.error("Failed to fetch bookings");
             }
@@ -89,6 +97,7 @@ export default function TeacherStudentSchedule() {
             if (res.ok) {
                 toast.success(`Booking ${newStatus}`);
                 fetchBookings();
+                if (detailBooking?._id === bookingId) setDetailBooking(null);
             } else {
                 toast.error("Failed to update status");
             }
@@ -99,31 +108,59 @@ export default function TeacherStudentSchedule() {
         }
     };
 
-    const toggleDay = (day) => setExpandedDays(prev => ({ ...prev, [day]: !prev[day] }));
+    const toggleTeacher = (id) =>
+        setExpandedTeachers(prev => ({ ...prev, [id]: !prev[id] }));
 
-    // Filter logic
-    const getFilteredForDay = (day) => {
-        return (grouped[day] || []).filter(b => {
+    // Build grouped data: { teacherId -> { teacher, bookings: [] } }
+    const grouped = {};
+    bookings.forEach(b => {
+        const tid = b.teacherId?._id || "unknown";
+        if (!grouped[tid]) {
+            grouped[tid] = {
+                teacher: b.teacherId,
+                bookings: []
+            };
+        }
+        grouped[tid].bookings.push(b);
+    });
+
+    // All unique teacher names for filter dropdown
+    const teacherOptions = Object.values(grouped).map(g => ({
+        id: g.teacher?._id,
+        name: g.teacher?.name || "Unknown"
+    }));
+
+    // Apply filters
+    const filteredGrouped = Object.entries(grouped).filter(([tid, g]) => {
+        if (filterTeacher !== "All" && tid !== filterTeacher) return false;
+        return true;
+    }).map(([tid, g]) => {
+        const filteredBookings = g.bookings.filter(b => {
+            const matchDay = filterDay === "All" || b.day === filterDay;
             const matchStatus = filterStatus === "All" || b.status === filterStatus;
-            const matchSearch = !searchTerm.trim() ||
+            const matchDate = !filterDate || (b.scheduleDate && b.scheduleDate.startsWith(filterDate));
+            const search = searchTerm.toLowerCase().trim();
+            const matchSearch = !search ||
                 b.students?.some(s =>
-                    s.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    s.phoneNumber?.includes(searchTerm) ||
-                    s.course?.toLowerCase().includes(searchTerm.toLowerCase())
+                    s.studentName?.toLowerCase().includes(search) ||
+                    s.phoneNumber?.includes(search) ||
+                    s.course?.toLowerCase().includes(search)
                 ) ||
-                b.bookedBy?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchStatus && matchSearch;
+                b.bookedBy?.name?.toLowerCase().includes(search) ||
+                b.day?.toLowerCase().includes(search);
+            return matchDay && matchStatus && matchDate && matchSearch;
         });
-    };
+        return [tid, { ...g, bookings: filteredBookings }];
+    }).filter(([, g]) => g.bookings.length > 0);
 
-    const activeDays = filterDay === "All" ? DAYS : [filterDay];
-
+    // Stats
     const totalStudents = bookings.reduce((acc, b) => acc + (b.students?.length || 0), 0);
     const pendingCount = bookings.filter(b => b.status === "pending").length;
     const confirmedCount = bookings.filter(b => b.status === "confirmed").length;
 
     // Styles
     const card = `rounded border p-5 transition-all duration-200 ${isDark ? "bg-[#151921] border-gray-800" : "bg-white border-gray-100 shadow-sm"}`;
+    const selectCls = `px-3 py-2.5 rounded border text-sm font-medium outline-none transition-all ${isDark ? "bg-gray-900 border-gray-700 text-white focus:border-emerald-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-emerald-500"}`;
 
     return (
         <Layout activePage="Academics">
@@ -144,7 +181,7 @@ export default function TeacherStudentSchedule() {
                                 </h1>
                             </div>
                             <p className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                                <FaCalendarAlt className="text-emerald-500" /> All students booked for your sessions
+                                <FaCalendarAlt className="text-emerald-500" /> All student bookings allotted to teachers
                             </p>
                         </div>
                     </div>
@@ -171,40 +208,68 @@ export default function TeacherStudentSchedule() {
                 </div>
 
                 {/* ── Filters ── */}
-                <div className={`mb-8 p-5 rounded border flex flex-col md:flex-row gap-4 items-center ${isDark ? "bg-[#151921] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`}>
-                    {/* Search */}
-                    <div className="relative flex-1">
-                        <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
-                        <input
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            placeholder="Search student, phone, course, telecaller..."
-                            className={`w-full pl-12 pr-4 py-3 rounded border text-sm font-medium outline-none transition-all ${isDark ? "bg-gray-900 border-gray-700 text-white focus:border-emerald-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-emerald-500"}`}
-                        />
+                <div className={`mb-8 p-5 rounded border flex flex-col gap-4 ${isDark ? "bg-[#151921] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`}>
+                    <div className="flex flex-col md:flex-row gap-4 items-center">
+                        {/* Search */}
+                        <div className="relative flex-1">
+                            <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
+                            <input
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search student, phone, course, telecaller..."
+                                className={`w-full pl-12 pr-4 py-3 rounded border text-sm font-medium outline-none transition-all ${isDark ? "bg-gray-900 border-gray-700 text-white focus:border-emerald-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-emerald-500"}`}
+                            />
+                        </div>
+                        {/* Teacher filter */}
+                        <select value={filterTeacher} onChange={e => setFilterTeacher(e.target.value)} className={selectCls}>
+                            <option value="All">All Teachers</option>
+                            {teacherOptions.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                        {/* Date filter */}
+                        <div className="relative">
+                            <FaCalendarAlt className={`absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500 text-sm pointer-events-none`} />
+                            <input
+                                type="date"
+                                value={filterDate}
+                                onChange={e => setFilterDate(e.target.value)}
+                                className={`${selectCls} pl-10 pr-3`}
+                                title="Filter by schedule date"
+                            />
+                        </div>
+                        {filterDate && (
+                            <button onClick={() => setFilterDate("")}
+                                className="flex items-center gap-1 px-3 py-2 rounded text-[10px] font-black uppercase border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-all">
+                                <FaTimes className="text-[9px]" /> Clear Date
+                            </button>
+                        )}
                     </div>
 
-                    {/* Day filter */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
+                        {/* Day filters */}
+                        <span className={`text-[10px] font-black uppercase tracking-widest mr-1 ${isDark ? "text-gray-600" : "text-gray-400"}`}>Day:</span>
                         {["All", ...DAYS].map(d => (
                             <button key={d} onClick={() => setFilterDay(d)}
-                                className={`px-3 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all border
+                                className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all border
                                     ${filterDay === d
                                         ? "bg-emerald-500 text-black border-emerald-500"
                                         : isDark ? "bg-gray-800 border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-200 text-gray-500 hover:border-emerald-400"}`}>
                                 {d === "All" ? "All" : d.slice(0, 3)}
                             </button>
                         ))}
-                    </div>
 
-                    {/* Status filter */}
-                    <div className="flex flex-wrap gap-2">
+                        <div className="w-px h-5 bg-gray-700/30 mx-2" />
+
+                        {/* Status filters */}
+                        <span className={`text-[10px] font-black uppercase tracking-widest mr-1 ${isDark ? "text-gray-600" : "text-gray-400"}`}>Status:</span>
                         {["All", "pending", "confirmed", "cancelled"].map(s => (
                             <button key={s} onClick={() => setFilterStatus(s)}
-                                className={`px-3 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all border
+                                className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all border
                                     ${filterStatus === s
                                         ? "bg-emerald-500 text-black border-emerald-500"
                                         : isDark ? "bg-gray-800 border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-200 text-gray-500 hover:border-emerald-400"}`}>
-                                {s === "All" ? "All Status" : s}
+                                {s === "All" ? "All" : s}
                             </button>
                         ))}
                     </div>
@@ -215,165 +280,176 @@ export default function TeacherStudentSchedule() {
                     <div className="flex justify-center items-center h-64">
                         <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
                     </div>
+                ) : filteredGrouped.length === 0 ? (
+                    <div className={`text-center py-24 rounded border ${isDark ? "bg-[#151921] border-gray-800" : "bg-white border-gray-200"}`}>
+                        <FaUserGraduate className="mx-auto text-5xl opacity-20 mb-4" />
+                        <p className="text-sm font-black uppercase tracking-widest opacity-30">No Bookings Found</p>
+                        <p className="text-xs opacity-20 mt-2">
+                            {bookings.length === 0
+                                ? "No students have been booked yet. Telecallers can book from Lead Management → Teacher Schedule."
+                                : "Try adjusting your filters"}
+                        </p>
+                    </div>
                 ) : (
                     <div className="space-y-6">
-                        {activeDays.map(day => {
-                            const dayBookings = getFilteredForDay(day);
-                            if (dayBookings.length === 0 && filterDay !== "All" && filterDay === day) {
-                                return (
-                                    <div key={day} className={`text-center py-16 rounded border ${isDark ? "bg-[#151921] border-gray-800" : "bg-white border-gray-200"}`}>
-                                        <FaCalendarAlt className="mx-auto text-4xl opacity-20 mb-3" />
-                                        <p className="text-sm font-black uppercase tracking-widest opacity-30">No bookings for {day}</p>
-                                    </div>
-                                );
-                            }
-                            if (dayBookings.length === 0) return null;
-
-                            return (
-                                <div key={day} className={card}>
-                                    {/* Day Header */}
-                                    <button
-                                        onClick={() => toggleDay(day)}
-                                        className="w-full flex items-center justify-between mb-4 group"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-1 h-7 bg-emerald-500 rounded" />
-                                            <h2 className="text-lg font-extrabold uppercase tracking-wider group-hover:text-emerald-400 transition-colors">{day}</h2>
-                                            <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase border ${isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-600"}`}>
-                                                {dayBookings.length} booking{dayBookings.length !== 1 ? "s" : ""}
-                                            </span>
-                                            <span className={`text-[10px] font-bold opacity-50`}>
-                                                {dayBookings.reduce((acc, b) => acc + (b.students?.length || 0), 0)} students
-                                            </span>
+                        {filteredGrouped.map(([tid, g]) => (
+                            <div key={tid} className={card}>
+                                {/* Teacher Header */}
+                                <button
+                                    onClick={() => toggleTeacher(tid)}
+                                    className="w-full flex items-center justify-between mb-0 group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded border-2 flex items-center justify-center font-black ${isDark ? "border-gray-700 bg-gray-800 text-emerald-400" : "border-emerald-200 bg-emerald-50 text-emerald-600"}`}>
+                                            {g.teacher?.name?.charAt(0) || "?"}
                                         </div>
-                                        {expandedDays[day] ? <FaChevronUp className="opacity-40" /> : <FaChevronDown className="opacity-40" />}
-                                    </button>
+                                        <div className="text-left">
+                                            <p className="font-extrabold text-base uppercase group-hover:text-emerald-400 transition-colors">
+                                                {g.teacher?.name || "Unknown Teacher"}
+                                            </p>
+                                            <div className="flex flex-wrap gap-2 mt-0.5">
+                                                {g.teacher?.employeeId && <span className="text-[10px] font-bold opacity-50">{g.teacher.employeeId}</span>}
+                                                {g.teacher?.subject && <span className="text-[10px] font-bold text-emerald-400">{g.teacher.subject}</span>}
+                                            </div>
+                                        </div>
+                                        <span className={`px-3 py-1 rounded text-[10px] font-black uppercase border ${isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-600"}`}>
+                                            {g.bookings.length} booking{g.bookings.length !== 1 ? "s" : ""}
+                                        </span>
+                                        <span className="text-[10px] font-bold opacity-50">
+                                            {g.bookings.reduce((acc, b) => acc + (b.students?.length || 0), 0)} students
+                                        </span>
+                                    </div>
+                                    {expandedTeachers[tid] ? <FaChevronUp className="opacity-40" /> : <FaChevronDown className="opacity-40" />}
+                                </button>
 
-                                    {expandedDays[day] && (
-                                        <div className="space-y-4">
-                                            {dayBookings.map(booking => (
-                                                <div key={booking._id} className={`rounded border-2 p-4 transition-all ${isDark
-                                                    ? "bg-gray-900/40 border-gray-800 hover:border-emerald-500/20"
-                                                    : "bg-gray-50 border-gray-100 hover:border-emerald-200"}`}>
-
-                                                    {/* Booking Header Row */}
-                                                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                                                        <div className="flex flex-wrap items-center gap-3">
-                                                            {/* Time */}
-                                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-black ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                                                                <FaClock className="text-emerald-500 text-[10px]" />
-                                                                <span className="font-mono">{booking.startTime} – {booking.endTime}</span>
-                                                            </div>
-                                                            {/* Subject */}
-                                                            {booking.subject && (
-                                                                <span className={`px-2.5 py-1 rounded text-[10px] font-black border ${isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-600"}`}>
-                                                                    {booking.subject}
-                                                                </span>
-                                                            )}
-                                                            {/* Class */}
-                                                            {booking.className && (
-                                                                <span className={`text-[10px] font-bold opacity-60`}>{booking.className}</span>
-                                                            )}
-                                                            {/* Status badge */}
-                                                            <span className={`px-2.5 py-1 rounded border text-[10px] font-black uppercase ${STATUS_CONFIG[booking.status]?.badge}`}>
-                                                                {STATUS_CONFIG[booking.status]?.label}
-                                                            </span>
-                                                        </div>
-
-                                                        {/* Actions */}
-                                                        <div className="flex items-center gap-2">
-                                                            {booking.status === "pending" && (
-                                                                <>
-                                                                    <button
-                                                                        onClick={() => updateStatus(booking._id, "confirmed")}
-                                                                        disabled={updatingId === booking._id}
-                                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase border border-emerald-500/20 hover:bg-emerald-500 hover:text-black transition-all disabled:opacity-50">
-                                                                        <FaCheck className="text-[9px]" /> Confirm
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => updateStatus(booking._id, "cancelled")}
-                                                                        disabled={updatingId === booking._id}
-                                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-500/10 text-red-400 text-[10px] font-black uppercase border border-red-500/20 hover:bg-red-500 hover:text-white transition-all disabled:opacity-50">
-                                                                        <FaBan className="text-[9px]" /> Cancel
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                            {booking.status === "cancelled" && (
-                                                                <button
-                                                                    onClick={() => updateStatus(booking._id, "pending")}
-                                                                    disabled={updatingId === booking._id}
-                                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase border border-amber-500/20 hover:bg-amber-500 hover:text-black transition-all disabled:opacity-50">
-                                                                    <FaSync className="text-[9px]" /> Reopen
-                                                                </button>
-                                                            )}
-                                                            <button
-                                                                onClick={() => setDetailBooking(booking)}
-                                                                className={`p-2 rounded border text-[10px] transition-all ${isDark ? "border-gray-700 text-gray-400 hover:bg-gray-800" : "border-gray-200 text-gray-400 hover:bg-gray-100"}`}
-                                                                title="View details">
-                                                                <FaInfoCircle />
-                                                            </button>
-                                                        </div>
+                                {expandedTeachers[tid] && (
+                                    <div className="mt-5 space-y-4">
+                                        {/* Group bookings by day */}
+                                        {DAYS.map(day => {
+                                            const dayBookings = g.bookings.filter(b => b.day === day);
+                                            if (dayBookings.length === 0) return null;
+                                            return (
+                                                <div key={day}>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <div className="w-1 h-5 bg-emerald-500 rounded" />
+                                                        <span className="text-xs font-black uppercase tracking-widest text-emerald-400">{day}</span>
+                                                        <span className={`text-[10px] font-bold opacity-40`}>({dayBookings.length})</span>
                                                     </div>
 
-                                                    {/* Telecaller info */}
-                                                    <div className={`flex items-center gap-2 mb-4 text-[11px] font-bold opacity-60`}>
-                                                        <FaBookmark className="text-[9px]" />
-                                                        Booked by: {booking.bookedBy?.name || "—"}
-                                                        {booking.bookedBy?.employeeId && <span className="opacity-60">({booking.bookedBy.employeeId})</span>}
-                                                        {booking.notes && <span className="italic ml-2 opacity-70">· "{booking.notes}"</span>}
-                                                    </div>
+                                                    <div className="space-y-3 pl-3">
+                                                        {dayBookings.map(booking => (
+                                                            <div key={booking._id}
+                                                                className={`rounded border-2 p-4 transition-all ${isDark
+                                                                    ? "bg-gray-900/40 border-gray-800 hover:border-emerald-500/20"
+                                                                    : "bg-gray-50 border-gray-100 hover:border-emerald-200"}`}>
 
-                                                    {/* Students Grid */}
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                        {booking.students?.map((s, i) => (
-                                                            <div key={i} className={`rounded border p-3 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"}`}>
-                                                                <div className="flex items-center gap-2 mb-2">
-                                                                    <div className={`w-7 h-7 rounded flex items-center justify-center text-xs font-black ${isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}>
-                                                                        {s.studentName?.charAt(0)?.toUpperCase()}
-                                                                    </div>
-                                                                    <span className="font-extrabold text-sm truncate">{s.studentName}</span>
-                                                                </div>
-                                                                <div className="space-y-1">
-                                                                    {s.phoneNumber && (
-                                                                        <div className="flex items-center gap-1.5 text-[11px]">
-                                                                            <FaPhone className={`text-[9px] ${isDark ? "text-gray-500" : "text-gray-400"}`} />
-                                                                            <span className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>{s.phoneNumber}</span>
+                                                                {/* Booking header */}
+                                                                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-black ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                                                                            <FaClock className="text-emerald-500 text-[10px]" />
+                                                                            <span className="font-mono">{booking.startTime} – {booking.endTime}</span>
                                                                         </div>
-                                                                    )}
-                                                                    {s.className && (
-                                                                        <div className="flex items-center gap-1.5 text-[11px]">
-                                                                            <FaBook className={`text-[9px] ${isDark ? "text-gray-500" : "text-gray-400"}`} />
-                                                                            <span className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>{s.className}</span>
-                                                                        </div>
-                                                                    )}
-                                                                    {s.course && (
-                                                                        <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-500/20">
-                                                                            {s.course}
+                                                                        {booking.scheduleDate && (
+                                                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-black ${isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
+                                                                                <FaCalendarAlt className="text-[10px]" />
+                                                                                <span>{fmt(booking.scheduleDate)}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        <span className={`px-2.5 py-1 rounded border text-[10px] font-black uppercase ${STATUS_CONFIG[booking.status]?.badge}`}>
+                                                                            {STATUS_CONFIG[booking.status]?.label}
                                                                         </span>
-                                                                    )}
-                                                                    {s.notes && (
-                                                                        <p className={`text-[10px] italic opacity-60 mt-1`}>{s.notes}</p>
-                                                                    )}
+                                                                        <span className={`text-[10px] font-bold opacity-50`}>
+                                                                            <FaBookmark className="inline text-[9px] mr-1" />
+                                                                            By: {booking.bookedBy?.name || "—"}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    {/* Actions */}
+                                                                    <div className="flex items-center gap-2">
+                                                                        {booking.status === "pending" && (
+                                                                            <>
+                                                                                <button
+                                                                                    onClick={() => updateStatus(booking._id, "confirmed")}
+                                                                                    disabled={updatingId === booking._id}
+                                                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase border border-emerald-500/20 hover:bg-emerald-500 hover:text-black transition-all disabled:opacity-50">
+                                                                                    <FaCheck className="text-[9px]" /> Confirm
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => updateStatus(booking._id, "cancelled")}
+                                                                                    disabled={updatingId === booking._id}
+                                                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-500/10 text-red-400 text-[10px] font-black uppercase border border-red-500/20 hover:bg-red-500 hover:text-white transition-all disabled:opacity-50">
+                                                                                    <FaBan className="text-[9px]" /> Cancel
+                                                                                </button>
+                                                                            </>
+                                                                        )}
+                                                                        {booking.status === "cancelled" && (
+                                                                            <button
+                                                                                onClick={() => updateStatus(booking._id, "pending")}
+                                                                                disabled={updatingId === booking._id}
+                                                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase border border-amber-500/20 hover:bg-amber-500 hover:text-black transition-all disabled:opacity-50">
+                                                                                <FaSync className="text-[9px]" /> Reopen
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            onClick={() => setDetailBooking(booking)}
+                                                                            className={`p-2 rounded border text-[10px] transition-all ${isDark ? "border-gray-700 text-gray-400 hover:bg-gray-800" : "border-gray-200 text-gray-400 hover:bg-gray-100"}`}
+                                                                            title="View details">
+                                                                            <FaInfoCircle />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Booking notes */}
+                                                                {booking.notes && (
+                                                                    <p className="text-[11px] italic opacity-60 mb-3">"{booking.notes}"</p>
+                                                                )}
+
+                                                                {/* Students grid */}
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                                    {booking.students?.map((s, i) => (
+                                                                        <div key={i} className={`rounded border p-3 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"}`}>
+                                                                            <div className="flex items-center gap-2 mb-1.5">
+                                                                                <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black ${isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}>
+                                                                                    {s.studentName?.charAt(0)?.toUpperCase()}
+                                                                                </div>
+                                                                                <span className="font-extrabold text-sm truncate">{s.studentName}</span>
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                {s.phoneNumber && (
+                                                                                    <div className="flex items-center gap-1.5 text-[11px]">
+                                                                                        <FaPhone className={`text-[9px] ${isDark ? "text-gray-500" : "text-gray-400"}`} />
+                                                                                        <span className={isDark ? "text-gray-400" : "text-gray-500"}>{s.phoneNumber}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {s.className && (
+                                                                                    <div className="flex items-center gap-1.5 text-[11px]">
+                                                                                        <FaBook className={`text-[9px] ${isDark ? "text-gray-500" : "text-gray-400"}`} />
+                                                                                        <span className={isDark ? "text-gray-400" : "text-gray-500"}>{s.className}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {s.course && (
+                                                                                    <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-500/20">
+                                                                                        {s.course}
+                                                                                    </span>
+                                                                                )}
+                                                                                {s.notes && (
+                                                                                    <p className="text-[10px] italic opacity-60 mt-1">{s.notes}</p>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
                                                                 </div>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-
-                        {/* Empty state */}
-                        {activeDays.every(d => getFilteredForDay(d).length === 0) && (
-                            <div className={`text-center py-24 rounded border ${isDark ? "bg-[#151921] border-gray-800" : "bg-white border-gray-200"}`}>
-                                <FaUserGraduate className="mx-auto text-5xl opacity-20 mb-4" />
-                                <p className="text-sm font-black uppercase tracking-widest opacity-30">No bookings found</p>
-                                <p className="text-xs opacity-20 mt-2">Try adjusting your filters</p>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        ))}
                     </div>
                 )}
 
@@ -390,7 +466,7 @@ export default function TeacherStudentSchedule() {
                                         <FaInfoCircle className="text-emerald-500" /> Booking Details
                                     </h2>
                                     <p className={`text-xs font-bold mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                                        {detailBooking.day} · {detailBooking.startTime} – {detailBooking.endTime}
+                                        {detailBooking.teacherId?.name} · {detailBooking.day} · {detailBooking.startTime} – {detailBooking.endTime}
                                     </p>
                                 </div>
                                 <button onClick={() => setDetailBooking(null)} className="p-2 rounded hover:bg-gray-800/30 transition-all">
@@ -399,19 +475,18 @@ export default function TeacherStudentSchedule() {
                             </div>
 
                             <div className="p-6 space-y-5">
-                                {/* Info grid */}
                                 <div className={`p-4 rounded border ${isDark ? "bg-emerald-500/5 border-emerald-500/20" : "bg-emerald-50 border-emerald-200"}`}>
                                     <div className="grid grid-cols-2 gap-3 text-xs">
+                                        <div><span className="font-black opacity-50 uppercase">Teacher:</span> <span className="font-bold">{detailBooking.teacherId?.name || "—"}</span></div>
                                         <div><span className="font-black opacity-50 uppercase">Day:</span> <span className="font-bold">{detailBooking.day}</span></div>
                                         <div><span className="font-black opacity-50 uppercase">Time:</span> <span className="font-bold font-mono">{detailBooking.startTime} – {detailBooking.endTime}</span></div>
-                                        <div><span className="font-black opacity-50 uppercase">Subject:</span> <span className="font-bold">{detailBooking.subject || "—"}</span></div>
-                                        <div><span className="font-black opacity-50 uppercase">Class:</span> <span className="font-bold">{detailBooking.className || "—"}</span></div>
                                         <div><span className="font-black opacity-50 uppercase">Status:</span>
                                             <span className={`ml-1 px-2 py-0.5 rounded text-[10px] font-black border ${STATUS_CONFIG[detailBooking.status]?.badge}`}>
                                                 {STATUS_CONFIG[detailBooking.status]?.label}
                                             </span>
                                         </div>
                                         <div><span className="font-black opacity-50 uppercase">Booked By:</span> <span className="font-bold">{detailBooking.bookedBy?.name || "—"}</span></div>
+                                        <div><span className="font-black opacity-50 uppercase">Students:</span> <span className="font-bold">{detailBooking.students?.length || 0}</span></div>
                                     </div>
                                     {detailBooking.notes && (
                                         <p className={`mt-3 text-xs italic opacity-70 border-t pt-3 ${isDark ? "border-gray-700" : "border-emerald-100"}`}>
@@ -420,7 +495,6 @@ export default function TeacherStudentSchedule() {
                                     )}
                                 </div>
 
-                                {/* Students list */}
                                 <div>
                                     <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                                         Students ({detailBooking.students?.length || 0})
@@ -438,16 +512,15 @@ export default function TeacherStudentSchedule() {
                                     </div>
                                 </div>
 
-                                {/* Quick status change from modal */}
                                 {detailBooking.status === "pending" && (
                                     <div className="flex gap-3 pt-2">
                                         <button
-                                            onClick={() => { updateStatus(detailBooking._id, "confirmed"); setDetailBooking(null); }}
+                                            onClick={() => updateStatus(detailBooking._id, "confirmed")}
                                             className="flex-1 py-3 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                                             <FaCheck /> Confirm Booking
                                         </button>
                                         <button
-                                            onClick={() => { updateStatus(detailBooking._id, "cancelled"); setDetailBooking(null); }}
+                                            onClick={() => updateStatus(detailBooking._id, "cancelled")}
                                             className="flex-1 py-3 rounded bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white font-black text-[11px] uppercase tracking-widest transition-all border border-red-500/20 flex items-center justify-center gap-2">
                                             <FaBan /> Cancel
                                         </button>

@@ -55,6 +55,7 @@ const teacherBookingSchema = new mongoose.Schema({
         default: Date.now
     },
     notes: { type: String },
+    scheduleDate: { type: Date, required: false },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
