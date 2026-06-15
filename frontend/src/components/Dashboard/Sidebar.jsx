@@ -103,8 +103,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaBullseye />,
             permissionModule: "leadManagement",
             subItems: [
-                { name: "All Leads", path: "/lead-management", permissionSection: "allLeads" },
-                { name: "Teacher Schedule", path: "/lead-management/teacher-schedule", permissionSection: "allLeads" },
+                { name: "All Leads", path: "/lead-management", permissionSection: "leads" },
+                { name: "Teacher Schedule", path: "/lead-management/teacher-schedule", permissionSection: "leads" },
             ]
         },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
