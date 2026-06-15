@@ -173,15 +173,15 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Pre-validate hook to clean up legacy or incorrect enum fields
-boardCourseAdmissionSchema.pre('validate', function (next) {
-    if (this.additionalThingsStatus === "" || this.additionalThingsStatus === "0") {
-        this.additionalThingsStatus = "PENDING";
-    }
-    if (this.examFeeStatus === "" || this.examFeeStatus === "0") {
-        this.examFeeStatus = "PENDING";
-    }
-    next();
-});
+// boardCourseAdmissionSchema.pre('validate', function (next) {
+//     if (this.additionalThingsStatus === "" || this.additionalThingsStatus === "0") {
+//         this.additionalThingsStatus = "PENDING";
+//     }
+//     if (this.examFeeStatus === "" || this.examFeeStatus === "0") {
+//         this.examFeeStatus = "PENDING";
+//     }
+//     next();
+// });
 
 // Pre-save hook to ensure a unique sequence number is generated across both admission types
 boardCourseAdmissionSchema.pre('save', async function () {
