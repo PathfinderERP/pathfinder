@@ -83,7 +83,7 @@ const LeadManagementContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalLeads, setTotalLeads] = useState(0);
-    const limit = 10;
+    const [limit, setLimit] = useState(10);
 
     const [dashboardFilters, setDashboardFilters] = useState({
         fromDate: "",
@@ -895,6 +895,12 @@ const LeadManagementContent = () => {
                                 <FaFileExcel /> Import Excel
                             </button>
                         )}
+                        <button
+                            onClick={() => navigate('/lead-management/teacher-schedule')}
+                            className="px-6 py-3 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-black rounded-[2px] border border-amber-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                        >
+                            <FaCalendarAlt /> Teacher Schedule
+                        </button>
                         <button
                             onClick={() => setShowFollowUpListModal(true)}
                             className="px-6 py-3 bg-purple-500/10 text-purple-500 hover:bg-purple-500 hover:text-white rounded-[2px] border border-purple-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"

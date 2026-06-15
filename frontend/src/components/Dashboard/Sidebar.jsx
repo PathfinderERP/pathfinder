@@ -98,7 +98,15 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         // { name: "Community", icon: <FaUsers />, path: "/community" },
-        { name: "Lead Management", icon: <FaBullseye />, path: "/lead-management", permissionModule: "leadManagement" },
+        {
+            name: "Lead Management",
+            icon: <FaBullseye />,
+            permissionModule: "leadManagement",
+            subItems: [
+                { name: "All Leads", path: "/lead-management", permissionSection: "leads" },
+                { name: "Teacher Schedule", path: "/lead-management/teacher-schedule", permissionSection: "leads" },
+            ]
+        },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
         { name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
         {
@@ -153,6 +161,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 // { name: "Section Leader Board", path: "/academics/section-leader-board", permissionSection: "sectionLeaderBoard" },
                 // { name: "Exam Leader Board", path: "/academics/exam-leader-board", permissionSection: "examLeaderBoard" },
                 { name: "Teacher Routine Schedule", path: "/academics/teacher-routine", permissionSection: "teacherRoutine" },
+                { name: "Students Schedule", path: "/academics/students-schedule", permissionSection: "teacherRoutine" },
             ]
         },
 
