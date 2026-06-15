@@ -102,6 +102,8 @@ import TopicList from "./pages/Academics/ClassManagement/TopicList";
 import SectionLeaderBoard from "./pages/Academics/SectionLeaderBoard";
 import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
 import TeacherRoutineSchedule from "./pages/Academics/TeacherRoutineSchedule";
+import TeacherSchedulePage from "./pages/LeadManagement/TeacherSchedulePage";
+import TeacherStudentSchedule from "./pages/Academics/TeacherStudentSchedule";
 
 
 // HR Pages
@@ -321,6 +323,8 @@ function App() {
         {/* <Route path="/academics/section-leader-board" element={<ProtectedRoute><SectionLeaderBoard /></ProtectedRoute>} /> */}
         {/* <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} /> */}
         <Route path="/academics/teacher-routine" element={<ProtectedRoute><TeacherRoutineSchedule /></ProtectedRoute>} />
+        <Route path="/academics/students-schedule" element={<ProtectedRoute><TeacherStudentSchedule /></ProtectedRoute>} />
+        <Route path="/lead-management/teacher-schedule" element={<ProtectedRoute><TeacherSchedulePage /></ProtectedRoute>} />
 
         <Route path="/master-data" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterData /></ProtectedRoute>} />
         <Route path="/master-data/class" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataClass /></ProtectedRoute>} />
