@@ -1,4 +1,6 @@
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import Student from "../../models/Students.js";
 import Centre from "../../models/Master_data/Centre.js";
 import mongoose from "mongoose";
 
@@ -9,9 +11,8 @@ export const getDiscountReport = async (req, res) => {
             startDate,
             endDate,
             centreIds,
-            courseIds,
             examTagId,
-            session,
+            programme,
             reportType // monthly or daily
         } = req.query;
 
@@ -34,12 +35,7 @@ export const getDiscountReport = async (req, res) => {
             }
         }
 
-        // 2. Academic Session Filter
-        if (session) {
-            matchStage.academicSession = session;
-        }
-
-        // 3. Centre Filter (Resolve IDs to Names)
+        // 2. Centre Filter (Resolve IDs to Names)
         let allowedCentreNames = [];
         if (req.user.role !== 'superAdmin') {
             const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
@@ -65,48 +61,114 @@ export const getDiscountReport = async (req, res) => {
             matchStage.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
         }
 
-        // 4. Course Filter (Fix: Cast to ObjectId)
-        if (courseIds) {
-            const rawIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
-            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
-            const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+        // 3. Exam Tag Filter (Support multiple tags comma separated)
+        let boardAdmissionQuery = {};
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            boardAdmissionQuery.admissionDate = { $gte: start, $lte: end };
+        } else if (year) {
+            const targetYear = parseInt(year);
+            if (!isNaN(targetYear)) {
+                const startOfYear = new Date(targetYear, 0, 1);
+                const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
+                boardAdmissionQuery.admissionDate = { $gte: startOfYear, $lte: endOfYear };
+            }
+        }
+        if (matchStage.centre) {
+            boardAdmissionQuery.centre = matchStage.centre;
+        }
 
-            if (objectIds.length > 0) {
-                matchStage.course = { $in: objectIds };
+        if (examTagId) {
+            const rawTagIds = typeof examTagId === 'string' ? examTagId.split(',') : examTagId;
+            const validTagIds = rawTagIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validTagIds.length > 0) {
+                const objectTagIds = validTagIds.map(id => new mongoose.Types.ObjectId(id));
+                matchStage.examTag = { $in: objectTagIds };
+                // Board admissions do not have examTag, so if tags are specified, board admissions yield empty
+                boardAdmissionQuery._id = null;
             }
         }
 
-        // 5. Exam Tag Filter (Fix: Cast to ObjectId)
-        if (examTagId && mongoose.Types.ObjectId.isValid(examTagId)) {
-            matchStage.examTag = new mongoose.Types.ObjectId(examTagId);
+        // 4. Programme Filter
+        if (programme) {
+            const studentsWithProg = await Student.find({ "studentsDetails.programme": programme }).select("_id").lean();
+            const studentIdsWithProg = studentsWithProg.map(s => s._id);
+            matchStage.student = { $in: studentIdsWithProg };
+            boardAdmissionQuery.studentId = { $in: studentIdsWithProg };
         }
 
         // Parallel Aggregations
-        const [centreStats, trendStats, detailedStats] = await Promise.all([
-            // 1. Aggregation: Group by Centre
+        const [centreStats, trendStats, detailedStatsNormal, detailedStatsBoard, pivotStats] = await Promise.all([
+            // 1. Aggregation: Group by Centre (Union of Normal and Board)
             Admission.aggregate([
                 { $match: matchStage },
                 {
+                    $project: {
+                        centre: "$centre",
+                        originalFees: { $multiply: [{ $ifNull: ["$baseFees", 0] }, 1.18] }, // with GST
+                        committedFees: { $ifNull: ["$totalFees", 0] },
+                        discountGiven: { $ifNull: ["$discountAmount", 0] }
+                    }
+                },
+                {
+                    $unionWith: {
+                        coll: "boardcourseadmissions",
+                        pipeline: [
+                            { $match: boardAdmissionQuery },
+                            {
+                                $project: {
+                                    centre: "$centre",
+                                    originalFees: { $add: [{ $ifNull: ["$totalExpectedAmount", 0] }, { $ifNull: ["$totalWaiver", 0] }] },
+                                    committedFees: { $ifNull: ["$totalExpectedAmount", 0] },
+                                    discountGiven: { $ifNull: ["$totalWaiver", 0] }
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
                     $group: {
                         _id: "$centre",
-                        originalFees: { $sum: "$baseFees" },
-                        committedFees: { $sum: "$totalFees" },
-                        discountGiven: { $sum: "$discountAmount" },
+                        originalFees: { $sum: "$originalFees" },
+                        committedFees: { $sum: "$committedFees" },
+                        discountGiven: { $sum: "$discountGiven" },
                         count: { $sum: 1 }
                     }
                 }
             ]),
 
-            // 2. Aggregation: Group by Date/Month (Trend)
+            // 2. Aggregation: Group by Date/Month Trend (Union of Normal and Board)
             (async () => {
                 const type = reportType || 'monthly';
                 if (type === 'daily') {
                     return Admission.aggregate([
                         { $match: matchStage },
                         {
+                            $project: {
+                                dateStr: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                                discountGiven: { $ifNull: ["$discountAmount", 0] }
+                            }
+                        },
+                        {
+                            $unionWith: {
+                                coll: "boardcourseadmissions",
+                                pipeline: [
+                                    { $match: boardAdmissionQuery },
+                                    {
+                                        $project: {
+                                            dateStr: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                                            discountGiven: { $ifNull: ["$totalWaiver", 0] }
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
                             $group: {
-                                _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
-                                discountGiven: { $sum: "$discountAmount" },
+                                _id: "$dateStr",
+                                discountGiven: { $sum: "$discountGiven" },
                                 count: { $sum: 1 }
                             }
                         },
@@ -116,9 +178,29 @@ export const getDiscountReport = async (req, res) => {
                     return Admission.aggregate([
                         { $match: matchStage },
                         {
+                            $project: {
+                                monthVal: { $month: "$admissionDate" },
+                                discountGiven: { $ifNull: ["$discountAmount", 0] }
+                            }
+                        },
+                        {
+                            $unionWith: {
+                                coll: "boardcourseadmissions",
+                                pipeline: [
+                                    { $match: boardAdmissionQuery },
+                                    {
+                                        $project: {
+                                            monthVal: { $month: "$admissionDate" },
+                                            discountGiven: { $ifNull: ["$totalWaiver", 0] }
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
                             $group: {
-                                _id: { $month: "$admissionDate" },
-                                discountGiven: { $sum: "$discountAmount" },
+                                _id: "$monthVal",
+                                discountGiven: { $sum: "$discountGiven" },
                                 count: { $sum: 1 }
                             }
                         },
@@ -127,12 +209,138 @@ export const getDiscountReport = async (req, res) => {
                 }
             })(),
 
-            // 3. Detailed Report for Excel (Student-wise)
+            // 3. Detailed Report (Normal student-wise)
             Admission.find(matchStage)
                 .populate({ path: 'student', select: 'studentsDetails' })
                 .populate('course', 'courseName')
+                .populate('examTag', 'name')
                 .sort({ admissionDate: -1 })
-                .lean()
+                .lean(),
+
+            // 4. Detailed Report (Board student-wise)
+            BoardCourseAdmission.find(boardAdmissionQuery)
+                .populate({ path: 'studentId', select: 'studentsDetails' })
+                .populate('boardId', 'boardCourse')
+                .sort({ admissionDate: -1 })
+                .lean(),
+
+            // 5. Fine-grained stats for Pivot table
+            Admission.aggregate([
+                { $match: matchStage },
+                {
+                    $addFields: {
+                        courseObjectId: {
+                            $cond: {
+                                if: { $and: [
+                                    { $ne: ["$course", null] },
+                                    { $ne: ["$course", ""] }
+                                ] },
+                                then: { $toObjectId: "$course" },
+                                else: null
+                            }
+                        },
+                        examTagObjectId: {
+                            $cond: {
+                                if: { $and: [
+                                    { $ne: ["$examTag", null] },
+                                    { $ne: ["$examTag", ""] }
+                                ] },
+                                then: { $toObjectId: "$examTag" },
+                                else: null
+                            }
+                        }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "examtags",
+                        localField: "examTagObjectId",
+                        foreignField: "_id",
+                        as: "examTagInfo"
+                    }
+                },
+                { $unwind: { path: "$examTagInfo", preserveNullAndEmptyArrays: true } },
+                {
+                    $lookup: {
+                        from: "courses",
+                        localField: "courseObjectId",
+                        foreignField: "_id",
+                        as: "courseInfo"
+                    }
+                },
+                { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+                {
+                    $project: {
+                        date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                        centre: "$centre",
+                        examTagName: { $ifNull: ["$examTagInfo.name", "Generic Tag"] },
+                        courseName: { $ifNull: ["$courseInfo.courseName", "Generic Course"] },
+                        originalFees: { $multiply: [{ $ifNull: ["$baseFees", 0] }, 1.18] }, // with GST
+                        committedFees: { $ifNull: ["$totalFees", 0] },
+                        discountGiven: { $ifNull: ["$discountAmount", 0] },
+                        type: { $literal: "Normal" }
+                    }
+                },
+                {
+                    $unionWith: {
+                        coll: "boardcourseadmissions",
+                        pipeline: [
+                            { $match: boardAdmissionQuery },
+                            {
+                                $lookup: {
+                                    from: "boards",
+                                    localField: "boardId",
+                                    foreignField: "_id",
+                                    as: "boardInfo"
+                                }
+                            },
+                            { $unwind: { path: "$boardInfo", preserveNullAndEmptyArrays: true } },
+                            {
+                                $project: {
+                                    date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                                    centre: "$centre",
+                                    examTagName: { $ifNull: ["$boardCourseName", "$boardInfo.boardCourse", "Board Course"] },
+                                    courseName: { $ifNull: ["$boardCourseName", "$boardInfo.boardCourse", "Board Course"] },
+                                    originalFees: { $add: [{ $ifNull: ["$totalExpectedAmount", 0] }, { $ifNull: ["$totalWaiver", 0] }] },
+                                    committedFees: { $ifNull: ["$totalExpectedAmount", 0] },
+                                    discountGiven: { $ifNull: ["$totalWaiver", 0] },
+                                    type: { $literal: "Board" }
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            date: "$date",
+                            centre: "$centre",
+                            examTagName: "$examTagName",
+                            courseName: "$courseName",
+                            type: "$type"
+                        },
+                        totalAdmissions: { $sum: 1 },
+                        originalFees: { $sum: "$originalFees" },
+                        committedFees: { $sum: "$committedFees" },
+                        discountGiven: { $sum: "$discountGiven" }
+                    }
+                },
+                {
+                    $project: {
+                        date: "$_id.date",
+                        centre: "$_id.centre",
+                        examTagName: "$_id.examTagName",
+                        courseName: "$_id.courseName",
+                        type: "$_id.type",
+                        totalAdmissions: 1,
+                        originalFees: 1,
+                        committedFees: 1,
+                        discountGiven: 1,
+                        _id: 0
+                    }
+                },
+                { $sort: { date: -1, centre: 1, examTagName: 1 } }
+            ])
         ]);
 
         // Map Centre IDs to Names
@@ -178,26 +386,51 @@ export const getDiscountReport = async (req, res) => {
 
         const totalDiscount = reportData.reduce((acc, curr) => acc + curr.discountGiven, 0);
 
-        const detailedReport = detailedStats.map(adm => {
+        // Process student-wise details
+        const detailedReportNormal = detailedStatsNormal.map(adm => {
             const details = adm.student?.studentsDetails?.[0] || {};
             return {
                 admissionNumber: adm.admissionNumber || "-",
                 studentName: details.studentName || "Unknown",
                 centre: adm.centre || "Unknown",
                 course: adm.course?.courseName || "Unknown",
+                examTag: adm.examTag?.name || "Generic Tag",
                 admissionDate: adm.admissionDate ? new Date(adm.admissionDate).toLocaleDateString() : "-",
-                originalFees: adm.baseFees || 0,
+                originalFees: (adm.baseFees || 0) * 1.18, // with GST
                 discountGiven: adm.discountAmount || 0,
                 committedFees: adm.totalFees || 0,
-                remarks: adm.remarks || ""
+                remarks: adm.remarks || "",
+                type: "Normal"
             };
+        });
+
+        const detailedReportBoard = detailedStatsBoard.map(adm => {
+            const details = adm.studentId?.studentsDetails?.[0] || {};
+            return {
+                admissionNumber: adm.admissionNumber || "-",
+                studentName: details.studentName || adm.studentName || "Unknown",
+                centre: adm.centre || "Unknown",
+                course: adm.boardCourseName || (adm.boardId?.boardCourse ? adm.boardId.boardCourse : "Board Course"),
+                examTag: adm.boardCourseName || (adm.boardId?.boardCourse ? adm.boardId.boardCourse : "Board Course"),
+                admissionDate: adm.admissionDate ? new Date(adm.admissionDate).toLocaleDateString() : "-",
+                originalFees: (adm.totalExpectedAmount || 0) + (adm.totalWaiver || 0),
+                discountGiven: adm.totalWaiver || 0,
+                committedFees: adm.totalExpectedAmount || 0,
+                remarks: adm.remarks || "",
+                type: "Board"
+            };
+        });
+
+        const detailedReport = [...detailedReportNormal, ...detailedReportBoard].sort((a, b) => {
+            return new Date(b.admissionDate) - new Date(a.admissionDate);
         });
 
         res.status(200).json({
             data: reportData,
             trend: trendData,
             detailedReport,
-            totalDiscount
+            totalDiscount,
+            pivotData: pivotStats
         });
 
     } catch (error) {

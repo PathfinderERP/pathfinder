@@ -36,13 +36,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             $and: [
                 {
                     $gte: [
-                        { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                        { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                         startOfDay
                     ]
                 },
                 {
                     $lte: [
-                        { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                        { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                         endOfDay
                     ]
                 }
@@ -262,9 +262,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 courseName: {
                     $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName"]
                 },
-                mrDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
-                actualReceivedDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
-                effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                mrDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
+                actualReceivedDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
+                effectiveDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                 recordedByName: {
                     $ifNull: [
                         { $arrayElemAt: ["$userInfo.name", 0] },
