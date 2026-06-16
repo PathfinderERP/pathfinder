@@ -12,6 +12,37 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 
+const formatDate = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
+const getTodayRange = () => {
+    const today = new Date();
+    return { start: formatDate(today), end: formatDate(today) };
+};
+
+const getYesterdayRange = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return { start: formatDate(yesterday), end: formatDate(yesterday) };
+};
+
+const getLast7DaysRange = () => {
+    const today = new Date();
+    const last7 = new Date();
+    last7.setDate(today.getDate() - 6);
+    return { start: formatDate(last7), end: formatDate(today) };
+};
+
+const getThisMonthRange = () => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { start: formatDate(start), end: formatDate(today) };
+};
+
 const CourseReport = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
@@ -45,7 +76,7 @@ const CourseReport = () => {
     const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [selectedSession, setSelectedSession] = useState("");
-    const [timePeriod, setTimePeriod] = useState("This Year");
+    const [timePeriod, setTimePeriod] = useState("Today");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
@@ -147,6 +178,22 @@ const CourseReport = () => {
                 if (!startDate || !endDate) return;
                 params.append("startDate", startDate);
                 params.append("endDate", endDate);
+            } else if (timePeriod === "Today") {
+                const { start, end } = getTodayRange();
+                params.append("startDate", start);
+                params.append("endDate", end);
+            } else if (timePeriod === "Yesterday") {
+                const { start, end } = getYesterdayRange();
+                params.append("startDate", start);
+                params.append("endDate", end);
+            } else if (timePeriod === "Last 7 Days") {
+                const { start, end } = getLast7DaysRange();
+                params.append("startDate", start);
+                params.append("endDate", end);
+            } else if (timePeriod === "This Month") {
+                const { start, end } = getThisMonthRange();
+                params.append("startDate", start);
+                params.append("endDate", end);
             } else {
                 const currentYear = new Date().getFullYear();
                 const year = timePeriod === "This Year" ? currentYear : currentYear - 1;
@@ -189,7 +236,7 @@ const CourseReport = () => {
         setSelectedCourses([]);
         setSelectedExamTag("");
         setSelectedSession(sessions.length > 0 ? sessions[0].sessionName : "");
-        setTimePeriod("This Year");
+        setTimePeriod("Today");
         setStartDate("");
         setEndDate("");
     };
@@ -528,6 +575,10 @@ const CourseReport = () => {
                             className={`h-9 px-3 border rounded-md text-sm font-black uppercase tracking-widest outline-none transition-colors border ${isDarkMode ? 'bg-black/20 border-gray-700 text-purple-400' : 'bg-purple-50 border-purple-100 text-purple-700 shadow-sm'
                                 }`}
                         >
+                            <option value="Today">Today</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Last 7 Days">Last 7 Days</option>
+                            <option value="This Month">This Month</option>
                             <option value="This Year">This Year</option>
                             <option value="Last Year">Last Year</option>
                             <option value="Custom">Custom</option>

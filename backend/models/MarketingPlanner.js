@@ -95,8 +95,15 @@ const marketingPlannerSchema = new mongoose.Schema({
     remarks: {
         type: String,
         default: ""
+    },
+    approvedBy: {
+        type: String,
+        default: ""
     }
 }, { timestamps: true });
+
+marketingPlannerSchema.index({ createdAt: -1 });
+marketingPlannerSchema.index({ user: 1, createdAt: -1 });
 
 const MarketingPlanner = mongoose.model("MarketingPlanner", marketingPlannerSchema);
 export default MarketingPlanner;

@@ -162,7 +162,7 @@ const AdmissionCourseReport = () => {
     const [selCentres,  setSelCentres]  = useState([]);
     const [selTags,     setSelTags]     = useState([]);
     const [selectedProgramme, setSelectedProgramme] = useState("");
-    const [timePeriod,  setTimePeriod]  = useState("This Year");
+    const [timePeriod,  setTimePeriod]  = useState("Today");
     const [startDate,   setStartDate]   = useState("");
     const [endDate,     setEndDate]     = useState("");
 
@@ -210,7 +210,7 @@ const AdmissionCourseReport = () => {
     };
 
     // ── build query params ────────────────────────────────────────────────────
-    const buildParams = (tagId = null) => {
+    const buildParams = () => {
         const p = new URLSearchParams();
         if (timePeriod === "Custom") {
             p.append("startDate", startDate);
@@ -233,7 +233,7 @@ const AdmissionCourseReport = () => {
         }
         if (selCentres.length) p.append("centreIds", selCentres.join(","));
         if (selectedProgramme) p.append("programme", selectedProgramme);
-        if (tagId)             p.append("examTagId", tagId);  // backend uses examTagId
+        if (selTags.length)    p.append("examTagIds", selTags.join(","));
         return p.toString();
     };
 
@@ -244,77 +244,45 @@ const AdmissionCourseReport = () => {
         const token = localStorage.getItem("token");
 
         try {
-            // Which tags to query
-            const tagsToFetch = selTags.length > 0
-                ? examTags.filter(t => selTags.includes(t._id))
-                : examTags;
-
-            if (!tagsToFetch.length) {
-                setRows([]); setSummary({ total: 0, tags: 0, centres: 0, courses: 0 });
+            const res = await fetch(
+                `${import.meta.env.VITE_API_URL}/sales/admission-report?${buildParams()}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (!res.ok) {
+                setRows([]);
+                setSummary({ total: 0, tags: 0, centres: 0, courses: 0 });
                 return;
             }
+            const data = await res.json();
 
-            // Parallel fetch — one call per exam tag
-            const results = await Promise.all(
-                tagsToFetch.map(async (tag) => {
-                    try {
-                        const res = await fetch(
-                            `${import.meta.env.VITE_API_URL}/sales/admission-report?${buildParams(tag._id)}`,
-                            { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                        if (!res.ok) return [];
-                        const data = await res.json();
+            const detail = data.detailedTrend || [];
+            const mapped = detail.map(r => ({
+                examTagId:   r.examTagId   || "board",
+                examTagName: r.examTagName || "Board Course",
+                centreName:  r.centre      || "—",
+                courseName:  r.courseName  || "—",
+                className:   r.className   || "—",
+                monthName:   r.monthName   || (r.month ? MONTHS[r.month - 1] : "—"),
+                date:        r.date        || "—",
+                count:       r.count       || 0,
+                downPayment: r.downPayment || 0,
+            }));
 
-                        // detailedTrend: [{ month, monthName, centre, courseName, className, count }]
-                        const detail = data.detailedTrend || [];
+            setRows(mapped);
 
-                        if (detail.length > 0) {
-                            return detail.map(r => ({
-                                examTagId:   tag._id,
-                                examTagName: tag.name,
-                                centreName:  r.centre     || "—",
-                                courseName:  r.courseName || "—",
-                                className:   r.className  || "—",
-                                monthName:   r.monthName  || MONTHS[(r.month || 1) - 1],
-                                date:        r.date       || "—",
-                                count:       r.count      || 0,
-                                downPayment: r.downPayment || 0,
-                            }));
-                        }
-
-                        // Fallback: if no detail, create one aggregate row per tag
-                        const total = (data.status?.admitted || 0);
-                        if (total === 0) return [];
-                        return [{
-                            examTagId:   tag._id,
-                            examTagName: tag.name,
-                            centreName:  "All Centres",
-                            courseName:  "—",
-                            className:   "—",
-                            monthName:   "—",
-                            date:        "—",
-                            count:       total,
-                            downPayment: 0,
-                        }];
-                    } catch { return []; }
-                })
-            );
-
-            const merged = results.flat();
-            setRows(merged);
-
-            const total   = merged.reduce((a, r) => a + r.count, 0);
-            const tags    = new Set(merged.map(r => r.examTagId)).size;
-            const cntrs   = new Set(merged.map(r => r.centreName)).size;
-            const courses  = new Set(merged.map(r => r.courseName)).size;
+            const total   = mapped.reduce((a, r) => a + r.count, 0);
+            const tags    = new Set(mapped.map(r => r.examTagId)).size;
+            const cntrs   = new Set(mapped.map(r => r.centreName)).size;
+            const courses = new Set(mapped.map(r => r.courseName)).size;
             setSummary({ total, tags, centres: cntrs, courses });
         } catch (e) {
             console.error(e);
             setRows([]);
+            setSummary({ total: 0, tags: 0, centres: 0, courses: 0 });
         } finally {
             setLoading(false);
         }
-    }, [selCentres, selTags, timePeriod, startDate, endDate, examTags, selectedProgramme]);
+    }, [selCentres, selTags, timePeriod, startDate, endDate, selectedProgramme]);
 
     // Trigger fetch on filter changes
     useEffect(() => {
@@ -323,7 +291,7 @@ const AdmissionCourseReport = () => {
 
     // ── helpers ───────────────────────────────────────────────────────────────
     const toggle     = setter => id => setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelectedProgramme(""); setTimePeriod("This Year"); setStartDate(""); setEndDate(""); setSearch(""); };
+    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
 
     // Unique tag → index for stable colour
     const tagIndexMap = {};

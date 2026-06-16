@@ -130,7 +130,7 @@ const DiscountReport = () => {
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
     const [selectedExamTags, setSelectedExamTags] = useState([]); // Array of IDs for multi-select
     const [selectedProgramme, setSelectedProgramme] = useState(""); // CRP or NCRP
-    const [timePeriod, setTimePeriod] = useState("This Month"); // Default to "This Month" as per Screenshot 3
+    const [timePeriod, setTimePeriod] = useState("Today"); // Default to "Today"
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 

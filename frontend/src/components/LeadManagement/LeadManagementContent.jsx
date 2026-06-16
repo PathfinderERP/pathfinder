@@ -406,7 +406,9 @@ const LeadManagementContent = () => {
             });
             const schoolData = await schoolResponse.json();
             if (schoolResponse.ok) {
-                setSchoolsList(schoolData.schools || []);
+                const schools = schoolData.schools || [];
+                const sortedSchools = [...schools].sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' }));
+                setSchoolsList(sortedSchools);
             }
         } catch (error) {
             console.error("Error fetching filter data:", error);

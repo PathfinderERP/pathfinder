@@ -36,13 +36,38 @@ const MarketingCRM = () => {
     const [boardPlansLoading, setBoardPlansLoading] = useState(false);
     const [boardPlanDate, setBoardPlanDate] = useState(() => new Date().toISOString().split('T')[0]);
 
+    const [activeTab, setActiveTab] = useState("Command Centre");
+
+    // Audit filter state
+    const [auditSearch, setAuditSearch] = useState("");
+    const [auditFilterType, setAuditFilterType] = useState("All");
+    const [auditFilterOwner, setAuditFilterOwner] = useState("All");
+    const [auditFilterStatus, setAuditFilterStatus] = useState("All");
+
+    // Activity Audit Pagination & Dynamic Filter states
+    const [auditLoading, setAuditLoading] = useState(false);
+    const [auditTypes, setAuditTypes] = useState(["All"]);
+    const [auditOwners, setAuditOwners] = useState(["All"]);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [pageInput, setPageInput] = useState("1");
+    const [totalRecordsBeforeFilters, setTotalRecordsBeforeFilters] = useState(0);
+    const [totalPendingReview, setTotalPendingReview] = useState(0);
+    const [totalApprovedReview, setTotalApprovedReview] = useState(0);
+    const [totalProofUploads, setTotalProofUploads] = useState(0);
+    const [auditDateRange, setAuditDateRange] = useState("Today");
+    const [auditStartDate, setAuditStartDate] = useState("");
+    const [auditEndDate, setAuditEndDate] = useState("");
+
     // Filtered marketing performance data
     const marketingPerformance = allPerformance.filter(u => {
         const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
         const uCentres = u.centres || u.centers || [];
         const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
         return u.role === 'marketing' && matchesSearch && matchesCenter;
-    });
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
 
     // Aggregate summary
     const totalLeads = marketingPerformance.reduce((acc, curr) => acc + (curr.currentCalls || 0), 0);
@@ -222,6 +247,9 @@ const MarketingCRM = () => {
     };
 
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const userRoleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
+    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead"].includes(userRoleLower);
+
     const [planDate, setPlanDate] = useState(getTodayDateString());
     const [expectedLeadTarget, setExpectedLeadTarget] = useState("0");
     const [expectedHotLeads, setExpectedHotLeads] = useState("0");
@@ -536,10 +564,61 @@ const MarketingCRM = () => {
         fetchEmployeeProfile();
     }, []);
 
+    const getDateRangeLimits = (rangeType, customStart, customEnd) => {
+        const today = new Date();
+        const format = (d) => {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+
+        switch (rangeType) {
+            case "Today":
+                return { start: format(today), end: format(today) };
+            case "Yesterday": {
+                const yesterday = new Date();
+                yesterday.setDate(today.getDate() - 1);
+                return { start: format(yesterday), end: format(yesterday) };
+            }
+            case "Last 7 Days": {
+                const sevenAgo = new Date();
+                sevenAgo.setDate(today.getDate() - 6);
+                return { start: format(sevenAgo), end: format(today) };
+            }
+            case "This Month": {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                return { start: format(firstDay), end: format(lastDay) };
+            }
+            case "This Year": {
+                const firstDay = new Date(today.getFullYear(), 0, 1);
+                const lastDay = new Date(today.getFullYear(), 11, 31);
+                return { start: format(firstDay), end: format(lastDay) };
+            }
+            case "Custom":
+                return { start: customStart || "", end: customEnd || "" };
+            default:
+                return { start: "", end: "" };
+        }
+    };
+
     const fetchAuditRecords = async () => {
+        setAuditLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
+            const dateLimits = getDateRangeLimits(auditDateRange, auditStartDate, auditEndDate);
+            const params = new URLSearchParams({
+                page: currentPage,
+                limit: itemsPerPage,
+                search: auditSearch,
+                type: auditFilterType,
+                owner: auditFilterOwner,
+                status: auditFilterStatus,
+                startDate: dateLimits.start,
+                endDate: dateLimits.end
+            });
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
@@ -550,16 +629,73 @@ const MarketingCRM = () => {
                     data.records.forEach(r => {
                         fetchedApprovals[r.id] = {
                             status: r.status || "Pending",
-                            remarks: r.remarks || ""
+                            remarks: r.remarks || "",
+                            approvedBy: r.approvedBy || ""
                         };
                     });
-                    setApprovalState(fetchedApprovals);
+                    setApprovalState(prev => ({ ...prev, ...fetchedApprovals }));
+                    setTotalRecords(data.totalRecords || 0);
+                    setTotalPages(data.totalPages || 1);
+                    setAuditTypes(data.uniqueTypes || ["All"]);
+                    setAuditOwners(data.uniqueOwners || ["All"]);
+                    setTotalRecordsBeforeFilters(data.totalRecordsBeforeFilters || 0);
+                    setTotalPendingReview(data.totalPending || 0);
+                    setTotalApprovedReview(data.totalApproved || 0);
+                    setTotalProofUploads(data.totalPhotos || 0);
                 }
             }
         } catch (error) {
             console.error("Error fetching audit records:", error);
+        } finally {
+            setAuditLoading(false);
         }
     };
+
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+            setPageInput(newPage.toString());
+        }
+    };
+
+    const handlePageInputChange = (e) => {
+        setPageInput(e.target.value);
+    };
+
+    const handlePageInputSubmit = (e) => {
+        e.preventDefault();
+        const pageNum = parseInt(pageInput);
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+            setCurrentPage(pageNum);
+        } else {
+            setPageInput(currentPage.toString());
+            toast.error(`Please enter a page number between 1 and ${totalPages}`);
+        }
+    };
+
+    const handleItemsPerPageChange = (e) => {
+        setItemsPerPage(parseInt(e.target.value));
+        setCurrentPage(1);
+        setPageInput("1");
+    };
+
+    // Debounced search/filter watcher
+    useEffect(() => {
+        if (activeTab !== "Activity Audit") return;
+
+        const debounce = setTimeout(() => {
+            fetchAuditRecords();
+        }, 300);
+
+        return () => clearTimeout(debounce);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditDateRange, auditStartDate, auditEndDate]);
+
+    // Reset current page to 1 on filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+        setPageInput("1");
+    }, [auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditDateRange, auditStartDate, auditEndDate]);
 
     const handleUpdateApprovalStatus = async (recordId, newStatus) => {
         try {
@@ -574,17 +710,27 @@ const MarketingCRM = () => {
             });
 
             if (response.ok) {
+                const resData = await response.json();
+                const updatedRecord = resData.data || {};
                 setApprovalState(prev => ({
                     ...prev,
-                    [recordId]: { ...prev[recordId], status: newStatus }
+                    [recordId]: { ...prev[recordId], status: updatedRecord.status || newStatus, approvedBy: updatedRecord.approvedBy || "" }
                 }));
                 if (newStatus === "Approved") {
                     toast.success("Activity approved!");
                 } else {
                     toast.error("Activity rejected.");
                 }
+                fetchAuditRecords();
             } else {
-                toast.error("Failed to update status in database.");
+                let errMsg = "Failed to update status in database.";
+                try {
+                    const errData = await response.json();
+                    if (errData.error || errData.message) {
+                        errMsg = errData.error || errData.message;
+                    }
+                } catch (e) {}
+                toast.error(errMsg);
             }
         } catch (error) {
             console.error("Error updating approval status:", error);
@@ -605,9 +751,22 @@ const MarketingCRM = () => {
             });
 
             if (response.ok) {
+                const resData = await response.json();
+                const updatedRecord = resData.data || {};
+                setApprovalState(prev => ({
+                    ...prev,
+                    [recordId]: { ...prev[recordId], remarks: updatedRecord.remarks || remarksValue, approvedBy: updatedRecord.approvedBy || "" }
+                }));
                 toast.success("Remarks saved.");
             } else {
-                toast.error("Failed to save remarks to database.");
+                let errMsg = "Failed to save remarks to database.";
+                try {
+                    const errData = await response.json();
+                    if (errData.error || errData.message) {
+                        errMsg = errData.error || errData.message;
+                    }
+                } catch (e) {}
+                toast.error(errMsg);
             }
         } catch (error) {
             console.error("Error saving remarks:", error);
@@ -661,7 +820,7 @@ const MarketingCRM = () => {
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    date: planDate,
+                    date: getTodayDateString(),
                     expectedLeadTarget: Number(expectedLeadTarget || 0),
                     expectedHotLeads: Number(expectedHotLeads || 0),
                     activities: activitiesPayload
@@ -675,7 +834,7 @@ const MarketingCRM = () => {
 
                     const newApprovals = {};
                     data.records.forEach(r => {
-                        newApprovals[r.id] = { status: r.status || "Pending", remarks: r.remarks || "" };
+                        newApprovals[r.id] = { status: r.status || "Pending", remarks: r.remarks || "", approvedBy: r.approvedBy || "" };
                     });
                     setApprovalState(prev => ({ ...prev, ...newApprovals }));
 
@@ -729,11 +888,7 @@ const MarketingCRM = () => {
     // approval state keyed by record index: { status: 'Pending'|'Approved'|'Rejected', remarks: '' }
     const [approvalState, setApprovalState] = useState({});
 
-    // Audit filter state
-    const [auditSearch, setAuditSearch] = useState("");
-    const [auditFilterType, setAuditFilterType] = useState("All");
-    const [auditFilterOwner, setAuditFilterOwner] = useState("All");
-    const [auditFilterStatus, setAuditFilterStatus] = useState("All");
+
 
     const handleOpenVerifyModal = (idx) => {
         const activity = todayActivities[idx];
@@ -985,7 +1140,6 @@ const MarketingCRM = () => {
     };
 
     const [selectedStaff, setSelectedStaff] = useState(marketingPerformance[0] || null);
-    const [activeTab, setActiveTab] = useState("Command Centre");
     const [todayActivities, setTodayActivities] = useState([
         {
             type: "",
@@ -1121,13 +1275,12 @@ const MarketingCRM = () => {
 
                     <div className="max-w-[1600px] mx-auto p-8 space-y-8">
                         {/* KPI ROW */}
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {[
                                 { label: "TOTAL LEADS", value: totalLeads, sub: "200 target across team", color: "text-emerald-500" },
-                                { label: "HOT LEADS", value: totalHotLeads, sub: "High conversion priority", color: "text-orange-500" },
-                                { label: "PROOF UPLOADS", value: "92", sub: "Photos and documents", color: "text-blue-500" },
-                                { label: "PENDING REVIEW", value: "2", sub: "Need CI/ZM action", color: "text-red-500" },
-                                { label: "RED FLAGS", value: "2", sub: "Immediate escalation", color: "text-red-500" }
+                                { label: "PROOF UPLOADS", value: totalProofUploads, sub: "Photos uploaded as proof", color: "text-blue-500" },
+                                { label: "PENDING REVIEW", value: totalPendingReview, sub: "Need ZM action", color: "text-red-500" },
+                                { label: "APPROVED REVIEW", value: totalApprovedReview, sub: "Approved activities", color: "text-emerald-500" }
                             ].map((kpi, idx) => (
                                 <div key={idx} className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'} transition-all hover:scale-[1.02]`}>
                                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{kpi.label}</p>
@@ -1433,15 +1586,17 @@ const MarketingCRM = () => {
                                                     </div>
 
                                                     {/* Manager Decision */}
-                                                    <div className={`pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                                        <h4 className={`text-sm font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                            <button className="px-4 py-3 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-emerald-400 transition-all active:scale-95">Approve Work</button>
-                                                            <button className="px-4 py-3 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-orange-400 transition-all active:scale-95">Ask Clarification</button>
-                                                            <button className="px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-red-400 transition-all active:scale-95">Raise Red Flag</button>
-                                                            <button className={`px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-black hover:bg-gray-800'}`}>Assign Follow-up</button>
+                                                    {canApproveOrReject && (
+                                                        <div className={`pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                            <h4 className={`text-sm font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                                <button className="px-4 py-3 rounded-xl bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-emerald-400 transition-all active:scale-95">Approve Work</button>
+                                                                <button className="px-4 py-3 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-orange-400 transition-all active:scale-95">Ask Clarification</button>
+                                                                <button className="px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg hover:bg-red-400 transition-all active:scale-95">Raise Red Flag</button>
+                                                                <button className={`px-4 py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-black hover:bg-gray-800'}`}>Assign Follow-up</button>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
                                             );
                                         })() : (
@@ -2240,23 +2395,11 @@ const MarketingCRM = () => {
 
                         {/* ACTIVITY AUDIT VIEW */}
                         {activeTab === "Activity Audit" && (() => {
-                            // Build unique dropdown options from live data
-                            const auditTypes = ["All", ...Array.from(new Set(auditRecords.map(r => r.type).filter(Boolean)))];
-                            const auditOwners = ["All", ...Array.from(new Set(auditRecords.map(r => r.owner).filter(Boolean)))];
                             const auditStatuses = ["All", "Pending", "Approved", "Rejected"];
 
                             // Apply search + filters
-                            const q = auditSearch.trim().toLowerCase();
-                            const filteredAuditRecords = auditRecords.filter(row => {
-                                const approval = approvalState[row.id] || { status: "Pending" };
-                                const matchesSearch = !q || row.institution?.toLowerCase().includes(q) || row.owner?.toLowerCase().includes(q);
-                                const matchesType = auditFilterType === "All" || row.type === auditFilterType;
-                                const matchesOwner = auditFilterOwner === "All" || row.owner === auditFilterOwner;
-                                const matchesStatus = auditFilterStatus === "All" || approval.status === auditFilterStatus;
-                                return matchesSearch && matchesType && matchesOwner && matchesStatus;
-                            });
-
-                            const filtersActive = auditSearch || auditFilterType !== "All" || auditFilterOwner !== "All" || auditFilterStatus !== "All";
+                            const filteredAuditRecords = auditRecords;
+                            const filtersActive = auditSearch || auditFilterType !== "All" || auditFilterOwner !== "All" || auditFilterStatus !== "All" || auditDateRange !== "Today" || auditStartDate || auditEndDate;
 
                             const selectCls = `px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'
                                 }`;
@@ -2270,12 +2413,12 @@ const MarketingCRM = () => {
                                             <p className="text-gray-500 text-[11px] font-bold mt-1">Every submitted field plan is audited here — plan time vs actual time, proof photos, leads and CI/ZM approval.</p>
                                         </div>
                                         <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full self-start md:self-auto ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
-                                            {filteredAuditRecords.length} / {auditRecords.length} Record{auditRecords.length !== 1 ? 's' : ''}
+                                            {totalRecords} Record{totalRecords !== 1 ? 's' : ''}
                                         </span>
                                     </div>
 
                                     {/* Search + Filter bar */}
-                                    {auditRecords.length > 0 && (
+                                    {(totalRecordsBeforeFilters > 0 || filtersActive) && (
                                         <div className={`p-4 rounded-2xl border flex flex-wrap gap-3 items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                             {/* Search */}
                                             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border flex-1 min-w-[200px] transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 focus-within:border-blue-500' : 'bg-white border-gray-200 focus-within:border-black'
@@ -2297,6 +2440,48 @@ const MarketingCRM = () => {
                                                     </button>
                                                 )}
                                             </div>
+
+                                            {/* Date Range filter */}
+                                            <div className="relative">
+                                                <select
+                                                    value={auditDateRange}
+                                                    onChange={e => {
+                                                        setAuditDateRange(e.target.value);
+                                                        if (e.target.value !== "Custom") {
+                                                            setAuditStartDate("");
+                                                            setAuditEndDate("");
+                                                        }
+                                                    }}
+                                                    className={selectCls}
+                                                >
+                                                    {["All", "Today", "Yesterday", "Last 7 Days", "This Month", "This Year", "Custom"].map(d => <option key={d}>{d}</option>)}
+                                                </select>
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Date Range</span>
+                                            </div>
+
+                                            {/* Custom Date Pickers */}
+                                            {auditDateRange === "Custom" && (
+                                                <>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="date"
+                                                            value={auditStartDate}
+                                                            onChange={e => setAuditStartDate(e.target.value)}
+                                                            className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'}`}
+                                                        />
+                                                        <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>From</span>
+                                                    </div>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="date"
+                                                            value={auditEndDate}
+                                                            onChange={e => setAuditEndDate(e.target.value)}
+                                                            className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'}`}
+                                                        />
+                                                        <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>To</span>
+                                                    </div>
+                                                </>
+                                            )}
 
                                             {/* Type filter */}
                                             <div className="relative">
@@ -2328,7 +2513,15 @@ const MarketingCRM = () => {
                                             {/* Clear filters */}
                                             {filtersActive && (
                                                 <button
-                                                    onClick={() => { setAuditSearch(""); setAuditFilterType("All"); setAuditFilterOwner("All"); setAuditFilterStatus("All"); }}
+                                                    onClick={() => {
+                                                        setAuditSearch("");
+                                                        setAuditFilterType("All");
+                                                        setAuditFilterOwner("All");
+                                                        setAuditFilterStatus("All");
+                                                        setAuditDateRange("Today");
+                                                        setAuditStartDate("");
+                                                        setAuditEndDate("");
+                                                    }}
                                                     className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-all active:scale-95"
                                                 >
                                                     Clear Filters
@@ -2337,7 +2530,7 @@ const MarketingCRM = () => {
                                         </div>
                                     )}
 
-                                    {auditRecords.length === 0 ? (
+                                    {auditRecords.length === 0 && !auditLoading && totalRecordsBeforeFilters === 0 ? (
                                         <div className={`p-16 rounded-[24px] border flex flex-col items-center justify-center gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                             <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 text-gray-400">
@@ -2358,6 +2551,7 @@ const MarketingCRM = () => {
                                                 <table className="w-full text-left border-collapse min-w-[1350px]">
                                                     <thead>
                                                         <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
+                                                            <th className="px-5 py-4 whitespace-nowrap">Date</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Type</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Institution</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Owner</th>
@@ -2369,14 +2563,21 @@ const MarketingCRM = () => {
                                                             <th className="px-5 py-4 whitespace-nowrap">Leads</th>
                                                             <th className="px-5 py-4 whitespace-nowrap min-w-[140px]">Proof</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Status</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Approved By</th>
                                                             <th className="px-5 py-4 whitespace-nowrap min-w-[180px]">Remarks</th>
-                                                            <th className="px-5 py-4 whitespace-nowrap min-w-[180px]">Action</th>
+                                                            {canApproveOrReject && <th className="px-5 py-4 whitespace-nowrap min-w-[180px]">Action</th>}
                                                         </tr>
                                                     </thead>
                                                     <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
-                                                        {filteredAuditRecords.length === 0 ? (
+                                                        {auditLoading ? (
                                                             <tr>
-                                                                <td colSpan={13} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 15 : 14} className="px-5 py-12 text-center">
+                                                                    <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading audit records...</span>
+                                                                </td>
+                                                            </tr>
+                                                        ) : filteredAuditRecords.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={canApproveOrReject ? 15 : 14} className="px-5 py-12 text-center">
                                                                     <div className="flex flex-col items-center gap-2 text-gray-400">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
@@ -2388,136 +2589,201 @@ const MarketingCRM = () => {
                                                                     </div>
                                                                 </td>
                                                             </tr>
-                                                        ) : filteredAuditRecords.map((row, idx) => {
-                                                            const approval = approvalState[row.id] || { status: "Pending", remarks: "" };
-                                                            const statusColors = {
-                                                                Pending: "text-orange-500 bg-orange-500/10 border-orange-500/20",
-                                                                Approved: "text-green-500 bg-green-500/10 border-green-500/20",
-                                                                Rejected: "text-red-500 bg-red-500/10 border-red-500/20"
-                                                            };
-                                                            // Collect all photos for this row
-                                                            const allPhotos = row.photos?.length > 0 ? row.photos : (row.photo ? [row.photo] : []);
-                                                            return (
-                                                                <tr key={row.id} className={`${isDarkMode ? 'text-gray-300 hover:bg-gray-800/20' : 'text-gray-700 hover:bg-gray-50/70'} transition-colors align-top`}>
-                                                                    {/* Type */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap">
-                                                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
-                                                                            {row.type || '—'}
-                                                                        </span>
-                                                                    </td>
-                                                                    {/* Institution */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap max-w-[160px] truncate" title={row.institution}>{row.institution}</td>
-                                                                    {/* Owner */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[8px] font-black flex-shrink-0">
-                                                                                {row.owner?.charAt(0).toUpperCase()}
+                                                        ) : (
+                                                            filteredAuditRecords.map((row, idx) => {
+                                                                const approval = approvalState[row.id] || { status: "Pending", remarks: "" };
+                                                                const statusColors = {
+                                                                    Pending: "text-orange-500 bg-orange-500/10 border-orange-500/20",
+                                                                    Approved: "text-green-500 bg-green-500/10 border-green-500/20",
+                                                                    Rejected: "text-red-500 bg-red-500/10 border-red-500/20"
+                                                                };
+                                                                const allPhotos = row.photos?.length > 0 ? row.photos : (row.photo ? [row.photo] : []);
+                                                                return (
+                                                                    <tr key={row.id} className={`${isDarkMode ? 'text-gray-300 hover:bg-gray-800/20' : 'text-gray-700 hover:bg-gray-50/70'} transition-colors align-top`}>
+                                                                        <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-gray-500">
+                                                                            {row.date || '—'}
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                                                                {row.type || '—'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap max-w-[160px] truncate" title={row.institution}>{row.institution}</td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[8px] font-black flex-shrink-0">
+                                                                                    {row.owner?.charAt(0).toUpperCase()}
+                                                                                </div>
+                                                                                <span>{row.owner}</span>
                                                                             </div>
-                                                                            <span>{row.owner}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    {/* Plan Time */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px]">{row.plan}</td>
-                                                                    {/* Actual Time */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap">
-                                                                        <span className="font-mono text-[10px] text-blue-500 font-black">{row.actual}</span>
-                                                                    </td>
-                                                                    {/* Duration */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap text-gray-500 font-mono text-[10px]">{row.estimatedDuration || '—'}</td>
-                                                                    {/* Notes */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap max-w-[150px] truncate text-gray-500" title={row.notes}>{row.notes || '—'}</td>
-                                                                    {/* Priority */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap">
-                                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                                                                            row.priority === 'High' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
-                                                                            row.priority === 'Low' ? 'bg-gray-500/10 text-gray-500 border border-gray-500/20' :
-                                                                            'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                                                        }`}>
-                                                                            {row.priority || 'Medium'}
-                                                                        </span>
-                                                                    </td>
-                                                                    {/* Leads */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap">
-                                                                        <span className="font-black">{row.leads}</span>
-                                                                    </td>
-                                                                    {/* Proof — all photos as thumbnails */}
-                                                                    <td className="px-5 py-4">
-                                                                        {allPhotos.length > 0 ? (
-                                                                            <div className="flex flex-wrap gap-1.5">
-                                                                                {allPhotos.map((ph, pIdx) => (
-                                                                                    <div
-                                                                                        key={pIdx}
-                                                                                        className="group relative w-11 h-11 rounded-lg overflow-hidden border-2 border-green-400/40 cursor-pointer flex-shrink-0"
-                                                                                        onClick={() => setPreviewImage(ph)}
-                                                                                        title={`Photo ${pIdx + 1}`}
-                                                                                    >
-                                                                                        <img src={ph} alt={`Proof ${pIdx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                                                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                                                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
-                                                                                            </svg>
-                                                                                        </div>
-                                                                                        {allPhotos.length > 1 && (
-                                                                                            <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[7px] font-black px-1 rounded-sm leading-tight">
-                                                                                                {pIdx + 1}
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px]">{row.plan}</td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            <span className="font-mono text-[10px] text-blue-500 font-black">{row.actual}</span>
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap text-gray-500 font-mono text-[10px]">{row.estimatedDuration || '—'}</td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap max-w-[150px] truncate text-gray-500" title={row.notes}>{row.notes || '—'}</td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                                                                                row.priority === 'High' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                                                                                row.priority === 'Low' ? 'bg-gray-500/10 text-gray-500 border border-gray-500/20' :
+                                                                                'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                                                                            }`}>
+                                                                                {row.priority || 'Medium'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            <span className="font-black">{row.leads}</span>
+                                                                        </td>
+                                                                        <td className="px-5 py-4">
+                                                                            {allPhotos.length > 0 ? (
+                                                                                <div className="flex flex-wrap gap-1.5">
+                                                                                    {allPhotos.map((ph, pIdx) => (
+                                                                                        <div
+                                                                                            key={pIdx}
+                                                                                            className="group relative w-11 h-11 rounded-lg overflow-hidden border-2 border-green-400/40 cursor-pointer flex-shrink-0"
+                                                                                            onClick={() => setPreviewImage(ph)}
+                                                                                            title={`Photo ${pIdx + 1}`}
+                                                                                        >
+                                                                                            <img src={ph} alt={`Proof ${pIdx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                                                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                                                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+                                                                                                </svg>
                                                                                             </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-[9px] text-gray-400 font-bold uppercase">No photo</span>
+                                                                                            {allPhotos.length > 1 && (
+                                                                                                <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[7px] font-black px-1 rounded-sm leading-tight">
+                                                                                                    {pIdx + 1}
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <span className="text-[9px] text-gray-400 font-bold uppercase">No photo</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            <span className={`px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusColors[approval.status]}`}>
+                                                                                {approval.status}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap text-gray-500 font-semibold">
+                                                                            {approval.approvedBy || '—'}
+                                                                        </td>
+                                                                        <td className="px-5 py-4 min-w-[180px]">
+                                                                            {canApproveOrReject ? (
+                                                                                <input
+                                                                                    type="text"
+                                                                                    placeholder="Add remarks…"
+                                                                                    value={approval.remarks}
+                                                                                    onChange={(e) => setApprovalState(prev => ({
+                                                                                        ...prev,
+                                                                                        [row.id]: { ...prev[row.id], remarks: e.target.value }
+                                                                                    }))}
+                                                                                    onBlur={(e) => handleSaveRemarks(row.id, e.target.value)}
+                                                                                    className={`w-full px-3 py-2 rounded-lg border text-[10px] outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-black placeholder-gray-400'}`}
+                                                                                />
+                                                                            ) : (
+                                                                                <span className={`text-[11px] ${approval.remarks ? '' : 'text-gray-400 italic'}`}>
+                                                                                    {approval.remarks || 'No remarks'}
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                        {canApproveOrReject && (
+                                                                            <td className="px-5 py-4 min-w-[180px]">
+                                                                                <div className="flex gap-2">
+                                                                                    <button
+                                                                                        onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
+                                                                                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Approved"
+                                                                                            ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
+                                                                                            : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
+                                                                                            }`}
+                                                                                    >
+                                                                                        ✓ Approve
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
+                                                                                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Rejected"
+                                                                                            ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
+                                                                                            : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
+                                                                                            }`}
+                                                                                    >
+                                                                                        ✕ Reject
+                                                                                    </button>
+                                                                                </div>
+                                                                            </td>
                                                                         )}
-                                                                    </td>
-                                                                    {/* Status — badge only */}
-                                                                    <td className="px-5 py-4 whitespace-nowrap">
-                                                                        <span className={`px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusColors[approval.status]}`}>
-                                                                            {approval.status}
-                                                                        </span>
-                                                                    </td>
-                                                                    {/* Remarks — separate column */}
-                                                                    <td className="px-5 py-4 min-w-[180px]">
-                                                                        <input
-                                                                            type="text"
-                                                                            placeholder="Add remarks…"
-                                                                            value={approval.remarks}
-                                                                            onChange={(e) => setApprovalState(prev => ({
-                                                                                ...prev,
-                                                                                [row.id]: { ...prev[row.id], remarks: e.target.value }
-                                                                            }))}
-                                                                            onBlur={(e) => handleSaveRemarks(row.id, e.target.value)}
-                                                                            className={`w-full px-3 py-2 rounded-lg border text-[10px] outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-blue-500 placeholder-gray-600' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-black placeholder-gray-400'}`}
-                                                                        />
-                                                                    </td>
-                                                                    {/* Action — Approve + Reject buttons */}
-                                                                    <td className="px-5 py-4 min-w-[180px]">
-                                                                        <div className="flex gap-2">
-                                                                            <button
-                                                                                onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
-                                                                                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Approved"
-                                                                                    ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
-                                                                                    : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
-                                                                                    }`}
-                                                                            >
-                                                                                ✓ Approve
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
-                                                                                className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Rejected"
-                                                                                    ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
-                                                                                    : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
-                                                                                    }`}
-                                                                            >
-                                                                                ✕ Reject
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
+                                                                    </tr>
+                                                                );
+                                                            })
+                                                        )}
                                                     </tbody>
                                                 </table>
                                             </div>
+
+                                            {/* Pagination Controls */}
+                                            {totalRecords > 0 && (
+                                                <div className={`px-6 py-4 flex flex-wrap items-center justify-between gap-4 ${isDarkMode ? 'bg-[#111318] border-t border-gray-800' : 'bg-gray-50 border-t border-gray-200'}`}>
+                                                    {/* Left: Items per page */}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'} font-medium`}>Show</span>
+                                                        <select
+                                                            value={itemsPerPage}
+                                                            onChange={handleItemsPerPageChange}
+                                                            className={`rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-[#15181f] border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-slate-900'}`}
+                                                        >
+                                                            <option value={10}>10</option>
+                                                            <option value={25}>25</option>
+                                                            <option value={50}>50</option>
+                                                            <option value={100}>100</option>
+                                                        </select>
+                                                        <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'} font-medium`}>entries</span>
+                                                    </div>
+
+                                                    {/* Center: Page info and navigation */}
+                                                    <div className="flex items-center gap-4">
+                                                        <button
+                                                            onClick={() => handlePageChange(currentPage - 1)}
+                                                            disabled={currentPage === 1}
+                                                            className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${isDarkMode ? 'bg-[#15181f] border border-gray-700 text-white hover:bg-slate-800' : 'bg-white border-gray-300 text-slate-700 hover:bg-gray-50'}`}
+                                                        >
+                                                            Previous
+                                                        </button>
+
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>Page</span>
+                                                            <form onSubmit={handlePageInputSubmit} className="flex items-center gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={pageInput}
+                                                                    onChange={handlePageInputChange}
+                                                                    className={`w-16 px-2 py-1 rounded-md text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-[#15181f] border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-slate-900'}`}
+                                                                />
+                                                                <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>of {totalPages}</span>
+                                                            </form>
+                                                        </div>
+
+                                                        <button
+                                                            onClick={() => handlePageChange(currentPage + 1)}
+                                                            disabled={currentPage === totalPages}
+                                                            className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${isDarkMode ? 'bg-[#15181f] border border-gray-700 text-white hover:bg-slate-800' : 'bg-white border-gray-300 text-slate-700 hover:bg-gray-50'}`}
+                                                        >
+                                                            Next
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Right: Showing info */}
+                                                    <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                                                        Showing <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                                                        <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{Math.min(currentPage * itemsPerPage, totalRecords)}</span> of{" "}
+                                                        <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{totalRecords}</span> entries
+                                                        {totalRecordsBeforeFilters > totalRecords && (
+                                                            <span className="ml-2 text-gray-400 font-bold text-xs">({totalRecordsBeforeFilters} total)</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

@@ -21,6 +21,7 @@ export const getAdmissionReport = async (req, res) => {
             subjectIds, // comma separated or array
             boardIds,  // comma separated or array
             examTagId,
+            examTagIds,
             programme
         } = req.query;
 
@@ -137,12 +138,19 @@ export const getAdmissionReport = async (req, res) => {
         }
 
         // Exam Tag Filter
-        if (examTagId && mongoose.Types.ObjectId.isValid(examTagId)) {
-            const eId = new mongoose.Types.ObjectId(examTagId);
-            admissionQuery.examTag = eId;
-            const tagDoc = await ExamTag.findById(eId);
-            if (tagDoc) {
-                leadQuery.targetExam = tagDoc.examName;
+        const rawTagInput = examTagIds || examTagId;
+        if (rawTagInput) {
+            const rawTagIds = typeof rawTagInput === 'string' ? rawTagInput.split(',') : rawTagInput;
+            const validTagIds = rawTagIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validTagIds.length > 0) {
+                const objectTagIds = validTagIds.map(id => new mongoose.Types.ObjectId(id));
+                admissionQuery.examTag = { $in: objectTagIds };
+                
+                const tagDocs = await ExamTag.find({ _id: { $in: objectTagIds } }).select("examName");
+                const examNames = tagDocs.map(t => t.examName).filter(Boolean);
+                if (examNames.length > 0) {
+                    leadQuery.targetExam = { $in: examNames };
+                }
             }
         }
 
@@ -325,16 +333,48 @@ export const getAdmissionReport = async (req, res) => {
                 }
             },
             {
+                $addFields: {
+                    courseObjectId: {
+                        $cond: {
+                            if: { $and: [{ $ne: ["$course", null] }, { $ne: ["$course", ""] }] },
+                            then: { $toObjectId: "$course" },
+                            else: null
+                        }
+                    },
+                    examTagObjectId: {
+                        $cond: {
+                            if: { $and: [{ $ne: ["$examTag", null] }, { $ne: ["$examTag", ""] }] },
+                            then: { $toObjectId: "$examTag" },
+                            else: null
+                        }
+                    },
+                    classObjectId: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $ne: ["$class", null] },
+                                    { $ne: ["$class", ""] },
+                                    { $ne: ["$admissionType", "BOARD"] }
+                                ]
+                            },
+                            then: { $toObjectId: "$class" },
+                            else: null
+                        }
+                    }
+                }
+            },
+            {
                 $group: {
                     _id: {
                         date: { $dateToString: { format: "%d-%m-%Y", date: "$admissionDate" } },
                         month: { $month: "$admissionDate" },
                         centre: "$centre",
-                        course: "$course",
+                        course: "$courseObjectId",
                         class: "$class",
+                        classObjectId: "$classObjectId",
                         boardCourseName: "$boardCourseName",
                         admissionType: "$admissionType",
-                        examTag: "$examTag"
+                        examTag: "$examTagObjectId"
                     },
                     count: { $sum: 1 },
                     downPaymentTotal: { $sum: { $ifNull: ["$downPayment", 0] } }
@@ -352,7 +392,7 @@ export const getAdmissionReport = async (req, res) => {
             {
                 $lookup: {
                     from: "classes",
-                    localField: "_id.class",
+                    localField: "_id.classObjectId",
                     foreignField: "_id",
                     as: "classInfo"
                 }
@@ -372,6 +412,8 @@ export const getAdmissionReport = async (req, res) => {
                     date: "$_id.date",
                     month: "$_id.month",
                     centre: "$_id.centre",
+                    examTagId: { $ifNull: ["$_id.examTag", "board"] },
+                    examTagName: { $ifNull: ["$examTagInfo.name", "$_id.boardCourseName", "Board Course"] },
                     courseName: { $ifNull: ["$courseInfo.courseName", "$_id.boardCourseName", "$examTagInfo.name", "Generic Admission"] },
                     className: { $ifNull: ["$classInfo.name", { $cond: [{ $eq: ["$_id.admissionType", "BOARD"] }, "Board", "N/A"] }] },
                     count: "$count",

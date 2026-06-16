@@ -140,7 +140,7 @@ const AverageAdmissionFee = () => {
     const [selCentres, setSelectedCentres]   = useState([]);
     const [selTags, setSelectedTags]         = useState([]);
     const [selectedProgramme, setSelectedProgramme] = useState("");
-    const [timePeriod, setTimePeriod]        = useState("This Month");
+    const [timePeriod, setTimePeriod]        = useState("Today");
     const [startDate, setStartDate]          = useState("");
     const [endDate, setEndDate]              = useState("");
     const [search, setSearch]                = useState("");
