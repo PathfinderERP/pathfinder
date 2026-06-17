@@ -119,6 +119,14 @@ const MarketingCRM = () => {
         // eslint-disable-next-line
     }, [timePeriod, selectedCenters]);
 
+    // Auto-fetch today plan whenever Today Task tab is activated
+    useEffect(() => {
+        if (activeTab === "Today Task") {
+            fetchTodayPlanActivities();
+        }
+        // eslint-disable-next-line
+    }, [activeTab]);
+
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -256,6 +264,8 @@ const MarketingCRM = () => {
     const [primaryCentreName, setPrimaryCentreName] = useState("");
     const [activitySources, setActivitySources] = useState([]);
     const [todayTaskSubmitted, setTodayTaskSubmitted] = useState(false);
+    const [submittedActivities, setSubmittedActivities] = useState([]); // holds submitted records for rich display
+    const [todayTaskLoading, setTodayTaskLoading] = useState(false);
 
     // Tomorrow Planner States
     const [tomorrowPlanDate, setTomorrowPlanDate] = useState(getTomorrowDateString());
@@ -295,39 +305,43 @@ const MarketingCRM = () => {
     };
 
     const fetchTodayPlanActivities = async () => {
+        setTodayTaskLoading(true);
         try {
             const token = localStorage.getItem("token");
+            const todayStr = getTodayDateString();
 
-            // Check if there are already submitted activities in auditRecords for this date and user
-            const auditRes = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            let alreadySubmitted = false;
+            // Step 1: Check if activities have already been submitted today (in planner/audit records)
+            const auditRes = await fetch(
+                `${import.meta.env.VITE_API_URL}/lead-management/planner?startDate=${todayStr}&endDate=${todayStr}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
             if (auditRes.ok) {
                 const auditData = await auditRes.json();
-                if (auditData.records) {
-                    setAuditRecords(auditData.records);
-                    alreadySubmitted = auditData.records.some(r => {
-                        const recUser = r.user?._id || r.user || "";
-                        const currentUserId = currentUser._id || currentUser.id || "";
-                        return r.date === planDate && recUser.toString() === currentUserId.toString();
-                    });
+                const todayRecords = (auditData.records || []).filter(r => r.date === todayStr);
+                if (todayRecords.length > 0) {
+                    // Already submitted — show the rich submitted view
+                    setTodayTaskSubmitted(true);
+                    setSubmittedActivities(todayRecords);
+                    setTodayActivities([]);
+                    setTodayTaskLoading(false);
+                    return;
                 }
             }
 
-            if (alreadySubmitted) {
-                setTodayTaskSubmitted(true);
-                setTodayActivities([]);
-                return;
-            }
-
+            // Step 2: Not yet submitted — fetch Tomorrow Planner tasks where date = today
             setTodayTaskSubmitted(false);
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/my-plan?date=${planDate}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
+            setSubmittedActivities([]);
+
+            const planRes = await fetch(
+                `${import.meta.env.VITE_API_URL}/tomorrow-planner/my-plan?date=${todayStr}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (planRes.ok) {
+                const data = await planRes.json();
                 if (data.plan && data.plan.tasks && data.plan.tasks.length > 0) {
+                    // Pre-populate from Tomorrow Planner tasks (evidence fields are blank — user fills in field)
                     const mapped = data.plan.tasks.map(task => ({
                         type: task.activityType || "",
                         place: task.place || "",
@@ -338,7 +352,10 @@ const MarketingCRM = () => {
                         latitude: null,
                         longitude: null,
                         locationName: "",
+                        photos: [],
                         photo: null,
+                        actualTime: "",
+                        captureDateTime: "",
                         estimatedDuration: task.estimatedDuration || "",
                         notes: task.notes || "",
                         priority: task.priority || "Medium",
@@ -346,6 +363,7 @@ const MarketingCRM = () => {
                     }));
                     setTodayActivities(mapped);
                 } else {
+                    // No plan found for today — start with one blank row
                     setTodayActivities([{
                         type: activitySources[0] || "School Visit",
                         place: "",
@@ -356,7 +374,10 @@ const MarketingCRM = () => {
                         latitude: null,
                         longitude: null,
                         locationName: "",
+                        photos: [],
                         photo: null,
+                        actualTime: "",
+                        captureDateTime: "",
                         estimatedDuration: "",
                         notes: "",
                         priority: "Medium"
@@ -365,6 +386,8 @@ const MarketingCRM = () => {
             }
         } catch (error) {
             console.error("Error fetching today's plan activities:", error);
+        } finally {
+            setTodayTaskLoading(false);
         }
     };
 
@@ -829,25 +852,24 @@ const MarketingCRM = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                if (data.records) {
-                    setAuditRecords(prev => [...data.records, ...prev]);
+                const savedRecords = data.records || [];
 
+                if (savedRecords.length > 0) {
+                    setAuditRecords(prev => [...savedRecords, ...prev]);
                     const newApprovals = {};
-                    data.records.forEach(r => {
-                        newApprovals[r.id] = { status: r.status || "Pending", remarks: r.remarks || "", approvedBy: r.approvedBy || "" };
+                    savedRecords.forEach(r => {
+                        newApprovals[r._id || r.id] = { status: r.status || "Pending", remarks: r.remarks || "", approvedBy: r.approvedBy || "" };
                     });
                     setApprovalState(prev => ({ ...prev, ...newApprovals }));
-
-                    toast.success(`Today's Task saved successfully!`);
                 }
-                
+
+                // Mark submitted & show rich submitted view — stay on Today Task tab
                 setTodayTaskSubmitted(true);
+                setSubmittedActivities(savedRecords);
                 setTodayActivities([]);
                 setExpectedLeadTarget("");
                 setExpectedHotLeads("");
-                
-                // Switch to Activity Audit tab
-                setActiveTab("Activity Audit");
+                toast.success("Today's Task saved successfully! ✅");
                 return;
             } else {
                 const text = await response.text();
@@ -1620,15 +1642,113 @@ const MarketingCRM = () => {
                                 </div>
 
                                 <div className={`p-8 rounded-[24px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                    {todayTaskSubmitted ? (
-                                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-[20px] border border-dashed border-emerald-500/30 bg-emerald-500/5 transition-all">
-                                            <div className="p-4 bg-emerald-500/10 rounded-full text-emerald-500 mb-4 animate-bounce">
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-10 h-10">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                                </svg>
+                                    {/* Loading skeleton */}
+                                    {todayTaskLoading ? (
+                                        <div className="flex flex-col items-center justify-center py-20">
+                                            <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading today's plan...</p>
+                                        </div>
+                                    ) : todayTaskSubmitted ? (
+                                        /* ─── SUBMITTED VIEW ─── */
+                                        <div className="space-y-6">
+                                            {/* Success Header */}
+                                            <div className="flex items-center gap-4 p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
+                                                <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white flex-shrink-0">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-6 h-6">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-base font-black text-emerald-500 uppercase tracking-widest">Today's Task Submitted</h3>
+                                                    <p className="text-[10px] font-bold text-gray-500 mt-0.5">{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} — Field plan locked. Cannot re-submit.</p>
+                                                </div>
                                             </div>
-                                            <h3 className="text-lg font-black text-emerald-500 uppercase tracking-widest mb-2">Today's Task Saved Successfully</h3>
-                                            <p className="text-xs text-gray-500 font-bold max-w-md">Today's field plan/tasks have been saved. You cannot submit again for this date.</p>
+
+                                            {/* Submitted Activity Cards */}
+                                            {submittedActivities.length > 0 ? (
+                                                <div className="space-y-4">
+                                                    <h4 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Submitted Activities ({submittedActivities.length})</h4>
+                                                    {submittedActivities.map((rec, rIdx) => (
+                                                        <div key={rIdx} className={`rounded-2xl border overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                                            {/* Card Header */}
+                                                            <div className={`px-5 py-3.5 flex items-center justify-between border-b ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-white'}`}>
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-lg">{rec.type === 'School Visit' ? '🏫' : rec.type === 'Tuition Visit' ? '📚' : rec.type === 'Market Activity' ? '🛒' : '📍'}</span>
+                                                                    <div>
+                                                                        <p className="text-sm font-black tracking-tight">{rec.type || rec.institution || 'Activity'}</p>
+                                                                        <p className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{rec.institution || rec.place || '—'}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                                                    rec.status === 'Approved' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
+                                                                    rec.status === 'Rejected' ? 'bg-red-500/15 text-red-500 border border-red-500/30' :
+                                                                    'bg-yellow-500/15 text-yellow-600 border border-yellow-500/30'
+                                                                }`}>{rec.status || 'Pending'}</span>
+                                                            </div>
+
+                                                            {/* Card Body */}
+                                                            <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                <div>
+                                                                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Planned Time</p>
+                                                                    <p className="text-xs font-bold">{rec.plan || rec.time || '—'}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actual Time</p>
+                                                                    <p className="text-xs font-bold">{rec.actual || rec.actualTime || '—'}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Duration</p>
+                                                                    <p className="text-xs font-bold">{rec.estimatedDuration || '—'}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Leads</p>
+                                                                    <p className="text-xs font-bold">{rec.leads ?? rec.expectedLeads ?? '—'}</p>
+                                                                </div>
+                                                                {rec.locationName && (
+                                                                    <div className="col-span-2">
+                                                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>📍 Location</p>
+                                                                        <p className="text-xs font-bold text-blue-500">{rec.locationName}</p>
+                                                                    </div>
+                                                                )}
+                                                                {rec.notes && (
+                                                                    <div className="col-span-2">
+                                                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Notes</p>
+                                                                        <p className="text-xs font-bold">{rec.notes}</p>
+                                                                    </div>
+                                                                )}
+                                                                {rec.remarks && (
+                                                                    <div className="col-span-2">
+                                                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Manager Remarks</p>
+                                                                        <p className="text-xs font-bold text-orange-500">{rec.remarks}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Photo Evidence */}
+                                                            {((rec.photos && rec.photos.length > 0) || rec.photo) && (
+                                                                <div className={`px-5 pb-5 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                                                    <p className={`text-[9px] font-black uppercase tracking-widest mt-4 mb-3 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>📸 Photo Evidence</p>
+                                                                    <div className="flex gap-2 flex-wrap">
+                                                                        {(rec.photos || (rec.photo ? [rec.photo] : [])).map((ph, phIdx) => (
+                                                                            <img
+                                                                                key={phIdx}
+                                                                                src={ph}
+                                                                                alt={`Evidence ${phIdx + 1}`}
+                                                                                onClick={() => setPreviewImage(ph)}
+                                                                                className="w-20 h-20 object-cover rounded-xl border border-gray-300 dark:border-gray-700 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-sm"
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className={`p-6 rounded-2xl border border-dashed text-center ${isDarkMode ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
+                                                    <p className="text-xs font-bold uppercase tracking-widest">Submitted for today — records loading...</p>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <>
