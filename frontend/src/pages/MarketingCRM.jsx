@@ -903,6 +903,7 @@ const MarketingCRM = () => {
     const [isCameraActive, setIsCameraActive] = useState(false);
     const [gpsLoading, setGpsLoading] = useState(false);
     const [stream, setStream] = useState(null);
+    const [facingMode, setFacingMode] = useState("environment"); // "environment" = rear, "user" = selfie
 
     // Activity Audit records (populated on plan submit)
     const [auditRecords, setAuditRecords] = useState([]);
@@ -926,9 +927,17 @@ const MarketingCRM = () => {
         setGpsLoading(false);
     };
 
-    const startCamera = async () => {
+    const startCamera = async (mode = "environment") => {
+        // Stop any existing stream before starting new one
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            setStream(null);
+        }
+        setFacingMode(mode);
         try {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: mode } }
+            });
             setStream(mediaStream);
             setIsCameraActive(true);
 
@@ -939,13 +948,18 @@ const MarketingCRM = () => {
                 }
             }, 100);
 
-            requestGPS();
+            if (!tempLat) requestGPS();
         } catch (err) {
             console.error("Camera error:", err);
             toast.error("Could not access camera. Simulation mode activated.");
             setIsCameraActive(true);
-            requestGPS();
+            if (!tempLat) requestGPS();
         }
+    };
+
+    const switchCamera = () => {
+        const newMode = facingMode === "environment" ? "user" : "environment";
+        startCamera(newMode);
     };
 
     const captureSnapshot = () => {
@@ -2005,12 +2019,31 @@ const MarketingCRM = () => {
                                             {/* Live Camera View */}
                                             {isCameraActive && (
                                                 <div className="flex flex-col gap-3">
-                                                    <video
-                                                        id="webcam-video"
-                                                        autoPlay
-                                                        playsInline
-                                                        className="w-full rounded-xl border border-gray-700 bg-black aspect-video object-cover"
-                                                    />
+                                                    <div className="relative">
+                                                        <video
+                                                            id="webcam-video"
+                                                            autoPlay
+                                                            playsInline
+                                                            style={facingMode === "user" ? { transform: "scaleX(-1)" } : {}}
+                                                            className="w-full rounded-xl border border-gray-700 bg-black aspect-video object-cover"
+                                                        />
+                                                        {/* Rotate Camera Button — top-right overlay */}
+                                                        <button
+                                                            onClick={switchCamera}
+                                                            title={facingMode === "environment" ? "Switch to Selfie (Front)" : "Switch to Rear Camera"}
+                                                            className="absolute top-2 right-2 w-9 h-9 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-all active:scale-90 shadow-lg"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                                                                <path d="M20 7h-3a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" />
+                                                                <circle cx="12" cy="13" r="3" />
+                                                                <path d="M5 3 3 5M19 3l2 2" />
+                                                            </svg>
+                                                        </button>
+                                                        {/* Facing mode badge */}
+                                                        <div className="absolute top-2 left-2 bg-black/60 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                                                            {facingMode === "user" ? "🤳 Selfie" : "📷 Rear"}
+                                                        </div>
+                                                    </div>
                                                     <div className="flex gap-2">
                                                         <button
                                                             onClick={captureSnapshot}
@@ -2019,10 +2052,17 @@ const MarketingCRM = () => {
                                                             📸 Capture
                                                         </button>
                                                         <button
-                                                            onClick={stopCamera}
-                                                            className="px-4 py-2.5 bg-gray-600/50 hover:bg-gray-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95"
+                                                            onClick={switchCamera}
+                                                            className="px-3 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 flex items-center justify-center"
+                                                            title="Rotate Camera"
                                                         >
-                                                            ✕ Done
+                                                            🔄
+                                                        </button>
+                                                        <button
+                                                            onClick={stopCamera}
+                                                            className="px-3 py-2.5 bg-gray-600/50 hover:bg-gray-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95"
+                                                        >
+                                                            ✕
                                                         </button>
                                                     </div>
                                                 </div>
@@ -2061,10 +2101,16 @@ const MarketingCRM = () => {
 
                                                     <div className="flex gap-2 mt-auto pt-2">
                                                         <button
-                                                            onClick={startCamera}
+                                                            onClick={() => startCamera("environment")}
                                                             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
                                                         >
-                                                            📸 {tempPhotos.length > 0 ? 'Take More' : 'Open Camera'}
+                                                            📷 {tempPhotos.length > 0 ? 'More (Rear)' : 'Open Camera'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => startCamera("user")}
+                                                            className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                                                        >
+                                                            🤳 Selfie
                                                         </button>
                                                     </div>
                                                     {tempPhotos.length > 0 && (
