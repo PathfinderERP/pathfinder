@@ -6,6 +6,7 @@ import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, 
 import { toast } from "react-toastify";
 import DailyTrackingDetailsModal from '../components/Dashboard/DailyTrackingDetailsModal';
 import { hasPermission } from '../config/permissions';
+import CustomMultiSelect from '../components/common/CustomMultiSelect';
 
 const DailyCenterTracking = () => {
     const { theme } = useTheme();
@@ -14,6 +15,7 @@ const DailyCenterTracking = () => {
     const [centers, setCenters] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedCenters, setSelectedCenters] = useState([]);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [viewMode, setViewMode] = useState("card"); // "card" or "table"
     const navigate = useNavigate();
@@ -98,9 +100,11 @@ const DailyCenterTracking = () => {
         fetchCenters();
     }, [selectedDate, canView]);
 
-    const filteredCenters = centers.filter(center => 
-        center.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredCenters = centers.filter(center => {
+        const matchesSearch = center.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => sc.label === center.name);
+        return matchesSearch && matchesCenter;
+    });
 
     if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') {
         return null;
@@ -126,7 +130,7 @@ const DailyCenterTracking = () => {
                             Monitor daily operations, attendance, admissions, and collections across all centers.
                         </p>
                     </div>
-                    <div className="flex gap-3 w-full md:w-auto">
+                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                         <div className="relative flex-1 md:w-64">
                             <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                             <input 
@@ -141,6 +145,19 @@ const DailyCenterTracking = () => {
                                 }`}
                             />
                         </div>
+
+                        {/* Centre Filter (Multi Select) */}
+                        <div className="relative min-w-[200px] z-20">
+                            <CustomMultiSelect
+                                options={centers.map(c => ({ value: c.id, label: c.name }))}
+                                value={selectedCenters}
+                                onChange={setSelectedCenters}
+                                placeholder="All Centres"
+                                isDarkMode={isDarkMode}
+                            />
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-white text-gray-400'}`}>Centre</span>
+                        </div>
+
                         <div className="relative">
                             <input 
                                 type="date" 
@@ -153,13 +170,6 @@ const DailyCenterTracking = () => {
                                 }`}
                             />
                         </div>
-                        <button className={`p-2 rounded border transition-colors flex items-center gap-2 ${
-                            isDarkMode 
-                                ? 'bg-[#1a1f24] border-gray-700 hover:bg-gray-800 text-gray-300' 
-                                : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-600'
-                        }`}>
-                            <FaFilter /> <span className="hidden sm:inline">Filter</span>
-                        </button>
                     </div>
                 </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
+import CustomMultiSelect from "../components/common/CustomMultiSelect";
 import {
     FaBullhorn, FaUsers, FaChartLine, FaMoneyBillWave, FaChartPie, FaChartBar,
     FaFileExcel, FaSync, FaSun, FaMoon, FaFilter, FaSearch, FaArrowLeft,
@@ -34,15 +35,29 @@ const MarketingCRM = () => {
     const [filters, setFilters] = useState({ fromDate: "", toDate: "" });
     const [boardPlans, setBoardPlans] = useState([]);
     const [boardPlansLoading, setBoardPlansLoading] = useState(false);
-    const [boardPlanDate, setBoardPlanDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [boardPlanDate, setBoardPlanDate] = useState(() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow.toISOString().split('T')[0];
+    });
 
     const [activeTab, setActiveTab] = useState("Command Centre");
 
     // Audit filter state
     const [auditSearch, setAuditSearch] = useState("");
-    const [auditFilterType, setAuditFilterType] = useState("All");
-    const [auditFilterOwner, setAuditFilterOwner] = useState("All");
-    const [auditFilterStatus, setAuditFilterStatus] = useState("All");
+    const [auditFilterType, setAuditFilterType] = useState([]);
+    const [auditFilterOwner, setAuditFilterOwner] = useState([]);
+    const [auditFilterStatus, setAuditFilterStatus] = useState([]);
+    const [auditFilterCentres, setAuditFilterCentres] = useState([]);
+
+    // Command Centre filter states
+    const [cmdCentreSearch, setCmdCentreSearch] = useState("");
+    const [cmdCentreCentres, setCmdCentreCentres] = useState([]);
+    const [cmdCentreOwners, setCmdCentreOwners] = useState([]);
+    const [cmdCentrePlanStatus, setCmdCentrePlanStatus] = useState("All");
+    const [cmdCentreDateRange, setCmdCentreDateRange] = useState("Tomorrow");
+    const [cmdCentreStartDate, setCmdCentreStartDate] = useState("");
+    const [cmdCentreEndDate, setCmdCentreEndDate] = useState("");
 
     // Activity Audit Pagination & Dynamic Filter states
     const [auditLoading, setAuditLoading] = useState(false);
@@ -66,7 +81,42 @@ const MarketingCRM = () => {
         const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase());
         const uCentres = u.centres || u.centers || [];
         const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
-        return u.role === 'marketing' && matchesSearch && matchesCenter;
+        const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin'].includes(uRole);
+        return isTargetRole && matchesSearch && matchesCenter;
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+
+    // Filtered marketing performance data for Command Centre
+    const filteredCmdCentreStaff = allPerformance.filter(u => {
+        const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin'].includes(uRole);
+        if (!isTargetRole) return false;
+
+        const matchesSearch = !cmdCentreSearch || u.name.toLowerCase().includes(cmdCentreSearch.toLowerCase());
+
+        const uCentres = u.centres || u.centers || [];
+        const matchesCentre = cmdCentreCentres.length === 0 || (
+            uCentres.some(c => cmdCentreCentres.some(sel => sel.label === (c.centreName || c)))
+        );
+
+        const matchesOwner = cmdCentreOwners.length === 0 || cmdCentreOwners.some(sel => sel.value === u._id);
+
+        const staffPlan = boardPlans.find(p =>
+            p.user && (
+                p.user._id?.toString() === u._id?.toString() ||
+                p.user.name?.toLowerCase().trim() === u.name?.toLowerCase().trim()
+            )
+        );
+        const hasPlan = staffPlan && staffPlan.tasks && staffPlan.tasks.length > 0;
+        
+        let matchesStatus = true;
+        if (cmdCentrePlanStatus === "Submitted") {
+            matchesStatus = hasPlan;
+        } else if (cmdCentrePlanStatus === "No Plan") {
+            matchesStatus = !hasPlan;
+        }
+
+        return matchesSearch && matchesCentre && matchesOwner && matchesStatus;
     }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
 
     // Aggregate summary
@@ -127,6 +177,14 @@ const MarketingCRM = () => {
         // eslint-disable-next-line
     }, [activeTab]);
 
+    // Auto-fetch board plans whenever Command Centre tab is active or its filters change
+    useEffect(() => {
+        if (activeTab === "Command Centre") {
+            fetchBoardPlans();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, cmdCentreDateRange, cmdCentreStartDate, cmdCentreEndDate, cmdCentreCentres]);
+
     const fetchCentres = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -143,12 +201,30 @@ const MarketingCRM = () => {
         }
     };
 
-    const fetchBoardPlans = async (date) => {
+    const fetchBoardPlans = async (forcedDate = null) => {
         setBoardPlansLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const targetDate = date || boardPlanDate || new Date().toISOString().split('T')[0];
-            const params = new URLSearchParams({ date: targetDate, role: 'marketing' });
+            const params = new URLSearchParams({
+                role: 'marketing,centerIncharge,zonalManager,superAdmin'
+            });
+
+            if (forcedDate) {
+                params.append("date", forcedDate);
+            } else {
+                const limits = getDateRangeLimits(cmdCentreDateRange, cmdCentreStartDate, cmdCentreEndDate);
+                if (limits.start && limits.end) {
+                    params.append("startDate", limits.start);
+                    params.append("endDate", limits.end);
+                } else {
+                    params.append("date", boardPlanDate);
+                }
+            }
+
+            if (cmdCentreCentres && cmdCentreCentres.length > 0) {
+                params.append("centreId", cmdCentreCentres.map(c => c.value).join(","));
+            }
+
             const response = await fetch(
                 `${import.meta.env.VITE_API_URL}/tomorrow-planner/board?${params.toString()}`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -597,6 +673,11 @@ const MarketingCRM = () => {
         };
 
         switch (rangeType) {
+            case "Tomorrow": {
+                const tomorrow = new Date();
+                tomorrow.setDate(today.getDate() + 1);
+                return { start: format(tomorrow), end: format(tomorrow) };
+            }
             case "Today":
                 return { start: format(today), end: format(today) };
             case "Yesterday": {
@@ -635,9 +716,10 @@ const MarketingCRM = () => {
                 page: currentPage,
                 limit: itemsPerPage,
                 search: auditSearch,
-                type: auditFilterType,
-                owner: auditFilterOwner,
-                status: auditFilterStatus,
+                ...(auditFilterType && auditFilterType.length > 0 ? { type: auditFilterType.map(t => t.value).join(",") } : {}),
+                ...(auditFilterOwner && auditFilterOwner.length > 0 ? { owner: auditFilterOwner.map(o => o.value).join(",") } : {}),
+                ...(auditFilterStatus && auditFilterStatus.length > 0 ? { status: auditFilterStatus.map(s => s.value).join(",") } : {}),
+                ...(auditFilterCentres && auditFilterCentres.length > 0 ? { centres: auditFilterCentres.map(c => c.value).join(",") } : {}),
                 startDate: dateLimits.start,
                 endDate: dateLimits.end
             });
@@ -712,13 +794,13 @@ const MarketingCRM = () => {
 
         return () => clearTimeout(debounce);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditDateRange, auditStartDate, auditEndDate]);
+    }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditDateRange, auditStartDate, auditEndDate]);
 
     // Reset current page to 1 on filter changes
     useEffect(() => {
         setCurrentPage(1);
         setPageInput("1");
-    }, [auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditDateRange, auditStartDate, auditEndDate]);
+    }, [auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditDateRange, auditStartDate, auditEndDate]);
 
     const handleUpdateApprovalStatus = async (recordId, newStatus) => {
         try {
@@ -1218,6 +1300,19 @@ const MarketingCRM = () => {
         }
     }, [marketingPerformance, selectedStaff]);
 
+    useEffect(() => {
+        if (activeTab === "Command Centre") {
+            if (filteredCmdCentreStaff.length > 0) {
+                const isSelectedStaffInFilteredList = filteredCmdCentreStaff.some(s => s._id === selectedStaff?._id);
+                if (!isSelectedStaffInFilteredList) {
+                    setSelectedStaff(filteredCmdCentreStaff[0]);
+                }
+            } else {
+                setSelectedStaff(null);
+            }
+        }
+    }, [filteredCmdCentreStaff, activeTab, selectedStaff]);
+
     // Fetch tomorrow plan when tab switches or date changes
     useEffect(() => {
         if (activeTab === "Tomorrow Planner") {
@@ -1363,44 +1458,177 @@ const MarketingCRM = () => {
                         {/* MAIN CONTENT SPLIT */}
                         {activeTab === "Command Centre" && (
                             <div className="space-y-6 animate-fadeIn">
-                                {/* Board Plan Date Picker */}
-                                <div className="flex flex-wrap items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white border border-gray-100 shadow-sm'}`}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-orange-500">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                                            </svg>
+                                {/* Command Centre Filters */}
+                                <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'} space-y-4`}>
+                                    <div className="flex flex-wrap items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
+                                                <FaFilter className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Command Centre Filters</h3>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Viewing Plans For</p>
-                                            <input
-                                                type="date"
-                                                value={boardPlanDate}
-                                                onChange={(e) => {
-                                                    setBoardPlanDate(e.target.value);
-                                                    fetchBoardPlans(e.target.value);
-                                                }}
-                                                className={`text-[11px] font-black outline-none border-none bg-transparent ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
-                                            />
+                                        
+                                        <div className="flex items-center gap-3">
+                                            {boardPlansLoading && (
+                                                <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading plans...</span>
+                                            )}
+                                            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${isDarkMode ? 'bg-black border border-gray-800' : 'bg-gray-50 border border-gray-100 shadow-sm'}`}>
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                                    {boardPlans.filter(p => p.tasks && p.tasks.length > 0).length} / {boardPlans.length} Plans Submitted
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => fetchBoardPlans()}
+                                                className="px-4 py-2 rounded-xl bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center gap-2 active:scale-95 border border-gray-800"
+                                            >
+                                                <FaSync className="w-3 h-3" />
+                                                Refresh
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        {boardPlansLoading && (
-                                            <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading plans...</span>
-                                        )}
-                                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'}`}>
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">{boardPlans.filter(p => p.tasks && p.tasks.length > 0).length} / {boardPlans.length} Plans Submitted</span>
+
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        {/* Name Search Box */}
+                                        <div className="relative flex-1 min-w-[200px]">
+                                            <input
+                                                type="text"
+                                                placeholder="Search by staff name..."
+                                                value={cmdCentreSearch}
+                                                onChange={e => setCmdCentreSearch(e.target.value)}
+                                                className={`w-full pl-10 pr-4 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none transition-all ${
+                                                    isDarkMode 
+                                                        ? 'bg-black/40 border-gray-800 text-white placeholder-gray-500 focus:border-gray-700' 
+                                                        : 'bg-white border-gray-200 text-[#05080c] placeholder-gray-400 focus:border-gray-300'
+                                                }`}
+                                            />
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                                                <FaSearch className="w-3 h-3" />
+                                            </span>
                                         </div>
-                                        <button
-                                            onClick={() => fetchBoardPlans(boardPlanDate)}
-                                            className="px-4 py-2 rounded-xl bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center gap-2 active:scale-95"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                                            </svg>
-                                            Refresh
-                                        </button>
+
+                                        {/* Date Range Dropdown */}
+                                        <div className="relative min-w-[140px]">
+                                            <select
+                                                value={cmdCentreDateRange}
+                                                onChange={e => {
+                                                    setCmdCentreDateRange(e.target.value);
+                                                    if (e.target.value !== "Custom") {
+                                                        setCmdCentreStartDate("");
+                                                        setCmdCentreEndDate("");
+                                                    }
+                                                }}
+                                                className={`w-full px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${
+                                                    isDarkMode 
+                                                        ? 'bg-black/40 border-gray-800 text-white' 
+                                                        : 'bg-white border-gray-200 text-[#05080c]'
+                                                }`}
+                                            >
+                                                {["Tomorrow", "Today", "Yesterday", "Last 7 Days", "This Month", "Custom"].map(d => <option key={d} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{d}</option>)}
+                                            </select>
+                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Date Range</span>
+                                        </div>
+
+                                        {/* Custom Start/End Dates */}
+                                        {cmdCentreDateRange === "Custom" && (
+                                            <>
+                                                <div className="relative">
+                                                    <input
+                                                        type="date"
+                                                        value={cmdCentreStartDate}
+                                                        onChange={e => setCmdCentreStartDate(e.target.value)}
+                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${
+                                                            isDarkMode 
+                                                                ? 'bg-black/40 border-gray-800 text-white' 
+                                                                : 'bg-white border-gray-200 text-[#05080c]'
+                                                        }`}
+                                                    />
+                                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>From</span>
+                                                </div>
+                                                <div className="relative">
+                                                    <input
+                                                        type="date"
+                                                        value={cmdCentreEndDate}
+                                                        onChange={e => setCmdCentreEndDate(e.target.value)}
+                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${
+                                                            isDarkMode 
+                                                                ? 'bg-black/40 border-gray-800 text-white' 
+                                                                : 'bg-white border-gray-200 text-[#05080c]'
+                                                        }`}
+                                                    />
+                                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>To</span>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Centre Filter (Multi Select) */}
+                                        <div className="relative min-w-[180px] z-20">
+                                            <CustomMultiSelect
+                                                options={availableCenters.map(c => ({ value: c._id, label: c.centreName }))}
+                                                value={cmdCentreCentres}
+                                                onChange={setCmdCentreCentres}
+                                                placeholder="All Centres"
+                                                isDarkMode={isDarkMode}
+                                            />
+                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Centre</span>
+                                        </div>
+
+                                        {/* Owner Filter (Multi Select) */}
+                                        <div className="relative min-w-[180px] z-20">
+                                            <CustomMultiSelect
+                                                options={allPerformance
+                                                    .filter(u => {
+                                                        const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
+                                                        return ['marketing', 'centerincharge', 'zonalmanager', 'superadmin'].includes(uRole);
+                                                    })
+                                                    .map(u => ({ value: u._id, label: u.name }))
+                                                    .sort((a, b) => a.label.localeCompare(b.label))}
+                                                value={cmdCentreOwners}
+                                                onChange={setCmdCentreOwners}
+                                                placeholder="All Staff"
+                                                isDarkMode={isDarkMode}
+                                            />
+                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Owner</span>
+                                        </div>
+
+                                        {/* Plan Submission Status */}
+                                        <div className="relative min-w-[140px]">
+                                            <select
+                                                value={cmdCentrePlanStatus}
+                                                onChange={e => setCmdCentrePlanStatus(e.target.value)}
+                                                className={`w-full px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${
+                                                    isDarkMode 
+                                                        ? 'bg-black/40 border-gray-800 text-white' 
+                                                        : 'bg-white border-gray-200 text-[#05080c]'
+                                                }`}
+                                            >
+                                                <option value="All" className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>All</option>
+                                                <option value="Submitted" className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>Plan Submitted</option>
+                                                <option value="No Plan" className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>No Plan</option>
+                                            </select>
+                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Submission</span>
+                                        </div>
+
+                                        {/* Clear Filters */}
+                                        {(cmdCentreSearch || cmdCentreCentres.length > 0 || cmdCentreOwners.length > 0 || cmdCentrePlanStatus !== "All" || cmdCentreDateRange !== "Tomorrow" || cmdCentreStartDate || cmdCentreEndDate) && (
+                                            <button
+                                                onClick={() => {
+                                                    setCmdCentreSearch("");
+                                                    setCmdCentreCentres([]);
+                                                    setCmdCentreOwners([]);
+                                                    setCmdCentrePlanStatus("All");
+                                                    setCmdCentreDateRange("Tomorrow");
+                                                    setCmdCentreStartDate("");
+                                                    setCmdCentreEndDate("");
+                                                }}
+                                                className="px-4 py-2 rounded-xl bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center gap-2 active:scale-95"
+                                            >
+                                                <FaRedo className="w-3 h-3" />
+                                                Clear
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1424,12 +1652,12 @@ const MarketingCRM = () => {
                                             </div>
 
                                             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                                                {marketingPerformance.length === 0 ? (
+                                                {filteredCmdCentreStaff.length === 0 ? (
                                                     <div className="text-center py-8 text-gray-400 text-[11px] font-bold uppercase tracking-widest">
                                                         No marketing staff found
                                                     </div>
                                                 ) : (
-                                                    marketingPerformance.map((staff, idx) => {
+                                                    filteredCmdCentreStaff.map((staff, idx) => {
                                                         const staffPlan = boardPlans.find(p =>
                                                             p.user && (
                                                                 p.user._id?.toString() === staff._id?.toString() ||
@@ -1494,15 +1722,19 @@ const MarketingCRM = () => {
                                     {/* DETAIL PANEL (Right) */}
                                     <div className="lg:col-span-8">
                                         {selectedStaff ? (() => {
-                                            const staffPlan = selectedStaff._plan || boardPlans.find(p =>
+                                            const staffPlan = boardPlans.find(p =>
                                                 p.user && (
                                                     p.user._id?.toString() === selectedStaff._id?.toString() ||
                                                     p.user.name?.toLowerCase().trim() === selectedStaff.name?.toLowerCase().trim()
                                                 )
-                                            );
+                                            ) || selectedStaff._plan;
                                             const plannedTasks = staffPlan?.tasks || [];
                                             const hasPlan = plannedTasks.length > 0;
                                             const staffCentre = (selectedStaff.centres || [])[0]?.centreName || '';
+                                            const limits = getDateRangeLimits(cmdCentreDateRange, cmdCentreStartDate, cmdCentreEndDate);
+                                            const displayDate = (limits.start && limits.end) 
+                                                ? (limits.start === limits.end ? limits.start : `${limits.start} to ${limits.end}`)
+                                                : boardPlanDate;
 
                                             return (
                                                 <div className={`p-8 rounded-3xl border min-h-full ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
@@ -1545,7 +1777,7 @@ const MarketingCRM = () => {
                                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-blue-500">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                                                                 </svg>
-                                                                Field Plan — {boardPlanDate}
+                                                                Field Plan — {displayDate}
                                                             </h4>
                                                             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${
                                                                 hasPlan ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-400'
@@ -1560,7 +1792,7 @@ const MarketingCRM = () => {
                                                             }`}>
                                                                 <div className="text-2xl mb-2">📋</div>
                                                                 <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">No Plan Submitted</p>
-                                                                <p className="text-[10px] text-gray-400 mt-1">This staff member has not uploaded their field plan for {boardPlanDate}.</p>
+                                                                <p className="text-[10px] text-gray-400 mt-1">This staff member has not uploaded their field plan for {displayDate}.</p>
                                                             </div>
                                                         ) : (
                                                             <div className="space-y-3">
@@ -2565,10 +2797,15 @@ const MarketingCRM = () => {
 
                             // Apply search + filters
                             const filteredAuditRecords = auditRecords;
-                            const filtersActive = auditSearch || auditFilterType !== "All" || auditFilterOwner !== "All" || auditFilterStatus !== "All" || auditDateRange !== "Today" || auditStartDate || auditEndDate;
+                            const filtersActive = auditSearch || auditFilterType.length > 0 || auditFilterOwner.length > 0 || auditFilterStatus.length > 0 || auditFilterCentres.length > 0 || auditDateRange !== "Today" || auditStartDate || auditEndDate;
 
                             const selectCls = `px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'
                                 }`;
+
+                            const typeOptions = (auditTypes || []).filter(t => t && t !== "All").map(t => ({ value: t, label: t }));
+                            const ownerOptions = (auditOwners || []).filter(o => o && o !== "All").map(o => ({ value: o, label: o }));
+                            const statusOptions = ["Pending", "Approved", "Rejected"].map(s => ({ value: s, label: s }));
+                            const centreOptions = (availableCenters || []).map(c => ({ value: c._id, label: c.centreName }));
 
                             return (
                                 <div className="space-y-5 animate-fadeIn">
@@ -2650,30 +2887,55 @@ const MarketingCRM = () => {
                                             )}
 
                                             {/* Type filter */}
-                                            <div className="relative">
-                                                <select value={auditFilterType} onChange={e => setAuditFilterType(e.target.value)} className={selectCls}>
-                                                    {auditTypes.map(t => <option key={t}>{t}</option>)}
-                                                </select>
-                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
+                                            <div className="relative min-w-[160px] z-20">
+                                                <CustomMultiSelect
+                                                    options={typeOptions}
+                                                    value={auditFilterType}
+                                                    onChange={setAuditFilterType}
+                                                    placeholder="All Types"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
                                                     }`}>Type</span>
                                             </div>
 
                                             {/* Owner filter */}
-                                            <div className="relative">
-                                                <select value={auditFilterOwner} onChange={e => setAuditFilterOwner(e.target.value)} className={selectCls}>
-                                                    {auditOwners.map(o => <option key={o}>{o}</option>)}
-                                                </select>
-                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
+                                            <div className="relative min-w-[160px] z-20">
+                                                <CustomMultiSelect
+                                                    options={ownerOptions}
+                                                    value={auditFilterOwner}
+                                                    onChange={setAuditFilterOwner}
+                                                    placeholder="All Owners"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
                                                     }`}>Owner</span>
                                             </div>
 
                                             {/* Status filter */}
-                                            <div className="relative">
-                                                <select value={auditFilterStatus} onChange={e => setAuditFilterStatus(e.target.value)} className={selectCls}>
-                                                    {auditStatuses.map(s => <option key={s}>{s}</option>)}
-                                                </select>
-                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
+                                            <div className="relative min-w-[160px] z-20">
+                                                <CustomMultiSelect
+                                                    options={statusOptions}
+                                                    value={auditFilterStatus}
+                                                    onChange={setAuditFilterStatus}
+                                                    placeholder="All Statuses"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
                                                     }`}>Status</span>
+                                            </div>
+
+                                            {/* Centre filter */}
+                                            <div className="relative min-w-[160px] z-20">
+                                                <CustomMultiSelect
+                                                    options={centreOptions}
+                                                    value={auditFilterCentres}
+                                                    onChange={setAuditFilterCentres}
+                                                    placeholder="All Centres"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
+                                                    }`}>Centre</span>
                                             </div>
 
                                             {/* Clear filters */}
@@ -2681,9 +2943,10 @@ const MarketingCRM = () => {
                                                 <button
                                                     onClick={() => {
                                                         setAuditSearch("");
-                                                        setAuditFilterType("All");
-                                                        setAuditFilterOwner("All");
-                                                        setAuditFilterStatus("All");
+                                                        setAuditFilterType([]);
+                                                        setAuditFilterOwner([]);
+                                                        setAuditFilterStatus([]);
+                                                        setAuditFilterCentres([]);
                                                         setAuditDateRange("Today");
                                                         setAuditStartDate("");
                                                         setAuditEndDate("");
@@ -2718,6 +2981,7 @@ const MarketingCRM = () => {
                                                     <thead>
                                                         <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
                                                             <th className="px-5 py-4 whitespace-nowrap">Date</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Centre</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Type</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Institution</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Owner</th>
@@ -2737,19 +3001,19 @@ const MarketingCRM = () => {
                                                     <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
                                                         {auditLoading ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 15 : 14} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 16 : 15} className="px-5 py-12 text-center">
                                                                     <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading audit records...</span>
                                                                 </td>
                                                             </tr>
                                                         ) : filteredAuditRecords.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 15 : 14} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 16 : 15} className="px-5 py-12 text-center">
                                                                     <div className="flex flex-col items-center gap-2 text-gray-400">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
                                                                         </svg>
                                                                         <p className="text-[10px] font-black uppercase tracking-widest">No records match your filters</p>
-                                                                        <button onClick={() => { setAuditSearch(""); setAuditFilterType("All"); setAuditFilterOwner("All"); setAuditFilterStatus("All"); }} className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-500 hover:underline">
+                                                                        <button onClick={() => { setAuditSearch(""); setAuditFilterType([]); setAuditFilterOwner([]); setAuditFilterStatus([]); setAuditFilterCentres([]); }} className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-500 hover:underline">
                                                                             Clear all filters
                                                                         </button>
                                                                     </div>
@@ -2768,6 +3032,9 @@ const MarketingCRM = () => {
                                                                     <tr key={row.id} className={`${isDarkMode ? 'text-gray-300 hover:bg-gray-800/20' : 'text-gray-700 hover:bg-gray-50/70'} transition-colors align-top`}>
                                                                         <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-gray-500">
                                                                             {row.date || '—'}
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap text-gray-500 font-semibold">
+                                                                            {row.user?.centres?.[0]?.centreName || '—'}
                                                                         </td>
                                                                         <td className="px-5 py-4 whitespace-nowrap">
                                                                             <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>

@@ -568,7 +568,7 @@ const DailyUserActivityLog = () => {
                                                 <span className={`text-sm font-black uppercase tracking-tight ${mainText}`}>{call.studentName}</span>
                                             </td>
                                             <td className={`px-5 py-3 text-xs font-mono ${subText}`}>{call.phoneNumber}</td>
-                                            <td className={`px-5 py-3 text-xs font-bold ${isDark ? 'text-cyan-400' : 'text-cyan-700'} whitespace-nowrap`}>
+                                            <td className={`px-5 py-3 text-xs font-bold ${isDark ? 'text-cyan-400' : 'text-cyan-700'} whitespace-nowrap`} title={call.courseName || ''}>
                                                 {call.courseName || '-'}
                                             </td>
                                             <td className="px-5 py-3 text-center">

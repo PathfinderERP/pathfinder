@@ -97,24 +97,62 @@ export const getPlanners = async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        const { search, type, owner, status, startDate, endDate } = req.query;
+        const { search, type, owner, status, startDate, endDate, centres } = req.query;
 
         // Build matching filters
         const filterMatch = {};
-        if (type && type !== "All") {
-            filterMatch.type = type;
+        if (type) {
+            const typeList = Array.isArray(type) ? type : (type.includes(',') ? type.split(',') : [type]);
+            const filteredTypeList = typeList.filter(t => t && t !== "All");
+            if (filteredTypeList.length > 0) {
+                filterMatch.type = { $in: filteredTypeList };
+            }
         }
-        if (owner && owner !== "All") {
-            filterMatch.owner = owner;
+        if (owner) {
+            const ownerList = Array.isArray(owner) ? owner : (owner.includes(',') ? owner.split(',') : [owner]);
+            const filteredOwnerList = ownerList.filter(o => o && o !== "All");
+            if (filteredOwnerList.length > 0) {
+                filterMatch.owner = { $in: filteredOwnerList };
+            }
         }
-        if (status && status !== "All") {
-            filterMatch.status = status;
+        if (status) {
+            const statusList = Array.isArray(status) ? status : (status.includes(',') ? status.split(',') : [status]);
+            const filteredStatusList = statusList.filter(s => s && s !== "All");
+            if (filteredStatusList.length > 0) {
+                filterMatch.status = { $in: filteredStatusList };
+            }
         }
         if (search) {
             filterMatch.$or = [
                 { institution: { $regex: search.trim(), $options: "i" } },
                 { owner: { $regex: search.trim(), $options: "i" } }
             ];
+        }
+
+        // Apply centre filtering: map centre IDs to user IDs matching the primary centre
+        if (centres) {
+            const centreIds = Array.isArray(centres) ? centres : (centres.includes(',') ? centres.split(',') : [centres]);
+            const filteredCentres = centreIds.filter(c => c && c !== "All");
+            if (filteredCentres.length > 0) {
+                const matchedUsers = await User.find({
+                    'centres.0': { $in: filteredCentres.map(id => new mongoose.Types.ObjectId(id)) }
+                }).select('_id');
+                const matchedUserIds = matchedUsers.map(u => u._id);
+
+                if (query.user) {
+                    if (query.user.$in) {
+                        const existingUserIdsSet = new Set(query.user.$in.map(id => id.toString()));
+                        const intersectedUserIds = matchedUserIds.filter(id => existingUserIdsSet.has(id.toString()));
+                        query.user = { $in: intersectedUserIds.map(id => new mongoose.Types.ObjectId(id.toString())) };
+                    } else {
+                        const singleUserIdStr = query.user.toString();
+                        const isMatch = matchedUserIds.some(id => id.toString() === singleUserIdStr);
+                        query.user = isMatch ? new mongoose.Types.ObjectId(singleUserIdStr) : null;
+                    }
+                } else {
+                    query.user = { $in: matchedUserIds.map(id => new mongoose.Types.ObjectId(id.toString())) };
+                }
+            }
         }
 
         const dateQuery = { ...query };
@@ -142,6 +180,15 @@ export const getPlanners = async (req, res) => {
             photoDocs
         ] = await Promise.all([
             MarketingPlanner.find(finalQuery)
+                .populate({
+                    path: 'user',
+                    select: 'name email role centres',
+                    populate: {
+                        path: 'centres',
+                        model: 'CentreSchema',
+                        select: 'centreName'
+                    }
+                })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
