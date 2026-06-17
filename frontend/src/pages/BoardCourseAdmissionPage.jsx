@@ -42,6 +42,7 @@ const BoardCourseAdmissionPage = () => {
     const [allBoardCourseSubjects, setAllBoardCourseSubjects] = useState([]); // All Board+Class mappings
     const [bankAccount, setBankAccount] = useState("");
     const [masterAccounts, setMasterAccounts] = useState([]);
+    const [sessions, setSessions] = useState([]); // Master data sessions
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -100,12 +101,13 @@ const BoardCourseAdmissionPage = () => {
                 }
             }
 
-            // 2. Fetch Student, Boards, and Classes
+            // 2. Fetch Student, Boards, Classes, and Sessions
             const fetchPromises = [
                 fetch(`${apiUrl}/board`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/class`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/board-course-subject`, { headers: { "Authorization": `Bearer ${token}` } }),
-                fetch(`${apiUrl}/master-data/account`, { headers: { "Authorization": `Bearer ${token}` } })
+                fetch(`${apiUrl}/master-data/account`, { headers: { "Authorization": `Bearer ${token}` } }),
+                fetch(`${apiUrl}/session/list`, { headers: { "Authorization": `Bearer ${token}` } })
             ];
 
             // Only fetch student if we have a valid-looking ID
@@ -118,11 +120,11 @@ const BoardCourseAdmissionPage = () => {
 
             const results = await Promise.all(fetchPromises);
 
-            let studentRes, boardsRes, classesRes, allBCSRes, accountsRes;
+            let studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes;
             if (isValidStudentId) {
-                [studentRes, boardsRes, classesRes, allBCSRes, accountsRes] = results;
+                [studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes] = results;
             } else {
-                [boardsRes, classesRes, allBCSRes, accountsRes] = results;
+                [boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes] = results;
                 studentRes = { ok: false }; // Mock failure if ID was invalid
             }
 
@@ -133,16 +135,23 @@ const BoardCourseAdmissionPage = () => {
             const accountsData = await (accountsRes?.ok ? accountsRes.json() : Promise.resolve([]));
             setMasterAccounts(accountsData);
 
+            // Load sessions from master data
+            const sessionsData = await (sessionsRes?.ok ? sessionsRes.json() : Promise.resolve([]));
+            setSessions(sessionsData);
+
             if (studentRes.ok) {
                 setStudent(studentData);
-                // Priority: console session > student details session
+                // Priority: console session > student details session > active master session
                 const sessionFromConsole = studentData?.sessionExamCourse?.[0]?.session;
                 const sessionFromDetails = studentData?.studentsDetails?.[0]?.academicSession;
+                const activeSession = sessionsData.find(s => s.isGlobalActive)?.sessionName || "";
 
                 if (sessionFromConsole) {
                     setAcademicSession(sessionFromConsole);
                 } else if (sessionFromDetails) {
                     setAcademicSession(sessionFromDetails);
+                } else if (activeSession) {
+                    setAcademicSession(activeSession);
                 }
 
                 if (!fetchedProgramme) {
@@ -481,14 +490,22 @@ const BoardCourseAdmissionPage = () => {
 
                             <div>
                                 <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Academic Session</label>
-                                <input
-                                    type="text"
+                                <select
                                     value={academicSession}
                                     onChange={(e) => setAcademicSession(e.target.value)}
-                                    placeholder="e.g. 2026-27"
                                     className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
                                     required
-                                />
+                                >
+                                    <option value="">-- Select Session --</option>
+                                    {sessions.filter(s => s.isGlobalActive).map(s => (
+                                        <option key={s._id} value={s.sessionName}>
+                                            {s.sessionName}
+                                        </option>
+                                    ))}
+                                </select>
+                                {sessions.filter(s => s.isGlobalActive).length === 0 && (
+                                    <p className="text-[9px] text-amber-500 font-bold mt-1 uppercase tracking-wider">⚠ No active session found. Set an active session via Master Data → Session.</p>
+                                )}
                             </div>
 
                             <div>
@@ -543,8 +560,8 @@ const BoardCourseAdmissionPage = () => {
                                                     key={subId || idx}
                                                     onClick={() => toggleSubject(subId)}
                                                     className={`p-4 rounded-lg border cursor-pointer transition-all flex items-center justify-between ${isSelected
-                                                            ? 'border-cyan-500 bg-cyan-500/5'
-                                                            : isDarkMode ? 'border-gray-800 bg-[#131619] hover:border-gray-700' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                                                        ? 'border-cyan-500 bg-cyan-500/5'
+                                                        : isDarkMode ? 'border-gray-800 bg-[#131619] hover:border-gray-700' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-3">
@@ -1002,8 +1019,8 @@ const BoardCourseAdmissionPage = () => {
                             type="submit"
                             disabled={loading}
                             className={`w-full mt-10 py-4 rounded-lg font-black uppercase tracking-[0.2em] text-sm transition-all shadow-[0_0_20px_rgba(6,182,212,0.2)] ${loading
-                                    ? 'bg-gray-700 cursor-not-allowed text-gray-400'
-                                    : 'bg-cyan-500 text-black hover:bg-cyan-400 hover:scale-[1.02]'
+                                ? 'bg-gray-700 cursor-not-allowed text-gray-400'
+                                : 'bg-cyan-500 text-black hover:bg-cyan-400 hover:scale-[1.02]'
                                 }`}
                         >
                             {loading ? "PROSSESING..." : "COMMIT ADMISSION"}
