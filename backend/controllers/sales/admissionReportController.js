@@ -22,7 +22,8 @@ export const getAdmissionReport = async (req, res) => {
             boardIds,  // comma separated or array
             examTagId,
             examTagIds,
-            programme
+            programme,
+            sessions
         } = req.query;
 
         console.log("Admission Report Query:", req.query);
@@ -150,6 +151,26 @@ export const getAdmissionReport = async (req, res) => {
                 const examNames = tagDocs.map(t => t.examName).filter(Boolean);
                 if (examNames.length > 0) {
                     leadQuery.targetExam = { $in: examNames };
+                }
+            }
+        }
+
+        // Session Filter
+        if (sessions) {
+            const sessionList = typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions;
+            if (sessionList.length > 0) {
+                admissionQuery.academicSession = { $in: sessionList };
+                
+                const coursesInSessions = await Course.find({ courseSession: { $in: sessionList } }).select("_id").lean();
+                const courseIdsInSessions = coursesInSessions.map(c => c._id);
+                if (leadQuery.course) {
+                    const existingLeadCourseIds = leadQuery.course.$in || [];
+                    const intersectedLeadIds = existingLeadCourseIds.filter(id => 
+                        courseIdsInSessions.some(pid => pid.toString() === id.toString())
+                    );
+                    leadQuery.course = { $in: intersectedLeadIds };
+                } else {
+                    leadQuery.course = { $in: courseIdsInSessions };
                 }
             }
         }

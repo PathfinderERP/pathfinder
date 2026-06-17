@@ -125,10 +125,12 @@ const DiscountReport = () => {
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [sessions, setSessions] = useState([]);
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]); // Array of IDs
     const [selectedExamTags, setSelectedExamTags] = useState([]); // Array of IDs for multi-select
+    const [selectedSessions, setSelectedSessions] = useState([]); // Array of session names
     const [selectedProgramme, setSelectedProgramme] = useState(""); // CRP or NCRP
     const [timePeriod, setTimePeriod] = useState("Today"); // Default to "Today"
     const [startDate, setStartDate] = useState("");
@@ -149,7 +151,7 @@ const DiscountReport = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedExamTags, selectedProgramme, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedExamTags, selectedSessions, selectedProgramme, timePeriod, startDate, endDate]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -157,9 +159,10 @@ const DiscountReport = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, eRes] = await Promise.all([
+            const [cRes, eRes, sRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
             ]);
 
             if (cRes.ok) {
@@ -179,6 +182,13 @@ const DiscountReport = () => {
                 setCentres(sortedCentres);
             }
             if (eRes.ok) setExamTags(await eRes.json());
+            if (sRes.ok) {
+                const sessionData = await sRes.json();
+                const sessionList = (Array.isArray(sessionData) ? sessionData : [])
+                    .filter(s => s.isGlobalActive)
+                    .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                setSessions(sessionList);
+            }
         } catch (error) {
             console.error("Error fetching master data", error);
         }
@@ -221,6 +231,7 @@ const DiscountReport = () => {
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedExamTags.length > 0) params.append("examTagId", selectedExamTags.join(","));
             if (selectedProgramme) params.append("programme", selectedProgramme);
+            if (selectedSessions.length > 0) params.append("sessions", selectedSessions.join(","));
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/discount-report?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -257,9 +268,16 @@ const DiscountReport = () => {
         );
     };
 
+    const toggleSessionSelection = (name) => {
+        setSelectedSessions(prev =>
+            prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]
+        );
+    };
+
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedExamTags([]);
+        setSelectedSessions([]);
         setSelectedProgramme("");
         setTimePeriod("This Month");
         setStartDate("");
@@ -451,6 +469,17 @@ const DiscountReport = () => {
                             selected={selectedExamTags}
                             onToggle={toggleExamTagSelection}
                             labelKey="name"
+                            isDarkMode={isDarkMode}
+                        />
+
+                        {/* Session Multi-Select */}
+                        <MultiSelect
+                            placeholder="All Active Sessions"
+                            options={sessions}
+                            selected={selectedSessions}
+                            onToggle={toggleSessionSelection}
+                            labelKey="sessionName"
+                            valueKey="sessionName"
                             isDarkMode={isDarkMode}
                         />
 

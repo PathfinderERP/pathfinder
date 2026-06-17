@@ -13,7 +13,8 @@ export const getDiscountReport = async (req, res) => {
             centreIds,
             examTagId,
             programme,
-            reportType // monthly or daily
+            reportType, // monthly or daily
+            sessions
         } = req.query;
 
         console.log("Discount Report Query:", req.query);
@@ -97,6 +98,15 @@ export const getDiscountReport = async (req, res) => {
             const studentIdsWithProg = studentsWithProg.map(s => s._id);
             matchStage.student = { $in: studentIdsWithProg };
             boardAdmissionQuery.studentId = { $in: studentIdsWithProg };
+        }
+
+        // 5. Session Filter
+        if (sessions) {
+            const sessionList = typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions;
+            if (sessionList.length > 0) {
+                matchStage.academicSession = { $in: sessionList };
+                boardAdmissionQuery.academicSession = { $in: sessionList };
+            }
         }
 
         // Parallel Aggregations

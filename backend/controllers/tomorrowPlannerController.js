@@ -113,10 +113,21 @@ export const getMyPlan = async (req, res) => {
 // ─── Get board/department plans (admin view) ─────────────────────────────────
 export const getBoardPlans = async (req, res) => {
     try {
-        const { date, role, employeeName, centreId } = req.query;
-        const targetDate = getMidnightUTC(date);
-        const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
-        const endRange   = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
+        const { date, startDate, endDate, role, employeeName, centreId } = req.query;
+        let startRange, endRange;
+        let targetDate;
+
+        if (startDate && endDate) {
+            const startMidnight = getMidnightUTC(startDate);
+            const endMidnight = getMidnightUTC(endDate);
+            startRange = new Date(startMidnight.getTime() - 12 * 60 * 60 * 1000);
+            endRange   = new Date(endMidnight.getTime() + 12 * 60 * 60 * 1000);
+            targetDate = startMidnight;
+        } else {
+            targetDate = getMidnightUTC(date);
+            startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+            endRange   = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
+        }
 
         const userQuery = { isActive: true };
 
@@ -131,7 +142,8 @@ export const getBoardPlans = async (req, res) => {
             telecaller: ["telecaller", "centralizedTelecaller"],
             counsellor: ["counsellor"],
             teacher: ["teacher"],
-            zonalmanager: ["zonalManager", "zonalmanager"]
+            zonalmanager: ["zonalManager", "zonalmanager"],
+            centerincharge: ["centerIncharge", "centerincharge"]
         };
 
         let rolesFilter = [];
@@ -234,7 +246,16 @@ export const getBoardPlans = async (req, res) => {
 
         const planMap = new Map();
         for (const plan of plans) {
-            if (plan.user) planMap.set(plan.user._id.toString(), plan);
+            if (plan.user) {
+                const userIdStr = plan.user._id.toString();
+                const planObj = plan.toObject ? plan.toObject() : JSON.parse(JSON.stringify(plan));
+                if (planMap.has(userIdStr)) {
+                    const existingPlan = planMap.get(userIdStr);
+                    existingPlan.tasks.push(...(planObj.tasks || []));
+                } else {
+                    planMap.set(userIdStr, planObj);
+                }
+            }
         }
 
         const combined = users.map(user => {

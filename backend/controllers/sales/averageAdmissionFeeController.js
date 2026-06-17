@@ -13,7 +13,8 @@ export const getAverageAdmissionFee = async (req, res) => {
             endDate,
             centreIds, // comma separated or array
             examTagIds, // comma separated or array
-            programme
+            programme,
+            sessions
         } = req.query;
 
         console.log("Average Admission Fee Query:", req.query);
@@ -79,6 +80,14 @@ export const getAverageAdmissionFee = async (req, res) => {
             if (validTagIds.length > 0) {
                 const objectTagIds = validTagIds.map(id => new mongoose.Types.ObjectId(id));
                 admissionQuery.examTag = { $in: objectTagIds };
+            }
+        }
+
+        // Session Filter
+        if (sessions) {
+            const sessionList = typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions;
+            if (sessionList.length > 0) {
+                admissionQuery.academicSession = { $in: sessionList };
             }
         }
 

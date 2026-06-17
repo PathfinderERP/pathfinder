@@ -157,10 +157,12 @@ const AdmissionCourseReport = () => {
     // ── master data ───────────────────────────────────────────────────────────
     const [centres,  setCentres]  = useState([]);
     const [examTags, setExamTags] = useState([]);
+    const [sessions, setSessions] = useState([]);
 
     // ── filters ───────────────────────────────────────────────────────────────
     const [selCentres,  setSelCentres]  = useState([]);
     const [selTags,     setSelTags]     = useState([]);
+    const [selSessions, setSelSessions] = useState([]);
     const [selectedProgramme, setSelectedProgramme] = useState("");
     const [timePeriod,  setTimePeriod]  = useState("Today");
     const [startDate,   setStartDate]   = useState("");
@@ -185,9 +187,10 @@ const AdmissionCourseReport = () => {
         const token = localStorage.getItem("token");
         const h     = { Authorization: `Bearer ${token}` };
         try {
-            const [cR, tR] = await Promise.all([
+            const [cR, tR, sR] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`,  { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers: h }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers: h }),
             ]);
             if (cR.ok) {
                 const d = await cR.json();
@@ -205,6 +208,13 @@ const AdmissionCourseReport = () => {
             if (tR.ok) {
                 const tags = await tR.json();
                 setExamTags(Array.isArray(tags) ? tags : tags.data || []);
+            }
+            if (sR.ok) {
+                const sessionData = await sR.json();
+                const sessionList = (Array.isArray(sessionData) ? sessionData : [])
+                    .filter(s => s.isGlobalActive)
+                    .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                setSessions(sessionList);
             }
         } catch (e) { console.error(e); }
     };
@@ -234,6 +244,7 @@ const AdmissionCourseReport = () => {
         if (selCentres.length) p.append("centreIds", selCentres.join(","));
         if (selectedProgramme) p.append("programme", selectedProgramme);
         if (selTags.length)    p.append("examTagIds", selTags.join(","));
+        if (selSessions.length) p.append("sessions", selSessions.join(","));
         return p.toString();
     };
 
@@ -282,16 +293,16 @@ const AdmissionCourseReport = () => {
         } finally {
             setLoading(false);
         }
-    }, [selCentres, selTags, timePeriod, startDate, endDate, selectedProgramme]);
+    }, [selCentres, selTags, selSessions, timePeriod, startDate, endDate, selectedProgramme]);
 
     // Trigger fetch on filter changes
     useEffect(() => {
         if (examTags.length > 0) fetchReport();
-    }, [selCentres, selTags, timePeriod, startDate, endDate, examTags, selectedProgramme]);
+    }, [selCentres, selTags, selSessions, timePeriod, startDate, endDate, examTags, selectedProgramme]);
 
     // ── helpers ───────────────────────────────────────────────────────────────
     const toggle     = setter => id => setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
+    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelSessions([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
 
     // Unique tag → index for stable colour
     const tagIndexMap = {};
@@ -512,6 +523,17 @@ const AdmissionCourseReport = () => {
                             selected={selTags}
                             onToggle={toggle(setSelTags)}
                             labelKey="name"
+                            isDarkMode={isDark}
+                        />
+
+                        {/* Active Sessions */}
+                        <MultiSelect
+                            placeholder="All Active Sessions"
+                            options={sessions}
+                            selected={selSessions}
+                            onToggle={toggle(setSelSessions)}
+                            labelKey="sessionName"
+                            valueKey="sessionName"
                             isDarkMode={isDark}
                         />
 
