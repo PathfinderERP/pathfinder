@@ -17,7 +17,7 @@ export const addFollowUp = async (req, res) => {
         if (!leadType) {
             return res.status(400).json({ message: "Lead status is required" });
         }
-        if (leadType !== "COLD LEAD" && !nextFollowUpDate) {
+        if (!["COLD LEAD", "INVALID LEAD"].includes(leadType) && !nextFollowUpDate) {
             return res.status(400).json({ message: "Next follow-up date is required" });
         }
 
@@ -25,7 +25,7 @@ export const addFollowUp = async (req, res) => {
             date: date || new Date(),
             feedback,
             remarks,
-            nextFollowUpDate: leadType === "COLD LEAD" ? undefined : nextFollowUpDate,
+            nextFollowUpDate: ["COLD LEAD", "INVALID LEAD"].includes(leadType) ? nextFollowUpDate : undefined,
             updatedBy: updatedBy || (req.user ? req.user.name : 'Unknown'),
             status: leadType, // Save the status at time of follow-up
             callStartTime,
