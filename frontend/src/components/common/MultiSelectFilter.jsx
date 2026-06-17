@@ -60,25 +60,45 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
     // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
+            // If the click is inside the dropdown or the trigger, do nothing
             if (
-                dropdownRef.current && !dropdownRef.current.contains(event.target) &&
-                triggerRef.current && !triggerRef.current.contains(event.target)
-            ) {
-                setIsOpen(false);
-                setSearchTerm('');
-            }
+                dropdownRef.current && dropdownRef.current.contains(event.target)
+            ) return;
+            if (
+                triggerRef.current && triggerRef.current.contains(event.target)
+            ) return;
+            setIsOpen(false);
+            setSearchTerm('');
         };
 
-        // Recalculate on scroll/resize
-        const handleScroll = () => {
+        // Recalculate position on scroll/resize — but SKIP if the scroll
+        // originated inside the dropdown itself (e.g. scrolling the list)
+        const handleScroll = (e) => {
+            if (dropdownRef.current && dropdownRef.current.contains(e.target)) {
+                // Scroll inside the dropdown — do NOT reposition or close
+                return;
+            }
             if (isOpen && triggerRef.current) {
                 const rect = triggerRef.current.getBoundingClientRect();
-                setDropdownStyle(prev => ({
-                    ...prev,
-                    top: rect.bottom + 4,
-                    left: rect.left,
-                    width: Math.max(rect.width, 240),
-                }));
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const dropdownHeight = Math.min(400, filteredOptions.length * 42 + 100);
+                if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+                    setDropdownStyle(prev => ({
+                        ...prev,
+                        bottom: window.innerHeight - rect.top + 4,
+                        top: undefined,
+                        left: rect.left,
+                        width: Math.max(rect.width, 240),
+                    }));
+                } else {
+                    setDropdownStyle(prev => ({
+                        ...prev,
+                        top: rect.bottom + 4,
+                        bottom: undefined,
+                        left: rect.left,
+                        width: Math.max(rect.width, 240),
+                    }));
+                }
             }
         };
 
@@ -92,7 +112,7 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
             window.removeEventListener('scroll', handleScroll, true);
             window.removeEventListener('resize', handleScroll);
         };
-    }, [isOpen]);
+    }, [isOpen, filteredOptions.length]);
 
     const toggleOption = (value) => {
         let newValues;
