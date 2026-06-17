@@ -219,13 +219,17 @@ const EnrolledStudentsContent = () => {
                 currentUser = profileData.user;
             }
 
-            // If superAdmin, fetch all centres
+            // If superAdmin, fetch all centres (active only)
             if (currentUser.role === 'superAdmin' || currentUser.role === 'Super Admin') {
                 const response = await fetch(`${apiUrl}/centre`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                const centres = response.ok ? await response.json() : [];
-                setAllowedCentres(centres.map(c => c.centreName).sort((a, b) => a.localeCompare(b)));
+                const allCentres = response.ok ? await response.json() : [];
+                // Filter to only active centres (exclude deactive/inactive)
+                const activeCentres = allCentres.filter(c =>
+                    c.status !== "deactive" && c.status !== "inactive" && c.status !== "Inactive"
+                );
+                setAllowedCentres(activeCentres.map(c => c.centreName).sort((a, b) => a.localeCompare(b)));
             } else {
                 // For non-superAdmin, use centres from profile
                 const userCentres = currentUser.centres || [];
