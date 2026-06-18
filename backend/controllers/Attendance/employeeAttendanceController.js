@@ -269,9 +269,19 @@ export const markWeekOff = async (req, res) => {
         if (!date) return res.status(400).json({ message: "Date is required" });
 
         const userId = req.user.id;
-        const markDate = startOfDay(new Date(date));
-        const today = new Date();
-        const todayStart = startOfDay(today);
+
+        // Parse date safely as UTC midnight to prevent timezone drift.
+        // The client now sends a "YYYY-MM-DD" string (local calendar date).
+        // Using startOfDay(new Date(isoString)) on a UTC server would shift the
+        // date back by the client's UTC offset (e.g. IST midnight → previous UTC day).
+        const dateStr = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+            ? date
+            : new Date(date).toISOString().split('T')[0];
+        const markDate = new Date(dateStr + 'T00:00:00.000Z');
+
+        // Compute today's UTC midnight for comparison (avoids server-tz dependency)
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStart = new Date(todayStr + 'T00:00:00.000Z');
 
         // 1. Validation: Must be today or future
         if (markDate < todayStart) {
