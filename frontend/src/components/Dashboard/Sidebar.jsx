@@ -73,7 +73,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "trackingFlagging",
             subItems: [
                 { name: "Daily Center Tracking", path: "/daily-center-tracking", permissionSection: "dailyCenterTracking" },
-                { name: "Red Flag Desk", path: "/red-flag-desk", permissionSection: "redFlagDesk" }
+                //{ name: "Red Flag Desk", path: "/red-flag-desk", permissionSection: "redFlagDesk" }
             ]
         },
         {
@@ -120,7 +120,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Enrolled Students", path: "/enrolled-students", permissionSection: "enrolledStudents" },
                 //{ name: "Section Allotment", path: "/admissions/section-allotment", permissionSection: "sectionAllotment" },
                 // { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
-                { name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "telecallingConsole" },
+                //{ name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "telecallingConsole" },
             ]
         },
         {
