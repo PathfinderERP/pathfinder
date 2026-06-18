@@ -518,7 +518,7 @@ export const getDailyUserActivity = async (req, res) => {
         // Fresh = created today with NO followUps (pure fresh section uploads, no feedback/remarks)
         const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText').populate('course', 'courseName').lean();
 
-        let hotCount = 0, warmCount = 0, coldCount = 0;
+        let hotCount = 0, warmCount = 0, coldCount = 0, neutralCount = 0, invalidCount = 0;
         const callDetails = [];
 
         // Process fresh leads (no followUps)
@@ -527,6 +527,8 @@ export const getDailyUserActivity = async (req, res) => {
             if (type.includes('HOT')) hotCount++;
             else if (type.includes('WARM')) warmCount++;
             else if (type.includes('COLD')) coldCount++;
+            else if (type.includes('NEUTRAL')) neutralCount++;
+            else if (type.includes('INVALID')) invalidCount++;
 
             callDetails.push({
                 leadId: lead._id,
@@ -556,6 +558,8 @@ export const getDailyUserActivity = async (req, res) => {
                 if (status.includes('HOT')) hotCount++;
                 else if (status.includes('WARM')) warmCount++;
                 else if (status.includes('COLD')) coldCount++;
+                else if (status.includes('NEUTRAL')) neutralCount++;
+                else if (status.includes('INVALID')) invalidCount++;
 
                 const isFresh = new Date(lead.createdAt) >= startDate && new Date(lead.createdAt) <= endDate;
 
@@ -568,7 +572,7 @@ export const getDailyUserActivity = async (req, res) => {
                     isCounseled: lead.isCounseled,
                     feedback: fu.feedback || '-',
                     remarks: fu.remarks || '',
-                    nextFollowUpDate: fu.nextFollowUpDate || null,
+                    nextFollowUpDate: fu.nextFollowUpDate || lead.nextFollowUpDate || null,
                     date: fu.date,
                     updatedAt: lead.updatedAt,
                     courseName: lead.course?.courseName || lead.courseText || '-'
@@ -795,7 +799,9 @@ export const getDailyUserActivity = async (req, res) => {
                 totalFollowUps: contactedLeadsCount,
                 hot: hotCount,
                 warm: warmCount,
-                cold: coldCount
+                cold: coldCount,
+                neutral: neutralCount,
+                invalid: invalidCount
             },
             counselled: {
                 normal: counselledNormal,
@@ -1026,7 +1032,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
                     leadType: fu.status || lead.leadType || 'UNTAGGED',
                     feedback: fu.feedback || '-',
                     remarks: fu.remarks || '',
-                    nextFollowUpDate: fu.nextFollowUpDate || null,
+                    nextFollowUpDate: fu.nextFollowUpDate || lead.nextFollowUpDate || null,
                     date: fu.date,
                     courseName: lead.course?.courseName || lead.courseText || '-'
                 });

@@ -155,6 +155,10 @@ const DailyUserActivityLog = () => {
             matchSection = (call.leadType || '').toUpperCase().includes('WARM');
         } else if (selectedSection === 'COLD') {
             matchSection = (call.leadType || '').toUpperCase().includes('COLD');
+        } else if (selectedSection === 'NEUTRAL') {
+            matchSection = (call.leadType || '').toUpperCase().includes('NEUTRAL');
+        } else if (selectedSection === 'INVALID') {
+            matchSection = (call.leadType || '').toUpperCase().includes('INVALID');
         }
 
         return matchSearch && matchType && matchLead && matchSection;
@@ -412,12 +416,14 @@ const DailyUserActivityLog = () => {
                     </div>
                 </div>
 
-                {/* HOT / WARM / COLD breakdown */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* HOT / WARM / COLD / NEUTRAL / INVALID breakdown */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                     {[
                         { label: 'Hot Leads', value: data.leads.hot, cfg: LEAD_TYPE_CONFIG['HOT LEAD'], section: 'HOT', activeBorder: 'border-red-500 shadow-lg shadow-red-900/20 bg-red-950/10' },
                         { label: 'Warm Leads', value: data.leads.warm, cfg: LEAD_TYPE_CONFIG['WARM LEAD'], section: 'WARM', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
                         { label: 'Cold Leads', value: data.leads.cold, cfg: LEAD_TYPE_CONFIG['COLD LEAD'], section: 'COLD', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
+                        { label: 'Neutral Leads', value: data.leads.neutral || 0, cfg: LEAD_TYPE_CONFIG['NEUTRAL LEAD'], section: 'NEUTRAL', activeBorder: 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' },
+                        { label: 'Invalid Leads', value: data.leads.invalid || 0, cfg: LEAD_TYPE_CONFIG['INVALID LEAD'], section: 'INVALID', activeBorder: 'border-gray-500 shadow-lg shadow-gray-900/20 bg-gray-950/10' },
                     ].map((item, i) => {
                         const pct = totalCalls > 0 ? Math.round((item.value / totalCalls) * 100) : 0;
                         const isActive = selectedSection === item.section;

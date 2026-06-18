@@ -25,7 +25,7 @@ export const addFollowUp = async (req, res) => {
             date: date || new Date(),
             feedback,
             remarks,
-            nextFollowUpDate: ["COLD LEAD", "INVALID LEAD"].includes(leadType) ? nextFollowUpDate : undefined,
+            nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : undefined,
             updatedBy: updatedBy || (req.user ? req.user.name : 'Unknown'),
             status: leadType, // Save the status at time of follow-up
             callStartTime,
