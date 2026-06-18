@@ -66,21 +66,35 @@ export const getPlanners = async (req, res) => {
             // Superadmin and Admin can view all data
             query = {};
         } else if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead") {
-            // Zonal head/manager can view marketing role users in their allotted centres, plus their own logs
+            // Zonal manager/head can view marketing and centerIncharge users in their allotted centres, plus their own logs
             const userCentres = req.user.centres || [];
             const userIds = [req.user._id || req.user.id]; // Always include their own ID
             if (userCentres.length > 0) {
-                const marketingUsersInCentres = await User.find({
+                const subordinateUsers = await User.find({
                     centres: { $in: userCentres },
-                    role: { $regex: /^marketing$/i }
+                    role: { $in: ["marketing", "centerIncharge"] }
                 }).select('_id');
-                marketingUsersInCentres.forEach(u => {
+                subordinateUsers.forEach(u => {
+                    userIds.push(u._id);
+                });
+            }
+            query.user = { $in: userIds };
+        } else if (userRoleStr === "centerincharge" || userRoleStr === "centreincharge") {
+            // Center Incharge can view marketing users in their centres, plus their own logs
+            const userCentres = req.user.centres || [];
+            const userIds = [req.user._id || req.user.id]; // Always include their own ID
+            if (userCentres.length > 0) {
+                const subordinateUsers = await User.find({
+                    centres: { $in: userCentres },
+                    role: { $in: ["marketing"] }
+                }).select('_id');
+                subordinateUsers.forEach(u => {
                     userIds.push(u._id);
                 });
             }
             query.user = { $in: userIds };
         } else {
-            // Other roles (e.g., Centre Incharge, Marketing Executives) can only view their own logs
+            // Other roles (e.g., Marketing Executives) can only view their own logs
             query.user = req.user._id || req.user.id;
         }
 
@@ -246,7 +260,7 @@ export const updatePlannerApproval = async (req, res) => {
         const { status, remarks } = req.body;
 
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const allowedRoles = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead"];
+        const allowedRoles = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead", "centerincharge", "centreincharge"];
         if (!allowedRoles.includes(userRoleStr)) {
             return res.status(403).json({ error: "Forbidden: You do not have permission to approve/reject plans." });
         }
@@ -256,23 +270,52 @@ export const updatePlannerApproval = async (req, res) => {
             return res.status(404).json({ error: "Planner record not found" });
         }
 
-        // Enforce boundary check for non-superadmin users
-        if (userRoleStr !== "superadmin" && userRoleStr !== "super admin" && userRoleStr !== "admin") {
+        const ownerUser = await User.findById(plannerRecord.user);
+        if (!ownerUser) {
+            return res.status(404).json({ error: "Owner user not found" });
+        }
+
+        const ownerRoleStr = (ownerUser.role || "").toLowerCase().replace(/\s+/g, "");
+
+        const isSuperAdminApprover = ["superadmin", "super admin", "admin"].includes(userRoleStr);
+
+        if (!isSuperAdminApprover) {
+            // Disallow self-approval
             const isSelf = plannerRecord.user.toString() === (req.user._id || req.user.id).toString();
-            if (!isSelf) {
-                const ownerUser = await User.findById(plannerRecord.user);
-                if (!ownerUser) {
-                    return res.status(404).json({ error: "Owner user not found" });
-                }
+            if (isSelf) {
+                return res.status(403).json({ error: "Forbidden: You cannot approve/reject your own plan." });
+            }
 
-                const managerCentres = (req.user.centres || []).map(c => c.toString());
-                const ownerCentres = (ownerUser.centres || []).map(c => c.toString());
-                const hasOverlap = ownerCentres.some(c => managerCentres.includes(c));
-                const isMarketing = (ownerUser.role || "").toLowerCase() === "marketing";
+            // Check center overlap
+            const managerCentres = (req.user.centres || []).map(c => c.toString());
+            const ownerCentres = (ownerUser.centres || []).map(c => c.toString());
+            const hasOverlap = ownerCentres.some(c => managerCentres.includes(c));
 
-                if (!hasOverlap || !isMarketing) {
-                    return res.status(403).json({ error: "Forbidden: You are not authorized to approve/reject plans for this user." });
+            if (!hasOverlap) {
+                return res.status(403).json({ error: "Forbidden: You are not authorized to approve/reject plans for a user outside your centres." });
+            }
+
+            // Specific role hierarchy logic
+            if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead") {
+                // Zonal managers can approve marketing and centerIncharge
+                const allowedOwners = ["marketing", "centerincharge", "centreincharge"];
+                if (!allowedOwners.includes(ownerRoleStr)) {
+                    return res.status(403).json({ error: "Forbidden: Zonal Managers can only approve plans of Marketing and Center Incharge users." });
                 }
+            } else if (userRoleStr === "centerincharge" || userRoleStr === "centreincharge") {
+                // Center Incharge can approve marketing
+                const allowedOwners = ["marketing"];
+                if (!allowedOwners.includes(ownerRoleStr)) {
+                    return res.status(403).json({ error: "Forbidden: Center Incharges can only approve plans of Marketing users." });
+                }
+            } else {
+                return res.status(403).json({ error: "Forbidden: You are not authorized to approve/reject this plan." });
+            }
+        } else {
+            // Superadmins can approve any of the target roles
+            const validRoles = ["marketing", "centerincharge", "centreincharge", "zonalmanager", "zonalhead", "superadmin", "super admin", "admin"];
+            if (!validRoles.includes(ownerRoleStr)) {
+                return res.status(403).json({ error: "Forbidden: Not an approvable role." });
             }
         }
 

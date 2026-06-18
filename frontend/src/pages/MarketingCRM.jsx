@@ -108,7 +108,7 @@ const MarketingCRM = () => {
             )
         );
         const hasPlan = staffPlan && staffPlan.tasks && staffPlan.tasks.length > 0;
-        
+
         let matchesStatus = true;
         if (cmdCentrePlanStatus === "Submitted") {
             matchesStatus = hasPlan;
@@ -332,7 +332,33 @@ const MarketingCRM = () => {
 
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const userRoleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
-    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead"].includes(userRoleLower);
+    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead", "centerincharge", "centreincharge"].includes(userRoleLower);
+
+    const canUserApproveRecord = (userObj, record) => {
+        if (!userObj || !record) return false;
+        const actorRole = (userObj.role || "").toLowerCase().replace(/\s+/g, "");
+        if (["superadmin", "super admin", "admin"].includes(actorRole)) {
+            return true;
+        }
+
+        const ownerUserId = record.user?._id || record.user;
+        const actorUserId = userObj._id || userObj.id;
+        if (ownerUserId && actorUserId && ownerUserId.toString() === actorUserId.toString()) {
+            return false;
+        }
+
+        const ownerRole = (record.user?.role || "").toLowerCase().replace(/\s+/g, "");
+
+        if (actorRole === "zonalmanager" || actorRole === "zonalhead") {
+            return ["marketing", "centerincharge", "centreincharge"].includes(ownerRole);
+        }
+
+        if (actorRole === "centerincharge" || actorRole === "centreincharge") {
+            return ["marketing"].includes(ownerRole);
+        }
+
+        return false;
+    };
 
     const [planDate, setPlanDate] = useState(getTodayDateString());
     const [expectedLeadTarget, setExpectedLeadTarget] = useState("0");
@@ -570,7 +596,7 @@ const MarketingCRM = () => {
                 if (data.plan && data.plan._id) {
                     setTomorrowPlanId(data.plan._id);
                     setTomorrowTasks(data.plan.tasks || []);
-                    
+
                     // Immediately sync to Today Task state in memory
                     if (data.plan.tasks && data.plan.tasks.length > 0) {
                         const mapped = data.plan.tasks.map(task => ({
@@ -834,7 +860,7 @@ const MarketingCRM = () => {
                     if (errData.error || errData.message) {
                         errMsg = errData.error || errData.message;
                     }
-                } catch (e) {}
+                } catch (e) { }
                 toast.error(errMsg);
             }
         } catch (error) {
@@ -870,7 +896,7 @@ const MarketingCRM = () => {
                     if (errData.error || errData.message) {
                         errMsg = errData.error || errData.message;
                     }
-                } catch (e) {}
+                } catch (e) { }
                 toast.error(errMsg);
             }
         } catch (error) {
@@ -1352,7 +1378,7 @@ const MarketingCRM = () => {
 
                 <div className="flex-1 custom-scrollbar overflow-y-auto">
                     {/* HERO SECTION */}
-                    <div className="bg-[#05080c] text-white p-8 md:p-12 relative overflow-hidden">
+                    {/* <div className="bg-[#05080c] text-white p-8 md:p-12 relative overflow-hidden">
                         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between gap-8 relative z-10">
                             <div className="flex-1 space-y-6">
                                 <div className="flex flex-wrap gap-3">
@@ -1402,13 +1428,13 @@ const MarketingCRM = () => {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                     <div className="max-w-[1600px] mx-auto p-8 space-y-8">
                         {/* KPI ROW */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {[
-                                { label: "TOTAL LEADS", value: totalLeads, sub: "200 target across team", color: "text-emerald-500" },
+                                // { label: "TOTAL LEADS", value: totalLeads, sub: "200 target across team", color: "text-emerald-500" },
                                 { label: "PROOF UPLOADS", value: totalProofUploads, sub: "Photos uploaded as proof", color: "text-blue-500" },
                                 { label: "PENDING REVIEW", value: totalPendingReview, sub: "Need ZM action", color: "text-red-500" },
                                 { label: "APPROVED REVIEW", value: totalApprovedReview, sub: "Approved activities", color: "text-emerald-500" }
@@ -1469,7 +1495,7 @@ const MarketingCRM = () => {
                                                 <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Command Centre Filters</h3>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="flex items-center gap-3">
                                             {boardPlansLoading && (
                                                 <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading plans...</span>
@@ -1498,11 +1524,10 @@ const MarketingCRM = () => {
                                                 placeholder="Search by staff name..."
                                                 value={cmdCentreSearch}
                                                 onChange={e => setCmdCentreSearch(e.target.value)}
-                                                className={`w-full pl-10 pr-4 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none transition-all ${
-                                                    isDarkMode 
-                                                        ? 'bg-black/40 border-gray-800 text-white placeholder-gray-500 focus:border-gray-700' 
-                                                        : 'bg-white border-gray-200 text-[#05080c] placeholder-gray-400 focus:border-gray-300'
-                                                }`}
+                                                className={`w-full pl-10 pr-4 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none transition-all ${isDarkMode
+                                                    ? 'bg-black/40 border-gray-800 text-white placeholder-gray-500 focus:border-gray-700'
+                                                    : 'bg-white border-gray-200 text-[#05080c] placeholder-gray-400 focus:border-gray-300'
+                                                    }`}
                                             />
                                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                                                 <FaSearch className="w-3 h-3" />
@@ -1520,11 +1545,10 @@ const MarketingCRM = () => {
                                                         setCmdCentreEndDate("");
                                                     }
                                                 }}
-                                                className={`w-full px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${
-                                                    isDarkMode 
-                                                        ? 'bg-black/40 border-gray-800 text-white' 
-                                                        : 'bg-white border-gray-200 text-[#05080c]'
-                                                }`}
+                                                className={`w-full px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode
+                                                    ? 'bg-black/40 border-gray-800 text-white'
+                                                    : 'bg-white border-gray-200 text-[#05080c]'
+                                                    }`}
                                             >
                                                 {["Tomorrow", "Today", "Yesterday", "Last 7 Days", "This Month", "Custom"].map(d => <option key={d} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{d}</option>)}
                                             </select>
@@ -1539,11 +1563,10 @@ const MarketingCRM = () => {
                                                         type="date"
                                                         value={cmdCentreStartDate}
                                                         onChange={e => setCmdCentreStartDate(e.target.value)}
-                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${
-                                                            isDarkMode 
-                                                                ? 'bg-black/40 border-gray-800 text-white' 
-                                                                : 'bg-white border-gray-200 text-[#05080c]'
-                                                        }`}
+                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${isDarkMode
+                                                            ? 'bg-black/40 border-gray-800 text-white'
+                                                            : 'bg-white border-gray-200 text-[#05080c]'
+                                                            }`}
                                                     />
                                                     <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>From</span>
                                                 </div>
@@ -1552,11 +1575,10 @@ const MarketingCRM = () => {
                                                         type="date"
                                                         value={cmdCentreEndDate}
                                                         onChange={e => setCmdCentreEndDate(e.target.value)}
-                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${
-                                                            isDarkMode 
-                                                                ? 'bg-black/40 border-gray-800 text-white' 
-                                                                : 'bg-white border-gray-200 text-[#05080c]'
-                                                        }`}
+                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${isDarkMode
+                                                            ? 'bg-black/40 border-gray-800 text-white'
+                                                            : 'bg-white border-gray-200 text-[#05080c]'
+                                                            }`}
                                                     />
                                                     <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>To</span>
                                                 </div>
@@ -1598,11 +1620,10 @@ const MarketingCRM = () => {
                                             <select
                                                 value={cmdCentrePlanStatus}
                                                 onChange={e => setCmdCentrePlanStatus(e.target.value)}
-                                                className={`w-full px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${
-                                                    isDarkMode 
-                                                        ? 'bg-black/40 border-gray-800 text-white' 
-                                                        : 'bg-white border-gray-200 text-[#05080c]'
-                                                }`}
+                                                className={`w-full px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode
+                                                    ? 'bg-black/40 border-gray-800 text-white'
+                                                    : 'bg-white border-gray-200 text-[#05080c]'
+                                                    }`}
                                             >
                                                 <option value="All" className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>All</option>
                                                 <option value="Submitted" className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>Plan Submitted</option>
@@ -1672,13 +1693,12 @@ const MarketingCRM = () => {
                                                             <div
                                                                 key={idx}
                                                                 onClick={() => setSelectedStaff({ ...staff, _plan: staffPlan || null })}
-                                                                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                                                                    selectedStaff?._id === staff._id
-                                                                        ? 'border-orange-500 bg-orange-500/5'
-                                                                        : isDarkMode
-                                                                            ? 'border-gray-800 hover:border-gray-700 hover:bg-gray-800/40'
-                                                                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                                                                }`}
+                                                                className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedStaff?._id === staff._id
+                                                                    ? 'border-orange-500 bg-orange-500/5'
+                                                                    : isDarkMode
+                                                                        ? 'border-gray-800 hover:border-gray-700 hover:bg-gray-800/40'
+                                                                        : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                                                                    }`}
                                                             >
                                                                 <div className="flex justify-between items-start mb-3">
                                                                     <div className="flex-1 min-w-0">
@@ -1732,7 +1752,7 @@ const MarketingCRM = () => {
                                             const hasPlan = plannedTasks.length > 0;
                                             const staffCentre = (selectedStaff.centres || [])[0]?.centreName || '';
                                             const limits = getDateRangeLimits(cmdCentreDateRange, cmdCentreStartDate, cmdCentreEndDate);
-                                            const displayDate = (limits.start && limits.end) 
+                                            const displayDate = (limits.start && limits.end)
                                                 ? (limits.start === limits.end ? limits.start : `${limits.start} to ${limits.end}`)
                                                 : boardPlanDate;
 
@@ -1746,11 +1766,10 @@ const MarketingCRM = () => {
                                                                 {selectedStaff.role} {staffCentre ? `• ${staffCentre}` : ''}
                                                             </p>
                                                         </div>
-                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                                                            hasPlan
-                                                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                                                : 'bg-red-500/10 text-red-400 border-red-500/20'
-                                                        }`}>
+                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${hasPlan
+                                                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                                            : 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                            }`}>
                                                             {hasPlan ? `✓ Plan Submitted` : '✗ No Plan Yet'}
                                                         </span>
                                                     </div>
@@ -1779,17 +1798,15 @@ const MarketingCRM = () => {
                                                                 </svg>
                                                                 Field Plan — {displayDate}
                                                             </h4>
-                                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${
-                                                                hasPlan ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-400'
-                                                            }`}>
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${hasPlan ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-400'
+                                                                }`}>
                                                                 {plannedTasks.length} task{plannedTasks.length !== 1 ? 's' : ''}
                                                             </span>
                                                         </div>
 
                                                         {!hasPlan ? (
-                                                            <div className={`p-8 rounded-2xl border border-dashed text-center ${
-                                                                isDarkMode ? 'border-gray-700 bg-gray-800/20' : 'border-gray-200 bg-gray-50'
-                                                            }`}>
+                                                            <div className={`p-8 rounded-2xl border border-dashed text-center ${isDarkMode ? 'border-gray-700 bg-gray-800/20' : 'border-gray-200 bg-gray-50'
+                                                                }`}>
                                                                 <div className="text-2xl mb-2">📋</div>
                                                                 <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">No Plan Submitted</p>
                                                                 <p className="text-[10px] text-gray-400 mt-1">This staff member has not uploaded their field plan for {displayDate}.</p>
@@ -1804,18 +1821,16 @@ const MarketingCRM = () => {
                                                                             : 'text-orange-500 bg-orange-500/10 border-orange-500/20';
 
                                                                     return (
-                                                                        <div key={tIdx} className={`p-4 rounded-2xl border transition-all ${
-                                                                            isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200'
-                                                                        }`}>
+                                                                        <div key={tIdx} className={`p-4 rounded-2xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200'
+                                                                            }`}>
                                                                             <div className="flex items-start justify-between gap-3">
                                                                                 <div className="flex-1 min-w-0">
                                                                                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                                                                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${priorityColor}`}>
                                                                                             {task.priority || 'Medium'}
                                                                                         </span>
-                                                                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                                                                            isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
-                                                                                        }`}>
+                                                                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
+                                                                                            }`}>
                                                                                             {task.activityType || 'Activity'}
                                                                                         </span>
                                                                                     </div>
@@ -1837,11 +1852,10 @@ const MarketingCRM = () => {
                                                                                             ⏱ {task.estimatedDuration}
                                                                                         </p>
                                                                                     )}
-                                                                                    <span className={`inline-block mt-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${
-                                                                                        task.status === 'Completed'
-                                                                                            ? 'bg-emerald-500/10 text-emerald-500'
-                                                                                            : 'bg-yellow-500/10 text-yellow-500'
-                                                                                    }`}>
+                                                                                    <span className={`inline-block mt-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${task.status === 'Completed'
+                                                                                        ? 'bg-emerald-500/10 text-emerald-500'
+                                                                                        : 'bg-yellow-500/10 text-yellow-500'
+                                                                                        }`}>
                                                                                         {task.status || 'Planned'}
                                                                                     </span>
                                                                                 </div>
@@ -1854,7 +1868,7 @@ const MarketingCRM = () => {
                                                     </div>
 
                                                     {/* Manager Decision */}
-                                                    {canApproveOrReject && (
+                                                    {canApproveOrReject && canUserApproveRecord(currentUser, { user: selectedStaff }) && (
                                                         <div className={`pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                                                             <h4 className={`text-sm font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Manager Decision</h4>
                                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1925,11 +1939,10 @@ const MarketingCRM = () => {
                                                                         <p className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{rec.institution || rec.place || '—'}</p>
                                                                     </div>
                                                                 </div>
-                                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                                                                    rec.status === 'Approved' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
+                                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${rec.status === 'Approved' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
                                                                     rec.status === 'Rejected' ? 'bg-red-500/15 text-red-500 border border-red-500/30' :
-                                                                    'bg-yellow-500/15 text-yellow-600 border border-yellow-500/30'
-                                                                }`}>{rec.status || 'Pending'}</span>
+                                                                        'bg-yellow-500/15 text-yellow-600 border border-yellow-500/30'
+                                                                    }`}>{rec.status || 'Pending'}</span>
                                                             </div>
 
                                                             {/* Card Body */}
@@ -1999,215 +2012,215 @@ const MarketingCRM = () => {
                                     ) : (
                                         <>
                                             {/* Activity Blocks */}
-                                    <div className="space-y-4 mb-8">
-                                        <div className="flex justify-between items-center mb-6">
-                                            <h4 className="text-lg font-black tracking-tight">Planned Activity Blocks</h4>
-                                            <button onClick={handleAddActivity} className="px-4 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:shadow-lg transition-all flex items-center gap-2 active:scale-95">
-                                                + Add Activity
-                                            </button>
-                                        </div>
-
-                                        <div className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-[#f4f6f8] border-gray-100'}`}>
-                                            {/* Grid Column Headers (Desktop only) */}
-                                            <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
-                                                <div className="col-span-2">Activity Type</div>
-                                                <div className="col-span-2">Place / Institution</div>
-                                                <div className="col-span-1">Time</div>
-                                                <div className="col-span-1">Duration</div>
-                                                <div className="col-span-2">Notes</div>
-                                                <div className="col-span-1 text-center">Priority</div>
-                                                <div className="col-span-1 text-center">Leads</div>
-                                                <div className="col-span-1 text-center">Geo-Tag</div>
-                                                <div className="col-span-1 text-center">Actions</div>
-                                            </div>
-
-                                            {todayActivities.map((activity, idx) => (
-                                                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-fadeIn border-b border-gray-800/10 dark:border-gray-800/30 pb-4 md:pb-0 md:border-b-0">
-                                                    {/* Activity Type select — sourced from Master Data /source */}
-                                                    <div className="col-span-1 md:col-span-2">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
-                                                        <select
-                                                            disabled={activity.isSaved}
-                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                            value={activity.type}
-                                                            onChange={(e) => {
-                                                                const newActs = [...todayActivities];
-                                                                newActs[idx].type = e.target.value;
-                                                                setTodayActivities(newActs);
-                                                            }}
-                                                        >
-                                                            {activitySources.length > 0 ? (
-                                                                activitySources.map((src, sIdx) => (
-                                                                    <option key={sIdx} value={src}>{src}</option>
-                                                                ))
-                                                            ) : (
-                                                                // Fallback options when API not loaded
-                                                                ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity"].map((s, sIdx) => (
-                                                                    <option key={sIdx} value={s}>{s}</option>
-                                                                ))
-                                                            )}
-                                                        </select>
-                                                    </div>
-
-                                                    {/* Place / Institution input */}
-                                                    <div className="col-span-1 md:col-span-2">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
-                                                        <input
-                                                            type="text"
-                                                            disabled={activity.isSaved}
-                                                            placeholder="Place / Institution"
-                                                            value={activity.place}
-                                                            onChange={(e) => {
-                                                                const newActs = [...todayActivities];
-                                                                newActs[idx].place = e.target.value;
-                                                                setTodayActivities(newActs);
-                                                            }}
-                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                        />
-                                                    </div>
-
-                                                    {/* Time picker */}
-                                                    <div className="col-span-1 md:col-span-1">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Time</label>
-                                                        <input
-                                                            type="time"
-                                                            disabled={activity.isSaved}
-                                                            value={activity.time}
-                                                            onChange={(e) => {
-                                                                const newActs = [...todayActivities];
-                                                                newActs[idx].time = e.target.value;
-                                                                setTodayActivities(newActs);
-                                                            }}
-                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                        />
-                                                    </div>
-
-                                                    {/* Duration input */}
-                                                    <div className="col-span-1 md:col-span-1">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration</label>
-                                                        <input
-                                                            type="text"
-                                                            disabled={activity.isSaved}
-                                                            placeholder="Duration"
-                                                            value={activity.estimatedDuration}
-                                                            onChange={(e) => {
-                                                                const newActs = [...todayActivities];
-                                                                newActs[idx].estimatedDuration = e.target.value;
-                                                                setTodayActivities(newActs);
-                                                            }}
-                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                        />
-                                                    </div>
-
-                                                    {/* Notes input */}
-                                                    <div className="col-span-1 md:col-span-2">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
-                                                        <input
-                                                            type="text"
-                                                            disabled={activity.isSaved}
-                                                            placeholder="Notes"
-                                                            value={activity.notes}
-                                                            onChange={(e) => {
-                                                                const newActs = [...todayActivities];
-                                                                newActs[idx].notes = e.target.value;
-                                                                setTodayActivities(newActs);
-                                                            }}
-                                                            className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                        />
-                                                    </div>
-
-                                                    {/* Priority select */}
-                                                    <div className="col-span-1 md:col-span-1">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Priority</label>
-                                                        <select
-                                                            disabled={activity.isSaved}
-                                                            value={activity.priority || "Medium"}
-                                                            onChange={(e) => {
-                                                                const newActs = [...todayActivities];
-                                                                newActs[idx].priority = e.target.value;
-                                                                setTodayActivities(newActs);
-                                                            }}
-                                                            className={`w-full px-2 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                        >
-                                                            <option value="High">High</option>
-                                                            <option value="Medium">Medium</option>
-                                                            <option value="Low">Low</option>
-                                                        </select>
-                                                    </div>
-
-                                                    {/* Expected Leads input */}
-                                                    <div className="col-span-1 md:col-span-1">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Leads</label>
-                                                        <input
-                                                            type="text"
-                                                            disabled={activity.isSaved}
-                                                            placeholder="Leads"
-                                                            value={activity.expectedLeads}
-                                                            onChange={(e) => {
-                                                                const newActs = [...todayActivities];
-                                                                newActs[idx].expectedLeads = e.target.value;
-                                                                setTodayActivities(newActs);
-                                                            }}
-                                                            className={`w-full px-2 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all text-center ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                        />
-                                                    </div>
-
-                                                    {/* Geo-Tag status and action button */}
-                                                    <div className="col-span-1 md:col-span-1">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Geo-Tag</label>
-                                                        {activity.geoTagged ? (
-                                                            <button
-                                                                onClick={() => handleOpenVerifyModal(idx)}
-                                                                className="w-full py-2.5 px-1 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-green-500/20 transition-all"
-                                                            >
-                                                                📍 OK
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => handleOpenVerifyModal(idx)}
-                                                                className="w-full py-2.5 px-1 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-orange-500/20 transition-all"
-                                                            >
-                                                                📸 Verify
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Actions (Edit and Delete) */}
-                                                    <div className="col-span-1 md:col-span-1 flex justify-center items-center gap-1.5 pt-2 md:pt-0">
-                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Actions</label>
-
-                                                        {/* Edit/Save Toggle button */}
-                                                        <button
-                                                            onClick={() => toggleSaveActivity(idx)}
-                                                            title={activity.isSaved ? "Edit Row" : "Save Row"}
-                                                            className={`p-2 rounded-lg border transition-all ${activity.isSaved ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20' : 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'}`}
-                                                        >
-                                                            {activity.isSaved ? (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.83 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
-                                                                </svg>
-                                                            ) : (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                                                </svg>
-                                                            )}
-                                                        </button>
-
-                                                        {/* Delete Row button */}
-                                                        <button
-                                                            onClick={() => handleDeleteActivity(idx)}
-                                                            title="Delete Row"
-                                                            className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-all"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
+                                            <div className="space-y-4 mb-8">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h4 className="text-lg font-black tracking-tight">Planned Activity Blocks</h4>
+                                                    <button onClick={handleAddActivity} className="px-4 py-2 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:shadow-lg transition-all flex items-center gap-2 active:scale-95">
+                                                        + Add Activity
+                                                    </button>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
+
+                                                <div className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-[#f4f6f8] border-gray-100'}`}>
+                                                    {/* Grid Column Headers (Desktop only) */}
+                                                    <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
+                                                        <div className="col-span-2">Activity Type</div>
+                                                        <div className="col-span-2">Place / Institution</div>
+                                                        <div className="col-span-1">Time</div>
+                                                        <div className="col-span-1">Duration</div>
+                                                        <div className="col-span-2">Notes</div>
+                                                        <div className="col-span-1 text-center">Priority</div>
+                                                        <div className="col-span-1 text-center">Leads</div>
+                                                        <div className="col-span-1 text-center">Geo-Tag</div>
+                                                        <div className="col-span-1 text-center">Actions</div>
+                                                    </div>
+
+                                                    {todayActivities.map((activity, idx) => (
+                                                        <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-fadeIn border-b border-gray-800/10 dark:border-gray-800/30 pb-4 md:pb-0 md:border-b-0">
+                                                            {/* Activity Type select — sourced from Master Data /source */}
+                                                            <div className="col-span-1 md:col-span-2">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
+                                                                <select
+                                                                    disabled={activity.isSaved}
+                                                                    className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                    value={activity.type}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].type = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                >
+                                                                    {activitySources.length > 0 ? (
+                                                                        activitySources.map((src, sIdx) => (
+                                                                            <option key={sIdx} value={src}>{src}</option>
+                                                                        ))
+                                                                    ) : (
+                                                                        // Fallback options when API not loaded
+                                                                        ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity"].map((s, sIdx) => (
+                                                                            <option key={sIdx} value={s}>{s}</option>
+                                                                        ))
+                                                                    )}
+                                                                </select>
+                                                            </div>
+
+                                                            {/* Place / Institution input */}
+                                                            <div className="col-span-1 md:col-span-2">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
+                                                                <input
+                                                                    type="text"
+                                                                    disabled={activity.isSaved}
+                                                                    placeholder="Place / Institution"
+                                                                    value={activity.place}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].place = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                    className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                />
+                                                            </div>
+
+                                                            {/* Time picker */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Time</label>
+                                                                <input
+                                                                    type="time"
+                                                                    disabled={activity.isSaved}
+                                                                    value={activity.time}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].time = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                    className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                />
+                                                            </div>
+
+                                                            {/* Duration input */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration</label>
+                                                                <input
+                                                                    type="text"
+                                                                    disabled={activity.isSaved}
+                                                                    placeholder="Duration"
+                                                                    value={activity.estimatedDuration}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].estimatedDuration = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                    className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                />
+                                                            </div>
+
+                                                            {/* Notes input */}
+                                                            <div className="col-span-1 md:col-span-2">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
+                                                                <input
+                                                                    type="text"
+                                                                    disabled={activity.isSaved}
+                                                                    placeholder="Notes"
+                                                                    value={activity.notes}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].notes = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                    className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                />
+                                                            </div>
+
+                                                            {/* Priority select */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Priority</label>
+                                                                <select
+                                                                    disabled={activity.isSaved}
+                                                                    value={activity.priority || "Medium"}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].priority = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                    className={`w-full px-2 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                >
+                                                                    <option value="High">High</option>
+                                                                    <option value="Medium">Medium</option>
+                                                                    <option value="Low">Low</option>
+                                                                </select>
+                                                            </div>
+
+                                                            {/* Expected Leads input */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Leads</label>
+                                                                <input
+                                                                    type="text"
+                                                                    disabled={activity.isSaved}
+                                                                    placeholder="Leads"
+                                                                    value={activity.expectedLeads}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].expectedLeads = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                    className={`w-full px-2 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all text-center ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                />
+                                                            </div>
+
+                                                            {/* Geo-Tag status and action button */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Geo-Tag</label>
+                                                                {activity.geoTagged ? (
+                                                                    <button
+                                                                        onClick={() => handleOpenVerifyModal(idx)}
+                                                                        className="w-full py-2.5 px-1 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-green-500/20 transition-all"
+                                                                    >
+                                                                        📍 OK
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleOpenVerifyModal(idx)}
+                                                                        className="w-full py-2.5 px-1 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-orange-500/20 transition-all"
+                                                                    >
+                                                                        📸 Verify
+                                                                    </button>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Actions (Edit and Delete) */}
+                                                            <div className="col-span-1 md:col-span-1 flex justify-center items-center gap-1.5 pt-2 md:pt-0">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Actions</label>
+
+                                                                {/* Edit/Save Toggle button */}
+                                                                <button
+                                                                    onClick={() => toggleSaveActivity(idx)}
+                                                                    title={activity.isSaved ? "Edit Row" : "Save Row"}
+                                                                    className={`p-2 rounded-lg border transition-all ${activity.isSaved ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20' : 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20'}`}
+                                                                >
+                                                                    {activity.isSaved ? (
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.83 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+                                                                        </svg>
+                                                                    ) : (
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                                        </svg>
+                                                                    )}
+                                                                </button>
+
+                                                                {/* Delete Row button */}
+                                                                <button
+                                                                    onClick={() => handleDeleteActivity(idx)}
+                                                                    title="Delete Row"
+                                                                    className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-all"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
 
                                             <button
                                                 onClick={handleSubmitFieldPlan}
@@ -2725,11 +2738,10 @@ const MarketingCRM = () => {
 
                                                             <div className="col-span-1 md:col-span-1 flex justify-start md:justify-center">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mr-2 uppercase tracking-wider">Priority</label>
-                                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                                                                    task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${task.priority === 'High' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
                                                                     task.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
-                                                                    'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                                                                }`}>
+                                                                        'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                                                    }`}>
                                                                     {task.priority || "Medium"}
                                                                 </span>
                                                             </div>
@@ -3057,11 +3069,10 @@ const MarketingCRM = () => {
                                                                         <td className="px-5 py-4 whitespace-nowrap text-gray-500 font-mono text-[10px]">{row.estimatedDuration || '—'}</td>
                                                                         <td className="px-5 py-4 whitespace-nowrap max-w-[150px] truncate text-gray-500" title={row.notes}>{row.notes || '—'}</td>
                                                                         <td className="px-5 py-4 whitespace-nowrap">
-                                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                                                                                row.priority === 'High' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${row.priority === 'High' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
                                                                                 row.priority === 'Low' ? 'bg-gray-500/10 text-gray-500 border border-gray-500/20' :
-                                                                                'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                                                            }`}>
+                                                                                    'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                                                                                }`}>
                                                                                 {row.priority || 'Medium'}
                                                                             </span>
                                                                         </td>
@@ -3105,7 +3116,7 @@ const MarketingCRM = () => {
                                                                             {approval.approvedBy || '—'}
                                                                         </td>
                                                                         <td className="px-5 py-4 min-w-[180px]">
-                                                                            {canApproveOrReject ? (
+                                                                            {canApproveOrReject && canUserApproveRecord(currentUser, row) ? (
                                                                                 <input
                                                                                     type="text"
                                                                                     placeholder="Add remarks…"
@@ -3125,26 +3136,30 @@ const MarketingCRM = () => {
                                                                         </td>
                                                                         {canApproveOrReject && (
                                                                             <td className="px-5 py-4 min-w-[180px]">
-                                                                                <div className="flex gap-2">
-                                                                                    <button
-                                                                                        onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
-                                                                                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Approved"
-                                                                                            ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
-                                                                                            : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
-                                                                                            }`}
-                                                                                    >
-                                                                                        ✓ Approve
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
-                                                                                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Rejected"
-                                                                                            ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
-                                                                                            : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
-                                                                                            }`}
-                                                                                    >
-                                                                                        ✕ Reject
-                                                                                    </button>
-                                                                                </div>
+                                                                                {canUserApproveRecord(currentUser, row) ? (
+                                                                                    <div className="flex gap-2">
+                                                                                        <button
+                                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
+                                                                                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Approved"
+                                                                                                ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
+                                                                                                : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
+                                                                                                }`}
+                                                                                        >
+                                                                                            ✓ Approve
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
+                                                                                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Rejected"
+                                                                                                ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
+                                                                                                : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
+                                                                                                }`}
+                                                                                        >
+                                                                                            ✕ Reject
+                                                                                        </button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <span className="text-[9px] text-gray-400 font-bold uppercase italic text-center block">No Action Allowed</span>
+                                                                                )}
                                                                             </td>
                                                                         )}
                                                                     </tr>

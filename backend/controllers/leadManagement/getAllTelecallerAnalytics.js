@@ -396,7 +396,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             const todayStr = last5DaysList[0];
             const yesterdayStr = last5DaysList[1];
 
-            const isMarketing = u.role?.toLowerCase() === 'marketing';
+            const isMarketing = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead'].includes(u.role?.toLowerCase()?.replace(/\s+/g, ''));
 
             const effectiveCurrent = isMarketing ? mktPerf.current : uPerf.current;
             const effectivePrev = isMarketing ? mktPerf.prev : uPerf.prev;

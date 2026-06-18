@@ -596,10 +596,17 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         }
     }
 
+    // Grant automatic access to marketingCRM module
+    if (module === 'marketingCRM') {
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+        if (isMktTargetRole) return true;
+    }
+
     // Grant automatic access to dailyTrackingLog module actions for marketing role or users with marketingCRM access
     if (module === 'dailyTrackingLog') {
         const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
-        if (role?.toLowerCase() === 'marketing' || granularPermissions?.['marketingCRM']) {
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+        if (isMktTargetRole || granularPermissions?.['marketingCRM']) {
             return true;
         }
     }
@@ -633,6 +640,16 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     const normalizedRole = role ? role.toLowerCase() : "";
     if (module === 'academics' && (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
         return true;
+    }
+
+    if (module === 'marketingCRM') {
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(normalizedRole.replace(/\s+/g, ''));
+        if (isMktTargetRole) return true;
+    }
+
+    if (module === 'dailyTrackingLog') {
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(normalizedRole.replace(/\s+/g, ''));
+        if (isMktTargetRole) return true;
     }
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;

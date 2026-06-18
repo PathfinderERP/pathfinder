@@ -212,9 +212,10 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
-            // Grant automatic access to dailyTrackingLog module actions for marketing role or users with marketingCRM access
+            // Grant automatic access to dailyTrackingLog module actions for marketing, centerIncharge, or zonalManager roles or users with marketingCRM access
             if (!hasAccess && module === 'dailyTrackingLog') {
-                if (user.role?.toLowerCase() === 'marketing' || user.granularPermissions?.['marketingCRM']) {
+                const isTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead'].includes(user.role?.toLowerCase()?.replace(/\s+/g, ''));
+                if (isTargetRole || user.granularPermissions?.['marketingCRM']) {
                     hasAccess = true;
                 }
             }
