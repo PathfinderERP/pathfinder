@@ -243,7 +243,7 @@ const EmployeeAttendance = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ date })
+                body: JSON.stringify({ date: format(date, "yyyy-MM-dd") })
             });
 
             const data = await response.json();
@@ -521,30 +521,27 @@ const EmployeeAttendance = () => {
 
                         {/* Regularization details */}
                         {status.regularization && (
-                            <div className={`p-6 rounded-2xl border ${
-                                status.regularization.status === 'Approved'
+                            <div className={`p-6 rounded-2xl border ${status.regularization.status === 'Approved'
                                     ? 'bg-emerald-500/5 border-emerald-500/20'
                                     : status.regularization.status === 'Rejected'
-                                    ? 'bg-red-500/5 border-red-500/20'
-                                    : 'bg-orange-500/5 border-orange-500/20'
-                            } space-y-4`}>
+                                        ? 'bg-red-500/5 border-red-500/20'
+                                        : 'bg-orange-500/5 border-orange-500/20'
+                                } space-y-4`}>
                                 <div className="flex justify-between items-center">
-                                    <h4 className={`text-xs font-black uppercase tracking-widest ${
-                                        status.regularization.status === 'Approved'
+                                    <h4 className={`text-xs font-black uppercase tracking-widest ${status.regularization.status === 'Approved'
                                             ? 'text-emerald-500'
                                             : status.regularization.status === 'Rejected'
-                                            ? 'text-red-500'
-                                            : 'text-orange-500'
-                                    }`}>
+                                                ? 'text-red-500'
+                                                : 'text-orange-500'
+                                        }`}>
                                         Regularization {status.regularization.status}
                                     </h4>
-                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
-                                        status.regularization.status === 'Approved'
+                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${status.regularization.status === 'Approved'
                                             ? 'bg-emerald-500/20 text-emerald-400'
                                             : status.regularization.status === 'Rejected'
-                                            ? 'bg-red-500/20 text-red-400'
-                                            : 'bg-orange-500/20 text-orange-400'
-                                    }`}>
+                                                ? 'bg-red-500/20 text-red-400'
+                                                : 'bg-orange-500/20 text-orange-400'
+                                        }`}>
                                         {status.regularization.type}
                                     </span>
                                 </div>
