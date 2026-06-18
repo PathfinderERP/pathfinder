@@ -104,7 +104,8 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         let userQuery = {
-            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'superAdmin', 'superadmin', 'centerIncharge', 'zonalManager', 'HOD', 'hr'] }
+            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'superAdmin', 'superadmin', 'centerIncharge', 'zonalManager', 'HOD', 'hr'] },
+            isActive: true
         };
 
         if (userRoleStr !== "superadmin" && userRoleStr !== "super admin") {
