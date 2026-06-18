@@ -17,8 +17,10 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
         source: "",
         targetExam: "",
         leadType: "",
-        leadResponsibility: ""
+        leadResponsibility: "",
+        campaign: ""
     });
+    const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(false);
     const [classes, setClasses] = useState([]);
     const [centres, setCentres] = useState([]);
@@ -142,6 +144,12 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             });
             const examTagData = await examTagResponse.json();
             if (examTagResponse.ok) setExamTags(Array.isArray(examTagData) ? examTagData : []);
+
+            const campaignResponse = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/campaigns`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const campaignData = await campaignResponse.json();
+            if (campaignResponse.ok) setCampaigns(Array.isArray(campaignData.campaigns) ? campaignData.campaigns : []);
         } catch (error) {
             console.error("Error fetching dropdown data:", error);
             toast.error("Failed to load options");
@@ -163,7 +171,8 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                 source: lead.source || "",
                 targetExam: lead.targetExam || "",
                 leadType: lead.leadType || "",
-                leadResponsibility: lead.leadResponsibility || ""
+                leadResponsibility: lead.leadResponsibility || "",
+                campaign: lead.campaign?._id || lead.campaign || ""
             });
         }
         fetchDropdownData();
@@ -379,6 +388,14 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                             <select name="source" required value={formData.source} onChange={handleChange} className={selectClasses}>
                                 <option value="">Select Source</option>
                                 {sources.map(s => <option key={s._id} value={s.sourceName}>{s.sourceName.toUpperCase()}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className={labelClasses}>Select Campaign</label>
+                            <select name="campaign" value={formData.campaign} onChange={handleChange} className={selectClasses}>
+                                <option value="">Select Campaign</option>
+                                {campaigns.map(c => <option key={c._id} value={c._id}>{c.adName.toUpperCase()}</option>)}
                             </select>
                         </div>
 

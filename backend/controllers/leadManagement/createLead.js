@@ -15,7 +15,8 @@ export const createLead = async (req, res) => {
             source,
             targetExam,
             leadType,
-            leadResponsibility
+            leadResponsibility,
+            campaign
         } = req.body;
 
         if (!name) {
@@ -42,13 +43,14 @@ export const createLead = async (req, res) => {
         if (course) leadData.course = course;
         if (courseText) leadData.courseText = courseText;
         if (req.body.board) leadData.board = req.body.board;
+        if (campaign) leadData.campaign = campaign;
 
         const newLead = new LeadManagement(leadData);
 
         await newLead.save();
 
         // Populate references before sending response
-        await newLead.populate(['className', 'centre', 'course', 'board']);
+        await newLead.populate(['className', 'centre', 'course', 'board', 'campaign']);
 
         res.status(201).json({
             message: "Lead created successfully",

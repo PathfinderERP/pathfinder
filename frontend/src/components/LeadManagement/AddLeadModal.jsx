@@ -17,8 +17,10 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         source: "",
         targetExam: "",
         leadType: "",
-        leadResponsibility: ""
+        leadResponsibility: "",
+        campaign: ""
     });
+    const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(false);
     const [classes, setClasses] = useState([]);
     const [centres, setCentres] = useState([]);
@@ -156,6 +158,12 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             const examTagData = await examTagResponse.json();
             if (examTagResponse.ok) setExamTags(Array.isArray(examTagData) ? examTagData : []);
+
+            const campaignResponse = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/campaigns`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const campaignData = await campaignResponse.json();
+            if (campaignResponse.ok) setCampaigns(Array.isArray(campaignData.campaigns) ? campaignData.campaigns : []);
 
             const sessionResponse = await fetch(`${import.meta.env.VITE_API_URL}/session/list`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -412,6 +420,17 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                 value={formData.source}
                                 onChange={(val) => setFormData({ ...formData, source: val })}
                                 placeholder="Select Source"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className={labelClasses}>Select Campaign</label>
+                            <CustomSearchSelect
+                                options={campaigns.map(c => ({ value: c._id, label: c.adName }))}
+                                value={formData.campaign}
+                                onChange={(val) => setFormData({ ...formData, campaign: val })}
+                                placeholder="Select Campaign"
                                 isDarkMode={isDarkMode}
                             />
                         </div>

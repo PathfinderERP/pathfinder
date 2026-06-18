@@ -103,6 +103,7 @@ import SectionLeaderBoard from "./pages/Academics/SectionLeaderBoard";
 import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
 import TeacherRoutineSchedule from "./pages/Academics/TeacherRoutineSchedule";
 import TeacherSchedulePage from "./pages/LeadManagement/TeacherSchedulePage";
+import Campaigns from "./pages/LeadManagement/Campaigns";
 import TeacherStudentSchedule from "./pages/Academics/TeacherStudentSchedule";
 
 
@@ -325,6 +326,7 @@ function App() {
         <Route path="/academics/teacher-routine" element={<ProtectedRoute><TeacherRoutineSchedule /></ProtectedRoute>} />
         <Route path="/academics/students-schedule" element={<ProtectedRoute><TeacherStudentSchedule /></ProtectedRoute>} />
         <Route path="/lead-management/teacher-schedule" element={<ProtectedRoute><TeacherSchedulePage /></ProtectedRoute>} />
+        <Route path="/lead-management/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
 
         <Route path="/master-data" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterData /></ProtectedRoute>} />
         <Route path="/master-data/class" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataClass /></ProtectedRoute>} />

@@ -156,7 +156,12 @@ const leadManagementSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Script'
         }
-    }]
+    }],
+    campaign: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Campaign',
+        default: null
+    }
 }, { timestamps: true });
 
 const LeadManagement = new mongoose.model("LeadManagement", leadManagementSchema);

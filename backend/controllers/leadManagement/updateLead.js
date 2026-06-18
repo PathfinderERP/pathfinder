@@ -14,6 +14,9 @@ export const updateLead = async (req, res) => {
             updateData.courseText = ""; // Clear courseText if we map to a master course
         }
         if (!updateData.board) delete updateData.board;
+        if (!updateData.campaign) {
+            updateData.campaign = null;
+        }
 
         // If leadResponsibility is being updated, set assignedAt
         if (updateData.leadResponsibility) {
@@ -29,7 +32,7 @@ export const updateLead = async (req, res) => {
             id,
             updateData,
             { new: true, runValidators: true }
-        ).populate(['className', 'centre', 'course', 'board']);
+        ).populate(['className', 'centre', 'course', 'board', 'campaign']);
 
         if (!updatedLead) {
             return res.status(404).json({ message: "Lead not found" });

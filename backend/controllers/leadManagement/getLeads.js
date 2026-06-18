@@ -73,6 +73,7 @@ export const getLeads = async (req, res) => {
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
             .populate('board', 'boardCourse')
+            .populate('campaign', 'adName')
             .sort({ isPriority: -1, createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -110,7 +111,8 @@ export const getLeadById = async (req, res) => {
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
-            .populate('board', 'boardCourse');
+            .populate('board', 'boardCourse')
+            .populate('campaign', 'adName');
 
         if (!lead) {
             return res.status(404).json({ message: "Lead not found" });
