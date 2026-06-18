@@ -1,6 +1,7 @@
 import MarketingPlanner from "../../models/MarketingPlanner.js";
 import User from "../../models/User.js";
 import mongoose from "mongoose";
+import DraftPlanner from "../../models/DraftPlanner.js";
 
 // Create Planner activities
 export const createPlanner = async (req, res) => {
@@ -48,6 +49,9 @@ export const createPlanner = async (req, res) => {
                 id: newRecord._id.toString()
             });
         }
+
+        // Delete draft if exists for the user and date
+        await DraftPlanner.deleteOne({ user: req.user._id || req.user.id, date });
 
         res.status(201).json({ success: true, records: createdRecords });
     } catch (error) {
@@ -338,6 +342,49 @@ export const updatePlannerApproval = async (req, res) => {
         res.json({ success: true, data: { ...updated.toObject(), id: updated._id.toString() } });
     } catch (error) {
         console.error("Error updating planner approval:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// Save draft planner
+export const saveDraftPlanner = async (req, res) => {
+    try {
+        const { date, expectedLeadTarget, expectedHotLeads, activities } = req.body;
+        if (!date || !activities || !Array.isArray(activities)) {
+            return res.status(400).json({ error: "Missing required fields or activities is not an array" });
+        }
+
+        const userId = req.user._id || req.user.id;
+        
+        const draft = await DraftPlanner.findOneAndUpdate(
+            { user: userId },
+            { 
+                date, 
+                expectedLeadTarget: Number(expectedLeadTarget || 0), 
+                expectedHotLeads: Number(expectedHotLeads || 0), 
+                activities 
+            },
+            { new: true, upsert: true }
+        );
+
+        res.status(200).json({ success: true, draft });
+    } catch (error) {
+        console.error("Error saving draft planner:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// Get draft planner
+export const getDraftPlanner = async (req, res) => {
+    try {
+        const userId = req.user._id || req.user.id;
+        const todayStr = req.query.date || new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+        
+        const draft = await DraftPlanner.findOne({ user: userId, date: todayStr });
+        
+        res.status(200).json({ success: true, draft });
+    } catch (error) {
+        console.error("Error fetching draft planner:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 };

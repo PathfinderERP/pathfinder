@@ -20,7 +20,7 @@ import { getTelecallerAnalytics } from "../../controllers/leadManagement/getTele
 import { getAllTelecallerAnalytics } from "../../controllers/leadManagement/getAllTelecallerAnalytics.js";
 import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentreAnalysis.js";
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
-import { getPlanners, createPlanner, updatePlannerApproval } from "../../controllers/leadManagement/marketingPlannerController.js";
+import { getPlanners, createPlanner, updatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
 import multer from "multer";
 
@@ -46,6 +46,8 @@ router.post("/performance/reset/:userId", requireAuth, resetPerformance);
 router.get("/planner", requireAuth, getPlanners);
 router.post("/planner", requireAuth, createPlanner);
 router.put("/planner/:id/approval", requireAuth, updatePlannerApproval);
+router.get("/planner/draft", requireAuth, getDraftPlanner);
+router.post("/planner/draft", requireAuth, saveDraftPlanner);
 
 router.get("/my-uploads", requireAuth, getMyUploads);
 router.post("/bulk-upload", requireAuth, bulkUploadLeads);

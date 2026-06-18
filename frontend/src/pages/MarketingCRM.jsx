@@ -439,6 +439,28 @@ const MarketingCRM = () => {
                 }
             }
 
+            // Step 1.5: Check if draft exists
+            try {
+                const draftRes = await fetch(
+                    `${import.meta.env.VITE_API_URL}/lead-management/planner/draft?date=${todayStr}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (draftRes.ok) {
+                    const draftData = await draftRes.json();
+                    if (draftData.draft && draftData.draft.activities && draftData.draft.activities.length > 0) {
+                        setTodayActivities(draftData.draft.activities);
+                        setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
+                        setExpectedHotLeads(draftData.draft.expectedHotLeads || "");
+                        setTodayTaskSubmitted(false);
+                        setSubmittedActivities([]);
+                        setTodayTaskLoading(false);
+                        return;
+                    }
+                }
+            } catch (draftErr) {
+                console.error("Error fetching draft planner:", draftErr);
+            }
+
             // Step 2: Not yet submitted — fetch Tomorrow Planner tasks where date = today
             setTodayTaskSubmitted(false);
             setSubmittedActivities([]);
@@ -1078,7 +1100,42 @@ const MarketingCRM = () => {
         startCamera(newMode);
     };
 
-    const captureSnapshot = () => {
+    const compressImage = (base64Str, maxWidth = 800, maxHeight = 800, quality = 0.6) => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const compressedBase64 = canvas.toDataURL("image/jpeg", quality);
+                resolve(compressedBase64);
+            };
+            img.onerror = () => {
+                resolve(base64Str);
+            };
+        });
+    };
+
+    const captureSnapshot = async () => {
         if (stream) {
             const video = document.getElementById("webcam-video");
             if (video) {
@@ -1088,8 +1145,9 @@ const MarketingCRM = () => {
                 const ctx = canvas.getContext("2d");
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const dataUrl = canvas.toDataURL("image/jpeg");
+                const compressedUrl = await compressImage(dataUrl);
                 // Append to array — keep camera active for more shots
-                setTempPhotos(prev => [...prev, dataUrl]);
+                setTempPhotos(prev => [...prev, compressedUrl]);
                 toast.success("📸 Photo captured! You can take more.");
             }
             // Do NOT stop stream here — let user take more
@@ -1197,17 +1255,44 @@ const MarketingCRM = () => {
             setTempCaptureDateTime(getDateTimeString());
         }
 
-        // Read all selected files and append to tempPhotos
+        // Read all selected files, compress, and append to tempPhotos
         files.forEach(file => {
             const reader = new FileReader();
             reader.onload = (event) => {
-                setTempPhotos(prev => [...prev, event.target.result]);
+                const rawBase64 = event.target.result;
+                compressImage(rawBase64).then((compressedBase64) => {
+                    setTempPhotos(prev => [...prev, compressedBase64]);
+                });
             };
             reader.readAsDataURL(file);
         });
         toast.success(`${files.length} photo${files.length > 1 ? 's' : ''} uploaded!`);
         // Reset input so same file can be re-uploaded
         e.target.value = '';
+    };
+
+    const saveDraft = async (updatedActivities = todayActivities, target = expectedLeadTarget, hot = expectedHotLeads) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner/draft`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    date: getTodayDateString(),
+                    expectedLeadTarget: Number(target || 0),
+                    expectedHotLeads: Number(hot || 0),
+                    activities: updatedActivities
+                })
+            });
+            if (!response.ok) {
+                console.error("Failed to save draft planner");
+            }
+        } catch (error) {
+            console.error("Error auto-saving draft:", error);
+        }
     };
 
     const saveVerification = () => {
@@ -1244,6 +1329,9 @@ const MarketingCRM = () => {
         setTempActualTime("");
         setTempCaptureDateTime("");
         toast.success(`Geo-Tag verification saved! ${tempPhotos.length} photo${tempPhotos.length > 1 ? 's' : ''} attached.`);
+
+        // Auto-save draft
+        saveDraft(newActs);
     };
 
     const closeVerifyModal = () => {
@@ -1266,11 +1354,13 @@ const MarketingCRM = () => {
         } else {
             toast.info(`Row ${idx + 1} unlocked for editing.`);
         }
+        // Auto-save draft
+        saveDraft(newActs);
     };
 
     const handleDeleteActivity = (idx) => {
         if (todayActivities.length === 1) {
-            setTodayActivities([{
+            const defaultActs = [{
                 type: "School Visit",
                 place: "",
                 time: "",
@@ -1283,11 +1373,17 @@ const MarketingCRM = () => {
                 estimatedDuration: "",
                 notes: "",
                 priority: "Medium"
-            }]);
+            }];
+            setTodayActivities(defaultActs);
             toast.info("First row reset.");
+            // Auto-save draft
+            saveDraft(defaultActs);
         } else {
-            setTodayActivities(todayActivities.filter((_, i) => i !== idx));
+            const filteredActs = todayActivities.filter((_, i) => i !== idx);
+            setTodayActivities(filteredActs);
             toast.success("Planned activity row removed.");
+            // Auto-save draft
+            saveDraft(filteredActs);
         }
     };
 
@@ -1311,7 +1407,7 @@ const MarketingCRM = () => {
     ]);
 
     const handleAddActivity = () => {
-        setTodayActivities([...todayActivities, {
+        const newActs = [...todayActivities, {
             type: activitySources[0] || "",
             place: "",
             time: "",
@@ -1325,7 +1421,10 @@ const MarketingCRM = () => {
             estimatedDuration: "",
             notes: "",
             priority: "Medium"
-        }]);
+        }];
+        setTodayActivities(newActs);
+        // Auto-save draft
+        saveDraft(newActs);
     };
 
     useEffect(() => {
