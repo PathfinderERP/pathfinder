@@ -420,7 +420,15 @@ const MarketingCRM = () => {
 
             if (auditRes.ok) {
                 const auditData = await auditRes.json();
-                const todayRecords = (auditData.records || []).filter(r => r.date === todayStr);
+                // IMPORTANT: Only check records that belong to the CURRENT logged-in user.
+                // Senior roles (ZM, CI, SuperAdmin) can see all records via this endpoint,
+                // so without this filter their "Today Task" would show as submitted whenever
+                // any junior under them submitted — even if the senior themselves haven't.
+                const myUserId = (currentUser._id || currentUser.id || "").toString();
+                const todayRecords = (auditData.records || []).filter(r => {
+                    const recordUserId = (r.user?._id || r.user || "").toString();
+                    return r.date === todayStr && (!myUserId || recordUserId === myUserId);
+                });
                 if (todayRecords.length > 0) {
                     // Already submitted — show the rich submitted view
                     setTodayTaskSubmitted(true);
