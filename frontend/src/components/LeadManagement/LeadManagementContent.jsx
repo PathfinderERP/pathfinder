@@ -845,7 +845,7 @@ const LeadManagementContent = () => {
 
     return (
         <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
-            <div className="p-4 sm:p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
+            <div className="p-4 sm:p-6 md:p-8 max-w-[2000px] mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                     <div className="flex flex-col sm:flex-row sm:items-center">
@@ -1006,8 +1006,7 @@ const LeadManagementContent = () => {
                 </div>
 
                 {/* Activity Analysis */}
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                    <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
                         {statsLoading ? (
                             <>
                                 <CardSkeleton isDarkMode={isDarkMode} />
@@ -1022,38 +1021,7 @@ const LeadManagementContent = () => {
                         ) : (
                             <>
                                 {/* Centre Analysis Card */}
-                                <div
-                                    onClick={() => setShowCentreAnalysisModal(true)}
-                                    className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                Centre Analysis
-                                            </p>
-                                            <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                {analysisLoading ? "..." : centreAnalysis.length}
-                                            </h3>
-                                            {/* <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest text-nowrap">Active Centres analyzed</p> */}
-                                        </div>
-                                        <div className={`p-2.5 rounded-[2px] transition-all bg-emerald-500/10 text-emerald-500 border border-emerald-500/20`}>
-                                            <FaChartLine size={16} />
-                                        </div>
-                                    </div>
-                                    <div className="mt-2 relative z-10">
-                                        {centreAnalysis.length > 0 && (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[9px] font-black text-cyan-500 uppercase italic truncate max-w-[100px]">{centreAnalysis[0].centreName}</span>
-                                                <div className="flex-1 h-[2px] bg-gray-800 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-cyan-500 w-[70%]"></div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-emerald-500">
-                                        <FaChartLine size={100} />
-                                    </div>
-                                </div>
+
                                 {/* Scheduled Follow-ups Card (New Target Section) */}
                                 <div
                                     onClick={() => handleCardClick('scheduled')}
@@ -1210,42 +1178,6 @@ const LeadManagementContent = () => {
                                 </div>
                             </>
                         )}
-                    </div>
-
-                    {/* Activity Feed */}
-                    {/* <div className={`rounded-[2px] border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <div className={`px-4 py-3 border-b flex items-center gap-2 ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
-                            <h4 className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {filters.fromDate || filters.toDate ? "History Feed" : "Live Feed"}
-                            </h4>
-                        </div>
-                        <div className="flex-1 overflow-y-auto max-h-[140px] custom-scrollbar p-1">
-                            {statsLoading ? (
-                                <>
-                                    <FeedItemSkeleton isDarkMode={isDarkMode} />
-                                    <FeedItemSkeleton isDarkMode={isDarkMode} />
-                                    <FeedItemSkeleton isDarkMode={isDarkMode} />
-                                </>
-                            ) : followUpStats.recentActivity.length === 0 ? (
-                                <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest text-center py-8">No Activity Yet</p>
-                            ) : (
-                                followUpStats.recentActivity.map((act, idx) => (
-                                    <div key={idx} className={`p-3 border-b last:border-0 rounded-[2px] transition-all hover:bg-cyan-500/5 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-100'}`}>
-                                        <div className="flex justify-between items-start mb-0.5">
-                                            <span className={`text-[10px] font-black uppercase tracking-tight truncate max-w-[120px] ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{act.leadName}</span>
-                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-[2px] border ${getLeadTypeColor(act.status)}`}>{act.status?.charAt(0)}</span>
-                                        </div>
-                                        <p className={`text-[9px] font-medium italic truncate ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{act.feedback}</p>
-                                        <div className="flex justify-between items-center mt-1">
-                                            <span className="text-[7px] font-black text-cyan-500/60 uppercase">{act.updatedBy}</span>
-                                            <span className="text-[7px] text-gray-600">{new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div> */}
                 </div>
 
                 {/* Daily Goal Progress Bars – Telecaller only */}

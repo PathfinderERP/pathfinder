@@ -15,6 +15,7 @@ import TargetAchievementReport from "./pages/Sales/TargetAchievementReport";
 import AdmissionReport from "./pages/Sales/AdmissionReport";
 import CourseReport from "./pages/Sales/CourseReport";
 import DiscountReport from "./pages/Sales/DiscountReport";
+import DiscountComparison from "./pages/Sales/DiscountComparison";
 import TransactionReport from "./pages/Sales/TransactionReport";
 import DailyCollection from "./pages/Sales/DailyCollection";
 import AdmissionCourseReport from "./pages/Sales/AdmissionCourseReport";
@@ -243,6 +244,7 @@ function App() {
         <Route path="/sales/admission-report" element={<ProtectedRoute><AdmissionReport /></ProtectedRoute>} />
         <Route path="/sales/course-report" element={<ProtectedRoute><CourseReport /></ProtectedRoute>} />
         <Route path="/sales/discount-report" element={<ProtectedRoute><DiscountReport /></ProtectedRoute>} />
+        <Route path="/sales/discount-comparison" element={<ProtectedRoute><DiscountComparison /></ProtectedRoute>} />
         <Route path="/sales/transaction-report" element={<ProtectedRoute><TransactionReport /></ProtectedRoute>} />
         <Route path="/sales/daily-collection" element={<ProtectedRoute><DailyCollection /></ProtectedRoute>} />
         <Route path="/sales/admission-course-report" element={<ProtectedRoute><AdmissionCourseReport /></ProtectedRoute>} />
