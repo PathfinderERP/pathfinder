@@ -2216,7 +2216,7 @@ const EnrolledStudentsContent = () => {
                                 <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-widest mt-2 text-gray-500">
                                     <span className="flex items-center gap-1.5"><FaPhoneAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
                                     <span className="flex items-center  gap-2 text-cyan-500 text-xl normal-case"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
-                                    <span className="flex items-center gap-1.5"><FaMapMarkerAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
+                                    <span className="flex items-center text-cyan-500 text-l gap-1.5"><FaMapMarkerAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
                                     {studentAdmissions[0]?.department?.departmentName && (
                                         <span className="flex items-center gap-1.5"><FaHistory size={10} className="text-orange-500" /> {studentAdmissions[0].department.departmentName}</span>
                                     )}
