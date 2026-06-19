@@ -3414,7 +3414,7 @@ const EnrolledStudentsContent = () => {
                                     onClick={() => setShowPaymentModal(false)}
                                     className={`px-8 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                 >
-                                    ABORT
+                                    Cancel
                                 </button>
                             </div>
                         </form>
