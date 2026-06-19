@@ -34,10 +34,26 @@ export const getDailyTracking = async (req, res) => {
             const centerId = center._id;
 
             // --- Daily Calls & Counselled ---
-            const dailyCallsCount = await LeadManagement.countDocuments({
-                centre: centerId,
-                "followUps.date": dateFilter
-            });
+            const dailyCallsCountResult = await LeadManagement.aggregate([
+                { $match: { centre: centerId, "followUps.date": dateFilter } },
+                { $project: {
+                    followUps: {
+                        $filter: {
+                            input: "$followUps",
+                            as: "fu",
+                            cond: {
+                                $and: [
+                                    { $gte: ["$$fu.date", today] },
+                                    { $lt: ["$$fu.date", tomorrow] }
+                                ]
+                            }
+                        }
+                    }
+                } },
+                { $project: { count: { $size: "$followUps" } } },
+                { $group: { _id: null, total: { $sum: "$count" } } }
+            ]);
+            const dailyCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].total : 0;
 
             // --- Daily Walk-ins ---
             const walkInsCount = await LeadManagement.countDocuments({
@@ -279,10 +295,97 @@ export const getDailyCenterDetails = async (req, res) => {
                 createdAt: dateFilter
             });
 
-            // 3.3 Daily Calls
-            const dailyCalls = await LeadManagement.countDocuments({
-                followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-            });
+            // 3.3 Daily Calls & 5-Day Call History (Optimized Bulk Query)
+            const historyStart = new Date(startDate);
+            historyStart.setDate(historyStart.getDate() - 4);
+            historyStart.setHours(0, 0, 0, 0);
+            
+            const historyEnd = new Date(endDate);
+
+            const allLeadsHistory = await LeadManagement.find({
+                followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: historyStart, $lte: historyEnd } } }
+            }).select('name phoneNumber createdAt followUps').lean();
+
+            const allNormalAdmissionsHistory = await Admission.find({
+                createdBy: userId,
+                createdAt: { $gte: historyStart, $lte: historyEnd }
+            }).populate('student').lean();
+
+            const allBoardAdmissionsHistory = await BoardCourseAdmission.find({
+                createdBy: userId,
+                createdAt: { $gte: historyStart, $lte: historyEnd }
+            }).populate('studentId').lean();
+
+            const allBoardCounsellingsHistory = await BoardCourseCounselling.find({
+                counselledBy: userId,
+                counselledDate: { $gte: historyStart, $lte: historyEnd }
+            }).populate('studentId').lean();
+
+            const getCallsCountForDay = (dStart, dEnd) => {
+                let callDetailsCount = 0;
+                const existingPhones = new Set();
+                const existingNames = new Set();
+
+                // 1. Process follow-ups for this day
+                allLeadsHistory.forEach(lead => {
+                    const todayFollowUps = (lead.followUps || []).filter(fu => {
+                        const fuDate = new Date(fu.date);
+                        return fuDate >= dStart && fuDate <= dEnd && fu.updatedBy === user.name;
+                    });
+
+                    todayFollowUps.forEach(fu => {
+                        callDetailsCount++;
+                        if (lead.phoneNumber && lead.phoneNumber !== '-') {
+                            existingPhones.add(lead.phoneNumber);
+                        }
+                        if (lead.name) {
+                            existingNames.add(lead.name.toLowerCase());
+                        }
+                    });
+                });
+
+                // 2. Process admissions/counsellings for this day
+                const addExtra = (studentDetails) => {
+                    const phone = studentDetails?.mobileNum || '-';
+                    const name = studentDetails?.studentName || 'Unknown Student';
+                    
+                    if (phone !== '-' && existingPhones.has(phone)) return;
+                    if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
+                    
+                    callDetailsCount++;
+                    
+                    if (phone !== '-') existingPhones.add(phone);
+                    existingNames.add(name.toLowerCase());
+                };
+
+                allNormalAdmissionsHistory.forEach(adm => {
+                    const admDate = new Date(adm.createdAt);
+                    if (admDate >= dStart && admDate <= dEnd) {
+                        const studentDetails = adm.student?.studentsDetails?.[0];
+                        addExtra(studentDetails);
+                    }
+                });
+
+                allBoardAdmissionsHistory.forEach(adm => {
+                    const admDate = new Date(adm.createdAt);
+                    if (admDate >= dStart && admDate <= dEnd) {
+                        const studentDetails = adm.studentId?.studentsDetails?.[0];
+                        addExtra(studentDetails);
+                    }
+                });
+
+                allBoardCounsellingsHistory.forEach(couns => {
+                    const counsDate = new Date(couns.counselledDate);
+                    if (counsDate >= dStart && counsDate <= dEnd) {
+                        const studentDetails = couns.studentId?.studentsDetails?.[0];
+                        addExtra(studentDetails);
+                    }
+                });
+
+                return callDetailsCount;
+            };
+
+            const dailyCalls = getCallsCountForDay(startDate, endDate);
 
             // Collections (Payments recorded by this user today)
             const collections = await Payment.aggregate([
@@ -318,9 +421,7 @@ export const getDailyCenterDetails = async (req, res) => {
                 let dEnd = new Date(dDate);
                 dEnd.setHours(23,59,59,999);
 
-                const cCount = await LeadManagement.countDocuments({
-                    followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: dStart, $lte: dEnd } } }
-                });
+                const cCount = getCallsCountForDay(dStart, dEnd);
                 
                 let targetCalls = 50;
                 if (user.role) {
@@ -894,12 +995,75 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             const admNormal = await Admission.countDocuments({ createdBy: userId, createdAt: dateFilter });
             const admBoard = await BoardCourseAdmission.countDocuments({ createdBy: userId, createdAt: dateFilter });
 
-            // 3. Calls
-            const dailyCalls = await LeadManagement.countDocuments({
-                $or: [
-                    { createdBy: userId, createdAt: dateFilter },
-                    { followUps: { $elemMatch: { updatedBy: userName, date: dateFilter } } }
-                ]
+            // 3. Calls (Optimized Bulk Query to match user activity counts)
+            const allLeadsHistory = await LeadManagement.find({
+                followUps: { $elemMatch: { updatedBy: userName, date: dateFilter } }
+            }).select('name phoneNumber createdAt followUps').lean();
+
+            const allNormalAdmissionsHistory = await Admission.find({
+                createdBy: userId,
+                createdAt: dateFilter
+            }).populate('student').lean();
+
+            const allBoardAdmissionsHistory = await BoardCourseAdmission.find({
+                createdBy: userId,
+                createdAt: dateFilter
+            }).populate('studentId').lean();
+
+            const allBoardCounsellingsHistory = await BoardCourseCounselling.find({
+                counselledBy: userId,
+                counselledDate: dateFilter
+            }).populate('studentId').lean();
+
+            let dailyCalls = 0;
+            const existingPhones = new Set();
+            const existingNames = new Set();
+
+            // 1. Process follow-ups for this range
+            allLeadsHistory.forEach(lead => {
+                const todayFollowUps = (lead.followUps || []).filter(fu => {
+                    const fuDate = new Date(fu.date);
+                    return fuDate >= startDate && fuDate <= endDate && fu.updatedBy === userName;
+                });
+
+                todayFollowUps.forEach(fu => {
+                    dailyCalls++;
+                    if (lead.phoneNumber && lead.phoneNumber !== '-') {
+                        existingPhones.add(lead.phoneNumber);
+                    }
+                    if (lead.name) {
+                        existingNames.add(lead.name.toLowerCase());
+                    }
+                });
+            });
+
+            // 2. Process admissions/counsellings for this range
+            const addExtra = (studentDetails) => {
+                const phone = studentDetails?.mobileNum || '-';
+                const name = studentDetails?.studentName || 'Unknown Student';
+                
+                if (phone !== '-' && existingPhones.has(phone)) return;
+                if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
+                
+                dailyCalls++;
+                
+                if (phone !== '-') existingPhones.add(phone);
+                existingNames.add(name.toLowerCase());
+            };
+
+            allNormalAdmissionsHistory.forEach(adm => {
+                const studentDetails = adm.student?.studentsDetails?.[0];
+                addExtra(studentDetails);
+            });
+
+            allBoardAdmissionsHistory.forEach(adm => {
+                const studentDetails = adm.studentId?.studentsDetails?.[0];
+                addExtra(studentDetails);
+            });
+
+            allBoardCounsellingsHistory.forEach(couns => {
+                const studentDetails = couns.studentId?.studentsDetails?.[0];
+                addExtra(studentDetails);
             });
 
             // 4. Collections

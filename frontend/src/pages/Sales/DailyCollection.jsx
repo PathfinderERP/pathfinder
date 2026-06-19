@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaCalendarDay, FaEraser, FaSearch, FaChevronDown } from "react-icons/fa";
+import { FaFilter, FaDownload, FaCalendarDay, FaEraser, FaSearch, FaChevronDown, FaFlag } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
@@ -799,7 +799,16 @@ const DailyCollection = () => {
                                         return initialAcc;
                                     })())).sort((a, b) => a[0].localeCompare(b[0])).map(([centre, data]) => (
                                         <tr key={centre} className={tableRowHoverClass}>
-                                            <td className={`px-4 py-4 font-bold ${cardTextClass}`}>{centre}</td>
+                                            <td className={`px-4 py-4 font-bold ${cardTextClass}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{centre}</span>
+                                                    {data.total === 0 && (
+                                                        <span className="inline-flex items-center text-red-500 hover:scale-110 transition-transform cursor-help" title="No collections earned today">
+                                                            <FaFlag className="animate-pulse text-red-500" size={14} />
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             {paymentMethodsList.map(method => (
                                                 <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>
                                                     {data[method] ? formatAmount(data[method]) : "0"}
