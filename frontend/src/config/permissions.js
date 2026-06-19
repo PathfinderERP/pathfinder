@@ -598,7 +598,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
     // Grant automatic access to marketingCRM module
     if (module === 'marketingCRM') {
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
         if (isMktTargetRole) return true;
     }
 
@@ -643,7 +643,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     }
 
     if (module === 'marketingCRM') {
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(normalizedRole.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin'].includes(normalizedRole.replace(/\s+/g, ''));
         if (isMktTargetRole) return true;
     }
 

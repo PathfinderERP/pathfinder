@@ -21,6 +21,7 @@ import RazorpayPOSModal from '../Finance/RazorpayPOSModal';
 const EnrolledStudentsContent = () => {
     const navigate = useNavigate();
     const [students, setStudents] = useState([]);
+    const [rawAdmissions, setRawAdmissions] = useState([]);
     const [filteredStudents, setFilteredStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -242,9 +243,19 @@ const EnrolledStudentsContent = () => {
     }, [apiUrl, user]);
 
     const groupStudents = React.useCallback((admissionsData) => {
+        // Filter out admissions belonging to sessions that are not globally active
+        const activeSessionNames = masterSessions.length > 0
+            ? masterSessions.filter(s => s.isGlobalActive === true).map(s => s.sessionName || s.name)
+            : [];
+        
+        // Only apply session filtering if activeSessionNames is loaded, otherwise default to all
+        const filteredAdmissions = masterSessions.length > 0
+            ? admissionsData.filter(admission => activeSessionNames.includes(admission.academicSession))
+            : admissionsData;
+
         // Group admissions by student
         const studentMap = {};
-        admissionsData.forEach(admission => {
+        filteredAdmissions.forEach(admission => {
             const studentId = admission.student?._id;
             if (studentId) {
                 if (!studentMap[studentId]) {
@@ -296,7 +307,7 @@ const EnrolledStudentsContent = () => {
 
         setStudents(studentsArray);
         setFilteredStudents(studentsArray);
-    }, []);
+    }, [masterSessions]);
 
     const fetchAdmissions = React.useCallback(async () => {
         try {
@@ -312,7 +323,7 @@ const EnrolledStudentsContent = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                groupStudents(data);
+                setRawAdmissions(data);
             } else {
                 toast.error("Failed to fetch admissions");
             }
@@ -322,7 +333,14 @@ const EnrolledStudentsContent = () => {
         } finally {
             setLoading(false);
         }
-    }, [apiUrl, groupStudents, startDate, endDate]);
+    }, [apiUrl, startDate, endDate]);
+
+    // Re-group/filter students whenever raw admissions or master sessions change
+    useEffect(() => {
+        if (masterSessions.length > 0 || rawAdmissions.length > 0) {
+            groupStudents(rawAdmissions);
+        }
+    }, [rawAdmissions, masterSessions, groupStudents]);
 
     useEffect(() => {
         fetchAllowedCentres();
@@ -1674,7 +1692,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Session"
                                 placeholder="ALL SESSIONS"
-                                options={Array.from(new Set(masterSessions.map(s => s.sessionName || s.name))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
+                                options={Array.from(new Set(masterSessions.filter(s => s.isGlobalActive === true).map(s => s.sessionName || s.name))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterSession}
                                 onChange={setFilterSession}
                                 theme={isDarkMode ? 'dark' : 'light'}

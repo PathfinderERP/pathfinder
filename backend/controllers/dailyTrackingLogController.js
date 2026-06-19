@@ -136,7 +136,9 @@ const getLogsDataHelper = async (req) => {
         telecaller: ["telecaller", "centralizedTelecaller"],
         counsellor: ["counsellor"],
         teacher: ["teacher"],
-        zonalmanager: ["zonalManager", "zonalmanager"]
+        zonalmanager: ["zonalManager", "zonalmanager"],
+        centreincharge: ["centerIncharge"],
+        centerincharge: ["centerIncharge"]
     };
 
     // Handle multi-select roles

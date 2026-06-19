@@ -199,10 +199,6 @@ export default function TeacherSchedulePage() {
                     {/* Legend */}
                     <div className="flex items-center gap-4 flex-wrap">
                         <div className="flex items-center gap-2 text-xs font-bold">
-                            <div className={`w-3 h-3 rounded-full ${isDark ? "bg-red-500/40" : "bg-red-200"}`} />
-                            <span className={isDark ? "text-gray-400" : "text-gray-500"}>Class (Busy)</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs font-bold">
                             <div className="w-3 h-3 rounded-full bg-emerald-500/60" />
                             <span className={isDark ? "text-gray-400" : "text-gray-500"}>Free Slot (Bookable)</span>
                         </div>
@@ -291,37 +287,10 @@ export default function TeacherSchedulePage() {
                                                 <div key={day} className={`p-2 align-top border-l first:border-l-0 ${isDark ? "border-gray-800" : "border-gray-100"}`}>
                                                     <div className="flex flex-col gap-1.5">
 
-                                                        {/* ── Class slots (BUSY) ── */}
-                                                        {classes.map((cls, i) => (
-                                                            <div key={cls._id || i}
-                                                                className={`rounded border-2 p-2.5 ${isDark
-                                                                    ? "bg-red-900/10 border-red-900/30"
-                                                                    : "bg-red-50 border-red-100"}`}>
-                                                                <div className="flex items-center gap-1 mb-1.5">
-                                                                    <FaLock className={`text-[8px] ${isDark ? "text-red-500/60" : "text-red-400"}`} />
-                                                                    <span className={`text-[9px] font-black font-mono ${isDark ? "text-red-400/70" : "text-red-400"}`}>
-                                                                        {cls.startTime} – {cls.endTime}
-                                                                    </span>
-                                                                </div>
-                                                                <p className={`text-[10px] font-bold truncate leading-tight ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                                    {cls.className || cls.class || cls.subject || "Class"}
-                                                                </p>
-                                                                {cls.subject && cls.className && (
-                                                                    <p className={`text-[9px] opacity-50 truncate`}>{cls.subject}</p>
-                                                                )}
-                                                                {cls.centre && (
-                                                                    <p className={`text-[9px] opacity-40 truncate`}>{cls.centre}</p>
-                                                                )}
-                                                                <div className={`mt-1.5 text-center text-[8px] font-black uppercase tracking-widest ${isDark ? "text-red-500/50" : "text-red-400/70"}`}>
-                                                                    Class — Busy
-                                                                </div>
-                                                            </div>
-                                                        ))}
-
                                                         {/* ── Free slots (BOOKABLE) ── */}
-                                                        {freeSlots.length === 0 && classes.length === 0 && (
+                                                        {freeSlots.length === 0 && (
                                                             <div className={`rounded border-2 border-dashed py-4 text-center text-[9px] font-black uppercase tracking-widest opacity-20 ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                                                                No Schedule
+                                                                No Free Slots
                                                             </div>
                                                         )}
 

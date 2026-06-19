@@ -9,7 +9,7 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
     try {
         // 1. Get all teacher routines
         const routines = await TeacherRoutine.find()
-            .populate("teacherId", "name email mobNum employeeId subject")
+            .populate("teacherId", "name email mobNum employeeId subject centres")
             .populate("centreId", "centreName")
             .populate("subjectId", "subName")
             .populate("classId", "name")
@@ -45,10 +45,24 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
         const MIN_FREE   = 30;      // minimum gap (mins) to show a free slot
 
         // 5. Group routines by teacher
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "superadmin";
+        const userCentreIds = (req.user.centres || []).map(id => id.toString());
+
         const groupedMap = new Map();
         for (const routine of routines) {
             const teacherId = routine.teacherId?._id?.toString();
             if (!teacherId) continue;
+
+            // Filter out teacher if tagged to centres, but none match the center user's centres
+            if (!isSuperAdmin) {
+                const teacherCentres = (routine.teacherId.centres || []).map(id => id.toString());
+                if (teacherCentres.length > 0) {
+                    const hasOverlap = teacherCentres.some(cid => userCentreIds.includes(cid));
+                    if (!hasOverlap) {
+                        continue;
+                    }
+                }
+            }
 
             if (!groupedMap.has(teacherId)) {
                 const emptyDays = {};
