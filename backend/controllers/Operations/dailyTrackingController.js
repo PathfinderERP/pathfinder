@@ -12,6 +12,11 @@ import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
 
+const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller'];
+const checkRestricted = (role) => {
+    return RESTRICTED_ROLES.includes((role || '').toLowerCase());
+};
+
 export const getDailyTracking = async (req, res) => {
     try {
         const { date } = req.query;
@@ -26,27 +31,37 @@ export const getDailyTracking = async (req, res) => {
 
         const dateFilter = { $gte: today, $lt: tomorrow };
 
+        const isRestricted = checkRestricted(req.user?.role);
+
         // 1. Fetch all active centers
-        const centers = await CentreSchema.find({ status: { $ne: "deactive" } }).lean();
+        let centers;
+        if (isRestricted) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            centers = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" } }).lean();
+        } else {
+            centers = await CentreSchema.find({ status: { $ne: "deactive" } }).lean();
+        }
 
         // Prepare tracking data
         const trackingData = await Promise.all(centers.map(async (center) => {
             const centerId = center._id;
 
             // --- Daily Calls & Counselled ---
+            const leadMatch = { centre: centerId, "followUps.date": dateFilter };
+
+            const filterCond = [
+                { $gte: ["$$fu.date", today] },
+                { $lt: ["$$fu.date", tomorrow] }
+            ];
+
             const dailyCallsCountResult = await LeadManagement.aggregate([
-                { $match: { centre: centerId, "followUps.date": dateFilter } },
+                { $match: leadMatch },
                 { $project: {
                     followUps: {
                         $filter: {
                             input: "$followUps",
                             as: "fu",
-                            cond: {
-                                $and: [
-                                    { $gte: ["$$fu.date", today] },
-                                    { $lt: ["$$fu.date", tomorrow] }
-                                ]
-                            }
+                            cond: { $and: filterCond }
                         }
                     }
                 } },
@@ -127,37 +142,37 @@ export const getDailyTracking = async (req, res) => {
                 ...boardAdmissionsForCenter.map(a => a._id)
             ];
 
-            const collections = await Payment.aggregate([
-                {
-                    $match: {
-                        admission: { $in: admissionIds },
-                        paidAmount: { $gt: 0 },
-                        billId: { $regex: /^PATH/i },
-                        $or: [
-                            { status: { $in: ["PAID", "PARTIAL"] } },
-                            {
-                                paymentMethod: "CHEQUE",
-                                status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                            }
-                        ],
-                        $expr: {
-                            $and: [
-                                {
-                                    $gte: [
-                                        { $ifNull: ["$receivedDate", "$paidDate"] },
-                                        today
-                                    ]
-                                },
-                                {
-                                    $lt: [
-                                        { $ifNull: ["$receivedDate", "$paidDate"] },
-                                        tomorrow
-                                    ]
-                                }
+            const paymentMatch = {
+                admission: { $in: admissionIds },
+                paidAmount: { $gt: 0 },
+                billId: { $regex: /^PATH/i },
+                $or: [
+                    { status: { $in: ["PAID", "PARTIAL"] } },
+                    {
+                        paymentMethod: "CHEQUE",
+                        status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                    }
+                ],
+                $expr: {
+                    $and: [
+                        {
+                            $gte: [
+                                { $ifNull: ["$receivedDate", "$paidDate"] },
+                                today
+                            ]
+                        },
+                        {
+                            $lt: [
+                                { $ifNull: ["$receivedDate", "$paidDate"] },
+                                tomorrow
                             ]
                         }
-                    }
-                },
+                    ]
+                }
+            };
+
+            const collections = await Payment.aggregate([
+                { $match: paymentMatch },
                 {
                     $group: {
                         _id: null,
@@ -235,13 +250,25 @@ export const getDailyCenterDetails = async (req, res) => {
         const center = await CentreSchema.findById(centerId).lean();
         if (!center) return res.status(404).json({ message: "Center not found" });
 
+        const isRestricted = checkRestricted(req.user?.role);
+        if (isRestricted) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            if (!userCenterIds.includes(centerId)) {
+                return res.status(403).json({ message: "Access denied. Center not assigned to user." });
+            }
+        }
+
         // 2. Fetch only ACTIVE users with operational roles assigned to this center
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'admin'];
-        const users = await User.find({
+        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing'];
+        const userQuery = {
             centres: centerId,
             isActive: true,
             role: { $in: operationalRoles }
-        }).lean();
+        };
+        if (isRestricted) {
+            userQuery._id = req.user._id;
+        }
+        const users = await User.find(userQuery).lean();
 
         // 3. Aggregate performance per user
         const performanceData = await Promise.all(users.map(async (user) => {
@@ -476,6 +503,11 @@ export const getDailyUserActivity = async (req, res) => {
     try {
         const { userId } = req.params;
         const { date, fromDate, toDate, centerId } = req.query;
+
+        const isRestricted = checkRestricted(req.user?.role);
+        if (isRestricted && userId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Access denied. You can only view your own activity log." });
+        }
         
         let startDate = new Date();
         let endDate = new Date();
@@ -947,14 +979,24 @@ export const exportCenterPerformanceExcel = async (req, res) => {
         const center = await CentreSchema.findById(centerId).lean();
         if (!center) return res.status(404).json({ message: "Center not found" });
 
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'admin', 'superAdmin'];
+        const isRestricted = checkRestricted(req.user?.role);
+        if (isRestricted) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            if (!userCenterIds.includes(centerId)) {
+                return res.status(403).json({ message: "Access denied. Center not assigned to user." });
+            }
+        }
+
+        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing'];
         
         const userQuery = {
             centres: centerId,
             isActive: true
         };
 
-        if (role) {
+        if (isRestricted) {
+            userQuery._id = req.user._id;
+        } else if (role) {
             userQuery.role = { $regex: new RegExp(`^${role}$`, 'i') };
         } else {
             userQuery.role = { $in: operationalRoles };
@@ -1127,6 +1169,11 @@ export const exportUserCallingReportExcel = async (req, res) => {
     try {
         const { userId } = req.params;
         const { fromDate, toDate, centerId } = req.query;
+
+        const isRestricted = checkRestricted(req.user?.role);
+        if (isRestricted && userId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Access denied. You can only export your own calling report." });
+        }
         
         let startDate = new Date();
         let endDate = new Date();
@@ -1326,14 +1373,19 @@ export const getDailyTrackingDetails = async (req, res) => {
 
         const dateFilter = { $gte: today, $lt: tomorrow };
         
+        const isRestricted = checkRestricted(req.user?.role);
         let detailsList = [];
 
         if (category === "walkins") {
             // Daily Walk-Ins
-            const walkins = await LeadManagement.find({
+            const walkinsQuery = {
                 source: { $regex: /^walk[- ]?in$/i },
                 createdAt: dateFilter
-            }).populate('centre').populate('createdBy').lean();
+            };
+            if (isRestricted) {
+                walkinsQuery.createdBy = req.user._id;
+            }
+            const walkins = await LeadManagement.find(walkinsQuery).populate('centre').populate('createdBy').lean();
 
             detailsList = walkins.map(lead => ({
                 id: lead._id,
@@ -1350,10 +1402,17 @@ export const getDailyTrackingDetails = async (req, res) => {
         } else if (category === "counselling") {
             // Daily Counselling
             // 1. Normal Counselling
-            const normalLeads = await LeadManagement.find({
+            const normalQuery = {
                 isCounseled: true,
                 updatedAt: dateFilter
-            }).populate('centre').populate('createdBy').lean();
+            };
+            if (isRestricted) {
+                normalQuery.$or = [
+                    { createdBy: req.user._id },
+                    { followUps: { $elemMatch: { updatedBy: req.user.name, date: dateFilter } } }
+                ];
+            }
+            const normalLeads = await LeadManagement.find(normalQuery).populate('centre').populate('createdBy').lean();
 
             const normalDetails = normalLeads.map(lead => ({
                 id: lead._id,
@@ -1368,9 +1427,13 @@ export const getDailyTrackingDetails = async (req, res) => {
             }));
 
             // 2. Board Counselling
-            const boardCounsellings = await BoardCourseCounselling.find({
+            const boardQuery = {
                 counselledDate: dateFilter
-            }).populate('centre').populate('studentId').populate('counselledBy').lean();
+            };
+            if (isRestricted) {
+                boardQuery.counselledBy = req.user._id;
+            }
+            const boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('centre').populate('studentId').populate('counselledBy').lean();
 
             const boardDetails = boardCounsellings.map(bc => {
                 const studentName = bc.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
@@ -1393,9 +1456,13 @@ export const getDailyTrackingDetails = async (req, res) => {
         } else if (category === "admission") {
             // Daily Admission
             // 1. Normal Admission
-            const normalAdmissions = await Admission.find({
+            const normalQuery = {
                 createdAt: dateFilter
-            }).populate('student').populate('createdBy').lean();
+            };
+            if (isRestricted) {
+                normalQuery.createdBy = req.user._id;
+            }
+            const normalAdmissions = await Admission.find(normalQuery).populate('student').populate('createdBy').lean();
 
             const normalDetails = normalAdmissions.map(adm => {
                 const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
@@ -1415,9 +1482,13 @@ export const getDailyTrackingDetails = async (req, res) => {
             });
 
             // 2. Board Admission
-            const boardAdmissions = await BoardCourseAdmission.find({
+            const boardQuery = {
                 createdAt: dateFilter
-            }).populate('studentId').populate('createdBy').lean();
+            };
+            if (isRestricted) {
+                boardQuery.createdBy = req.user._id;
+            }
+            const boardAdmissions = await BoardCourseAdmission.find(boardQuery).populate('studentId').populate('createdBy').lean();
 
             const boardDetails = boardAdmissions.map(adm => {
                 const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
@@ -1440,14 +1511,18 @@ export const getDailyTrackingDetails = async (req, res) => {
 
         } else if (category === "calls") {
             // Daily Calls
-            const leadsWithCalls = await LeadManagement.find({
+            const callsQuery = {
                 "followUps.date": dateFilter
-            }).populate('centre').lean();
+            };
+            if (isRestricted) {
+                callsQuery["followUps.updatedBy"] = req.user.name;
+            }
+            const leadsWithCalls = await LeadManagement.find(callsQuery).populate('centre').lean();
 
             leadsWithCalls.forEach(lead => {
                 const matchingFollowups = (lead.followUps || []).filter(fu => {
                     const fuDate = new Date(fu.date);
-                    return fuDate >= today && fuDate < tomorrow;
+                    return fuDate >= today && fuDate < tomorrow && (!isRestricted || fu.updatedBy === req.user.name);
                 });
 
                 matchingFollowups.forEach(fu => {
@@ -1467,7 +1542,7 @@ export const getDailyTrackingDetails = async (req, res) => {
 
         } else if (category === "collection") {
             // Total Collection
-            const payments = await Payment.find({
+            const collectionQuery = {
                 paidAmount: { $gt: 0 },
                 billId: { $regex: /^PATH/i },
                 $or: [
@@ -1483,7 +1558,11 @@ export const getDailyTrackingDetails = async (req, res) => {
                         { $lt: [{ $ifNull: ["$receivedDate", "$paidDate"] }, tomorrow] }
                     ]
                 }
-            }).populate('recordedBy').lean();
+            };
+            if (isRestricted) {
+                collectionQuery.recordedBy = req.user._id;
+            }
+            const payments = await Payment.find(collectionQuery).populate('recordedBy').lean();
 
             const admissionIds = payments.map(p => p.admission).filter(Boolean);
             const [normalAdms, boardAdms] = await Promise.all([
@@ -1526,6 +1605,12 @@ export const getDailyTrackingDetails = async (req, res) => {
                     feedback: `Method: ${p.paymentMethod || 'Other'} | Type: ${type}`
                 };
             });
+        }
+
+        if (isRestricted) {
+            const centers = await CentreSchema.find({ _id: { $in: (req.user?.centres || []) } }).select('centreName').lean();
+            const centerNames = centers.map(c => c.centreName.toLowerCase());
+            detailsList = detailsList.filter(d => d.centreName && centerNames.includes(d.centreName.toLowerCase()));
         }
 
         // Sort detailsList: newest first by dateTime
