@@ -1022,38 +1022,7 @@ const LeadManagementContent = () => {
                         ) : (
                             <>
                                 {/* Centre Analysis Card */}
-                                <div
-                                    onClick={() => setShowCentreAnalysisModal(true)}
-                                    className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                Centre Analysis
-                                            </p>
-                                            <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                {analysisLoading ? "..." : centreAnalysis.length}
-                                            </h3>
-                                            {/* <p className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest text-nowrap">Active Centres analyzed</p> */}
-                                        </div>
-                                        <div className={`p-2.5 rounded-[2px] transition-all bg-emerald-500/10 text-emerald-500 border border-emerald-500/20`}>
-                                            <FaChartLine size={16} />
-                                        </div>
-                                    </div>
-                                    <div className="mt-2 relative z-10">
-                                        {centreAnalysis.length > 0 && (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[9px] font-black text-cyan-500 uppercase italic truncate max-w-[100px]">{centreAnalysis[0].centreName}</span>
-                                                <div className="flex-1 h-[2px] bg-gray-800 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-cyan-500 w-[70%]"></div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-emerald-500">
-                                        <FaChartLine size={100} />
-                                    </div>
-                                </div>
+
                                 {/* Scheduled Follow-ups Card (New Target Section) */}
                                 <div
                                     onClick={() => handleCardClick('scheduled')}
