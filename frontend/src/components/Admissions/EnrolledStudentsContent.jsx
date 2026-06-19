@@ -3132,7 +3132,7 @@ const EnrolledStudentsContent = () => {
 
                             {/* Grand Total Summary */}
                             <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-gradient-to-r from-[#131619] to-[#1a1f24] border-gray-800' : 'bg-gradient-to-r from-gray-50 to-white border-gray-100 shadow-sm'} mt-12`}>
-                                <h4 className={`text-xl font-black uppercase tracking-widest mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Aggregated Financial Exposure</h4>
+                                <h4 className={`text-xl font-black uppercase tracking-widest mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Financial Details</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                     <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-cyan-500/20' : 'bg-white border-cyan-200'}`}>
                                         <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Total Commitment</p>
