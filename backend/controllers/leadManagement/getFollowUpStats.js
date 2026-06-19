@@ -97,11 +97,11 @@ export const getFollowUpStats = async (req, res) => {
             leadOwnerMatch.$and.push(leadResponsibilityQuery);
         }
 
+        // Strip spaces for consistent comparison
         const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod'];
-        const isPrivileged = privilegedRoles.includes(curUserRoleStr);
+        const isSuperAdmin = curUserRoleStr === 'superadmin';
 
-        if (curUserRoleStr !== 'superadmin' && curUserRoleStr !== 'super admin') {
+        if (!isSuperAdmin) {
             const userDoc = await User.findById(req.user.id).select('centres role name');
             if (userDoc) {
                 const userCentreIds = userDoc.centres || [];
@@ -114,13 +114,26 @@ export const getFollowUpStats = async (req, res) => {
                     ]
                 };
 
-                if (isPrivileged && userCentreIds.length > 0) {
-                    accessLimit.$or.push({ centre: { $in: userCentreIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id) } });
+                // Any user with assigned centres gets centre-based visibility.
+                // This fixes counsellors, telecallers, and other non-managerial roles
+                // who have centre assignments but were previously locked to 0 stats.
+                if (userCentreIds.length > 0) {
+                    accessLimit.$or.push({
+                        centre: {
+                            $in: userCentreIds.map(id =>
+                                mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id
+                            )
+                        }
+                    });
                 }
 
-                if (leadResponsibilityQuery.$or && leadResponsibilityQuery.$or.length > 0 && !isPrivileged) {
+                if (leadResponsibilityQuery.$or && leadResponsibilityQuery.$or.length > 0) {
                     const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-                    const isFilteringSelf = filterNames.some(n => n.toLowerCase().trim() === userDoc.name.toLowerCase().trim());
+                    const isFilteringSelf = filterNames.some(n =>
+                        n.toLowerCase().trim() === userDoc.name.toLowerCase().trim()
+                    );
+                    // Only override the query if the user is filtering for someone
+                    // other than themselves (prevent non-admins from peeking at others)
                     if (!isFilteringSelf) {
                         leadResponsibilityQuery.$or = [
                             { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }

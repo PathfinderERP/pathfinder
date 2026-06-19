@@ -130,7 +130,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "academics",
             subItems: [
                 { name: "Teacher List", path: "/academics/teacher-list", permissionSection: "teachers" },
-                { name: "Student Teacher Review", path: "/academics/student-teacher-review", permissionSection: "studentTeacherReview" },
+                //{ name: "Student Teacher Review", path: "/academics/student-teacher-review", permissionSection: "studentTeacherReview" },
                 // { name: "Live Class Review", path: "/academics/live-class-review", permissionSection: "liveClassReview" },
                 // { name: "CC Teacher Review", path: "/academics/cc-teacher-review", permissionSection: "ccTeacherReview" },
                 { name: "HoD List", path: "/academics/hod-list", permissionSection: "hodList" },
