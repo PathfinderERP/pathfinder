@@ -122,8 +122,8 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         if (courseFilters.department) result = result.filter(v => v.department?._id === courseFilters.department || v.department === courseFilters.department);
         if (courseFilters.board) {
             // Check both board name and board ID logic similar to how it's saved
-            result = result.filter(v => 
-                (v.board?._id === courseFilters.board) || 
+            result = result.filter(v =>
+                (v.board?._id === courseFilters.board) ||
                 (v.board === courseFilters.board) ||
                 (v.board?.boardName === courseFilters.board) ||
                 (v.board?.boardCourse === courseFilters.board)
@@ -614,7 +614,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         ))}
                                     </select>
                                 </div>
-                                 <div>
+                                <div>
                                     <label className={labelClass}>DEPARTMENT</label>
                                     <Select
                                         options={[...masterDepartments].sort((a, b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map(dept => ({ value: dept._id, label: dept.departmentName?.toUpperCase() }))}
@@ -652,8 +652,8 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                             }),
                                             option: (base, state) => ({
                                                 ...base,
-                                                backgroundColor: state.isFocused 
-                                                    ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)') 
+                                                backgroundColor: state.isFocused
+                                                    ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)')
                                                     : 'transparent',
                                                 color: isDarkMode ? 'white' : 'black',
                                                 fontSize: '11px',
@@ -679,203 +679,203 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         }}
                                     />
                                 </div>
-                                    <div className="md:col-span-1">
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">COURSE *</label>
-                                            <button 
-                                                type="button"
-                                                onClick={() => setShowCourseFilters(!showCourseFilters)}
-                                                className={`text-[9px] font-black uppercase tracking-widest transition-all underline underline-offset-4 ${showCourseFilters ? 'text-red-500 hover:text-red-400' : 'text-cyan-500 hover:text-cyan-400'}`}
-                                            >
-                                                {showCourseFilters ? 'CLOSE FILTERS' : 'FILTER ENGINE'}
-                                            </button>
-                                        </div>
+                                <div className="md:col-span-1">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">COURSE *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCourseFilters(!showCourseFilters)}
+                                            className={`text-[9px] font-black uppercase tracking-widest transition-all underline underline-offset-4 ${showCourseFilters ? 'text-red-500 hover:text-red-400' : 'text-cyan-500 hover:text-cyan-400'}`}
+                                        >
+                                            {showCourseFilters ? 'CLOSE FILTERS' : 'FILTER ENGINE'}
+                                        </button>
+                                    </div>
 
-                                        {showCourseFilters && (
-                                            <div className={`mb-6 p-5 rounded-[4px] border border-dashed animate-in fade-in slide-in-from-top-2 duration-300 ${isDarkMode ? 'bg-black/40 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200 shadow-inner'}`}>
-                                                <div className="flex items-center justify-between mb-5 border-b border-gray-800 pb-3">
-                                                    <h4 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                                        <FaFilter size={10} className="text-cyan-600" /> COURSE FILTERING ENGINE
-                                                    </h4>
-                                                    <button type="button" onClick={resetCourseFilters} className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-all">RESET FILTERS</button>
+                                    {showCourseFilters && (
+                                        <div className={`mb-6 p-5 rounded-[4px] border border-dashed animate-in fade-in slide-in-from-top-2 duration-300 ${isDarkMode ? 'bg-black/40 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200 shadow-inner'}`}>
+                                            <div className="flex items-center justify-between mb-5 border-b border-gray-800 pb-3">
+                                                <h4 className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                    <FaFilter size={10} className="text-cyan-600" /> COURSE FILTERING ENGINE
+                                                </h4>
+                                                <button type="button" onClick={resetCourseFilters} className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-all">RESET FILTERS</button>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="col-span-2 relative group">
+                                                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[10px] group-focus-within:text-cyan-500 transition-colors" />
+                                                    <input
+                                                        type="text"
+                                                        name="searchTerm"
+                                                        placeholder="SEARCH COURSE BY NAME OR UNIT..."
+                                                        value={courseFilters.searchTerm}
+                                                        onChange={handleCourseFilterChange}
+                                                        className={`w-full pl-9 pr-3 py-2 rounded-[2px] border text-[9px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-cyan-500 focus:border-cyan-500/50' : 'bg-white border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
+                                                    />
                                                 </div>
-                                                
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="col-span-2 relative group">
-                                                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[10px] group-focus-within:text-cyan-500 transition-colors" />
-                                                        <input
-                                                            type="text"
-                                                            name="searchTerm"
-                                                            placeholder="SEARCH COURSE BY NAME OR UNIT..."
-                                                            value={courseFilters.searchTerm}
-                                                            onChange={handleCourseFilterChange}
-                                                            className={`w-full pl-9 pr-3 py-2 rounded-[2px] border text-[9px] font-black uppercase tracking-widest outline-none transition-all ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-cyan-500 focus:border-cyan-500/50' : 'bg-white border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
-                                                        />
-                                                    </div>
-                                                    
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Class</label>
-                                                        <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                            <option value="">ALL CLASSES</option>
-                                                            {masterClasses.sort((a,b) => (a.name || "").localeCompare(b.name || "")).map(c => (
-                                                                <option key={c._id} value={c._id}>{c.name || c.className}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
 
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Tag</label>
-                                                        <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                            <option value="">ALL TAGS</option>
-                                                            {masterExamTags.sort((a,b) => (a.name || "").localeCompare(b.name || "")).map(t => (
-                                                                <option key={t._id} value={t._id}>{t.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Class</label>
+                                                    <select name="class" value={courseFilters.class} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
+                                                        <option value="">ALL CLASSES</option>
+                                                        {masterClasses.sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(c => (
+                                                            <option key={c._id} value={c._id}>{c.name || c.className}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Session</label>
-                                                        <select name="session" value={courseFilters.session} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                            <option value="">ALL SESSIONS</option>
-                                                            {masterSessions.map(s => (
-                                                                <option key={s._id} value={s.sessionName || s.name}>{s.sessionName || s.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Tag</label>
+                                                    <select name="examTag" value={courseFilters.examTag} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
+                                                        <option value="">ALL TAGS</option>
+                                                        {masterExamTags.sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(t => (
+                                                            <option key={t._id} value={t._id}>{t.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
-                                                     <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Dept</label>
-                                                        <Select
-                                                            options={[...masterDepartments].sort((a,b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map(d => ({ value: d._id, label: d.departmentName }))}
-                                                            value={masterDepartments.find(d => d._id === courseFilters.department) ? { value: courseFilters.department, label: masterDepartments.find(d => d._id === courseFilters.department).departmentName } : null}
-                                                            onChange={(selectedOption) => {
-                                                                handleCourseFilterChange({
-                                                                    target: {
-                                                                        name: 'department',
-                                                                        value: selectedOption ? selectedOption.value : ''
-                                                                    }
-                                                                });
-                                                            }}
-                                                            isSearchable={true}
-                                                            placeholder="ALL DEPTS"
-                                                            isClearable={true}
-                                                            styles={{
-                                                                control: (base, state) => ({
-                                                                    ...base,
-                                                                    backgroundColor: isDarkMode ? '#0f1215' : 'white',
-                                                                    borderColor: state.isFocused ? (isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4') : (isDarkMode ? '#1f2937' : '#e5e7eb'),
-                                                                    minHeight: '30px',
-                                                                    borderRadius: '2px',
-                                                                    fontSize: '9px',
-                                                                    fontWeight: 'black',
-                                                                    textTransform: 'uppercase',
-                                                                    color: isDarkMode ? 'white' : 'black',
-                                                                    boxShadow: state.isFocused ? '0 0 0 1px rgba(6, 182, 212, 0.2)' : 'none',
-                                                                    '&:hover': {
-                                                                        borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4'
-                                                                    }
-                                                                }),
-                                                                menu: (base) => ({
-                                                                    ...base,
-                                                                    backgroundColor: isDarkMode ? '#1a1f24' : 'white',
-                                                                    border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
-                                                                    zIndex: 100
-                                                                }),
-                                                                option: (base, state) => ({
-                                                                    ...base,
-                                                                    backgroundColor: state.isFocused 
-                                                                        ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)') 
-                                                                        : 'transparent',
-                                                                    color: isDarkMode ? 'white' : 'black',
-                                                                    fontSize: '9px',
-                                                                    fontWeight: 'black',
-                                                                    textTransform: 'uppercase',
-                                                                    letterSpacing: '0.05em'
-                                                                }),
-                                                                singleValue: (base) => ({
-                                                                    ...base,
-                                                                    color: isDarkMode ? 'white' : 'black'
-                                                                }),
-                                                                placeholder: (base) => ({
-                                                                    ...base,
-                                                                    color: isDarkMode ? '#374151' : '#9ca3af'
-                                                                }),
-                                                                input: (base) => ({
-                                                                    ...base,
-                                                                    color: isDarkMode ? 'white' : 'black'
-                                                                }),
-                                                                dropdownIndicator: (base) => ({
-                                                                    ...base,
-                                                                    padding: '2px'
-                                                                }),
-                                                                clearIndicator: (base) => ({
-                                                                    ...base,
-                                                                    padding: '2px'
-                                                                })
-                                                            }}
-                                                        />
-                                                    </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Session</label>
+                                                    <select name="session" value={courseFilters.session} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
+                                                        <option value="">ALL SESSIONS</option>
+                                                        {masterSessions.map(s => (
+                                                            <option key={s._id} value={s.sessionName || s.name}>{s.sessionName || s.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Board</label>
-                                                        <select name="board" value={courseFilters.board} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                            <option value="">ALL BOARDS</option>
-                                                            {masterBoards.sort((a,b) => (a.boardName || a.boardCourse || "").localeCompare(b.boardName || b.boardCourse || "")).map(b => (
-                                                                <option key={b._id} value={b.boardName || b.boardCourse}>{b.boardName || b.boardCourse}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Dept</label>
+                                                    <Select
+                                                        options={[...masterDepartments].sort((a, b) => (a.departmentName || "").localeCompare(b.departmentName || "")).map(d => ({ value: d._id, label: d.departmentName }))}
+                                                        value={masterDepartments.find(d => d._id === courseFilters.department) ? { value: courseFilters.department, label: masterDepartments.find(d => d._id === courseFilters.department).departmentName } : null}
+                                                        onChange={(selectedOption) => {
+                                                            handleCourseFilterChange({
+                                                                target: {
+                                                                    name: 'department',
+                                                                    value: selectedOption ? selectedOption.value : ''
+                                                                }
+                                                            });
+                                                        }}
+                                                        isSearchable={true}
+                                                        placeholder="ALL DEPTS"
+                                                        isClearable={true}
+                                                        styles={{
+                                                            control: (base, state) => ({
+                                                                ...base,
+                                                                backgroundColor: isDarkMode ? '#0f1215' : 'white',
+                                                                borderColor: state.isFocused ? (isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4') : (isDarkMode ? '#1f2937' : '#e5e7eb'),
+                                                                minHeight: '30px',
+                                                                borderRadius: '2px',
+                                                                fontSize: '9px',
+                                                                fontWeight: 'black',
+                                                                textTransform: 'uppercase',
+                                                                color: isDarkMode ? 'white' : 'black',
+                                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(6, 182, 212, 0.2)' : 'none',
+                                                                '&:hover': {
+                                                                    borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4'
+                                                                }
+                                                            }),
+                                                            menu: (base) => ({
+                                                                ...base,
+                                                                backgroundColor: isDarkMode ? '#1a1f24' : 'white',
+                                                                border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                                                zIndex: 100
+                                                            }),
+                                                            option: (base, state) => ({
+                                                                ...base,
+                                                                backgroundColor: state.isFocused
+                                                                    ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)')
+                                                                    : 'transparent',
+                                                                color: isDarkMode ? 'white' : 'black',
+                                                                fontSize: '9px',
+                                                                fontWeight: 'black',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.05em'
+                                                            }),
+                                                            singleValue: (base) => ({
+                                                                ...base,
+                                                                color: isDarkMode ? 'white' : 'black'
+                                                            }),
+                                                            placeholder: (base) => ({
+                                                                ...base,
+                                                                color: isDarkMode ? '#374151' : '#9ca3af'
+                                                            }),
+                                                            input: (base) => ({
+                                                                ...base,
+                                                                color: isDarkMode ? 'white' : 'black'
+                                                            }),
+                                                            dropdownIndicator: (base) => ({
+                                                                ...base,
+                                                                padding: '2px'
+                                                            }),
+                                                            clearIndicator: (base) => ({
+                                                                ...base,
+                                                                padding: '2px'
+                                                            })
+                                                        }}
+                                                    />
+                                                </div>
 
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Programme</label>
-                                                        <select name="programme" value={courseFilters.programme} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                            <option value="">ALL</option>
-                                                            <option value="CRP">CRP</option>
-                                                            <option value="NCRP">NCRP</option>
-                                                        </select>
-                                                    </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Board</label>
+                                                    <select name="board" value={courseFilters.board} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
+                                                        <option value="">ALL BOARDS</option>
+                                                        {masterBoards.sort((a, b) => (a.boardName || a.boardCourse || "").localeCompare(b.boardName || b.boardCourse || "")).map(b => (
+                                                            <option key={b._id} value={b.boardName || b.boardCourse}>{b.boardName || b.boardCourse}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Mode</label>
-                                                        <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                            <option value="">ALL MODES</option>
-                                                            <option value="ONLINE">ONLINE</option>
-                                                            <option value="OFFLINE">OFFLINE</option>
-                                                            <option value="HYBRID">HYBRID</option>
-                                                        </select>
-                                                    </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Programme</label>
+                                                    <select name="programme" value={courseFilters.programme} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
+                                                        <option value="">ALL</option>
+                                                        <option value="CRP">CRP</option>
+                                                        <option value="NCRP">NCRP</option>
+                                                    </select>
+                                                </div>
 
-                                                    <div>
-                                                        <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Type</label>
-                                                        <select name="courseType" value={courseFilters.courseType} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                            <option value="">ALL TYPES</option>
-                                                            <option value="REGULAR">REGULAR</option>
-                                                            <option value="CRASH">CRASH</option>
-                                                            <option value="TEST_SERIES">TEST SERIES</option>
-                                                        </select>
-                                                    </div>
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Mode</label>
+                                                    <select name="mode" value={courseFilters.mode} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
+                                                        <option value="">ALL MODES</option>
+                                                        <option value="ONLINE">ONLINE</option>
+                                                        <option value="OFFLINE">OFFLINE</option>
+                                                        <option value="HYBRID">HYBRID</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Type</label>
+                                                    <select name="courseType" value={courseFilters.courseType} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
+                                                        <option value="">ALL TYPES</option>
+                                                        <option value="REGULAR">REGULAR</option>
+                                                        <option value="CRASH">CRASH</option>
+                                                        <option value="TEST_SERIES">TEST SERIES</option>
+                                                    </select>
                                                 </div>
                                             </div>
-                                        )}
+                                        </div>
+                                    )}
 
-                                        <select
-                                            name="course"
-                                            value={formData.course}
-                                            onChange={handleChange}
-                                            className={inputClass}
-                                        >
-                                            <option value="">SELECT COURSE</option>
-                                            {filteredCourses.length > 0 ? (
-                                                [...filteredCourses].sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")).map((course) => (
-                                                    <option key={course._id} value={course._id}>
-                                                        {course.courseName?.toUpperCase()}
-                                                    </option>
-                                                ))
-                                            ) : (
-                                                <option disabled>NO COURSES MATCH FILTERS</option>
-                                            )}
-                                        </select>
-                                    </div>
+                                    <select
+                                        name="course"
+                                        value={formData.course}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    >
+                                        <option value="">SELECT COURSE</option>
+                                        {filteredCourses.length > 0 ? (
+                                            [...filteredCourses].sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")).map((course) => (
+                                                <option key={course._id} value={course._id}>
+                                                    {course.courseName?.toUpperCase()}
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <option disabled>NO COURSES MATCH FILTERS</option>
+                                        )}
+                                    </select>
+                                </div>
                                 <div>
                                     <label className={labelClass}>CLASSIFICATION (CLASS)</label>
                                     <select
@@ -933,7 +933,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                 onClick={onClose}
                                 className={`flex-1 py-3 px-6 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                             >
-                                ABORT CHANGES
+                                Cancel
                             </button>
                             <button
                                 type="submit"
