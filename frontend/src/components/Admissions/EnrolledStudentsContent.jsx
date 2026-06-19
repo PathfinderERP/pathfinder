@@ -2005,6 +2005,8 @@ const EnrolledStudentsContent = () => {
                                                             ) : (
                                                                 <span className="text-white text-lg">{student.studentName?.charAt(0).toUpperCase() || "S"}</span>
                                                             )}
+
+
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
