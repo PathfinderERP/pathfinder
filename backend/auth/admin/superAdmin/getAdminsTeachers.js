@@ -105,6 +105,11 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
         // If user has no centers, they can only see themselves
         query._id = requestingUser._id;
       }
+
+      // If user is a centerIncharge, restrict queried roles
+      if (userRole === "centerincharge") {
+        query.role = { $in: ["telecaller", "centralizedTelecaller", "counsellor", "marketing", "zonalManager"] };
+      }
     }
 
     // Fetch users based on query, populate centre details

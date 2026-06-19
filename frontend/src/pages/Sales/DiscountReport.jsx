@@ -391,7 +391,7 @@ const DiscountReport = () => {
             uniqueTags.forEach(t => {
                 const cell = pivotData[rk]?.[t];
                 if (cell && cell.totalAdmissions > 0) {
-                    rowObj[t] = `₹${cell.discountGiven.toLocaleString("en-IN")} (${cell.totalAdmissions})`;
+                    rowObj[t] = `₹${cell.discountGiven.toLocaleString("en-IN")} (Fee: ₹${(cell.originalFees || 0).toLocaleString("en-IN")}) (${cell.totalAdmissions})`;
                     rowTotalAdmissions += cell.totalAdmissions;
                     rowTotalDiscount += cell.discountGiven;
                 } else {
@@ -628,6 +628,7 @@ const DiscountReport = () => {
                                                             const cell = pivotData[rowKey]?.[tag];
                                                             const count = cell?.totalAdmissions || 0;
                                                             const discount = cell?.discountGiven || 0;
+                                                            const originalFees = cell?.originalFees || 0;
 
                                                             rowTotalAdmissions += count;
                                                             rowTotalDiscount += discount;
@@ -639,7 +640,7 @@ const DiscountReport = () => {
                                                                             onClick={() => openCellDetails(rowKey, tag, cell.details)}
                                                                             className={`px-3 py-1.5 rounded-xl transition-all hover:scale-105 active:scale-95 flex flex-col items-center justify-center mx-auto ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-50'}`}
                                                                         >
-                                                                            <span className="font-bold text-orange-500">{fmt(discount)}</span>
+                                                                            <span className="font-bold text-orange-500">{fmt(discount)} <span className="text-[10px] text-gray-400 font-normal">({fmt(originalFees)})</span></span>
                                                                             <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>({count})</span>
                                                                         </button>
                                                                     ) : (
@@ -670,11 +671,13 @@ const DiscountReport = () => {
                                                 {uniqueTags.map(tag => {
                                                     let colTotalAdmissions = 0;
                                                     let colTotalDiscount = 0;
+                                                    let colTotalOriginalFees = 0;
                                                     filteredRowKeys.forEach(rowKey => {
                                                         const cell = pivotData[rowKey]?.[tag];
                                                         if (cell) {
                                                             colTotalAdmissions += cell.totalAdmissions;
                                                             colTotalDiscount += cell.discountGiven;
+                                                            colTotalOriginalFees += cell.originalFees || 0;
                                                         }
                                                     });
 
@@ -682,7 +685,7 @@ const DiscountReport = () => {
                                                         <td key={tag} className="p-4 text-center text-xs font-black">
                                                             {colTotalAdmissions > 0 ? (
                                                                 <div className="flex flex-col items-center justify-center">
-                                                                    <span className="font-bold text-orange-500">{fmt(colTotalDiscount)}</span>
+                                                                    <span className="font-bold text-orange-500">{fmt(colTotalDiscount)} <span className="text-[10px] text-gray-400 font-medium">({fmt(colTotalOriginalFees)})</span></span>
                                                                     <span className={`text-[10px] font-bold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>({colTotalAdmissions})</span>
                                                                 </div>
                                                             ) : '-'}
