@@ -1839,6 +1839,7 @@ const EnrolledStudentsContent = () => {
                                     </th>
                                 )}
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Enrollment ID</th>
+                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Email ID</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admission Date</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Session</th>
                                 <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Class</th>
@@ -1939,6 +1940,33 @@ const EnrolledStudentsContent = () => {
                                                         )}
                                                     </div>
                                                 </td>
+
+                                                <td className="p-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-2">
+                                                        {/* {student?.studentEmail && (
+                                                            <button
+                                                                onClick={(e) => handleCopy(e, student.studentEmail, "Email ID")}
+                                                                className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-100 shadow-sm'}`}
+                                                                title="Copy ID"
+                                                            >
+                                                                <FaCopy size={10} />
+                                                            </button>
+                                                        )} */}
+                                                        <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
+                                                            {student?.studentEmail || "N/A"}
+                                                        </span>
+                                                        {/* {student?.studentEmail && (
+                                                            <button
+                                                                onClick={(e) => handleCopy(e, student.studentEmail, "Email ID")}
+                                                                className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-100 shadow-sm'}`}
+                                                                title="Copy ID"
+                                                            >
+                                                                <FaCopy size={10} />
+                                                            </button>
+                                                        )} */}
+                                                    </div>
+                                                </td>
+
                                                 <td className="p-4 whitespace-nowrap">
                                                     <div className="flex flex-col gap-1">
                                                         <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
@@ -2187,7 +2215,7 @@ const EnrolledStudentsContent = () => {
                                 </h3>
                                 <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-widest mt-2 text-gray-500">
                                     <span className="flex items-center gap-1.5"><FaPhoneAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
-                                    <span className="flex items-center gap-1.5 normal-case"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
+                                    <span className="flex items-center  gap-2 text-cyan-500 text-xl normal-case"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
                                     <span className="flex items-center gap-1.5"><FaMapMarkerAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
                                     {studentAdmissions[0]?.department?.departmentName && (
                                         <span className="flex items-center gap-1.5"><FaHistory size={10} className="text-orange-500" /> {studentAdmissions[0].department.departmentName}</span>
