@@ -695,56 +695,59 @@ const DiscountComparison = () => {
                             <p className="uppercase tracking-[0.2em] text-sm font-black opacity-50">No comparative data to plot</p>
                         </div>
                     ) : (
-                        <div className="h-96 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={barChartData}
-                                    margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
-                                >
-                                    <CartesianGrid 
-                                        strokeDasharray="3 3" 
-                                        vertical={false} 
-                                        stroke={isDarkMode ? "#374151" : "#e5e7eb"} 
-                                    />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        stroke={isDarkMode ? "#9ca3af" : "#4b5563"} 
-                                        fontSize={10} 
-                                        fontWeight="bold" 
-                                        tickLine={false} 
-                                        dy={10}
-                                    />
-                                    <YAxis 
-                                        stroke={isDarkMode ? "#9ca3af" : "#4b5563"} 
-                                        fontSize={10} 
-                                        fontWeight="bold" 
-                                        tickLine={false} 
-                                        tickFormatter={val => metricUnit === "amount" ? `₹${(val / 1000)}k` : `${val}%`}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: isDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" }} />
-                                    <Legend 
-                                        verticalAlign="top" 
-                                        height={36} 
-                                        iconSize={10}
-                                        iconType="circle"
-                                        formatter={(val) => <span className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{val}</span>}
-                                    />
-                                    <Bar 
-                                        name="Overall Discount" 
-                                        dataKey={metricUnit === "amount" ? "overallDiscount" : "overallDiscountPercent"} 
-                                        fill="#a855f7" 
-                                        radius={[4, 4, 0, 0]} 
-                                        maxBarSize={40}
-                                    />
-                                    <Bar 
-                                        name={`${comparedExamTag} Discount`} 
-                                        dataKey={metricUnit === "amount" ? "comparedDiscount" : "comparedDiscountPercent"} 
-                                        fill="#10b981" 
-                                        radius={[4, 4, 0, 0]} 
-                                        maxBarSize={40}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <div className="overflow-x-auto pb-4 custom-scrollbar">
+                            <div style={{ minWidth: `${Math.max(barChartData.length * 80, 1000)}px` }} className="h-96">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={barChartData}
+                                        margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
+                                    >
+                                        <CartesianGrid 
+                                            strokeDasharray="3 3" 
+                                            vertical={false} 
+                                            stroke={isDarkMode ? "#374151" : "#e5e7eb"} 
+                                        />
+                                        <XAxis 
+                                            dataKey="name" 
+                                            stroke={isDarkMode ? "#9ca3af" : "#4b5563"} 
+                                            fontSize={10} 
+                                            fontWeight="bold" 
+                                            tickLine={false} 
+                                            interval={0}
+                                            dy={10}
+                                        />
+                                        <YAxis 
+                                            stroke={isDarkMode ? "#9ca3af" : "#4b5563"} 
+                                            fontSize={10} 
+                                            fontWeight="bold" 
+                                            tickLine={false} 
+                                            tickFormatter={val => metricUnit === "amount" ? `₹${(val / 1000)}k` : `${val}%`}
+                                        />
+                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: isDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" }} />
+                                        <Legend 
+                                            verticalAlign="top" 
+                                            height={36} 
+                                            iconSize={10}
+                                            iconType="circle"
+                                            formatter={(val) => <span className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{val}</span>}
+                                        />
+                                        <Bar 
+                                            name="Overall Discount" 
+                                            dataKey={metricUnit === "amount" ? "overallDiscount" : "overallDiscountPercent"} 
+                                            fill="#a855f7" 
+                                            radius={[4, 4, 0, 0]} 
+                                            maxBarSize={40}
+                                        />
+                                        <Bar 
+                                            name={`${comparedExamTag} Discount`} 
+                                            dataKey={metricUnit === "amount" ? "comparedDiscount" : "comparedDiscountPercent"} 
+                                            fill="#10b981" 
+                                            radius={[4, 4, 0, 0]} 
+                                            maxBarSize={40}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     )}
                 </div>
