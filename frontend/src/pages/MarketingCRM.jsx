@@ -15,6 +15,7 @@ import {
     AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar,
     CartesianGrid, Legend, PieChart, Pie, Cell, LabelList
 } from 'recharts';
+import { hasModuleAccess } from "../config/permissions";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -22,6 +23,14 @@ const MarketingCRM = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
+
+    // Enforce module-level permission check on mount / user change
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    useEffect(() => {
+        if (!hasModuleAccess(currentUser, "marketingCRM")) {
+            navigate("/dashboard");
+        }
+    }, [currentUser, navigate]);
 
     const [loading, setLoading] = useState(true);
     const [summaryLoading, setSummaryLoading] = useState(false);
@@ -330,7 +339,6 @@ const MarketingCRM = () => {
         return `${yyyy}-${mm}-${dd}`;
     };
 
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const userRoleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
     const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead", "centerincharge", "centreincharge"].includes(userRoleLower);
 

@@ -12,7 +12,7 @@ import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
 
-const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller'];
+const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge'];
 const checkRestricted = (role) => {
     return RESTRICTED_ROLES.includes((role || '').toLowerCase());
 };
@@ -54,6 +54,11 @@ export const getDailyTracking = async (req, res) => {
                 { $lt: ["$$fu.date", tomorrow] }
             ];
 
+            if (isRestricted) {
+                leadMatch["followUps.updatedBy"] = req.user.name;
+                filterCond.push({ $eq: ["$$fu.updatedBy", req.user.name] });
+            }
+
             const dailyCallsCountResult = await LeadManagement.aggregate([
                 { $match: leadMatch },
                 { $project: {
@@ -71,38 +76,59 @@ export const getDailyTracking = async (req, res) => {
             const dailyCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].total : 0;
 
             // --- Daily Walk-ins ---
-            const walkInsCount = await LeadManagement.countDocuments({
+            const walkInsQuery = {
                 centre: centerId,
                 source: { $regex: /^walk[- ]?in$/i },
                 createdAt: dateFilter
-            });
+            };
+            if (isRestricted) {
+                walkInsQuery.createdBy = req.user._id;
+            }
+            const walkInsCount = await LeadManagement.countDocuments(walkInsQuery);
 
             // Counseling Analysis (Union of direct records and admissions)
-            const centerCounsellingNormalLeads = await LeadManagement.find({
+            const counsellingNormalQuery = {
                 centre: centerId,
                 isCounseled: true,
                 updatedAt: dateFilter
-            }).distinct('_id');
-
-            const centerAdmittedNormalStudents = await Admission.find({
+            };
+            const admittedNormalQuery = {
                 centre: new RegExp(`^${center.centreName}$`, 'i'),
                 createdAt: dateFilter
-            }).distinct('student');
+            };
+
+            if (isRestricted) {
+                counsellingNormalQuery.$or = [
+                    { createdBy: req.user._id },
+                    { followUps: { $elemMatch: { updatedBy: req.user.name, date: dateFilter } } }
+                ];
+                admittedNormalQuery.createdBy = req.user._id;
+            }
+
+            const centerCounsellingNormalLeads = await LeadManagement.find(counsellingNormalQuery).distinct('_id');
+            const centerAdmittedNormalStudents = await Admission.find(admittedNormalQuery).distinct('student');
 
             const counselledNormalCount = new Set([
                 ...centerCounsellingNormalLeads.map(id => id.toString()),
                 ...centerAdmittedNormalStudents.map(id => id.toString())
             ]).size;
 
-            const centerCounsellingBoardRecords = await BoardCourseCounselling.find({
+            const counsellingBoardQuery = {
                 centre: centerId,
                 counselledDate: dateFilter
-            }).distinct('studentId');
-
-            const centerAdmittedBoardStudents = await BoardCourseAdmission.find({
+            };
+            const admittedBoardQuery = {
                 centre: new RegExp(`^${center.centreName}$`, 'i'),
                 createdAt: dateFilter
-            }).distinct('studentId');
+            };
+
+            if (isRestricted) {
+                counsellingBoardQuery.counselledBy = req.user._id;
+                admittedBoardQuery.createdBy = req.user._id;
+            }
+
+            const centerCounsellingBoardRecords = await BoardCourseCounselling.find(counsellingBoardQuery).distinct('studentId');
+            const centerAdmittedBoardStudents = await BoardCourseAdmission.find(admittedBoardQuery).distinct('studentId');
 
             const counselledBoardCount = new Set([
                 ...centerCounsellingBoardRecords.map(id => id.toString()),
@@ -110,15 +136,22 @@ export const getDailyTracking = async (req, res) => {
             ]).size;
 
             // --- Admissions (Total records) ---
-            const admissionNormalCount = await Admission.countDocuments({
+            const admissionNormalQuery = {
                 centre: new RegExp(`^${center.centreName}$`, 'i'),
                 createdAt: dateFilter
-            });
+            };
+            const admissionBoardQuery = {
+                centre: new RegExp(`^${center.centreName}$`, 'i'),
+                createdAt: dateFilter
+            };
 
-            const admissionBoardCount = await BoardCourseAdmission.countDocuments({
-                centre: new RegExp(`^${center.centreName}$`, 'i'),
-                createdAt: dateFilter
-            });
+            if (isRestricted) {
+                admissionNormalQuery.createdBy = req.user._id;
+                admissionBoardQuery.createdBy = req.user._id;
+            }
+
+            const admissionNormalCount = await Admission.countDocuments(admissionNormalQuery);
+            const admissionBoardCount = await BoardCourseAdmission.countDocuments(admissionBoardQuery);
 
             // --- Attendance ---
             const staffPresentCount = await EmployeeAttendance.countDocuments({
@@ -170,6 +203,10 @@ export const getDailyTracking = async (req, res) => {
                     ]
                 }
             };
+
+            if (isRestricted) {
+                paymentMatch.recordedBy = req.user._id;
+            }
 
             const collections = await Payment.aggregate([
                 { $match: paymentMatch },
@@ -259,7 +296,7 @@ export const getDailyCenterDetails = async (req, res) => {
         }
 
         // 2. Fetch only ACTIVE users with operational roles assigned to this center
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing'];
+        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager'];
         const userQuery = {
             centres: centerId,
             isActive: true,
@@ -987,7 +1024,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             }
         }
 
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing'];
+        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager'];
         
         const userQuery = {
             centres: centerId,

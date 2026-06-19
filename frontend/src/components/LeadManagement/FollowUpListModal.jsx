@@ -3,6 +3,7 @@ import { FaTimes, FaCalendarAlt, FaUser, FaBuilding, FaPhone, FaHistory, FaSearc
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import CustomMultiSelect from "../common/CustomMultiSelect";
 
 const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
     const [leads, setLeads] = useState([]);
@@ -10,8 +11,8 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [filters, setFilters] = useState({
-        centre: "",
-        telecaller: "",
+        centre: [],
+        telecaller: [],
         date: ""
     });
 
@@ -76,15 +77,18 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
+            const centreValues = (filters.centre || []).map(o => o.value).join(",");
+            const telecallerValues = (filters.telecaller || []).map(o => o.value).join(",");
+
             const queryParams = new URLSearchParams({
                 page,
                 limit: 10,
-                ...(filters.centre && { centre: filters.centre }),
-                ...(filters.telecaller && { telecaller: filters.telecaller }),
+                ...(centreValues && { centre: centreValues }),
+                ...(telecallerValues && { telecaller: telecallerValues }),
                 ...(filters.date && { date: filters.date })
             });
 
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/leadManagement/follow-ups?${queryParams}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/follow-ups?${queryParams}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await res.json();
@@ -110,7 +114,7 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
     };
 
     const clearFilters = () => {
-        setFilters({ centre: "", telecaller: "", date: "" });
+        setFilters({ centre: [], telecaller: [], date: "" });
         setPage(1);
     };
 
@@ -183,34 +187,30 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
                 <div className={`p-6 grid grid-cols-1 md:grid-cols-4 gap-6 border-b transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100'}`}>
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">CENTRE</label>
-                        <div className="relative group">
-                            <FaBuilding className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
-                            <select
-                                name="centre"
-                                value={filters.centre}
-                                onChange={handleFilterChange}
-                                className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            >
-                                <option value="">ALL CENTRES</option>
-                                {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                            </select>
-                        </div>
+                        <CustomMultiSelect
+                            options={centres.map(c => ({ value: c._id, label: c.centreName }))}
+                            value={filters.centre}
+                            onChange={(selected) => {
+                                setFilters(prev => ({ ...prev, centre: selected || [] }));
+                                setPage(1);
+                            }}
+                            placeholder="ALL CENTRES"
+                            isDarkMode={isDarkMode}
+                        />
                     </div>
 
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest">ASSIGNED AGENT</label>
-                        <div className="relative group">
-                            <FaUser className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
-                            <select
-                                name="telecaller"
-                                value={filters.telecaller}
-                                onChange={handleFilterChange}
-                                className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all appearance-none cursor-pointer ${isDarkMode ? 'bg-[#0f1215] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            >
-                                <option value="">ALL TELECALLERS</option>
-                                {telecallers.map(u => <option key={u.value || u.name} value={u.value || u.name}>{u.displayName || u.name}</option>)}
-                            </select>
-                        </div>
+                        <CustomMultiSelect
+                            options={telecallers.map(u => ({ value: u.value || u.name, label: u.displayName || u.name }))}
+                            value={filters.telecaller}
+                            onChange={(selected) => {
+                                setFilters(prev => ({ ...prev, telecaller: selected || [] }));
+                                setPage(1);
+                            }}
+                            placeholder="ALL TELECALLERS"
+                            isDarkMode={isDarkMode}
+                        />
                     </div>
 
                     <div className="space-y-1.5">
