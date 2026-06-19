@@ -545,6 +545,9 @@ const DailyUserActivityLog = () => {
                                     <th className="px-5 py-3 font-black">#</th>
                                     <th className="px-5 py-3 font-black">Student</th>
                                     <th className="px-5 py-3 font-black">Phone</th>
+                                    <th className="px-5 py-3 font-black">Class</th>
+                                    <th className="px-5 py-3 font-black">Board</th>
+                                    <th className="px-5 py-3 font-black">School</th>
                                     <th className="px-5 py-3 font-black">Course</th>
                                     <th className="px-5 py-3 font-black text-center">Call Type</th>
                                     <th className="px-5 py-3 font-black text-center">Lead Status</th>
@@ -560,7 +563,7 @@ const DailyUserActivityLog = () => {
                             <tbody className={`divide-y ${divider}`}>
                                 {filteredCalls.length === 0 ? (
                                     <tr>
-                                        <td colSpan="13" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
+                                        <td colSpan="16" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
                                             No call records found for the selected filters.
                                         </td>
                                     </tr>
@@ -574,6 +577,9 @@ const DailyUserActivityLog = () => {
                                                 <span className={`text-sm font-black uppercase tracking-tight ${mainText}`}>{call.studentName}</span>
                                             </td>
                                             <td className={`px-5 py-3 text-xs font-mono ${subText}`}>{call.phoneNumber}</td>
+                                            <td className="px-5 py-3 text-xs font-bold text-gray-300">{call.className || '-'}</td>
+                                            <td className="px-5 py-3 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
+                                            <td className="px-5 py-3 text-xs text-gray-400">{call.schoolName || '-'}</td>
                                             <td className={`px-5 py-3 text-xs font-bold ${isDark ? 'text-cyan-400' : 'text-cyan-700'} whitespace-nowrap`} title={call.courseName || ''}>
                                                 {call.courseName || '-'}
                                             </td>

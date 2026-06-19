@@ -12,9 +12,19 @@ import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
 
-const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge'];
+const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'admin'];
 const checkRestricted = (role) => {
     return RESTRICTED_ROLES.includes((role || '').toLowerCase());
+};
+
+const checkRestrictCentres = (role) => {
+    const r = (role || '').toLowerCase();
+    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'zonalmanager', 'admin'].includes(r);
+};
+
+const checkRestrictIndividual = (role) => {
+    const r = (role || '').toLowerCase();
+    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'admin', 'centreincharge', 'centerincharge'].includes(r);
 };
 
 export const getDailyTracking = async (req, res) => {
@@ -541,9 +551,18 @@ export const getDailyUserActivity = async (req, res) => {
         const { userId } = req.params;
         const { date, fromDate, toDate, centerId } = req.query;
 
-        const isRestricted = checkRestricted(req.user?.role);
-        if (isRestricted && userId.toString() !== req.user._id.toString()) {
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
+
+        if (isRestrictIndividual && userId.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: "Access denied. You can only view your own activity log." });
+        }
+
+        if (isRestrictCentres) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            if (centerId && !userCenterIds.includes(centerId.toString())) {
+                return res.status(403).json({ message: "Access denied. You do not have access to this center." });
+            }
         }
         
         let startDate = new Date();
@@ -591,12 +610,19 @@ export const getDailyUserActivity = async (req, res) => {
                 { followUps: { $size: 0 } }
             ]
         };
+        if (centerId) {
+            freshQuery.centre = centerId;
+        }
         const freshLeadsCount = await LeadManagement.countDocuments(freshQuery);
 
         // Fetch all leads followed up by the user today (old and new)
-        const allFollowUpLeads = await LeadManagement.find({
+        const followUpLeadsQuery = {
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        }).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText').populate('centre').populate('course', 'courseName').lean();
+        };
+        if (centerId) {
+            followUpLeadsQuery.centre = centerId;
+        }
+        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName').populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
 
         // 3. Counseling Analysis
         const normalCounsQuery = {
@@ -607,12 +633,18 @@ export const getDailyUserActivity = async (req, res) => {
                 { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
             ]
         };
+        if (centerId) {
+            normalCounsQuery.centre = centerId;
+        }
         const normalCounsellingLeads = await LeadManagement.find(normalCounsQuery).distinct('_id');
 
         const normalAdmStudentQuery = {
             createdBy: userId,
             createdAt: dateFilter
         };
+        if (centerId) {
+            normalAdmStudentQuery.centre = centerId;
+        }
         const normalAdmittedStudents = await Admission.find(normalAdmStudentQuery).distinct('student');
 
         const counselledNormal = new Set([
@@ -624,12 +656,18 @@ export const getDailyUserActivity = async (req, res) => {
             counselledBy: userId,
             counselledDate: dateFilter
         };
+        if (centerId) {
+            boardCounsStudentQuery.centre = centerId;
+        }
         const boardCounsellingStudents = await BoardCourseCounselling.find(boardCounsStudentQuery).distinct('studentId');
 
         const boardAdmStudentQuery = {
             createdBy: userId,
             createdAt: dateFilter
         };
+        if (centerId) {
+            boardAdmStudentQuery.centre = centerId;
+        }
         const boardAdmittedStudents = await BoardCourseAdmission.find(boardAdmStudentQuery).distinct('studentId');
 
         const counselledBoard = new Set([
@@ -639,9 +677,15 @@ export const getDailyUserActivity = async (req, res) => {
 
         // 4. Admission Breakdown
         const admNormalQuery = { createdBy: userId, createdAt: dateFilter };
+        if (centerId) {
+            admNormalQuery.centre = centerId;
+        }
         const admissionNormal = await Admission.countDocuments(admNormalQuery);
 
         const admBoardQuery = { createdBy: userId, createdAt: dateFilter };
+        if (centerId) {
+            admBoardQuery.centre = centerId;
+        }
         const admissionBoard = await BoardCourseAdmission.countDocuments(admBoardQuery);
 
         // 5. Detailed Collection Analysis
@@ -657,9 +701,16 @@ export const getDailyUserActivity = async (req, res) => {
         }).lean();
 
         const admissionIds = collections.map(p => p.admission).filter(Boolean);
+        const admissionQuery = { _id: { $in: admissionIds } };
+        const boardAdmissionQuery = { _id: { $in: admissionIds } };
+        if (centerId) {
+            admissionQuery.centre = centerId;
+            boardAdmissionQuery.centre = centerId;
+        }
+
         const [normalAdmissions, boardAdmissions] = await Promise.all([
-            Admission.find({ _id: { $in: admissionIds } }).populate('student').lean(),
-            BoardCourseAdmission.find({ _id: { $in: admissionIds } }).populate('studentId').lean()
+            Admission.find(admissionQuery).populate('student').lean(),
+            BoardCourseAdmission.find(boardAdmissionQuery).populate('studentId').lean()
         ]);
 
         const admissionMap = {};
@@ -674,6 +725,7 @@ export const getDailyUserActivity = async (req, res) => {
 
         const collectionAnalysis = collections.map(p => {
             const admInfo = admissionMap[p.admission?.toString()];
+            if (centerId && !admInfo) return null;
             return {
                 studentName: admInfo?.studentName || "Unknown Student",
                 admissionNumber: admInfo?.admissionNumber || "N/A",
@@ -682,11 +734,11 @@ export const getDailyUserActivity = async (req, res) => {
                 type: p.installmentNumber === 0 ? "Admission Fee" : `Installment #${p.installmentNumber}`,
                 isFresh: p.installmentNumber === 0
             };
-        });
+        }).filter(Boolean);
 
         // 6. HOT / WARM / COLD Lead Breakdown + Detailed Call List
         // Fresh = created today with NO followUps (pure fresh section uploads, no feedback/remarks)
-        const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText').populate('course', 'courseName').lean();
+        const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
 
         let hotCount = 0, warmCount = 0, coldCount = 0, neutralCount = 0, invalidCount = 0;
         const callDetails = [];
@@ -712,7 +764,10 @@ export const getDailyUserActivity = async (req, res) => {
                 nextFollowUpDate: null,
                 date: lead.createdAt,
                 updatedAt: lead.updatedAt,
-                courseName: lead.course?.courseName || lead.courseText || '-'
+                courseName: lead.course?.courseName || lead.courseText || '-',
+                className: lead.className?.name || '-',
+                boardName: lead.board?.boardName || '-',
+                schoolName: lead.schoolName || '-'
             });
         });
 
@@ -745,7 +800,10 @@ export const getDailyUserActivity = async (req, res) => {
                     nextFollowUpDate: fu.nextFollowUpDate || lead.nextFollowUpDate || null,
                     date: fu.date,
                     updatedAt: lead.updatedAt,
-                    courseName: lead.course?.courseName || lead.courseText || '-'
+                    courseName: lead.course?.courseName || lead.courseText || '-',
+                    className: lead.className?.name || '-',
+                    boardName: lead.board?.boardName || '-',
+                    schoolName: lead.schoolName || '-'
                 });
             });
         });
@@ -760,8 +818,8 @@ export const getDailyUserActivity = async (req, res) => {
 
         // Fetch all direct admissions and counselling today to populate them if they are not in lead list
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').lean(),
-            BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').lean(),
+            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardName').lean(),
+            BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean(),
             BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean()
         ]);
 
@@ -773,7 +831,11 @@ export const getDailyUserActivity = async (req, res) => {
 
         let leadMapByPhone = {};
         if (extraPhones.length > 0) {
-            const leads = await LeadManagement.find({ phoneNumber: { $in: extraPhones } }).populate('centre').populate('course', 'courseName').lean();
+            const leadQuery = { phoneNumber: { $in: extraPhones } };
+            if (centerId) {
+                leadQuery.centre = centerId;
+            }
+            const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
             leads.forEach(l => {
                 leadMapByPhone[l.phoneNumber] = l;
             });
@@ -810,7 +872,10 @@ export const getDailyUserActivity = async (req, res) => {
                 counselledDate: adm.createdAt,
                 enrolledTick: true,
                 enrolledDate: adm.createdAt,
-                courseName: adm.course?.courseName || existingLead?.course?.courseName || existingLead?.courseText || '-'
+                courseName: adm.course?.courseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
+                className: adm.class?.name || adm.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
+                boardName: adm.board?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
+                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -845,7 +910,10 @@ export const getDailyUserActivity = async (req, res) => {
                 counselledDate: adm.createdAt,
                 enrolledTick: true,
                 enrolledDate: adm.createdAt,
-                courseName: adm.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-'
+                courseName: adm.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
+                className: adm.lastClass || adm.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
+                boardName: adm.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
+                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -883,7 +951,10 @@ export const getDailyUserActivity = async (req, res) => {
                 counselledDate: couns.counselledDate,
                 enrolledTick: hasAdmission,
                 enrolledDate: hasAdmission ? couns.counselledDate : null,
-                courseName: couns.boardId?.boardName || couns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-'
+                courseName: couns.boardId?.boardName || couns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-',
+                className: couns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
+                boardName: couns.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
+                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1207,9 +1278,18 @@ export const exportUserCallingReportExcel = async (req, res) => {
         const { userId } = req.params;
         const { fromDate, toDate, centerId } = req.query;
 
-        const isRestricted = checkRestricted(req.user?.role);
-        if (isRestricted && userId.toString() !== req.user._id.toString()) {
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
+
+        if (isRestrictIndividual && userId.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: "Access denied. You can only export your own calling report." });
+        }
+
+        if (isRestrictCentres) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            if (centerId && !userCenterIds.includes(centerId.toString())) {
+                return res.status(403).json({ message: "Access denied. You do not have access to this center." });
+            }
         }
         
         let startDate = new Date();
@@ -1240,12 +1320,19 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 { followUps: { $size: 0 } }
             ]
         };
-        const freshLeadsDetailed = await LeadManagement.find(freshQuery).populate('centre').populate('course', 'courseName').lean();
+        if (centerId) {
+            freshQuery.centre = centerId;
+        }
+        const freshLeadsDetailed = await LeadManagement.find(freshQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
 
         // Fetch all leads followed up by the user today (old and new)
-        const allFollowUpLeads = await LeadManagement.find({
+        const followUpLeadsQuery = {
             followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
-        }).populate('centre').populate('course', 'courseName').lean();
+        };
+        if (centerId) {
+            followUpLeadsQuery.centre = centerId;
+        }
+        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
 
         const callDetails = [];
 
@@ -1260,7 +1347,10 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 remarks: lead.remarks || '',
                 nextFollowUpDate: null,
                 date: lead.createdAt,
-                courseName: lead.course?.courseName || lead.courseText || '-'
+                courseName: lead.course?.courseName || lead.courseText || '-',
+                className: lead.className?.name || '-',
+                boardName: lead.board?.boardName || '-',
+                schoolName: lead.schoolName || '-'
             });
         });
 
@@ -1282,7 +1372,10 @@ export const exportUserCallingReportExcel = async (req, res) => {
                     remarks: fu.remarks || '',
                     nextFollowUpDate: fu.nextFollowUpDate || lead.nextFollowUpDate || null,
                     date: fu.date,
-                    courseName: lead.course?.courseName || lead.courseText || '-'
+                    courseName: lead.course?.courseName || lead.courseText || '-',
+                    className: lead.className?.name || '-',
+                    boardName: lead.board?.boardName || '-',
+                    schoolName: lead.schoolName || '-'
                 });
             });
         });
@@ -1291,10 +1384,15 @@ export const exportUserCallingReportExcel = async (req, res) => {
         const normalAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
         const boardAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
         const boardCounsStudentQuery = { counselledBy: userId, counselledDate: dateFilter };
+        if (centerId) {
+            normalAdmStudentQuery.centre = centerId;
+            boardAdmStudentQuery.centre = centerId;
+            boardCounsStudentQuery.centre = centerId;
+        }
 
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').lean(),
-            BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').lean(),
+            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardName').lean(),
+            BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean(),
             BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').populate('centre').lean()
         ]);
 
@@ -1306,7 +1404,11 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
         let leadMapByPhone = {};
         if (extraPhones.length > 0) {
-            const leads = await LeadManagement.find({ phoneNumber: { $in: extraPhones } }).populate('centre').populate('course', 'courseName').lean();
+            const leadQuery = { phoneNumber: { $in: extraPhones } };
+            if (centerId) {
+                leadQuery.centre = centerId;
+            }
+            const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
             leads.forEach(l => {
                 leadMapByPhone[l.phoneNumber] = l;
             });
@@ -1331,10 +1433,20 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 : (admOrCouns.centre?.centreName || '-');
 
             let courseName = '-';
+            let className = '-';
+            let boardName = '-';
+            let schoolName = '-';
+
             if (isAdm) {
                 courseName = admOrCouns.course?.courseName || admOrCouns.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-';
+                className = admOrCouns.class?.name || admOrCouns.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-';
+                boardName = admOrCouns.board?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-';
+                schoolName = studentDetails?.schoolName || existingLead?.schoolName || '-';
             } else {
                 courseName = admOrCouns.boardId?.boardName || admOrCouns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-';
+                className = admOrCouns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-';
+                boardName = admOrCouns.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-';
+                schoolName = studentDetails?.schoolName || existingLead?.schoolName || '-';
             }
 
             callDetails.push({
@@ -1347,7 +1459,10 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 remarks: remarksStr,
                 nextFollowUpDate: null,
                 date: admOrCouns.createdAt || admOrCouns.counselledDate || new Date(),
-                courseName
+                courseName,
+                className,
+                boardName,
+                schoolName
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1367,6 +1482,9 @@ export const exportUserCallingReportExcel = async (req, res) => {
             "Centre": call.centreName,
             "Student Name": call.studentName,
             "Phone Number": call.phoneNumber,
+            "Class": call.className || '-',
+            "Board": call.boardName || '-',
+            "School": call.schoolName || '-',
             "Course Name": call.courseName || '-',
             "Call Type": call.callType,
             "Lead Status": call.leadType,
@@ -1658,6 +1776,432 @@ export const getDailyTrackingDetails = async (req, res) => {
     } catch (error) {
         console.error("GET_DAILY_TRACKING_DETAILS_ERROR:", error);
         res.status(500).json({ message: "Failed to fetch daily tracking details", error: error.message });
+    }
+};
+
+export const getDailyCallsReport = async (req, res) => {
+    try {
+        const { fromDate, toDate, centerIds } = req.query;
+        let startDate = new Date();
+        let endDate = new Date();
+        if (fromDate && toDate) {
+            startDate = new Date(fromDate);
+            endDate = new Date(toDate);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
+        let centres;
+        let queryCenterIds = [];
+        if (centerIds) {
+            queryCenterIds = centerIds.split(',').filter(Boolean);
+        }
+
+        if (isRestrictCentres) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            const allowedCenterIds = queryCenterIds.length > 0
+                ? queryCenterIds.filter(id => userCenterIds.includes(id))
+                : userCenterIds;
+            centres = await CentreSchema.find({ _id: { $in: allowedCenterIds }, status: { $ne: "deactive" } }).lean();
+        } else {
+            if (queryCenterIds.length > 0) {
+                centres = await CentreSchema.find({ _id: { $in: queryCenterIds }, status: { $ne: "deactive" } }).lean();
+            } else {
+                centres = await CentreSchema.find({ status: { $ne: "deactive" } }).lean();
+            }
+        }
+
+        const actualCenterIds = centres.map(c => c._id);
+        const centreMap = {};
+        centres.forEach(c => {
+            centreMap[c._id.toString()] = c.centreName;
+        });
+
+        const matchStage = {
+            centre: { $in: actualCenterIds }
+        };
+
+        const followUpMatchStage = {
+            "followUps.date": dateFilter
+        };
+
+        if (isRestrictIndividual) {
+            followUpMatchStage["followUps.updatedBy"] = req.user.name;
+        }
+
+        const aggregatedCalls = await LeadManagement.aggregate([
+            { $match: matchStage },
+            { $unwind: "$followUps" },
+            { $match: followUpMatchStage },
+            { $group: {
+                _id: {
+                    centre: "$centre",
+                    userName: "$followUps.updatedBy"
+                },
+                totalCalls: { $sum: 1 },
+                hot: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /hot/i } }, 1, 0]
+                    }
+                },
+                warm: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /warm/i } }, 1, 0]
+                    }
+                },
+                cold: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /cold/i } }, 1, 0]
+                    }
+                },
+                neutral: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /neutral/i } }, 1, 0]
+                    }
+                },
+                invalid: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /invalid|inactive/i } }, 1, 0]
+                    }
+                }
+            } }
+        ]);
+
+        const userNames = aggregatedCalls.map(item => item._id.userName).filter(Boolean);
+        const users = await User.find({ name: { $in: userNames } }).select('name role employeeId isActive').lean();
+        
+        // Sort users so that active users come last, meaning they overwrite inactive ones in the map.
+        users.sort((a, b) => (a.isActive === b.isActive) ? 0 : a.isActive ? 1 : -1);
+
+        const userMap = {};
+        users.forEach(u => {
+            userMap[u.name.toLowerCase()] = { id: u._id, role: u.role, employeeId: u.employeeId };
+        });
+
+        const reportData = aggregatedCalls.map(item => {
+            const cId = item._id.centre?.toString();
+            const cName = centreMap[cId] || "Unknown Centre";
+            const uName = item._id.userName || "System";
+            const uDetails = userMap[uName.toLowerCase()] || {};
+
+            const isMatchLoggedInUser = req.user && uName.toLowerCase() === req.user.name.toLowerCase();
+            const finalUserId = isMatchLoggedInUser ? req.user._id : (uDetails.id || null);
+            const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || "N/A");
+            const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || "N/A");
+
+            return {
+                centreId: cId,
+                centreName: cName,
+                userId: finalUserId,
+                userName: uName,
+                role: finalRole,
+                employeeId: finalEmployeeId,
+                totalCalls: item.totalCalls,
+                hot: item.hot,
+                warm: item.warm,
+                cold: item.cold,
+                neutral: item.neutral,
+                invalid: item.invalid
+            };
+        });
+
+        reportData.sort((a, b) => {
+            if (a.centreName.localeCompare(b.centreName) !== 0) {
+                return a.centreName.localeCompare(b.centreName);
+            }
+            return a.userName.localeCompare(b.userName);
+        });
+
+        res.status(200).json(reportData);
+    } catch (error) {
+        console.error("GET_DAILY_CALLS_REPORT_ERROR:", error);
+        res.status(500).json({ message: "Failed to fetch daily calls report data", error: error.message });
+    }
+};
+
+export const exportDailyCallsReportSummaryExcel = async (req, res) => {
+    try {
+        const { fromDate, toDate, centerIds } = req.query;
+        let startDate = new Date();
+        let endDate = new Date();
+        if (fromDate && toDate) {
+            startDate = new Date(fromDate);
+            endDate = new Date(toDate);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
+        let centres;
+        let queryCenterIds = [];
+        if (centerIds) {
+            queryCenterIds = centerIds.split(',').filter(Boolean);
+        }
+
+        if (isRestrictCentres) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            const allowedCenterIds = queryCenterIds.length > 0
+                ? queryCenterIds.filter(id => userCenterIds.includes(id))
+                : userCenterIds;
+            centres = await CentreSchema.find({ _id: { $in: allowedCenterIds }, status: { $ne: "deactive" } }).lean();
+        } else {
+            if (queryCenterIds.length > 0) {
+                centres = await CentreSchema.find({ _id: { $in: queryCenterIds }, status: { $ne: "deactive" } }).lean();
+            } else {
+                centres = await CentreSchema.find({ status: { $ne: "deactive" } }).lean();
+            }
+        }
+
+        const actualCenterIds = centres.map(c => c._id);
+        const centreMap = {};
+        centres.forEach(c => {
+            centreMap[c._id.toString()] = c.centreName;
+        });
+
+        const matchStage = {
+            centre: { $in: actualCenterIds }
+        };
+
+        const followUpMatchStage = {
+            "followUps.date": dateFilter
+        };
+
+        if (isRestrictIndividual) {
+            followUpMatchStage["followUps.updatedBy"] = req.user.name;
+        }
+
+        const aggregatedCalls = await LeadManagement.aggregate([
+            { $match: matchStage },
+            { $unwind: "$followUps" },
+            { $match: followUpMatchStage },
+            { $group: {
+                _id: {
+                    centre: "$centre",
+                    userName: "$followUps.updatedBy"
+                },
+                totalCalls: { $sum: 1 },
+                hot: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /hot/i } }, 1, 0]
+                    }
+                },
+                warm: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /warm/i } }, 1, 0]
+                    }
+                },
+                cold: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /cold/i } }, 1, 0]
+                    }
+                },
+                neutral: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /neutral/i } }, 1, 0]
+                    }
+                },
+                invalid: {
+                    $sum: {
+                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /invalid|inactive/i } }, 1, 0]
+                    }
+                }
+            } }
+        ]);
+
+        const userNames = aggregatedCalls.map(item => item._id.userName).filter(Boolean);
+        const users = await User.find({ name: { $in: userNames } }).select('name role employeeId isActive').lean();
+        
+        // Sort users so that active users come last, meaning they overwrite inactive ones in the map.
+        users.sort((a, b) => (a.isActive === b.isActive) ? 0 : a.isActive ? 1 : -1);
+
+        const userMap = {};
+        users.forEach(u => {
+            userMap[u.name.toLowerCase()] = { role: u.role, employeeId: u.employeeId };
+        });
+
+        const sheetData = aggregatedCalls.map(item => {
+            const cId = item._id.centre?.toString();
+            const cName = centreMap[cId] || "Unknown Centre";
+            const uName = item._id.userName || "System";
+            const uDetails = userMap[uName.toLowerCase()] || {};
+
+            const isMatchLoggedInUser = req.user && uName.toLowerCase() === req.user.name.toLowerCase();
+            const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || "N/A");
+            const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || "N/A");
+
+            return {
+                "Centre": cName,
+                "Staff Name": uName,
+                "Employee ID": finalEmployeeId,
+                "Role": finalRole.toUpperCase(),
+                "Hot Leads": item.hot,
+                "Warm Leads": item.warm,
+                "Cold Leads": item.cold,
+                "Neutral Leads": item.neutral,
+                "Inactive/Invalid Leads": item.invalid,
+                "Total Calls": item.totalCalls
+            };
+        });
+
+        sheetData.sort((a, b) => {
+            if (a["Centre"].localeCompare(b["Centre"]) !== 0) {
+                return a["Centre"].localeCompare(b["Centre"]);
+            }
+            return a["Staff Name"].localeCompare(b["Staff Name"]);
+        });
+
+        const reportData = sheetData.map((row, idx) => ({
+            "Sl No": idx + 1,
+            ...row
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(reportData);
+        XLSX.utils.book_append_sheet(wb, ws, "Calls Summary Report");
+
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Calls_Summary_Report_${fromDate}_to_${toDate}.xlsx`);
+        res.send(buffer);
+    } catch (error) {
+        console.error("EXPORT_DAILY_CALLS_REPORT_SUMMARY_ERROR:", error);
+        res.status(500).json({ message: "Failed to export summary report", error: error.message });
+    }
+};
+
+export const exportDailyCallsReportBulkExcel = async (req, res) => {
+    try {
+        const { fromDate, toDate, centerIds } = req.query;
+        let startDate = new Date();
+        let endDate = new Date();
+        if (fromDate && toDate) {
+            startDate = new Date(fromDate);
+            endDate = new Date(toDate);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
+        let centres;
+        let queryCenterIds = [];
+        if (centerIds) {
+            queryCenterIds = centerIds.split(',').filter(Boolean);
+        }
+
+        if (isRestrictCentres) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            const allowedCenterIds = queryCenterIds.length > 0
+                ? queryCenterIds.filter(id => userCenterIds.includes(id))
+                : userCenterIds;
+            centres = await CentreSchema.find({ _id: { $in: allowedCenterIds }, status: { $ne: "deactive" } }).lean();
+        } else {
+            if (queryCenterIds.length > 0) {
+                centres = await CentreSchema.find({ _id: { $in: queryCenterIds }, status: { $ne: "deactive" } }).lean();
+            } else {
+                centres = await CentreSchema.find({ status: { $ne: "deactive" } }).lean();
+            }
+        }
+
+        const actualCenterIds = centres.map(c => c._id);
+
+        const leads = await LeadManagement.find({
+            centre: { $in: actualCenterIds },
+            "followUps.date": dateFilter,
+            ...(isRestrictIndividual ? { "followUps.updatedBy": req.user.name } : {})
+        }).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName boardCourse').lean();
+
+        const users = await User.find().select('name role employeeId isActive').lean();
+        
+        // Sort users so that active users come last, meaning they overwrite inactive ones in the map.
+        users.sort((a, b) => (a.isActive === b.isActive) ? 0 : a.isActive ? 1 : -1);
+
+        const userMap = {};
+        users.forEach(u => {
+            userMap[u.name.toLowerCase()] = { role: u.role, employeeId: u.employeeId };
+        });
+
+        const callDetails = [];
+
+        leads.forEach(lead => {
+            const matchingFollowups = (lead.followUps || []).filter(fu => {
+                const fuDate = new Date(fu.date);
+                const dateMatch = fuDate >= startDate && fuDate <= endDate;
+                const userMatch = !isRestrictIndividual || fu.updatedBy === req.user.name;
+                return dateMatch && userMatch;
+            });
+
+            matchingFollowups.forEach(fu => {
+                const isFresh = new Date(lead.createdAt) >= startDate && new Date(lead.createdAt) <= endDate;
+                const uName = fu.updatedBy || 'System';
+                const uDetails = userMap[uName.toLowerCase()] || {};
+
+                const isMatchLoggedInUser = req.user && uName.toLowerCase() === req.user.name.toLowerCase();
+                const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || 'N/A');
+                const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || 'N/A');
+
+                callDetails.push({
+                    centreName: lead.centre?.centreName || '-',
+                    studentName: lead.name,
+                    phoneNumber: lead.phoneNumber || '-',
+                    className: lead.className?.name || 'N/A',
+                    board: lead.board?.boardName || lead.board?.boardCourse || 'N/A',
+                    school: lead.schoolName || 'N/A',
+                    courseName: lead.course?.courseName || lead.courseText || '-',
+                    handledBy: uName,
+                    employeeId: finalEmployeeId,
+                    role: finalRole,
+                    callType: isFresh ? 'CONTACTED_UPLOAD' : 'FOLLOW-UP',
+                    leadType: fu.status || lead.leadType || 'UNTAGGED',
+                    feedback: fu.feedback || '-',
+                    remarks: fu.remarks || '',
+                    nextFollowUpDate: fu.nextFollowUpDate || lead.nextFollowUpDate || null,
+                    date: fu.date
+                });
+            });
+        });
+
+        callDetails.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const reportData = callDetails.map((call, idx) => ({
+            "Sl No": idx + 1,
+            "Centre": call.centreName,
+            "Student Name": call.studentName,
+            "Phone Number": call.phoneNumber,
+            "Class": call.className,
+            "Board": call.board,
+            "School": call.school,
+            "Course Name": call.courseName || '-',
+            "Handled By": call.handledBy,
+            "Employee ID": call.employeeId,
+            "Role": call.role.toUpperCase(),
+            "Call Type": call.callType,
+            "Lead Status": call.leadType,
+            "Feedback": call.feedback,
+            "Remarks": call.remarks,
+            "Next Follow-Up Date": call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : 'N/A',
+            "Call Date & Time": new Date(call.date).toLocaleString('en-GB')
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(reportData);
+        XLSX.utils.book_append_sheet(wb, ws, "Bulk Calling Details");
+
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Bulk_Calling_Details_${fromDate}_to_${toDate}.xlsx`);
+        res.send(buffer);
+    } catch (error) {
+        console.error("EXPORT_DAILY_CALLS_REPORT_BULK_ERROR:", error);
+        res.status(500).json({ message: "Failed to export bulk calling report", error: error.message });
     }
 };
 

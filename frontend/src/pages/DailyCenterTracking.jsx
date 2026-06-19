@@ -5,6 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign } from 'react-icons/fa';
 import { toast } from "react-toastify";
 import DailyTrackingDetailsModal from '../components/Dashboard/DailyTrackingDetailsModal';
+import ActiveCentresCallsReportModal from '../components/Dashboard/ActiveCentresCallsReportModal';
 import { hasPermission } from '../config/permissions';
 import CustomMultiSelect from '../components/common/CustomMultiSelect';
 
@@ -21,6 +22,7 @@ const DailyCenterTracking = () => {
     const navigate = useNavigate();
 
     const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [showCallsReportModal, setShowCallsReportModal] = useState(false);
     const [detailsData, setDetailsData] = useState([]);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [modalTitle, setModalTitle] = useState("");
@@ -170,6 +172,13 @@ const DailyCenterTracking = () => {
                                 }`}
                             />
                         </div>
+
+                        <button
+                            onClick={() => setShowCallsReportModal(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] cursor-pointer"
+                        >
+                            <FaPhoneAlt /> Calls Report
+                        </button>
                     </div>
                 </div>
 
@@ -385,6 +394,13 @@ const DailyCenterTracking = () => {
                 data={detailsData}
                 loading={loadingDetails}
                 isDarkMode={isDarkMode}
+            />
+
+            <ActiveCentresCallsReportModal
+                isOpen={showCallsReportModal}
+                onClose={() => setShowCallsReportModal(false)}
+                isDarkMode={isDarkMode}
+                centres={centers}
             />
         </Layout>
     );
