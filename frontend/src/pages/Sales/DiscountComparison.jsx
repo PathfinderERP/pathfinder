@@ -164,7 +164,8 @@ const DiscountComparison = () => {
     const [endDate, setEndDate] = useState("");
 
     // Comparison Config
-    const [comparedExamTag, setComparedExamTag] = useState("");
+    const [comparedExamTags, setComparedExamTags] = useState([]);
+    const tagColors = ["#10b981", "#3b82f6", "#f59e0b", "#ec4899", "#06b6d4", "#ef4444", "#8b5cf6"];
     const [metricUnit, setMetricUnit] = useState("amount"); // amount (₹) or percentage (%)
 
     // Data States
@@ -219,7 +220,7 @@ const DiscountComparison = () => {
                 if (sortedTags.length > 0) {
                     // Try to default to "JEE 1 YEAR" or "NEET 1 YEAR" if present, otherwise first available
                     const firstOption = sortedTags.find(t => t.name.toUpperCase().includes("JEE 1 YEAR")) || sortedTags[0];
-                    setComparedExamTag(firstOption.name);
+                    if (firstOption) setComparedExamTags([firstOption.name]);
                 }
             }
             if (sRes.ok) {
@@ -330,11 +331,13 @@ const DiscountComparison = () => {
     // ---- Data Grouping and Analytics Aggregation ----
     const groupedByCentre = {};
     let totalDiscountOverall = 0;
-    let totalDiscountCompared = 0;
     let totalOriginalFeesOverall = 0;
-    let totalOriginalFeesCompared = 0;
     let totalAdmissionsOverall = 0;
-    let totalAdmissionsCompared = 0;
+
+    const tagTotals = {};
+    comparedExamTags.forEach(tag => {
+        tagTotals[tag] = { discount: 0, originalFees: 0, admissions: 0 };
+    });
 
     pivotRawData.forEach(item => {
         const c = item.centre || "—";
@@ -347,10 +350,10 @@ const DiscountComparison = () => {
         totalOriginalFeesOverall += original;
         totalAdmissionsOverall += admissions;
 
-        if (t === comparedExamTag) {
-            totalDiscountCompared += discount;
-            totalOriginalFeesCompared += original;
-            totalAdmissionsCompared += admissions;
+        if (comparedExamTags.includes(t)) {
+            tagTotals[t].discount += discount;
+            tagTotals[t].originalFees += original;
+            tagTotals[t].admissions += admissions;
         }
 
         if (!groupedByCentre[c]) {
@@ -359,12 +362,17 @@ const DiscountComparison = () => {
                 overallDiscount: 0,
                 overallOriginalFees: 0,
                 overallAdmissions: 0,
-                comparedDiscount: 0,
-                comparedOriginalFees: 0,
-                comparedAdmissions: 0,
                 details: [],
-                comparedDetails: []
+                tags: {},
+                allTags: {}
             };
+            comparedExamTags.forEach(tag => {
+                groupedByCentre[c].tags[tag] = { discount: 0, originalFees: 0, admissions: 0, details: [] };
+            });
+        }
+
+        if (!groupedByCentre[c].allTags[t]) {
+            groupedByCentre[c].allTags[t] = { discount: 0, originalFees: 0, admissions: 0, details: [] };
         }
 
         groupedByCentre[c].overallDiscount += discount;
@@ -372,12 +380,27 @@ const DiscountComparison = () => {
         groupedByCentre[c].overallAdmissions += admissions;
         groupedByCentre[c].details.push(item);
 
-        if (t === comparedExamTag) {
-            groupedByCentre[c].comparedDiscount += discount;
-            groupedByCentre[c].comparedOriginalFees += original;
-            groupedByCentre[c].comparedAdmissions += admissions;
-            groupedByCentre[c].comparedDetails.push(item);
+        groupedByCentre[c].allTags[t].discount += discount;
+        groupedByCentre[c].allTags[t].originalFees += original;
+        groupedByCentre[c].allTags[t].admissions += admissions;
+        groupedByCentre[c].allTags[t].details.push(item);
+
+        if (comparedExamTags.includes(t)) {
+            groupedByCentre[c].tags[t].discount += discount;
+            groupedByCentre[c].tags[t].originalFees += original;
+            groupedByCentre[c].tags[t].admissions += admissions;
+            groupedByCentre[c].tags[t].details.push(item);
         }
+    });
+
+    let totalDiscountCompared = 0;
+    let totalOriginalFeesCompared = 0;
+    let totalAdmissionsCompared = 0;
+
+    comparedExamTags.forEach(tag => {
+        totalDiscountCompared += tagTotals[tag].discount;
+        totalOriginalFeesCompared += tagTotals[tag].originalFees;
+        totalAdmissionsCompared += tagTotals[tag].admissions;
     });
 
     const averageDiscountPercentOverall = totalOriginalFeesOverall > 0 
@@ -393,24 +416,33 @@ const DiscountComparison = () => {
         .filter(c => !search || c.toLowerCase().includes(search.toLowerCase()))
         .sort();
 
+    const validTagNames = examTags.map(t => t.name);
+    const uniqueTags = Array.from(new Set(pivotRawData.map(item => item.examTagName || "Generic Tag")))
+        .filter(tag => validTagNames.includes(tag))
+        .sort();
+    const displayedTags = comparedExamTags.length > 0 ? comparedExamTags : uniqueTags;
+
     // Map data for Recharts Bar Chart
     const barChartData = filteredCentres.map(c => {
         const item = groupedByCentre[c];
         const overallPct = item.overallOriginalFees > 0 ? (item.overallDiscount / item.overallOriginalFees) * 100 : 0;
-        const comparedPct = item.comparedOriginalFees > 0 ? (item.comparedDiscount / item.comparedOriginalFees) * 100 : 0;
-
-        return {
+        
+        const dataPoint = {
             name: c,
-            // Absolute Value Mode
             overallDiscount: item.overallDiscount,
-            comparedDiscount: item.comparedDiscount,
-            // Percentage Mode
             overallDiscountPercent: parseFloat(overallPct.toFixed(2)),
-            comparedDiscountPercent: parseFloat(comparedPct.toFixed(2)),
-            // Context Tooltip details
             overallAdmissions: item.overallAdmissions,
-            comparedAdmissions: item.comparedAdmissions
         };
+
+        comparedExamTags.forEach(tag => {
+            const tData = item.tags[tag];
+            const tPct = tData.originalFees > 0 ? (tData.discount / tData.originalFees) * 100 : 0;
+            dataPoint[`${tag}_discount`] = tData.discount;
+            dataPoint[`${tag}_percent`] = parseFloat(tPct.toFixed(2));
+            dataPoint[`${tag}_admissions`] = tData.admissions;
+        });
+
+        return dataPoint;
     });
 
     // Excel Export function
@@ -420,23 +452,65 @@ const DiscountComparison = () => {
             return;
         }
 
-        const exportRows = filteredCentres.map((c, idx) => {
-            const item = groupedByCentre[c];
-            const overallPct = item.overallOriginalFees > 0 ? (item.overallDiscount / item.overallOriginalFees) * 100 : 0;
-            const comparedPct = item.comparedOriginalFees > 0 ? (item.comparedDiscount / item.comparedOriginalFees) * 100 : 0;
+        const exportRows = [];
+        
+        // Overall Row
+        const overallRow = { "Exam Tag": "OVERALL (All Tags)" };
+        overallRow["Total Overall Admissions"] = totalAdmissionsOverall;
+        overallRow["Total Overall Discount (₹)"] = totalDiscountOverall;
+        overallRow["Total Overall Original Fees (₹)"] = totalOriginalFeesOverall;
+        overallRow["Total Overall Discount (%)"] = parseFloat(averageDiscountPercentOverall);
 
-            return {
-                "S.No": idx + 1,
-                "Centre Name": c,
-                "Overall Admissions": item.overallAdmissions,
-                "Overall Discount (₹)": item.overallDiscount,
-                "Overall Original Fees (₹)": item.overallOriginalFees,
-                "Overall Discount (%)": parseFloat(overallPct.toFixed(2)),
-                [`Compared Admissions (${comparedExamTag})`]: item.comparedAdmissions,
-                [`Compared Discount (${comparedExamTag}) (₹)`]: item.comparedDiscount,
-                [`Compared Original Fees (${comparedExamTag}) (₹)`]: item.comparedOriginalFees,
-                [`Compared Discount (${comparedExamTag}) (%)`]: parseFloat(comparedPct.toFixed(2))
-            };
+        filteredCentres.forEach(c => {
+            const item = groupedByCentre[c];
+            const pct = item.overallOriginalFees > 0 ? (item.overallDiscount / item.overallOriginalFees) * 100 : 0;
+            overallRow[`${c} Admissions`] = item.overallAdmissions;
+            overallRow[`${c} Discount (₹)`] = item.overallDiscount;
+            overallRow[`${c} Original Fees (₹)`] = item.overallOriginalFees;
+            overallRow[`${c} Discount (%)`] = parseFloat(pct.toFixed(2));
+        });
+        exportRows.push(overallRow);
+
+        // Tag Rows
+        displayedTags.forEach(tag => {
+            let tagTotalDiscount = 0;
+            let tagTotalOriginal = 0;
+            let tagTotalAdmissions = 0;
+            filteredCentres.forEach(c => {
+                const cell = groupedByCentre[c]?.allTags?.[tag];
+                if (cell) {
+                    tagTotalDiscount += cell.discount;
+                    tagTotalOriginal += cell.originalFees;
+                    tagTotalAdmissions += cell.admissions;
+                }
+            });
+
+            if (tagTotalAdmissions === 0) return;
+
+            const tagRow = { "Exam Tag": tag };
+            const tagPct = tagTotalOriginal > 0 ? (tagTotalDiscount / tagTotalOriginal) * 100 : 0;
+            
+            tagRow["Total Overall Admissions"] = tagTotalAdmissions;
+            tagRow["Total Overall Discount (₹)"] = tagTotalDiscount;
+            tagRow["Total Overall Original Fees (₹)"] = tagTotalOriginal;
+            tagRow["Total Overall Discount (%)"] = parseFloat(tagPct.toFixed(2));
+
+            filteredCentres.forEach(c => {
+                const cell = groupedByCentre[c]?.allTags?.[tag];
+                if (cell) {
+                    const pct = cell.originalFees > 0 ? (cell.discount / cell.originalFees) * 100 : 0;
+                    tagRow[`${c} Admissions`] = cell.admissions;
+                    tagRow[`${c} Discount (₹)`] = cell.discount;
+                    tagRow[`${c} Original Fees (₹)`] = cell.originalFees;
+                    tagRow[`${c} Discount (%)`] = parseFloat(pct.toFixed(2));
+                } else {
+                    tagRow[`${c} Admissions`] = 0;
+                    tagRow[`${c} Discount (₹)`] = 0;
+                    tagRow[`${c} Original Fees (₹)`] = 0;
+                    tagRow[`${c} Discount (%)`] = 0;
+                }
+            });
+            exportRows.push(tagRow);
         });
 
         const ws = XLSX.utils.json_to_sheet(exportRows);
@@ -465,13 +539,20 @@ const DiscountComparison = () => {
                         </div>
                         <p className="text-[10px] text-gray-500 -mt-1 ml-4">Admissions: {data.overallAdmissions}</p>
 
-                        <div className="flex justify-between items-center gap-6 mt-1">
-                            <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded bg-emerald-500" /> {comparedExamTag}:</span>
-                            <span className="font-bold text-emerald-500 text-right">
-                                {metricUnit === "amount" ? fmt(data.comparedDiscount) : `${data.comparedDiscountPercent}%`}
-                            </span>
-                        </div>
-                        <p className="text-[10px] text-gray-400/80 -mt-1 ml-4">Admissions: {data.comparedAdmissions}</p>
+                        {comparedExamTags.map((tag, idx) => (
+                            <React.Fragment key={tag}>
+                                <div className="flex justify-between items-center gap-6 mt-1">
+                                    <span className="flex items-center gap-1.5">
+                                        <div className="w-2.5 h-2.5 rounded" style={{ backgroundColor: tagColors[idx % tagColors.length] }} /> 
+                                        {tag}:
+                                    </span>
+                                    <span className="font-bold text-right" style={{ color: tagColors[idx % tagColors.length] }}>
+                                        {metricUnit === "amount" ? fmt(data[`${tag}_discount`]) : `${data[`${tag}_percent`]}%`}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-400/80 -mt-1 ml-4">Admissions: {data[`${tag}_admissions`]}</p>
+                            </React.Fragment>
+                        ))}
                     </div>
                 </div>
             );
@@ -508,7 +589,7 @@ const DiscountComparison = () => {
                     />
                     <SummaryCard 
                         icon={<FaTag />} 
-                        label={`Discount: ${comparedExamTag || 'Selected Course'}`} 
+                        label={`Discount: ${comparedExamTags.length > 0 ? (comparedExamTags.length === 1 ? comparedExamTags[0] : 'Selected Tags') : 'No Tag Selected'}`} 
                         value={fmt(totalDiscountCompared)} 
                         grad="bg-emerald-500/15 text-emerald-500" 
                     />
@@ -556,6 +637,7 @@ const DiscountComparison = () => {
                             <select
                                 value={selectedProgramme}
                                 onChange={(e) => setSelectedProgramme(e.target.value)}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 className={`h-10 w-full px-3 border rounded-lg text-sm outline-none font-bold transition-all ${
                                     isDarkMode 
                                         ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500' 
@@ -573,6 +655,7 @@ const DiscountComparison = () => {
                             <select
                                 value={timePeriod}
                                 onChange={(e) => setTimePeriod(e.target.value)}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 className={`h-10 w-full px-3 border rounded-lg text-sm outline-none font-bold transition-all ${
                                     isDarkMode 
                                         ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500' 
@@ -638,20 +721,16 @@ const DiscountComparison = () => {
                         <div className="flex items-center gap-3 flex-wrap">
                             {/* Exam Tag Select for Comparison */}
                             <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Compare Tag:</span>
-                                <select
-                                    value={comparedExamTag}
-                                    onChange={(e) => setComparedExamTag(e.target.value)}
-                                    className={`h-9 px-3 border rounded-lg text-xs outline-none font-bold transition-all ${
-                                        isDarkMode 
-                                            ? 'bg-black/20 border-gray-700 text-emerald-400 focus:border-emerald-500' 
-                                            : 'bg-emerald-50 border-emerald-100 text-emerald-700 focus:border-emerald-500 shadow-sm'
-                                    }`}
-                                >
-                                    {examTags.map(tag => (
-                                        <option key={tag._id} value={tag.name}>{tag.name}</option>
-                                    ))}
-                                </select>
+                                <span className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Compare Tags:</span>
+                                <MultiSelect
+                                    placeholder="Select Tags"
+                                    options={examTags}
+                                    selected={comparedExamTags}
+                                    onToggle={t => setComparedExamTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])}
+                                    labelKey="name"
+                                    valueKey="name"
+                                    isDarkMode={isDarkMode}
+                                />
                             </div>
 
                             {/* Metric Unit Toggle */}
@@ -738,13 +817,16 @@ const DiscountComparison = () => {
                                             radius={[4, 4, 0, 0]} 
                                             maxBarSize={40}
                                         />
-                                        <Bar 
-                                            name={`${comparedExamTag} Discount`} 
-                                            dataKey={metricUnit === "amount" ? "comparedDiscount" : "comparedDiscountPercent"} 
-                                            fill="#10b981" 
-                                            radius={[4, 4, 0, 0]} 
-                                            maxBarSize={40}
-                                        />
+                                        {comparedExamTags.map((tag, idx) => (
+                                            <Bar 
+                                                key={tag}
+                                                name={`${tag} Discount`} 
+                                                dataKey={metricUnit === "amount" ? `${tag}_discount` : `${tag}_percent`} 
+                                                fill={tagColors[idx % tagColors.length]} 
+                                                radius={[4, 4, 0, 0]} 
+                                                maxBarSize={40}
+                                            />
+                                        ))}
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -782,82 +864,121 @@ const DiscountComparison = () => {
                             <p className="text-xs font-black uppercase tracking-widest">No matching pivot data</p>
                         </div>
                     ) : (
-                        <div className={`overflow-x-auto rounded-xl border transition-colors ${isDarkMode ? 'border-gray-800 shadow-xl' : 'border-gray-200 shadow-sm'}`}>
+                        <div className={`overflow-x-auto rounded-xl border transition-colors custom-scrollbar ${isDarkMode ? 'border-gray-800 shadow-xl' : 'border-gray-200 shadow-sm'}`}>
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className={`border-b ${isDarkMode ? "border-gray-800 bg-[#131619]" : "border-gray-100 bg-gray-50"}`}>
-                                        <th className={`p-4 text-left text-[10px] font-black uppercase tracking-widest sticky left-0 z-10 ${isDarkMode ? "bg-[#131619]" : "bg-gray-50"} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                                            <span className="flex items-center gap-1.5"><FaBuilding className="inline text-gray-400" size={10} /> Centre Name</span>
+                                        <th className={`p-4 text-left text-[10px] font-black uppercase tracking-widest sticky left-0 z-20 ${isDarkMode ? "bg-[#131619]" : "bg-gray-50"} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                            <span className="flex items-center gap-1.5"><FaTag className="inline text-gray-400" size={10} /> Exam Tag</span>
                                         </th>
-                                        <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest text-gray-500">
-                                            Overall Admissions
+                                        <th className={`p-4 text-center text-[10px] font-black uppercase tracking-widest text-violet-500 border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                            Total (All Centres)
                                         </th>
-                                        <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest text-violet-500">
-                                            Overall Discount Given
-                                        </th>
-                                        <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest text-violet-400">
-                                            Overall Discount (%)
-                                        </th>
-                                        <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest text-gray-500">
-                                            Course Admissions
-                                        </th>
-                                        <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest text-emerald-500">
-                                            Course Discount Given
-                                        </th>
-                                        <th className="p-4 text-center text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                                            Course Discount (%)
-                                        </th>
+                                        {filteredCentres.map(c => (
+                                            <th key={c} className={`p-4 text-center text-[10px] font-black uppercase tracking-widest text-gray-500 border-r last:border-r-0 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                <div className="min-w-[120px]">{c}</div>
+                                            </th>
+                                        ))}
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? "divide-gray-800/50" : "divide-gray-100"}`}>
-                                    {filteredCentres.map((c, idx) => {
-                                        const item = groupedByCentre[c];
-                                        const overallPct = item.overallOriginalFees > 0 ? (item.overallDiscount / item.overallOriginalFees) * 100 : 0;
-                                        const comparedPct = item.comparedOriginalFees > 0 ? (item.comparedDiscount / item.comparedOriginalFees) * 100 : 0;
+                                    {/* Overall Row */}
+                                    <tr className={`transition-colors ${isDarkMode ? "hover:bg-gray-800/25" : "hover:bg-blue-50/20"}`}>
+                                        <td className={`p-4 text-xs font-bold sticky left-0 z-10 ${isDarkMode ? "bg-[#1a1f24]" : "bg-white"} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-tight ${isDarkMode ? "bg-violet-500/20 text-violet-400" : "bg-violet-100 text-violet-700"}`}>
+                                                OVERALL (ALL TAGS)
+                                            </span>
+                                        </td>
+                                        <td className={`p-2 border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                            <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-violet-500/5">
+                                                <span className="font-black text-violet-500 text-sm">{fmt(totalDiscountOverall)}</span>
+                                                <span className="text-xs font-bold text-violet-400">{averageDiscountPercentOverall}%</span>
+                                                <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">{totalAdmissionsOverall} Adm</span>
+                                            </div>
+                                        </td>
+                                        {filteredCentres.map(c => {
+                                            const item = groupedByCentre[c];
+                                            const pct = item.overallOriginalFees > 0 ? (item.overallDiscount / item.overallOriginalFees) * 100 : 0;
+                                            return (
+                                                <td key={c} className={`p-2 border-r last:border-r-0 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                    {item.overallAdmissions > 0 ? (
+                                                        <button 
+                                                            onClick={() => openCellDetails(c, "Overall", item.details)}
+                                                            className={`flex flex-col items-center justify-center w-full p-2 rounded-lg transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}
+                                                        >
+                                                            <span className={`font-bold text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{fmt(item.overallDiscount)}</span>
+                                                            <span className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{pct.toFixed(2)}%</span>
+                                                            <span className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">{item.overallAdmissions} Adm</span>
+                                                        </button>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full text-gray-400">-</div>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+
+                                    {/* Tag Rows */}
+                                    {displayedTags.map(tag => {
+                                        let tagTotalDiscount = 0;
+                                        let tagTotalOriginal = 0;
+                                        let tagTotalAdmissions = 0;
+                                        let tagDetails = [];
+                                        filteredCentres.forEach(c => {
+                                            const cell = groupedByCentre[c]?.allTags?.[tag];
+                                            if (cell) {
+                                                tagTotalDiscount += cell.discount;
+                                                tagTotalOriginal += cell.originalFees;
+                                                tagTotalAdmissions += cell.admissions;
+                                                tagDetails.push(...cell.details);
+                                            }
+                                        });
+
+                                        if (tagTotalAdmissions === 0) return null;
+
+                                        const tagPct = tagTotalOriginal > 0 ? (tagTotalDiscount / tagTotalOriginal) * 100 : 0;
 
                                         return (
-                                            <tr key={idx} className={`transition-colors ${isDarkMode ? "hover:bg-gray-800/25" : "hover:bg-blue-50/20"}`}>
+                                            <tr key={tag} className={`transition-colors ${isDarkMode ? "hover:bg-gray-800/25" : "hover:bg-blue-50/20"}`}>
                                                 <td className={`p-4 text-xs font-bold sticky left-0 z-10 ${isDarkMode ? "bg-[#1a1f24]" : "bg-white"} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-tight ${isDarkMode ? "bg-slate-700/40 text-slate-300" : "bg-slate-100 text-slate-700"}`}>
-                                                        {c}
+                                                        {tag}
                                                     </span>
                                                 </td>
-                                                <td className="p-4 text-center text-xs font-bold text-gray-500">
-                                                    {item.overallAdmissions}
+                                                <td className={`p-2 border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                    <button 
+                                                        onClick={() => openCellDetails("All Centres", tag, tagDetails)}
+                                                        className={`flex flex-col items-center justify-center w-full p-2 rounded-lg transition-all hover:scale-105 active:scale-95 bg-emerald-500/5 ${isDarkMode ? 'hover:bg-emerald-500/10' : 'hover:bg-emerald-50'}`}
+                                                    >
+                                                        <span className="font-black text-emerald-500 text-sm">{fmt(tagTotalDiscount)}</span>
+                                                        <span className="text-xs font-bold text-emerald-400">{tagPct.toFixed(2)}%</span>
+                                                        <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">{tagTotalAdmissions} Adm</span>
+                                                    </button>
                                                 </td>
-                                                <td className="p-4 text-center text-xs">
-                                                    {item.overallDiscount > 0 ? (
-                                                        <button
-                                                            onClick={() => openCellDetails(c, "Overall", item.details)}
-                                                            className={`px-3 py-1.5 rounded-xl font-bold text-violet-500 transition-all hover:scale-105 active:scale-95 hover:bg-violet-500/10 mx-auto`}
-                                                        >
-                                                            {fmt(item.overallDiscount)}
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-gray-400">-</span>
-                                                    )}
-                                                </td>
-                                                <td className="p-4 text-center text-xs font-bold text-violet-400">
-                                                    {overallPct > 0 ? `${overallPct.toFixed(2)}%` : "-"}
-                                                </td>
-                                                <td className="p-4 text-center text-xs font-bold text-gray-500">
-                                                    {item.comparedAdmissions}
-                                                </td>
-                                                <td className="p-4 text-center text-xs">
-                                                    {item.comparedDiscount > 0 ? (
-                                                        <button
-                                                            onClick={() => openCellDetails(c, comparedExamTag, item.comparedDetails)}
-                                                            className={`px-3 py-1.5 rounded-xl font-bold text-emerald-500 transition-all hover:scale-105 active:scale-95 hover:bg-emerald-500/10 mx-auto`}
-                                                        >
-                                                            {fmt(item.comparedDiscount)}
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-gray-400">-</span>
-                                                    )}
-                                                </td>
-                                                <td className="p-4 text-center text-xs font-bold text-emerald-400">
-                                                    {comparedPct > 0 ? `${comparedPct.toFixed(2)}%` : "-"}
-                                                </td>
+                                                {filteredCentres.map(c => {
+                                                    const cell = groupedByCentre[c]?.allTags?.[tag];
+                                                    if (!cell || cell.admissions === 0) {
+                                                        return (
+                                                            <td key={c} className={`p-2 border-r last:border-r-0 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                                <div className="flex items-center justify-center h-full text-gray-400">-</div>
+                                                            </td>
+                                                        );
+                                                    }
+
+                                                    const cellPct = cell.originalFees > 0 ? (cell.discount / cell.originalFees) * 100 : 0;
+                                                    return (
+                                                        <td key={c} className={`p-2 border-r last:border-r-0 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                            <button 
+                                                                onClick={() => openCellDetails(c, tag, cell.details)}
+                                                                className={`flex flex-col items-center justify-center w-full p-2 rounded-lg transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}
+                                                            >
+                                                                <span className={`font-bold text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{fmt(cell.discount)}</span>
+                                                                <span className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{cellPct.toFixed(2)}%</span>
+                                                                <span className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">{cell.admissions} Adm</span>
+                                                            </button>
+                                                        </td>
+                                                    );
+                                                })}
                                             </tr>
                                         );
                                     })}
