@@ -39,7 +39,7 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
                 const leadUsers = (data.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
                     const isActive = u.isActive !== false;
-                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin'];
                     return isActive && allowedRoles.includes(r);
                 });
 
