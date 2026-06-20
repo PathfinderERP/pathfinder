@@ -187,6 +187,17 @@ export const getPlanners = async (req, res) => {
 
         const finalQuery = { ...query, ...filterMatch };
 
+        // For banner KPIs, filter by all filters (except status filter itself for pending/approved)
+        const pendingQuery = { ...finalQuery };
+        delete pendingQuery.status;
+        pendingQuery.status = "Pending";
+
+        const approvedQuery = { ...finalQuery };
+        delete approvedQuery.status;
+        approvedQuery.status = "Approved";
+
+        const photoQuery = { ...finalQuery };
+
         const [
             rawRecords,
             totalRecords,
@@ -215,9 +226,9 @@ export const getPlanners = async (req, res) => {
             MarketingPlanner.countDocuments(query),
             MarketingPlanner.distinct("type", dateQuery),
             MarketingPlanner.distinct("owner", dateQuery),
-            MarketingPlanner.countDocuments({ ...dateQuery, status: "Pending" }),
-            MarketingPlanner.countDocuments({ ...dateQuery, status: "Approved" }),
-            MarketingPlanner.find(dateQuery).select("photos photo").lean()
+            MarketingPlanner.countDocuments(pendingQuery),
+            MarketingPlanner.countDocuments(approvedQuery),
+            MarketingPlanner.find(photoQuery).select("photos photo").lean()
         ]);
 
         let totalPhotos = 0;

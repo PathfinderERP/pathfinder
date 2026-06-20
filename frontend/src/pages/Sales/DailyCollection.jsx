@@ -14,6 +14,7 @@ const DailyCollection = () => {
     const [totalCollection, setTotalCollection] = useState(0);
     const [transactionCount, setTransactionCount] = useState(0);
     const [activeTab, setActiveTab] = useState("centers"); // "centers" or "details"
+    const [centreTargets, setCentreTargets] = useState({});
 
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -155,6 +156,7 @@ const DailyCollection = () => {
                 setTransactionCount(data.transactionCount || 0);
                 setPaymentMethods(data.paymentMethods || []);
                 setDailyDetails(sortedDetails);
+                setCentreTargets(data.centreTargets || {});
                 setCurrentPage(1);
                 setPageInput("1");
                 // Extract unique payment methods and merge with default methods
@@ -169,6 +171,7 @@ const DailyCollection = () => {
                 setPaymentMethodsList([]);
                 setTotalCollection(0);
                 setTransactionCount(0);
+                setCentreTargets({});
             }
         } catch (error) {
             console.error("Error fetching daily collection", error);
@@ -772,6 +775,7 @@ const DailyCollection = () => {
                                 <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                     <tr>
                                         <th className="px-4 py-3">Centre Name</th>
+                                        <th className="px-4 py-3 text-right font-bold text-amber-500">Daily Target (Without GST)</th>
                                         {paymentMethodsList.map(method => (
                                             <th key={method} className="px-4 py-3 text-right">{method}</th>
                                         ))}
@@ -802,12 +806,15 @@ const DailyCollection = () => {
                                             <td className={`px-4 py-4 font-bold ${cardTextClass}`}>
                                                 <div className="flex items-center gap-2">
                                                     <span>{centre}</span>
-                                                    {data.total === 0 && (
-                                                        <span className="inline-flex items-center text-red-500 hover:scale-110 transition-transform cursor-help" title="No collections earned today">
+                                                    {(data.total / 1.18) < (centreTargets[centre] || 0) && (
+                                                        <span className="inline-flex items-center text-red-500 hover:scale-110 transition-transform cursor-help" title="Total (without GST) is less than daily target (without GST)">
                                                             <FaFlag className="animate-pulse text-red-500" size={14} />
                                                         </span>
                                                     )}
                                                 </div>
+                                            </td>
+                                            <td className={`px-4 py-4 text-right font-semibold text-amber-500`}>
+                                                {formatAmount(centreTargets[centre] || 0)}
                                             </td>
                                             {paymentMethodsList.map(method => (
                                                 <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>

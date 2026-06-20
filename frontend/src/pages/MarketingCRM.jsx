@@ -1549,7 +1549,7 @@ const MarketingCRM = () => {
                         {/* KPI ROW */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {[
-                                // { label: "TOTAL LEADS", value: totalLeads, sub: "200 target across team", color: "text-emerald-500" },
+                                { label: "TOTAL ACTIVITIES", value: totalRecords, sub: "Total submitted activities", color: "text-orange-500" },
                                 { label: "PROOF UPLOADS", value: totalProofUploads, sub: "Photos uploaded as proof", color: "text-blue-500" },
                                 { label: "PENDING REVIEW", value: totalPendingReview, sub: "Need ZM action", color: "text-red-500" },
                                 { label: "APPROVED REVIEW", value: totalApprovedReview, sub: "Approved activities", color: "text-emerald-500" }

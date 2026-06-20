@@ -1,6 +1,7 @@
 import Payment from "../models/Payment/Payment.js";
 import Centre from "../models/Master_data/Centre.js";
 import mongoose from "mongoose";
+import CentreTarget from "../models/Sales/CentreTarget.js";
 
 export const getDailyCollectionReportData = async ({ query, user }) => {
     const {
@@ -401,11 +402,36 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const paymentMethods = reportData[0]?.paymentMethods || [];
     const details = reportData[0]?.details || [];
 
+    // Fetch centre targets for the selected month and year
+    const year = selectedDate.getFullYear();
+    const monthIndex = selectedDate.getMonth();
+    const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+    const monthName = monthNames[monthIndex];
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+    const targets = await CentreTarget.find({
+        year,
+        month: monthName
+    }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
+
+    const centreTargets = {};
+    targets.forEach(t => {
+        if (t.centre && t.centre.centreName) {
+            const monthlyTargetExclGST = t.targetAmount || 0;
+            const dailyTargetExclGST = daysInMonth > 0 ? (monthlyTargetExclGST / daysInMonth) : 0;
+            centreTargets[t.centre.centreName] = dailyTargetExclGST;
+        }
+    });
+
     return {
         date: selectedDate.toISOString().split("T")[0],
         totalCollection: summary.totalCollection || 0,
         transactionCount: summary.transactionCount || 0,
         paymentMethods,
-        details
+        details,
+        centreTargets
     };
 };
