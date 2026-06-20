@@ -522,25 +522,25 @@ const EmployeeAttendance = () => {
                         {/* Regularization details */}
                         {status.regularization && (
                             <div className={`p-6 rounded-2xl border ${status.regularization.status === 'Approved'
-                                    ? 'bg-emerald-500/5 border-emerald-500/20'
-                                    : status.regularization.status === 'Rejected'
-                                        ? 'bg-red-500/5 border-red-500/20'
-                                        : 'bg-orange-500/5 border-orange-500/20'
+                                ? 'bg-emerald-500/5 border-emerald-500/20'
+                                : status.regularization.status === 'Rejected'
+                                    ? 'bg-red-500/5 border-red-500/20'
+                                    : 'bg-orange-500/5 border-orange-500/20'
                                 } space-y-4`}>
                                 <div className="flex justify-between items-center">
                                     <h4 className={`text-xs font-black uppercase tracking-widest ${status.regularization.status === 'Approved'
-                                            ? 'text-emerald-500'
-                                            : status.regularization.status === 'Rejected'
-                                                ? 'text-red-500'
-                                                : 'text-orange-500'
+                                        ? 'text-emerald-500'
+                                        : status.regularization.status === 'Rejected'
+                                            ? 'text-red-500'
+                                            : 'text-orange-500'
                                         }`}>
                                         Regularization {status.regularization.status}
                                     </h4>
                                     <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${status.regularization.status === 'Approved'
-                                            ? 'bg-emerald-500/20 text-emerald-400'
-                                            : status.regularization.status === 'Rejected'
-                                                ? 'bg-red-500/20 text-red-400'
-                                                : 'bg-orange-500/20 text-orange-400'
+                                        ? 'bg-emerald-500/20 text-emerald-400'
+                                        : status.regularization.status === 'Rejected'
+                                            ? 'bg-red-500/20 text-red-400'
+                                            : 'bg-orange-500/20 text-orange-400'
                                         }`}>
                                         {status.regularization.type}
                                     </span>
@@ -738,69 +738,10 @@ const EmployeeAttendance = () => {
                     </div>
 
                     {/* B. Attendance Distribution (Pie Chart) */}
-                    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-lg'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden flex flex-col items-center justify-center`}>
-                        <h3 className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-black uppercase tracking-widest text-xs mb-4 w-full text-left`}>Yearly Distribution</h3>
-                        <div className="h-48 w-full flex items-center justify-center relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={stats.pieData}
-                                        innerRadius={50}
-                                        outerRadius={70}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        stroke="none"
-                                    >
-                                        {stats.pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Legend
-                                        verticalAlign="bottom"
-                                        height={36}
-                                        iconType="rect"
-                                        iconSize={8}
-                                        formatter={(value) => <span className={`text-[10px] uppercase font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} ml-1`}>{value}</span>}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            {/* Inner Text */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-8">
-                                <div className="text-center flex flex-col items-center">
-                                    {employeeDetails ? (
-                                        <>
 
-                                            <span className={`block text-[10px] font-black uppercase tracking-tight max-w-[80px] truncate leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                {employeeDetails.name ? employeeDetails.name.split(' ')[0] : 'Employee'}
-                                            </span>
-                                            <span className={`text-[7px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-bold uppercase tracking-widest`}>{stats.presents} Days</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className={`block text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats.presents}</span>
-                                            <span className={`text-[8px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} font-black uppercase`}>Present</span>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     {/* C. Working Hours Analysis (Bar Chart) */}
-                    <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-lg'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden`}>
-                        <h3 className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-black uppercase tracking-widest text-xs mb-4`}>Working Hours / Month</h3>
-                        <div className="h-48 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={stats.monthsData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#e5e7eb"} opacity={0.3} vertical={false} />
-                                    <XAxis dataKey="name" stroke={isDarkMode ? "#9ca3af" : "#6b7280"} fontSize={10} tickLine={false} axisLine={false} />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="workingHours" fill="#10b981" radius={[2, 2, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+
                 </div>
 
                 {/* 3. Shift Progress & Key Stats */}
@@ -836,7 +777,7 @@ const EmployeeAttendance = () => {
                     )}
 
                     {/* Stats Summary Cards */}
-                    <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+                    {/* <div className="lg:col-span-2 grid grid-cols-2 gap-4">
                         <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group`}>
                             <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Total Present</p>
                             <p className="text-3xl font-black text-emerald-500 tracking-tighter">{stats.presents}</p>
@@ -853,7 +794,7 @@ const EmployeeAttendance = () => {
                             <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Current Year</p>
                             <p className="text-3xl font-black text-cyan-500 tracking-tighter">{year}</p>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 {/* 4. Calendar Grid */}
