@@ -687,6 +687,7 @@ const CourseContent = () => {
 
                             <th className="p-4 border-b border-gray-700 w-[30%]">Course Information</th>
                             <th className="p-4 border-b border-gray-700 w-[30%]">Other Details</th>
+                            <th className="p-4 border-b border-gray-700 w-[30%]">With GST(18%)</th>
                             <th className="p-4 border-b border-gray-700 w-[20%]">Created By</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
@@ -770,6 +771,16 @@ const CourseContent = () => {
                                             </div>
                                         </div>
                                     </td>
+
+                                    <td className="p-4">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">With GST(18%)</div>
+                                            <div className="text-xl font-black text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.2)]">
+                                                ₹{Math.ceil(course.feesStructure?.reduce((sum, fee) => sum + (Number(fee.value) * 1.18 || 0), 0) || 0).toLocaleString('en-IN')}
+                                            </div>
+                                        </div>
+                                    </td>
+
                                     <td className="p-4">
                                         <div className="flex flex-col gap-1">
                                             <span className="text-[10px] text-gray-500 uppercase tracking-wider">Created By</span>
