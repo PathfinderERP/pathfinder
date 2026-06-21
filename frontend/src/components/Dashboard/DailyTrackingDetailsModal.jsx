@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaPhoneAlt, FaEnvelope, FaClock, FaHistory, FaBuilding, FaUser, FaCheckCircle, FaArrowLeft, FaBookOpen, FaRupeeSign } from 'react-icons/fa';
+import LeadJourneyModal from '../LeadManagement/LeadJourneyModal';
 
 const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDarkMode }) => {
     const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+    const [showJourneyModal, setShowJourneyModal] = useState(false);
+    const [journeyLeadIdOrPhone, setJourneyLeadIdOrPhone] = useState(null);
 
     // Reset selectedSubCategory when modal opens/closes or title changes
     useEffect(() => {
         setSelectedSubCategory(null);
     }, [isOpen, title]);
+
+    const handleViewJourney = (idOrPhone) => {
+        setJourneyLeadIdOrPhone(idOrPhone);
+        setShowJourneyModal(true);
+    };
+
+    const getJourneyIdentifier = (item) => {
+        if (item.phone && item.phone !== 'N/A' && item.phone !== '-') return item.phone;
+        const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+        if (isValidObjectId(item.id)) return item.id;
+        return null;
+    };
 
     if (!isOpen) return null;
 
@@ -251,6 +266,14 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                                                         {item.handledBy}
                                                     </p>
                                                 </div>
+                                                {getJourneyIdentifier(item) && (
+                                                    <button
+                                                        onClick={() => handleViewJourney(getJourneyIdentifier(item))}
+                                                        className="bg-purple-500 hover:bg-purple-400 text-white px-2.5 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-purple-500/20 active:scale-95 transition-all whitespace-nowrap"
+                                                    >
+                                                        Journey
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -273,6 +296,17 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                     </button>
                 </div>
             </div>
+
+            {showJourneyModal && (
+                <LeadJourneyModal
+                    leadId={journeyLeadIdOrPhone}
+                    onClose={() => {
+                        setShowJourneyModal(false);
+                        setJourneyLeadIdOrPhone(null);
+                    }}
+                    isDarkMode={isDarkMode}
+                />
+            )}
 
             <style>{`
                 @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }

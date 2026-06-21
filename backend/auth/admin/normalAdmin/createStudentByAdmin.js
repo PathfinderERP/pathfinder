@@ -66,6 +66,27 @@ export const createStudentByAdmin = async (req, res) => {
     console.log("Saving student to database...");
     await newStudent.save();
 
+    // Mark matching leads as counselled
+    try {
+      const LeadManagement = (await import("../../../models/LeadManagement.js")).default;
+      const mobileNum = studentsDetails[0]?.mobileNum;
+      const whatsappNumber = studentsDetails[0]?.whatsappNumber;
+      const queryPhones = [mobileNum, whatsappNumber].filter(p => p && p !== '-');
+      if (queryPhones.length > 0) {
+        await LeadManagement.updateMany(
+          {
+            $or: [
+              { phoneNumber: { $in: queryPhones } },
+              { secondPhoneNumber: { $in: queryPhones } }
+            ]
+          },
+          { $set: { isCounseled: true } }
+        );
+      }
+    } catch (leadErr) {
+      console.error("Error marking matching leads as counselled:", leadErr);
+    }
+
     console.log("✅ Student saved successfully!");
     return res.status(201).json({
       message: "Student added successfully",

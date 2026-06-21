@@ -22,8 +22,9 @@ import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentr
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
-import { getCampaigns, createCampaign, deleteCampaign } from "../../controllers/leadManagement/campaignController.js";
+import { getCampaigns, createCampaign, deleteCampaign, updateCampaign } from "../../controllers/leadManagement/campaignController.js";
 import multer from "multer";
+import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -61,8 +62,10 @@ router.post("/bulk-update", requireAuth, bulkUpdateLeads);
 router.get("/campaigns", requireAuth, getCampaigns);
 router.post("/campaigns", requireAuth, createCampaign);
 router.delete("/campaigns/:id", requireAuth, deleteCampaign);
+router.put("/campaigns/:id", requireAuth, updateCampaign);
 
 // Generic ID route must come AFTER specific routes
+router.get("/:id/journey", requireAuth, getLeadJourney);
 router.get("/:id", requireAuth, getLeadById);
 
 router.post("/create", requireAuth, createLead);

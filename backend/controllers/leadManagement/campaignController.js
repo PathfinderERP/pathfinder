@@ -110,3 +110,41 @@ export const deleteCampaign = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+export const updateCampaign = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate } = req.body;
+        
+        if (!adName || !platform || budget === undefined || cpc === undefined || !startDate || !endDate) {
+            return res.status(400).json({ message: "Required fields are missing." });
+        }
+        
+        const updatedCampaign = await Campaign.findByIdAndUpdate(
+            id,
+            {
+                adName,
+                platform,
+                creativeName,
+                duration,
+                budget: Number(budget),
+                cpc: Number(cpc),
+                startDate: new Date(startDate),
+                endDate: new Date(endDate)
+            },
+            { new: true }
+        );
+        
+        if (!updatedCampaign) {
+            return res.status(404).json({ message: "Campaign not found." });
+        }
+        
+        res.status(200).json({
+            message: "Campaign updated successfully",
+            campaign: updatedCampaign
+        });
+    } catch (err) {
+        console.error("Error updating campaign:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};

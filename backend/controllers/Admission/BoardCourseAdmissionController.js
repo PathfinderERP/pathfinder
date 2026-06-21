@@ -285,6 +285,25 @@ export const createBoardAdmission = async (req, res) => {
             updatedByUserId: req.user?._id
         });
 
+        // Mark matching leads as counselled/admitted (so they move out of All Leads)
+        try {
+            const LeadManagement = (await import("../../models/LeadManagement.js")).default;
+            const queryPhones = [mobileNum].filter(p => p && p !== '-');
+            if (queryPhones.length > 0) {
+                await LeadManagement.updateMany(
+                    {
+                        $or: [
+                            { phoneNumber: { $in: queryPhones } },
+                            { secondPhoneNumber: { $in: queryPhones } }
+                        ]
+                    },
+                    { $set: { isCounseled: true } }
+                );
+            }
+        } catch (leadErr) {
+            console.error("Error marking matching leads as counselled on board admission:", leadErr);
+        }
+
         // Mark board counselling records as ENROLLED
         await BoardCourseCounselling.updateMany(
             { studentId, boardId },

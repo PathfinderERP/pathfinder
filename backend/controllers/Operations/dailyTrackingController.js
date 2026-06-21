@@ -124,7 +124,7 @@ export const getDailyTracking = async (req, res) => {
             ]).size;
 
             const counsellingBoardQuery = {
-                centre: centerId,
+                centre: new RegExp(`^${center.centreName}$`, 'i'),
                 counselledDate: dateFilter
             };
             const admittedBoardQuery = {
@@ -200,13 +200,13 @@ export const getDailyTracking = async (req, res) => {
                     $and: [
                         {
                             $gte: [
-                                { $ifNull: ["$receivedDate", "$paidDate"] },
+                                { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                                 today
                             ]
                         },
                         {
                             $lt: [
-                                { $ifNull: ["$receivedDate", "$paidDate"] },
+                                { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                                 tomorrow
                             ]
                         }
@@ -238,9 +238,9 @@ export const getDailyTracking = async (req, res) => {
                 }
             ]);
 
-            const totalCollections = collections.length > 0 ? Math.round(collections[0].total / 1.18) : 0;
             const collectionsAdmission = collections.length > 0 ? Math.round(collections[0].admission / 1.18) : 0;
             const collectionsInstallment = collections.length > 0 ? Math.round(collections[0].installment / 1.18) : 0;
+            const totalCollections = collectionsAdmission + collectionsInstallment;
 
             return {
                 id: center._id,
@@ -642,8 +642,8 @@ export const getDailyUserActivity = async (req, res) => {
             createdBy: userId,
             createdAt: dateFilter
         };
-        if (centerId) {
-            normalAdmStudentQuery.centre = centerId;
+        if (centerId && center) {
+            normalAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         }
         const normalAdmittedStudents = await Admission.find(normalAdmStudentQuery).distinct('student');
 
@@ -656,8 +656,8 @@ export const getDailyUserActivity = async (req, res) => {
             counselledBy: userId,
             counselledDate: dateFilter
         };
-        if (centerId) {
-            boardCounsStudentQuery.centre = centerId;
+        if (centerId && center) {
+            boardCounsStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         }
         const boardCounsellingStudents = await BoardCourseCounselling.find(boardCounsStudentQuery).distinct('studentId');
 
@@ -665,8 +665,8 @@ export const getDailyUserActivity = async (req, res) => {
             createdBy: userId,
             createdAt: dateFilter
         };
-        if (centerId) {
-            boardAdmStudentQuery.centre = centerId;
+        if (centerId && center) {
+            boardAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         }
         const boardAdmittedStudents = await BoardCourseAdmission.find(boardAdmStudentQuery).distinct('studentId');
 
@@ -677,14 +677,14 @@ export const getDailyUserActivity = async (req, res) => {
 
         // 4. Admission Breakdown
         const admNormalQuery = { createdBy: userId, createdAt: dateFilter };
-        if (centerId) {
-            admNormalQuery.centre = centerId;
+        if (centerId && center) {
+            admNormalQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         }
         const admissionNormal = await Admission.countDocuments(admNormalQuery);
 
         const admBoardQuery = { createdBy: userId, createdAt: dateFilter };
-        if (centerId) {
-            admBoardQuery.centre = centerId;
+        if (centerId && center) {
+            admBoardQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         }
         const admissionBoard = await BoardCourseAdmission.countDocuments(admBoardQuery);
 
@@ -703,9 +703,9 @@ export const getDailyUserActivity = async (req, res) => {
         const admissionIds = collections.map(p => p.admission).filter(Boolean);
         const admissionQuery = { _id: { $in: admissionIds } };
         const boardAdmissionQuery = { _id: { $in: admissionIds } };
-        if (centerId) {
-            admissionQuery.centre = centerId;
-            boardAdmissionQuery.centre = centerId;
+        if (centerId && center) {
+            admissionQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
+            boardAdmissionQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         }
 
         const [normalAdmissions, boardAdmissions] = await Promise.all([
@@ -1384,16 +1384,16 @@ export const exportUserCallingReportExcel = async (req, res) => {
         const normalAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
         const boardAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
         const boardCounsStudentQuery = { counselledBy: userId, counselledDate: dateFilter };
-        if (centerId) {
-            normalAdmStudentQuery.centre = centerId;
-            boardAdmStudentQuery.centre = centerId;
-            boardCounsStudentQuery.centre = centerId;
+        if (centerId && center) {
+            normalAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
+            boardAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
+            boardCounsStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
         }
 
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
             Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardName').lean(),
             BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean(),
-            BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').populate('centre').lean()
+            BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean()
         ]);
 
         const extraPhones = [
@@ -1428,9 +1428,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
             if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
             
             const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
-            const itemCentreName = isAdm 
-                ? admOrCouns.centre 
-                : (admOrCouns.centre?.centreName || '-');
+            const itemCentreName = admOrCouns.centre || '-';
 
             let courseName = '-';
             let className = '-';
@@ -1570,7 +1568,7 @@ export const getDailyTrackingDetails = async (req, res) => {
             const normalLeads = await LeadManagement.find(normalQuery).populate('centre').populate('createdBy').lean();
 
             const normalDetails = normalLeads.map(lead => ({
-                id: lead._id,
+                id: lead._id.toString(),
                 name: lead.name,
                 phone: lead.phoneNumber || 'N/A',
                 email: lead.email || 'N/A',
@@ -1581,6 +1579,36 @@ export const getDailyTrackingDetails = async (req, res) => {
                 feedback: 'Normal Course Counselling'
             }));
 
+            // Admitted Normal (counted as counselled in KPI card)
+            const admittedNormalQuery = {
+                createdAt: dateFilter
+            };
+            if (isRestricted) {
+                admittedNormalQuery.createdBy = req.user._id;
+            }
+            const normalAdmissions = await Admission.find(admittedNormalQuery).populate('student').populate('createdBy').lean();
+            const admittedNormalDetails = normalAdmissions.map(adm => {
+                const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
+                return {
+                    id: adm.student?._id?.toString() || adm._id.toString(),
+                    name: studentName,
+                    phone: phone,
+                    email: email,
+                    handledBy: adm.createdBy?.name || 'System',
+                    centreName: adm.centre || 'N/A',
+                    dateTime: adm.createdAt,
+                    tag: 'COUNSELLED',
+                    feedback: 'Normal Course Counselling (Admitted)'
+                };
+            });
+
+            const uniqueNormalMap = {};
+            normalDetails.forEach(d => { uniqueNormalMap[d.id] = d; });
+            admittedNormalDetails.forEach(d => { uniqueNormalMap[d.id] = d; });
+            const finalNormalDetails = Object.values(uniqueNormalMap);
+
             // 2. Board Counselling
             const boardQuery = {
                 counselledDate: dateFilter
@@ -1588,25 +1616,55 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 boardQuery.counselledBy = req.user._id;
             }
-            const boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('centre').populate('studentId').populate('counselledBy').lean();
+            const boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('studentId').populate('counselledBy').lean();
 
             const boardDetails = boardCounsellings.map(bc => {
                 const studentName = bc.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
                 const phone = bc.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 return {
-                    id: bc._id,
+                    id: bc.studentId?._id?.toString() || bc._id.toString(),
                     name: studentName,
                     phone: phone,
                     email: 'N/A',
                     handledBy: bc.counselledBy?.name || 'System',
-                    centreName: bc.centre?.centreName || 'N/A',
+                    centreName: bc.centre || 'N/A',
                     dateTime: bc.counselledDate,
                     tag: 'BOARD COUNSEL',
                     feedback: 'Board Course Counselling'
                 };
             });
 
-            detailsList = [...normalDetails, ...boardDetails];
+            // Admitted Board (counted as counselled in KPI card)
+            const admittedBoardQuery = {
+                createdAt: dateFilter
+            };
+            if (isRestricted) {
+                admittedBoardQuery.createdBy = req.user._id;
+            }
+            const boardAdmissions = await BoardCourseAdmission.find(admittedBoardQuery).populate('studentId').populate('createdBy').lean();
+            const admittedBoardDetails = boardAdmissions.map(adm => {
+                const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
+                return {
+                    id: adm.studentId?._id?.toString() || adm._id.toString(),
+                    name: studentName,
+                    phone: phone,
+                    email: email,
+                    handledBy: adm.createdBy?.name || 'System',
+                    centreName: adm.centre || 'N/A',
+                    dateTime: adm.createdAt,
+                    tag: 'BOARD COUNSEL',
+                    feedback: 'Board Course Counselling (Admitted)'
+                };
+            });
+
+            const uniqueBoardMap = {};
+            boardDetails.forEach(d => { uniqueBoardMap[d.id] = d; });
+            admittedBoardDetails.forEach(d => { uniqueBoardMap[d.id] = d; });
+            const finalBoardDetails = Object.values(uniqueBoardMap);
+
+            detailsList = [...finalNormalDetails, ...finalBoardDetails];
 
         } else if (category === "admission") {
             // Daily Admission
@@ -1696,8 +1754,8 @@ export const getDailyTrackingDetails = async (req, res) => {
             });
 
         } else if (category === "collection") {
-            // Total Collection
-            const collectionQuery = {
+            // Total Collection Details from Payment model directly
+            const queryPaymentsMatch = {
                 paidAmount: { $gt: 0 },
                 billId: { $regex: /^PATH/i },
                 $or: [
@@ -1709,20 +1767,21 @@ export const getDailyTrackingDetails = async (req, res) => {
                 ],
                 $expr: {
                     $and: [
-                        { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, today] },
-                        { $lt: [{ $ifNull: ["$receivedDate", "$paidDate"] }, tomorrow] }
+                        { $gte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, today] },
+                        { $lt: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, tomorrow] }
                     ]
                 }
             };
             if (isRestricted) {
-                collectionQuery.recordedBy = req.user._id;
+                queryPaymentsMatch.recordedBy = req.user._id;
             }
-            const payments = await Payment.find(collectionQuery).populate('recordedBy').lean();
 
-            const admissionIds = payments.map(p => p.admission).filter(Boolean);
+            const payments = await Payment.find(queryPaymentsMatch).populate('recordedBy').lean();
+
+            const admissionIdsForPayments = payments.map(p => p.admission).filter(Boolean);
             const [normalAdms, boardAdms] = await Promise.all([
-                Admission.find({ _id: { $in: admissionIds } }).populate('student').populate('course', 'courseName').lean(),
-                BoardCourseAdmission.find({ _id: { $in: admissionIds } }).populate('studentId').lean()
+                Admission.find({ _id: { $in: admissionIdsForPayments } }).populate('student').populate('course', 'courseName').lean(),
+                BoardCourseAdmission.find({ _id: { $in: admissionIdsForPayments } }).populate('studentId').lean()
             ]);
 
             const admissionMap = {};
@@ -1731,42 +1790,50 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
                 const courseName = adm.course?.courseName || "N/A";
-                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName };
+                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName, admissionNumber: adm.admissionNumber };
             });
             boardAdms.forEach(adm => {
                 const studentName = adm.studentName || adm.studentId?.studentsDetails?.[0]?.studentName || "Unknown Student";
                 const phone = adm.mobileNum || adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
                 const courseName = adm.boardCourseName || (adm.boardId ? "Board Course" : "N/A");
-                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName };
+                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName, admissionNumber: adm.admissionNumber };
             });
 
             detailsList = payments.map(p => {
                 const admInfo = admissionMap[p.admission?.toString()];
-                const type = p.installmentNumber === 0 ? "Admission Fee" : `Installment #${p.installmentNumber}`;
                 const amountWithoutGst = Math.round(p.paidAmount / 1.18);
+                const centreName = admInfo?.centreName || 'N/A';
+                const isAdmission = p.installmentNumber === 0;
+                
                 return {
-                    id: p._id,
+                    id: p._id.toString(),
                     name: admInfo?.studentName || "Unknown Student",
                     phone: admInfo?.phone || 'N/A',
                     email: admInfo?.email || 'N/A',
                     handledBy: p.recordedBy?.name || 'System',
-                    centreName: admInfo?.centreName || 'N/A',
-                    dateTime: p.receivedDate || p.paidDate,
+                    centreName,
+                    dateTime: p.receivedDate || p.paidDate || p.createdAt,
                     tag: `₹${amountWithoutGst.toLocaleString()}`,
                     amount: amountWithoutGst,
                     course: admInfo?.courseName || "N/A",
-                    isAdmission: p.installmentNumber === 0,
-                    feedback: `Method: ${p.paymentMethod || 'Other'} | Type: ${type}`
+                    isAdmission,
+                    feedback: isAdmission 
+                        ? `Admission No: ${admInfo?.admissionNumber || 'N/A'} | Admission Fee (excl. GST)`
+                        : `Method: ${p.paymentMethod || 'Other'} | Installment #${p.installmentNumber}`
                 };
             });
         }
 
+        let activeCenters;
         if (isRestricted) {
-            const centers = await CentreSchema.find({ _id: { $in: (req.user?.centres || []) } }).select('centreName').lean();
-            const centerNames = centers.map(c => c.centreName.toLowerCase());
-            detailsList = detailsList.filter(d => d.centreName && centerNames.includes(d.centreName.toLowerCase()));
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            activeCenters = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
+        } else {
+            activeCenters = await CentreSchema.find({ status: { $ne: "deactive" } }).select('centreName').lean();
         }
+        const activeCenterNames = activeCenters.map(c => c.centreName.toLowerCase());
+        detailsList = detailsList.filter(d => d.centreName && activeCenterNames.includes(d.centreName.toLowerCase()));
 
         // Sort detailsList: newest first by dateTime
         detailsList.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));

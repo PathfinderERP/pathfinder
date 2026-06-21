@@ -11,6 +11,7 @@ import {
 } from 'react-icons/fa';
 import { toast } from "react-toastify";
 import { BarChart, Bar, Cell, AreaChart, Area, PieChart, Pie, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import LeadJourneyModal from '../components/LeadManagement/LeadJourneyModal';
 
 const LEAD_TYPE_CONFIG = {
     'HOT LEAD': { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <FaFire />, label: 'HOT' },
@@ -51,6 +52,13 @@ const DailyUserActivityLog = () => {
     const [leadTypeFilter, setLeadTypeFilter] = useState('ALL'); // ALL | HOT | WARM | COLD
     const [activeChartTab, setActiveChartTab] = useState('bar'); // bar | area | pie
     const [selectedSection, setSelectedSection] = useState('ALL'); // ALL | CALLS | COUNSELLED | ADMISSIONS | COLLECTION | HOT | WARM | COLD
+    const [showJourneyModal, setShowJourneyModal] = useState(false);
+    const [journeyLeadId, setJourneyLeadId] = useState(null);
+
+    const handleViewJourney = (leadId) => {
+        setJourneyLeadId(leadId);
+        setShowJourneyModal(true);
+    };
 
     useEffect(() => {
         const fetchActivity = async () => {
@@ -558,12 +566,13 @@ const DailyUserActivityLog = () => {
                                     <th className="px-5 py-3 font-black text-center">Enrolled</th>
                                     <th className="px-5 py-3 font-black">Next Follow-up</th>
                                     <th className="px-5 py-3 font-black">Date</th>
+                                    <th className="px-5 py-3 font-black text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${divider}`}>
                                 {filteredCalls.length === 0 ? (
                                     <tr>
-                                        <td colSpan="16" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
+                                        <td colSpan="17" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
                                             No call records found for the selected filters.
                                         </td>
                                     </tr>
@@ -661,6 +670,18 @@ const DailyUserActivityLog = () => {
                                             <td className={`px-5 py-3 text-xs whitespace-nowrap ${subText}`}>
                                                 {new Date(call.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                             </td>
+                                            <td className="px-5 py-3 text-center">
+                                                {(call.leadId || (call.phoneNumber && call.phoneNumber !== '-')) ? (
+                                                    <button
+                                                        onClick={() => handleViewJourney(call.leadId || call.phoneNumber)}
+                                                        className="bg-purple-500 hover:bg-purple-400 text-white px-2.5 py-1 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-purple-500/20 active:scale-95 transition-all whitespace-nowrap"
+                                                    >
+                                                        Journey
+                                                    </button>
+                                                ) : (
+                                                    <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No Lead</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -741,6 +762,17 @@ const DailyUserActivityLog = () => {
                     </div>
                 )}
             </div>
+
+            {showJourneyModal && (
+                <LeadJourneyModal
+                    leadId={journeyLeadId}
+                    onClose={() => {
+                        setShowJourneyModal(false);
+                        setJourneyLeadId(null);
+                    }}
+                    isDarkMode={isDark}
+                />
+            )}
         </Layout>
     );
 };

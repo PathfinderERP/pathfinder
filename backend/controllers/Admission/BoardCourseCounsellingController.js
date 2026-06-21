@@ -204,6 +204,24 @@ export const createBoardCourseCounselling = async (req, res) => {
 
         await counselling.save();
 
+        // Mark matching leads as counselled
+        try {
+            const queryPhones = [mobileNum, whatsappNumber].filter(p => p && p !== '-');
+            if (queryPhones.length > 0) {
+                await LeadManagement.updateMany(
+                    {
+                        $or: [
+                            { phoneNumber: { $in: queryPhones } },
+                            { secondPhoneNumber: { $in: queryPhones } }
+                        ]
+                    },
+                    { $set: { isCounseled: true } }
+                );
+            }
+        } catch (leadErr) {
+            console.error("Error marking matching leads as counselled in board course counselling:", leadErr);
+        }
+
         res.status(201).json({ message: "Board course counselling recorded", counselling });
     } catch (error) {
         console.error("Error in createBoardCourseCounselling:", error);

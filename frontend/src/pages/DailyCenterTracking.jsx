@@ -186,7 +186,15 @@ const DailyCenterTracking = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                     {[
                         { title: "Daily Walk-Ins", category: "walkins", value: centers.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
-                        { title: "Daily Counselling", category: "counselling", value: centers.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), icon: <FaComments />, color: "text-green-500", bg: "bg-green-500/10" },
+                        { 
+                            title: "Daily Counselling", 
+                            category: "counselling", 
+                            value: centers.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), 
+                            subtext: `Normal: ${centers.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${centers.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
+                            icon: <FaComments />, 
+                            color: "text-green-500", 
+                            bg: "bg-green-500/10" 
+                        },
                         { 
                             title: "Daily Admission", 
                             category: "admission",

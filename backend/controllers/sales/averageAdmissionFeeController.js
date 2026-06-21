@@ -130,7 +130,7 @@ export const getAverageAdmissionFee = async (req, res) => {
                     centre: "$centre",
                     examTagName: { $ifNull: ["$examTagInfo.name", "Generic Tag"] },
                     courseName: { $ifNull: ["$courseInfo.courseName", "Generic Course"] },
-                    admissionFee: "$downPayment",
+                    admissionFee: { $divide: [{ $ifNull: ["$downPayment", 0] }, 1.18] },
                     type: { $literal: "Normal" }
                 }
             },
@@ -155,22 +155,27 @@ export const getAverageAdmissionFee = async (req, res) => {
                                 examTagName: { $ifNull: ["$boardCourseName", "$boardInfo.boardCourse", "Board Course"] },
                                 courseName: { $ifNull: ["$boardCourseName", "$boardInfo.boardCourse", "Board Course"] },
                                 admissionFee: {
-                                    $cond: {
-                                        if: { $eq: ["$programme", "NCRP"] },
-                                        then: {
-                                            $add: [
-                                                { $ifNull: ["$admissionFee", 0] },
-                                                { $ifNull: ["$examFee", 0] },
-                                                { $ifNull: ["$additionalThingsAmount", 0] }
-                                            ]
+                                    $divide: [
+                                        {
+                                            $cond: {
+                                                if: { $eq: ["$programme", "NCRP"] },
+                                                then: {
+                                                    $add: [
+                                                        { $ifNull: ["$admissionFee", 0] },
+                                                        { $ifNull: ["$examFee", 0] },
+                                                        { $ifNull: ["$additionalThingsAmount", 0] }
+                                                    ]
+                                                },
+                                                else: {
+                                                    $ifNull: [
+                                                        { $arrayElemAt: ["$installments.paidAmount", 0] },
+                                                        { $ifNull: ["$admissionFee", 0] }
+                                                    ]
+                                                }
+                                            }
                                         },
-                                        else: {
-                                            $ifNull: [
-                                                { $arrayElemAt: ["$installments.paidAmount", 0] },
-                                                { $ifNull: ["$admissionFee", 0] }
-                                            ]
-                                        }
-                                    }
+                                        1.18
+                                    ]
                                 },
                                 type: { $literal: "Board" }
                             }

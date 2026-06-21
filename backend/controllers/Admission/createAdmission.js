@@ -296,6 +296,27 @@ export const createAdmission = async (req, res) => {
             }
         });
 
+        // Mark matching leads as counselled/admitted (so they move out of All Leads)
+        try {
+            const LeadManagement = (await import("../../models/LeadManagement.js")).default;
+            const mobileNum = student.studentsDetails?.[0]?.mobileNum;
+            const whatsappNumber = student.studentsDetails?.[0]?.whatsappNumber;
+            const queryPhones = [mobileNum, whatsappNumber].filter(p => p && p !== '-');
+            if (queryPhones.length > 0) {
+                await LeadManagement.updateMany(
+                    {
+                        $or: [
+                            { phoneNumber: { $in: queryPhones } },
+                            { secondPhoneNumber: { $in: queryPhones } }
+                        ]
+                    },
+                    { $set: { isCounseled: true } }
+                );
+            }
+        } catch (leadErr) {
+            console.error("Error marking matching leads as counselled on admission:", leadErr);
+        }
+
         // Update Centre Target Achieved
         if (downPayment > 0 && centre) {
             updateCentreTargetAchieved(centre, new Date());

@@ -19,6 +19,7 @@ import CentreCallBarChart from "./CentreCallBarChart";
 import FollowUpActivityModal from "./FollowUpActivityModal";
 import BulkUpdateLeadModal from "./BulkUpdateLeadModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
+import LeadJourneyModal from "./LeadJourneyModal";
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -41,6 +42,8 @@ const LeadManagementContent = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [dailyLeads, setDailyLeads] = useState([]); // Added state
     const [selectedLeads, setSelectedLeads] = useState([]);
+    const [showJourneyModal, setShowJourneyModal] = useState(false);
+    const [journeyLeadId, setJourneyLeadId] = useState(null);
     const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
     const [followUpStats, setFollowUpStats] = useState({
         totalFollowUps: 0,
@@ -656,6 +659,11 @@ const LeadManagementContent = () => {
     const handleCounseling = (lead) => {
         setSelectedLead(lead);
         setShowCounselingChoiceModal(true);
+    };
+
+    const handleViewJourney = (lead) => {
+        setJourneyLeadId(lead._id);
+        setShowJourneyModal(true);
     };
 
     const handleTagWalkIn = async (leadId) => {
@@ -1724,6 +1732,12 @@ const LeadManagementContent = () => {
                                                     )}
 
                                                     <button
+                                                        onClick={(e) => { e.stopPropagation(); handleViewJourney(lead); }}
+                                                        className="bg-purple-500 hover:bg-purple-400 text-white px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-purple-500/20 active:scale-95 transition-all whitespace-nowrap"
+                                                    >
+                                                        Journey
+                                                    </button>
+                                                    <button
                                                         onClick={(e) => { e.stopPropagation(); handleCounseling(lead); }}
                                                         className="bg-cyan-500 hover:bg-cyan-400 text-black px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-95 transition-all whitespace-nowrap"
                                                     >
@@ -1963,6 +1977,17 @@ const LeadManagementContent = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showJourneyModal && (
+                <LeadJourneyModal
+                    leadId={journeyLeadId}
+                    onClose={() => {
+                        setShowJourneyModal(false);
+                        setJourneyLeadId(null);
+                    }}
+                    isDarkMode={isDarkMode}
+                />
             )}
 
         </div >

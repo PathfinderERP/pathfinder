@@ -152,6 +152,7 @@ const AverageAdmissionFee = () => {
     const [summary, setSummary]       = useState({ totalAdmissions: 0, totalAdmissionFee: 0, averageAdmissionFee: 0 });
     const [loading, setLoading]       = useState(false);
     const [selectedCell, setSelectedCell] = useState(null);
+    const [activeCardModal, setActiveCardModal] = useState(null); // null | 'admissions' | 'fees' | 'avgFee'
 
     // ── fetch master centres and exam tags ────────────────────────────────────
     useEffect(() => {
@@ -402,8 +403,11 @@ const AverageAdmissionFee = () => {
     const thCls = `p-4 text-left text-[10px] font-black uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-400"}`;
     const tdCls = `p-4 text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`;
 
-    const SummaryCard = ({ icon, label, value, grad }) => (
-        <div className={`${card} p-5 flex items-center gap-4`}>
+    const SummaryCard = ({ icon, label, value, grad, onClick }) => (
+        <div 
+            onClick={onClick}
+            className={`${card} p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-500/50 active:scale-95 transition-all duration-200`}
+        >
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${grad}`}>{icon}</div>
             <div className="min-w-0">
                 <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-400"}`}>{label}</p>
@@ -411,6 +415,9 @@ const AverageAdmissionFee = () => {
             </div>
         </div>
     );
+
+    const sortedReportData = [...reportData].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
 
     const TAG_BADGE = [
         "bg-blue-500/15   text-blue-400   border-blue-500/30",
@@ -462,9 +469,27 @@ const AverageAdmissionFee = () => {
 
                 {/* ── Summary Cards ────────────────────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <SummaryCard icon={<FaUsers />} label="Total Admissions" value={summary.totalAdmissions.toLocaleString("en-IN")} grad="bg-blue-500/15 text-blue-500" />
-                    <SummaryCard icon={<FaCoins />} label="Total Admission Fees" value={fmt(summary.totalAdmissionFee)} grad="bg-emerald-500/15 text-emerald-500" />
-                    <SummaryCard icon={<FaBook />}  label="Average Admission Fee" value={fmt(summary.averageAdmissionFee)} grad="bg-violet-500/15 text-violet-500" />
+                    <SummaryCard 
+                        icon={<FaUsers />} 
+                        label="Total Admissions" 
+                        value={summary.totalAdmissions.toLocaleString("en-IN")} 
+                        grad="bg-blue-500/15 text-blue-500" 
+                        onClick={() => setActiveCardModal("admissions")}
+                    />
+                    <SummaryCard 
+                        icon={<FaCoins />} 
+                        label="Total Admission Fees" 
+                        value={fmt(summary.totalAdmissionFee)} 
+                        grad="bg-emerald-500/15 text-emerald-500" 
+                        onClick={() => setActiveCardModal("fees")}
+                    />
+                    <SummaryCard 
+                        icon={<FaBook />}  
+                        label="Average Admission Fee" 
+                        value={fmt(summary.averageAdmissionFee)} 
+                        grad="bg-violet-500/15 text-violet-500" 
+                        onClick={() => setActiveCardModal("avgFee")}
+                    />
                 </div>
 
                 {/* ── Filters ──────────────────────────────────────────────── */}
@@ -794,6 +819,245 @@ const AverageAdmissionFee = () => {
                         </table>
                     </div>
                 )}
+            </Modal>
+
+            {/* ── Total Admissions Card Modal ───────────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "admissions"}
+                onClose={() => setActiveCardModal(null)}
+                title="Total Admissions Details"
+                isDarkMode={isDark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <th className={thCls}>Date</th>
+                                <th className={thCls}>Centre</th>
+                                <th className={thCls}>Exam Tag</th>
+                                <th className={thCls}>Course Type</th>
+                                <th className={thCls}>Course Name</th>
+                                <th className={`${thCls} text-center`}>Admissions</th>
+                            </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                            {sortedReportData.length > 0 ? (
+                                sortedReportData.map((detail, idx) => (
+                                    <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={`${tdCls} text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                            {detail.date}
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                {detail.centre}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {detail.examTagName}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                detail.type === "Normal" 
+                                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20" 
+                                                    : "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                            }`}>
+                                                {detail.type}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-semibold text-xs ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                                {detail.courseName || "—"}
+                                            </span>
+                                        </td>
+                                        <td className={`${tdCls} text-center font-bold`}>
+                                            {detail.totalAdmissions.toLocaleString("en-IN")}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                        No admissions data available.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <td colSpan={5} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-center text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    {summary.totalAdmissions.toLocaleString("en-IN")}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </Modal>
+
+            {/* ── Total Admission Fees Card Modal ────────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "fees"}
+                onClose={() => setActiveCardModal(null)}
+                title="Total Admission Fees Details"
+                isDarkMode={isDark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <th className={thCls}>Date</th>
+                                <th className={thCls}>Centre</th>
+                                <th className={thCls}>Exam Tag</th>
+                                <th className={thCls}>Course Type</th>
+                                <th className={thCls}>Course Name</th>
+                                <th className={`${thCls} text-right`}>Total Fee</th>
+                            </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                            {sortedReportData.length > 0 ? (
+                                sortedReportData.map((detail, idx) => (
+                                    <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={`${tdCls} text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                            {detail.date}
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                {detail.centre}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {detail.examTagName}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                detail.type === "Normal" 
+                                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20" 
+                                                    : "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                            }`}>
+                                                {detail.type}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-semibold text-xs ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                                {detail.courseName || "—"}
+                                            </span>
+                                        </td>
+                                        <td className={`${tdCls} text-right font-bold text-emerald-500`}>
+                                            {fmt(detail.totalAdmissionFee)}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                        No fee data available.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <td colSpan={5} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-right text-lg font-black text-emerald-500`}>
+                                    {fmt(summary.totalAdmissionFee)}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </Modal>
+
+            {/* ── Average Admission Fee Card Modal ───────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "avgFee"}
+                onClose={() => setActiveCardModal(null)}
+                title="Average Admission Fee Details"
+                isDarkMode={isDark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <th className={thCls}>Date</th>
+                                <th className={thCls}>Centre</th>
+                                <th className={thCls}>Exam Tag</th>
+                                <th className={thCls}>Course Type</th>
+                                <th className={thCls}>Course Name</th>
+                                <th className={`${thCls} text-center`}>Admissions</th>
+                                <th className={`${thCls} text-right`}>Total Fee</th>
+                                <th className={`${thCls} text-right`}>Average Fee</th>
+                            </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                            {sortedReportData.length > 0 ? (
+                                sortedReportData.map((detail, idx) => (
+                                    <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={`${tdCls} text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                            {detail.date}
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                {detail.centre}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {detail.examTagName}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                detail.type === "Normal" 
+                                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20" 
+                                                    : "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                            }`}>
+                                                {detail.type}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-semibold text-xs ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                                {detail.courseName || "—"}
+                                            </span>
+                                        </td>
+                                        <td className={`${tdCls} text-center font-bold`}>
+                                            {detail.totalAdmissions.toLocaleString("en-IN")}
+                                        </td>
+                                        <td className={`${tdCls} text-right font-bold text-emerald-500`}>
+                                            {fmt(detail.totalAdmissionFee)}
+                                        </td>
+                                        <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {fmt(detail.averageAdmissionFee)}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={8} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                        No fee metrics data available.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <td colSpan={5} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-center text-sm font-black`}>
+                                    {summary.totalAdmissions.toLocaleString("en-IN")}
+                                </td>
+                                <td className={`${tdCls} text-right text-sm font-black text-emerald-500`}>
+                                    {fmt(summary.totalAdmissionFee)}
+                                </td>
+                                <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    {fmt(summary.averageAdmissionFee)}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </Modal>
         </Layout>
     );
