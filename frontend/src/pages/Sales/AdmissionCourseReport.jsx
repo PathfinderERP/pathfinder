@@ -179,6 +179,7 @@ const AdmissionCourseReport = () => {
 
     // Modal State
     const [selectedCell, setSelectedCell] = useState(null); // { centreName, examTagName, details: [] }
+    const [activeCardModal, setActiveCardModal] = useState(null); // null | 'admissions' | 'tags' | 'centres' | 'courses'
 
     // ── fetch master ──────────────────────────────────────────────────────────
     useEffect(() => { fetchMaster(); }, []);
@@ -450,8 +451,11 @@ const AdmissionCourseReport = () => {
     const thCls = `p-4 text-left text-[10px] font-black uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-400"}`;
     const tdCls = `p-4 text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`;
 
-    const SummaryCard = ({ icon, label, value, grad }) => (
-        <div className={`${card} p-5 flex items-center gap-4`}>
+    const SummaryCard = ({ icon, label, value, grad, onClick }) => (
+        <div 
+            onClick={onClick}
+            className={`${card} p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-500/50 active:scale-95 transition-all duration-200`}
+        >
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${grad}`}>{icon}</div>
             <div className="min-w-0">
                 <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-400"}`}>{label}</p>
@@ -463,6 +467,36 @@ const AdmissionCourseReport = () => {
     const openCellDetails = (centreName, examTagName, details) => {
         setSelectedCell({ centreName, examTagName, details });
     };
+
+    // Derive aggregated data for card detail modals
+    const sortedAdmissions = [...rows].sort((a, b) => b.date.localeCompare(a.date));
+
+    const tagsBreakdown = Object.values(
+        rows.reduce((acc, r) => {
+            const key = r.examTagName || "Board Course";
+            if (!acc[key]) acc[key] = { name: key, count: 0, tagId: r.examTagId };
+            acc[key].count += r.count;
+            return acc;
+        }, {})
+    ).sort((a, b) => b.count - a.count);
+
+    const centresBreakdown = Object.values(
+        rows.reduce((acc, r) => {
+            const key = r.centreName || "—";
+            if (!acc[key]) acc[key] = { name: key, count: 0 };
+            acc[key].count += r.count;
+            return acc;
+        }, {})
+    ).sort((a, b) => b.count - a.count);
+
+    const coursesBreakdown = Object.values(
+        rows.reduce((acc, r) => {
+            const key = r.courseName || "—";
+            if (!acc[key]) acc[key] = { name: key, count: 0 };
+            acc[key].count += r.count;
+            return acc;
+        }, {})
+    ).sort((a, b) => b.count - a.count);
 
     // ─────────────────────────────────────────────────────────────────────────
     return (
@@ -490,10 +524,34 @@ const AdmissionCourseReport = () => {
 
                 {/* ── Summary Cards ────────────────────────────────────────── */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <SummaryCard icon={<FaGraduationCap />} label="Total Admissions" value={summary.total.toLocaleString("en-IN")} grad="bg-blue-500/15 text-blue-500" />
-                    <SummaryCard icon={<FaTag />}           label="Exam Tags"        value={summary.tags}                          grad="bg-violet-500/15 text-violet-500" />
-                    <SummaryCard icon={<FaBuilding />}      label="Centres"          value={summary.centres}                       grad="bg-amber-500/15 text-amber-500" />
-                    <SummaryCard icon={<FaLayerGroup />}    label="Courses"          value={summary.courses}                       grad="bg-emerald-500/15 text-emerald-500" />
+                    <SummaryCard 
+                        icon={<FaGraduationCap />} 
+                        label="Total Admissions" 
+                        value={summary.total.toLocaleString("en-IN")} 
+                        grad="bg-blue-500/15 text-blue-500"
+                        onClick={() => setActiveCardModal("admissions")}
+                    />
+                    <SummaryCard 
+                        icon={<FaTag />}           
+                        label="Exam Tags"        
+                        value={summary.tags}                          
+                        grad="bg-violet-500/15 text-violet-500"
+                        onClick={() => setActiveCardModal("tags")}
+                    />
+                    <SummaryCard 
+                        icon={<FaBuilding />}      
+                        label="Centres"          
+                        value={summary.centres}                       
+                        grad="bg-amber-500/15 text-amber-500"
+                        onClick={() => setActiveCardModal("centres")}
+                    />
+                    <SummaryCard 
+                        icon={<FaLayerGroup />}    
+                        label="Courses"          
+                        value={summary.courses}                       
+                        grad="bg-emerald-500/15 text-emerald-500"
+                        onClick={() => setActiveCardModal("courses")}
+                    />
                 </div>
 
                 {/* ── Filters ──────────────────────────────────────────────── */}
@@ -774,6 +832,224 @@ const AdmissionCourseReport = () => {
                         </table>
                     </div>
                 )}
+            </Modal>
+
+            {/* ── Total Admissions Card Modal ───────────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "admissions"}
+                onClose={() => setActiveCardModal(null)}
+                title="Total Admissions Details"
+                isDarkMode={isDark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <th className={thCls}>Date</th>
+                                <th className={thCls}>Centre</th>
+                                <th className={thCls}>Exam Tag</th>
+                                <th className={thCls}>Course Name</th>
+                                <th className={thCls}>Class</th>
+                                <th className={`${thCls} text-right`}>Admissions</th>
+                            </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                            {sortedAdmissions.length > 0 ? (
+                                sortedAdmissions.map((detail, idx) => (
+                                    <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={`${tdCls} text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                            {detail.date}
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                {detail.centreName}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-semibold block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {detail.examTagName}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {detail.courseName}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                {detail.className}
+                                            </span>
+                                        </td>
+                                        <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {detail.count.toLocaleString("en-IN")}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                        No admissions data available.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <td colSpan={5} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    {summary.total.toLocaleString("en-IN")}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </Modal>
+
+            {/* ── Exam Tags Card Modal ───────────────────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "tags"}
+                onClose={() => setActiveCardModal(null)}
+                title="Exam Tags Breakdown"
+                isDarkMode={isDark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <th className={thCls}>Exam Tag</th>
+                                <th className={`${thCls} text-right`}>Total Admissions</th>
+                            </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                            {tagsBreakdown.length > 0 ? (
+                                tagsBreakdown.map((item, idx) => (
+                                    <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={tdCls}>
+                                            <span className={`font-semibold block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {item.name}
+                                            </span>
+                                        </td>
+                                        <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {item.count.toLocaleString("en-IN")}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={2} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                        No exam tags data available.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <td className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    {summary.total.toLocaleString("en-IN")}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </Modal>
+
+            {/* ── Centres Card Modal ─────────────────────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "centres"}
+                onClose={() => setActiveCardModal(null)}
+                title="Centres Breakdown"
+                isDarkMode={isDark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <th className={thCls}>Centre Name</th>
+                                <th className={`${thCls} text-right`}>Total Admissions</th>
+                            </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                            {centresBreakdown.length > 0 ? (
+                                centresBreakdown.map((item, idx) => (
+                                    <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={tdCls}>
+                                            <span className={`font-semibold block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {item.name}
+                                            </span>
+                                        </td>
+                                        <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {item.count.toLocaleString("en-IN")}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={2} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                        No centres data available.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <td className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    {summary.total.toLocaleString("en-IN")}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </Modal>
+
+            {/* ── Courses Card Modal ─────────────────────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "courses"}
+                onClose={() => setActiveCardModal(null)}
+                title="Courses Breakdown"
+                isDarkMode={isDark}
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <th className={thCls}>Course Name</th>
+                                <th className={`${thCls} text-right`}>Total Admissions</th>
+                            </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                            {coursesBreakdown.length > 0 ? (
+                                coursesBreakdown.map((item, idx) => (
+                                    <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                        <td className={tdCls}>
+                                            <span className={`font-semibold block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {item.name}
+                                            </span>
+                                        </td>
+                                        <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {item.count.toLocaleString("en-IN")}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={2} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                        No courses data available.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                <td className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    {summary.total.toLocaleString("en-IN")}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </Modal>
         </Layout>
     );
