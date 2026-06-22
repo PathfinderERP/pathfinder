@@ -597,15 +597,20 @@ export const getFinalWeekendTarget = async (req, res) => {
 
                 let totalAchievedExclGST = 0;
                 let totalWeekendExclGST  = 0;
+                let carryoverShortfall = 0;
 
-                const weekData = fixedWeeks.map(week => {
+                const weekData = [];
+                for (const week of fixedWeeks) {
                     // Proportional target for this week's days
-                    const phaseTarget = daysInMonth > 0
+                    const basePhaseTarget = daysInMonth > 0
                         ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
                         : 0;
 
-                    const workingTarget    = phaseTarget * 0.30;
-                    const baseWeekendTarget = phaseTarget * 0.70;
+                    // Add weekly shortfall from previous week
+                    const phaseTarget = basePhaseTarget + carryoverShortfall;
+
+                    const workingTarget    = phaseTarget * 0.35;
+                    const baseWeekendTarget = phaseTarget * 0.65;
 
                     let phaseAchieved   = 0;
                     let weekendAchieved = 0;
@@ -630,19 +635,24 @@ export const getFinalWeekendTarget = async (req, res) => {
                     totalWeekendExclGST  += weekendAchieved;
 
                     const workingDeficit        = Math.max(0, workingTarget - workingAchieved);
-                    const adjustedWeekendTarget = baseWeekendTarget + workingDeficit;
+                    const adjustedWeekendTarget = baseWeekendTarget;
                     
-                    const satTarget = adjustedWeekendTarget * 0.30;
-                    const sunTarget = adjustedWeekendTarget * 0.70;
+                    const satTarget = adjustedWeekendTarget * 0.35;
+                    const sunTarget = adjustedWeekendTarget * 0.65;
                     const satDeficit = Math.max(0, satTarget - satAchieved);
                     const sunDeficit = Math.max(0, sunTarget - sunAchieved);
 
                     const weekendDeficit        = Math.max(0, adjustedWeekendTarget - weekendAchieved);
+                    
+                    // The weekly shortfall of this week:
+                    const phaseShortfall = Math.max(0, phaseTarget - phaseAchieved);
+                    carryoverShortfall = phaseShortfall;
+
                     const pct = phaseTarget > 0
                         ? parseFloat(((phaseAchieved / phaseTarget) * 100).toFixed(1))
                         : 0;
 
-                    return {
+                    weekData.push({
                         weekNumber:             week.weekNumber,
                         startDay:               week.startDay,
                         endDay:                 week.endDay,
@@ -663,8 +673,8 @@ export const getFinalWeekendTarget = async (req, res) => {
                         sunDeficit,
                         phaseAchieved,
                         pct
-                    };
-                });
+                    });
+                }
 
                 return {
                     centreId:              c._id,

@@ -181,13 +181,13 @@ const FinalWeekendTarget = () => {
                 row[`${label} Phase Target`] = Math.round(m.phaseTarget);
                 row[`${label} Phase Achieved`] = Math.round(m.phaseAchieved);
                 row[`${label} Phase Shortfall`] = Math.round(m.phaseShortfall);
-                row[`${label} Working Target (30%)`] = Math.round(m.workingTarget);
+                row[`${label} Working Target (35%)`] = Math.round(m.workingTarget);
                 row[`${label} Working Achieved`] = Math.round(m.workingAchieved);
-                row[`${label} Sat Target (30%)`] = Math.round(m.satTarget);
+                row[`${label} Sat Target (35%)`] = Math.round(m.satTarget);
                 row[`${label} Sat Achieved`] = Math.round(m.satAchieved);
-                row[`${label} Sun Target (70%)`] = Math.round(m.sunTarget);
+                row[`${label} Sun Target (65%)`] = Math.round(m.sunTarget);
                 row[`${label} Sun Achieved`] = Math.round(m.sunAchieved);
-                row[`${label} Weekend Target (70%)`] = Math.round(m.adjustedWeekendTarget);
+                row[`${label} Weekend Target (65%)`] = Math.round(m.adjustedWeekendTarget);
                 row[`${label} Weekend Achieved`] = Math.round(m.weekendAchieved);
                 row[`${label} Weekend Shortfall`] = Math.round(m.weekendDeficit);
                 sumShortfalls += m.phaseShortfall + m.weekendDeficit;
