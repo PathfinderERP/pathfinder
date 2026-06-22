@@ -176,7 +176,7 @@ const BatchAllocationContent = () => {
             const centre = details.centre || "";
             // Use latestAdmission course if available
             const course = student.latestAdmission?.course?.courseName || student.latestAdmission?.boardCourseName || "";
-            const className = student.latestAdmission?.class?.name || student.latestAdmission?.class?.className || "";
+            const className = student.latestAdmission?.class?.name || student.latestAdmission?.class?.className || student.latestAdmission?.lastClass || "";
             const programme = details.programme || "";
             const session = student.latestAdmission?.academicSession || "";
             const name = details.studentName || "";
@@ -220,7 +220,7 @@ const BatchAllocationContent = () => {
             if (details.centre) centres.add(details.centre);
             
             const course = s.latestAdmission?.course?.courseName || s.latestAdmission?.boardCourseName;
-            const className = s.latestAdmission?.class?.name || s.latestAdmission?.class?.className;
+            const className = s.latestAdmission?.class?.name || s.latestAdmission?.class?.className || s.latestAdmission?.lastClass;
             const programme = details.programme;
             const session = s.latestAdmission?.academicSession;
 
@@ -347,7 +347,7 @@ const BatchAllocationContent = () => {
                     "Admission Number": student.latestAdmission?.admissionNumber || "PENDING",
                     "Mobile Number": details.mobileNum || "N/A",
                     "Email": details.studentEmail || "N/A",
-                    "Class": student.latestAdmission?.class?.name || student.latestAdmission?.class?.className || "N/A",
+                    "Class": student.latestAdmission?.class?.name || student.latestAdmission?.class?.className || student.latestAdmission?.lastClass || "N/A",
                     "Centre": details.centre || "N/A",
                     "Course": student.latestAdmission?.course?.courseName || 
                               student.latestAdmission?.boardCourseName || 
@@ -577,7 +577,7 @@ const BatchAllocationContent = () => {
                                             </td>
                                             <td className="p-4">
                                                 <span className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                                                    {student.latestAdmission?.class?.name || student.latestAdmission?.class?.className || "N/A"}
+                                                    {student.latestAdmission?.class?.name || student.latestAdmission?.class?.className || student.latestAdmission?.lastClass || "N/A"}
                                                 </span>
                                             </td>
                                             <td className="p-4">
