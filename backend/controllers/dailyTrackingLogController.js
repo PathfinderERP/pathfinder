@@ -138,7 +138,10 @@ const getLogsDataHelper = async (req) => {
         teacher: ["teacher"],
         zonalmanager: ["zonalManager", "zonalmanager"],
         centreincharge: ["centerIncharge"],
-        centerincharge: ["centerIncharge"]
+        centerincharge: ["centerIncharge"],
+        assistantzonalmanager: ["assistantZonalManager"],
+        assistantcenterincharge: ["assistantCenterIncharge"],
+        supportstaff: ["supportStaff"]
     };
 
     // Handle multi-select roles
@@ -329,6 +332,9 @@ const getDisplayRoleName = (role) => {
     if (!role) return "Employee";
     const rStr = Array.isArray(role) ? role.join(", ") : role;
     const normalized = rStr.toLowerCase();
+    if (normalized === "assistantzonalmanager") return "Assistant Zonal Manager";
+    if (normalized === "assistantcenterincharge") return "Assistant Center Incharge";
+    if (normalized === "supportstaff") return "Support Staff";
     if (normalized.includes("admin")) {
         if (normalized.includes("super")) return "Superadmin";
         return "Admin";

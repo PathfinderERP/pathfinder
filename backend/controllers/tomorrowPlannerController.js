@@ -143,7 +143,10 @@ export const getBoardPlans = async (req, res) => {
             counsellor: ["counsellor"],
             teacher: ["teacher"],
             zonalmanager: ["zonalManager", "zonalmanager"],
-            centerincharge: ["centerIncharge", "centerincharge"]
+            centerincharge: ["centerIncharge", "centerincharge"],
+            assistantzonalmanager: ["assistantZonalManager"],
+            assistantcenterincharge: ["assistantCenterIncharge"],
+            supportstaff: ["supportStaff"]
         };
 
         let rolesFilter = [];
@@ -163,6 +166,22 @@ export const getBoardPlans = async (req, res) => {
             userQuery.role = { $in: mappedRoles };
         } else {
             userQuery.role = { $in: Object.values(roleDBMapping).flat() };
+        }
+
+        const reqUserRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        if (reqUserRole === "assistantzonalmanager" || reqUserRole === "assistantcenterincharge") {
+            const allowedSubRoles = ["marketing", "centerIncharge", "centerincharge", "assistantCenterIncharge", "assistantZonalManager", "zonalManager", "zonalmanager", "supportStaff"];
+            let activeFilterRoles = [];
+            if (userQuery.role && userQuery.role.$in) {
+                activeFilterRoles = userQuery.role.$in.filter(r => allowedSubRoles.includes(r));
+            } else {
+                activeFilterRoles = allowedSubRoles;
+            }
+            delete userQuery.role;
+            userQuery.$or = [
+                { role: { $in: activeFilterRoles } },
+                { _id: req.user._id || req.user.id }
+            ];
         }
 
         if (employeeName) {
@@ -223,9 +242,29 @@ export const getBoardPlans = async (req, res) => {
                 try { return new mongoose.Types.ObjectId(id); } catch { return null; }
             }).filter(Boolean);
 
-            const employees = await Employee.find({ primaryCentre: { $in: objectIdCentres } }).select("user");
+            const employees = await Employee.find({
+                $or: [
+                    { primaryCentre: { $in: objectIdCentres } },
+                    { centres: { $in: objectIdCentres } }
+                ]
+            }).select("user");
             const allowedUserIds = employees.map(emp => emp.user).filter(Boolean);
-            userQuery._id = { $in: allowedUserIds };
+
+            const centerMatchQuery = [
+                { _id: { $in: allowedUserIds } },
+                { centres: { $in: objectIdCentres } }
+            ];
+
+            if (userQuery.$or) {
+                const roleOrQuery = userQuery.$or;
+                delete userQuery.$or;
+                userQuery.$and = [
+                    { $or: roleOrQuery },
+                    { $or: centerMatchQuery }
+                ];
+            } else {
+                userQuery.$or = centerMatchQuery;
+            }
         }
 
         const users = await User.find(userQuery).select("name role designation profileImage");

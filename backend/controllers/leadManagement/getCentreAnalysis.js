@@ -13,7 +13,7 @@ export const getCentreLeadAnalysis = async (req, res) => {
 
         // Access Control (Extra check for non-privileged)
         const curUserRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod'];
+        const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'];
         const isPrivileged = privilegedRoles.includes(curUserRole);
 
         if (curUserRole !== 'superadmin' && curUserRole !== 'super admin') {

@@ -224,6 +224,9 @@ const UserManagementContent = () => {
         accounts: filteredUsers.filter(u => u.role === "accounts").length,
         coordinator: filteredUsers.filter(u => u.role === "coordinator").length,
         digital: filteredUsers.filter(u => u.role === "digital").length,
+        assistantZonalManager: filteredUsers.filter(u => u.role === "assistantZonalManager").length,
+        assistantCenterIncharge: filteredUsers.filter(u => u.role === "assistantCenterIncharge").length,
+        supportStaff: filteredUsers.filter(u => u.role === "supportStaff").length,
         deptHod: filteredUsers.filter(u => u.isDeptHod).length
     };
 
@@ -242,7 +245,10 @@ const UserManagementContent = () => {
                 { name: 'HOD', value: stats.HOD, color: '#4f46e5' },
                 { name: 'Accounts', value: stats.accounts, color: '#10b981' },
                 { name: 'Coordinator', value: stats.coordinator, color: '#14b8a6' },
-                { name: 'Digital', value: stats.digital, color: '#8b5cf6' }
+                { name: 'Digital', value: stats.digital, color: '#8b5cf6' },
+                { name: 'AssistantZonalManager', value: stats.assistantZonalManager, color: '#818cf8' },
+                { name: 'AssistantCenterIncharge', value: stats.assistantCenterIncharge, color: '#22d3ee' },
+                { name: 'SupportStaff', value: stats.supportStaff, color: '#6b7280' }
             ].filter(d => d.value > 0);
         }
         if (label === "Teacher") {
@@ -251,8 +257,11 @@ const UserManagementContent = () => {
                 { name: 'Part Time', value: filteredUsers.filter(u => u.role === 'teacher' && u.teacherType === 'Part Time').length, color: '#10b981' }
             ].filter(d => d.value > 0);
         }
-        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "HOD" || label === "Accounts" || label === "Coordinator" || label === "Digital") {
-            const roleKey = label === "HOD" ? "HOD" : label.toLowerCase();
+        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "HOD" || label === "Accounts" || label === "Coordinator" || label === "Digital" || label === "Assistant Zonal Manager" || label === "Assistant Center Incharge" || label === "Support Staff") {
+            let roleKey = label === "HOD" ? "HOD" : label.toLowerCase();
+            if (label === "Assistant Zonal Manager") roleKey = "assistantZonalManager";
+            if (label === "Assistant Center Incharge") roleKey = "assistantCenterIncharge";
+            if (label === "Support Staff") roleKey = "supportStaff";
             // Just show a simple distribution of something else, e.g., location or just a solid color proportion
             return [
                 { name: label, value: stats[roleKey], color: '#ffffff50' },
@@ -276,6 +285,9 @@ const UserManagementContent = () => {
             accounts: "bg-emerald-500/20 text-emerald-400 border-emerald-500/50",
             coordinator: "bg-teal-500/20 text-teal-400 border-teal-500/50",
             digital: "bg-violet-500/20 text-violet-400 border-violet-500/50",
+            assistantZonalManager: "bg-indigo-600/20 text-indigo-300 border-indigo-600/50",
+            assistantCenterIncharge: "bg-cyan-600/20 text-cyan-300 border-cyan-600/50",
+            supportStaff: "bg-gray-600/20 text-gray-300 border-gray-600/50",
         };
         return colors[role] || "bg-gray-500/20 text-gray-400 border-gray-500/50";
     };
@@ -288,6 +300,9 @@ const UserManagementContent = () => {
         if (role === "accounts") return "Accounts";
         if (role === "coordinator") return "Coordinator";
         if (role === "digital") return "Digital";
+        if (role === "assistantZonalManager") return "Assistant Zonal Manager";
+        if (role === "assistantCenterIncharge") return "Assistant Center Incharge";
+        if (role === "supportStaff") return "Support Staff";
         return role.charAt(0).toUpperCase() + role.slice(1);
     };
 
@@ -475,7 +490,10 @@ const UserManagementContent = () => {
                     { label: "HOD", count: stats.HOD, color: "from-blue-600/20 to-indigo-600/20", border: "border-blue-600/30" },
                     { label: "Accounts", count: stats.accounts, color: "from-emerald-500/20 to-teal-500/20", border: "border-emerald-500/30" },
                     { label: "Coordinator", count: stats.coordinator, color: "from-teal-500/20 to-cyan-500/20", border: "border-teal-500/30" },
-                    { label: "Digital", count: stats.digital, color: "from-violet-500/20 to-purple-500/20", border: "border-violet-500/30" }
+                    { label: "Digital", count: stats.digital, color: "from-violet-500/20 to-purple-500/20", border: "border-violet-500/30" },
+                    { label: "Assistant Zonal Manager", count: stats.assistantZonalManager, color: "from-indigo-600/20 to-blue-600/20", border: "border-indigo-600/30" },
+                    { label: "Assistant Center Incharge", count: stats.assistantCenterIncharge, color: "from-cyan-600/20 to-teal-600/20", border: "border-cyan-600/30" },
+                    { label: "Support Staff", count: stats.supportStaff, color: "from-gray-600/20 to-gray-500/20", border: "border-gray-600/30" }
                 ].map((item, idx) => (
                     <div key={idx} className={`bg-gradient-to-br ${item.count > 0 ? item.color : isDarkMode ? 'from-gray-800/20 to-gray-900/20' : 'from-gray-100 to-gray-200'} ${item.count > 0 ? item.border : isDarkMode ? 'border-gray-800' : 'border-gray-200'} border p-4 rounded-xl backdrop-blur-sm relative overflow-hidden flex items-center justify-between`}>
                         <div className="z-10">
@@ -550,7 +568,10 @@ const UserManagementContent = () => {
                                         { value: 'HOD', label: 'HOD' },
                                         { value: 'accounts', label: 'Accounts' },
                                         { value: 'coordinator', label: 'Coordinator' },
-                                        { value: 'digital', label: 'Digital' }
+                                        { value: 'digital', label: 'Digital' },
+                                        { value: 'assistantZonalManager', label: 'Assistant Zonal Manager' },
+                                        { value: 'assistantCenterIncharge', label: 'Assistant Center Incharge' },
+                                        { value: 'supportStaff', label: 'Support Staff' }
                                     ]}
                                     value={filterRole}
                                     onChange={setFilterRole}

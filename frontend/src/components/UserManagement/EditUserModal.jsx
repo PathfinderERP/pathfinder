@@ -67,8 +67,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const canDeactivateUsers = isSuperAdmin || (hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit') && (hasModuleAccess(currentUser.granularPermissions, 'employeeCenter') || hasModuleAccess(currentUser.granularPermissions, 'hrManpower')));
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "hr", "accounts", "coordinator", "digital", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "hr", "accounts", "coordinator", "digital"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"];
 
     useEffect(() => {
         fetchCentres();
@@ -356,7 +356,18 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                             <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Role *</label>
                             <select name="role" required value={formData.role} onChange={handleChange} className={`w-full ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg p-2.5 focus:border-cyan-500 outline-none transition-all font-bold`}>
                                 {roles.map(role => (
-                                    <option key={role} value={role}>{role === "superAdmin" ? "SuperAdmin" : role === "hr" ? "HR" : role === "HOD" ? "HOD" : role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                                    <option key={role} value={role}>
+                                        {role === "superAdmin" ? "SuperAdmin"
+                                            : role === "hr" ? "HR"
+                                            : role === "HOD" ? "HOD"
+                                            : role === "Class_Coordinator" ? "Class Coordinator"
+                                            : role === "centerIncharge" ? "Center Incharge"
+                                            : role === "zonalManager" ? "Zonal Manager"
+                                            : role === "assistantZonalManager" ? "Assistant Zonal Manager"
+                                            : role === "assistantCenterIncharge" ? "Assistant Center Incharge"
+                                            : role === "supportStaff" ? "Support Staff"
+                                            : role.charAt(0).toUpperCase() + role.slice(1)}
+                                    </option>
                                 ))}
                             </select>
                             {!isSuperAdmin && formData.role === "superAdmin" && (

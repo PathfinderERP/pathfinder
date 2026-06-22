@@ -12,19 +12,19 @@ import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
 
-const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'admin'];
+const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'admin', 'assistantcenterincharge'];
 const checkRestricted = (role) => {
     return RESTRICTED_ROLES.includes((role || '').toLowerCase());
 };
 
 const checkRestrictCentres = (role) => {
     const r = (role || '').toLowerCase();
-    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'zonalmanager', 'admin'].includes(r);
+    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'zonalmanager', 'admin', 'assistantcenterincharge', 'assistantzonalmanager'].includes(r);
 };
 
 const checkRestrictIndividual = (role) => {
     const r = (role || '').toLowerCase();
-    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'admin', 'centreincharge', 'centerincharge'].includes(r);
+    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'admin', 'centreincharge', 'centerincharge', 'assistantcenterincharge'].includes(r);
 };
 
 export const getDailyTracking = async (req, res) => {
@@ -306,7 +306,7 @@ export const getDailyCenterDetails = async (req, res) => {
         }
 
         // 2. Fetch only ACTIVE users with operational roles assigned to this center
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager'];
+        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'assistantCenterIncharge', 'assistantZonalManager'];
         const userQuery = {
             centres: centerId,
             isActive: true,

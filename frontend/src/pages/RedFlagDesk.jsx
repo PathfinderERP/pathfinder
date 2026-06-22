@@ -35,13 +35,20 @@ const roleMap = {
     'Center Incharge': 'centerIncharge',
     'Zonal Manager': 'zonalManager',
     'Coordinator': 'coordinator',
-    'Teacher': 'teacher'
+    'Teacher': 'teacher',
+    'Support Staff': 'supportStaff'
 };
 
 const matchRole = (flagRole, selectedTabRoleName) => {
     const backendRole = roleMap[selectedTabRoleName];
     if (backendRole === 'coordinator') {
         return flagRole === 'coordinator' || flagRole === 'Class_Coordinator';
+    }
+    if (backendRole === 'zonalManager') {
+        return flagRole === 'zonalManager' || flagRole === 'assistantZonalManager';
+    }
+    if (backendRole === 'centerIncharge') {
+        return flagRole === 'centerIncharge' || flagRole === 'assistantCenterIncharge';
     }
     return flagRole === backendRole;
 };
@@ -79,7 +86,7 @@ const RedFlagDesk = () => {
     const [modalTitle, setModalTitle] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("");
 
-    const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Coordinator', 'Teacher'];
+    const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Coordinator', 'Teacher', 'Support Staff'];
 
     const getModalFlags = (category) => {
         let filtered = flags;

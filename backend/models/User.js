@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 'centerIncharge', 'zonalManager', 'hr', 'accounts', 'coordinator', 'digital'],
+        enum: ['teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 'centerIncharge', 'zonalManager', 'hr', 'accounts', 'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'],
         default: 'admin',
         required: true,
     },
@@ -186,7 +186,7 @@ userSchema.pre('save', async function () {
     }
 
     if (this.isNew || !this.granularPermissions || Object.keys(this.granularPermissions).length === 0) {
-        if (this.role === 'counsellor' || this.role === 'marketing' || this.role === 'centerIncharge' || this.role === 'zonalManager' || this.role === 'HOD' || this.role === 'hr') {
+        if (this.role === 'counsellor' || this.role === 'marketing' || this.role === 'centerIncharge' || this.role === 'zonalManager' || this.role === 'HOD' || this.role === 'hr' || this.role === 'assistantCenterIncharge' || this.role === 'assistantZonalManager') {
             this.granularPermissions = {
                 // ... [existing counsellor permissions]
                 employeeCenter: {
@@ -218,13 +218,13 @@ userSchema.pre('save', async function () {
             };
 
             // Additional permissions for centerIncharge, zonal roles, and HR
-            if (['centerIncharge', 'zonalManager', 'HOD', 'hr'].includes(this.role)) {
+            if (['centerIncharge', 'zonalManager', 'HOD', 'hr', 'assistantCenterIncharge', 'assistantZonalManager'].includes(this.role)) {
                 this.granularPermissions.pettyCashManagement = {
                     pettyCashCentre: { view: true, create: true, edit: true },
                     addExpenditure: { view: true, create: true },
-                    expenditureApproval: { view: true, approve: ['zonalManager', 'HOD', 'hr'].includes(this.role) },
+                    expenditureApproval: { view: true, approve: ['zonalManager', 'HOD', 'hr', 'assistantZonalManager'].includes(this.role) },
                     addPettyCash: { view: true, create: true },
-                    pettyCashRequestApproval: { view: true, approve: ['zonalManager', 'HOD', 'hr'].includes(this.role) }
+                    pettyCashRequestApproval: { view: true, approve: ['zonalManager', 'HOD', 'hr', 'assistantZonalManager'].includes(this.role) }
                 };
             }
         }

@@ -105,7 +105,7 @@ export const saveStudentAttendance = async (req, res) => {
         }
 
         // Permission Check: Academic Admins, Coordinators, and Teachers
-        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'counsellor', 'teacher', 'hod'];
+        const allowedRoles = ['admin', 'superAdmin', 'Class_Coordinator', 'centerIncharge', 'zonalManager', 'HOD', 'counsellor', 'teacher', 'hod', 'assistantZonalManager', 'assistantCenterIncharge'];
         if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: "Only Academic Admins, Class Coordinators, or Teachers can mark student attendance" });
         }

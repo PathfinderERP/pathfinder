@@ -26,7 +26,7 @@ export const getRedFlags = async (req, res) => {
             userQuery.role = role;
         } else {
             userQuery.role = { 
-                $in: ['telecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'teacher', 'Class_Coordinator', 'coordinator', 'hr'] 
+                $in: ['telecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'HOD', 'teacher', 'Class_Coordinator', 'coordinator', 'hr', 'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'] 
             };
         }
         if (centreId && centreId !== 'All Centers') userQuery.centres = { $in: [centreId] };
@@ -295,9 +295,9 @@ export const getRedFlags = async (req, res) => {
                 });
             };
 
-            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager', 'marketing'].includes(userRole);
-            const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager'].includes(userRole);
-            const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager'].includes(userRole);
+            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager', 'marketing', 'assistantCenterIncharge', 'assistantZonalManager'].includes(userRole);
+            const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager', 'assistantCenterIncharge', 'assistantZonalManager'].includes(userRole);
+            const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager', 'assistantCenterIncharge', 'assistantZonalManager'].includes(userRole);
             const hasWalkIns = ['telecaller', 'counsellor'].includes(userRole);
 
             if (hasCalls) {
@@ -412,7 +412,7 @@ export const getRedFlags = async (req, res) => {
                 );
             }
 
-            if (['marketing', 'centerIncharge', 'Class_Coordinator', 'coordinator'].includes(userRole)) {
+            if (['marketing', 'centerIncharge', 'assistantCenterIncharge', 'Class_Coordinator', 'coordinator'].includes(userRole)) {
                 const userCentreIds = (user.centres || []).map(c => (c._id || c).toString());
                 let totalClasses = 0;
                 let completedClasses = 0;

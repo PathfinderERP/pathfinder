@@ -91,14 +91,14 @@ const MarketingCRM = () => {
         const uCentres = u.centres || u.centers || [];
         const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin'].includes(uRole);
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'].includes(uRole);
         return isTargetRole && matchesSearch && matchesCenter;
     }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
 
     // Filtered marketing performance data for Command Centre
     const filteredCmdCentreStaff = allPerformance.filter(u => {
         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin'].includes(uRole);
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'].includes(uRole);
         if (!isTargetRole) return false;
 
         const matchesSearch = !cmdCentreSearch || u.name.toLowerCase().includes(cmdCentreSearch.toLowerCase());
@@ -215,7 +215,7 @@ const MarketingCRM = () => {
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
-                role: 'marketing,centerIncharge,zonalManager,superAdmin'
+                role: 'marketing,centerIncharge,zonalManager,superAdmin,assistantZonalManager,assistantCenterIncharge,supportStaff'
             });
 
             if (forcedDate) {
@@ -340,7 +340,7 @@ const MarketingCRM = () => {
     };
 
     const userRoleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
-    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead", "centerincharge", "centreincharge"].includes(userRoleLower);
+    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"].includes(userRoleLower);
 
     const canUserApproveRecord = (userObj, record) => {
         if (!userObj || !record) return false;
@@ -358,10 +358,18 @@ const MarketingCRM = () => {
         const ownerRole = (record.user?.role || "").toLowerCase().replace(/\s+/g, "");
 
         if (actorRole === "zonalmanager" || actorRole === "zonalhead") {
-            return ["marketing", "centerincharge", "centreincharge"].includes(ownerRole);
+            return ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "supportstaff", "assistantzonalmanager"].includes(ownerRole);
+        }
+
+        if (actorRole === "assistantzonalmanager") {
+            return ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "supportstaff"].includes(ownerRole);
         }
 
         if (actorRole === "centerincharge" || actorRole === "centreincharge") {
+            return ["marketing", "supportstaff", "assistantcenterincharge"].includes(ownerRole);
+        }
+
+        if (actorRole === "assistantcenterincharge") {
             return ["marketing"].includes(ownerRole);
         }
 
@@ -1718,7 +1726,7 @@ const MarketingCRM = () => {
                                                 options={allPerformance
                                                     .filter(u => {
                                                         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-                                                        return ['marketing', 'centerincharge', 'zonalmanager', 'superadmin'].includes(uRole);
+                                                        return ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'].includes(uRole);
                                                     })
                                                     .map(u => ({ value: u._id, label: u.name }))
                                                     .sort((a, b) => a.label.localeCompare(b.label))}

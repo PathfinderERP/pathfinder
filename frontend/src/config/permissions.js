@@ -586,7 +586,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
         'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
         'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
-        'coordinator', 'digital'
+        'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge'
     ];
 
     if (granularPermissionsOrUser && granularPermissionsOrUser.role && module === 'academics' &&
@@ -598,14 +598,14 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
     // Grant automatic access to marketingCRM module
     if (module === 'marketingCRM') {
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
         if (isMktTargetRole) return true;
     }
 
     // Grant automatic access to dailyTrackingLog module actions for marketing role or users with marketingCRM access
     if (module === 'dailyTrackingLog') {
         const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
         if (isMktTargetRole || granularPermissions?.['marketingCRM']) {
             return true;
         }
@@ -643,12 +643,12 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     }
 
     if (module === 'marketingCRM') {
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin'].includes(normalizedRole.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(normalizedRole.replace(/\s+/g, ''));
         if (isMktTargetRole) return true;
     }
 
     if (module === 'dailyTrackingLog') {
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin'].includes(normalizedRole.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(normalizedRole.replace(/\s+/g, ''));
         if (isMktTargetRole) return true;
     }
 

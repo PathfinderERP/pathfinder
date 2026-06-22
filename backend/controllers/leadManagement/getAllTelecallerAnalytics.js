@@ -2,6 +2,7 @@ import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
 import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Employee from "../../models/HR/Employee.js";
 import mongoose from "mongoose";
 
 export const getAllTelecallerAnalytics = async (req, res) => {
@@ -100,19 +101,48 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // 1. Fetch Users (Telemetry Targets) - Respecting Access Control
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod"];
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         let userQuery = {
-            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'superAdmin', 'superadmin', 'centerIncharge', 'zonalManager', 'HOD', 'hr'] },
+            role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'superAdmin', 'superadmin', 'centerIncharge', 'zonalManager', 'HOD', 'hr', 'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'] },
             isActive: true
         };
 
         if (userRoleStr !== "superadmin" && userRoleStr !== "super admin") {
             if (isPrivileged) {
+                const loggedInEmployee = await Employee.findOne({ user: req.user._id });
+                const userCentreIds = [];
+                if (loggedInEmployee) {
+                    if (loggedInEmployee.primaryCentre) userCentreIds.push(loggedInEmployee.primaryCentre.toString());
+                    if (Array.isArray(loggedInEmployee.centres)) {
+                        loggedInEmployee.centres.forEach(c => userCentreIds.push(c.toString()));
+                    }
+                }
                 const userCentres = req.user.centres || [];
-                if (userCentres.length > 0) {
-                    userQuery.centres = { $in: userCentres };
+                userCentres.forEach(c => userCentreIds.push(c._id ? c._id.toString() : c.toString()));
+                if (req.user.centre) {
+                    userCentreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
+                }
+                const uniqueUserCentreIds = [...new Set(userCentreIds)].filter(Boolean);
+
+                if (uniqueUserCentreIds.length > 0) {
+                    const objectIdCentres = uniqueUserCentreIds.map(id => {
+                        try { return new mongoose.Types.ObjectId(id); } catch { return null; }
+                    }).filter(Boolean);
+
+                    const subordinateEmployees = await Employee.find({
+                        $or: [
+                            { primaryCentre: { $in: objectIdCentres } },
+                            { centres: { $in: objectIdCentres } }
+                        ]
+                    }).select("user");
+                    const allowedUserIds = subordinateEmployees.map(emp => emp.user).filter(Boolean);
+
+                    userQuery.$or = [
+                        { _id: { $in: allowedUserIds } },
+                        { centres: { $in: objectIdCentres } }
+                    ];
                 } else {
                     userQuery._id = req.user.id;
                 }
@@ -397,7 +427,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             const todayStr = last5DaysList[0];
             const yesterdayStr = last5DaysList[1];
 
-            const isMarketing = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead'].includes(u.role?.toLowerCase()?.replace(/\s+/g, ''));
+            const isMarketing = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'].includes(u.role?.toLowerCase()?.replace(/\s+/g, ''));
 
             const effectiveCurrent = isMarketing ? mktPerf.current : uPerf.current;
             const effectivePrev = isMarketing ? mktPerf.prev : uPerf.prev;

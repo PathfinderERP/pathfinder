@@ -193,7 +193,7 @@ export const requireGranularPermission = (module, section, action) => {
                 'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
                 'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
                 'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
-                'coordinator', 'digital'
+                'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge'
             ];
 
             if (module === 'academics' && ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
@@ -214,7 +214,7 @@ export const requireGranularPermission = (module, section, action) => {
 
             // Grant automatic access to dailyTrackingLog module actions for marketing, centerIncharge, or zonalManager roles or users with marketingCRM access
             if (!hasAccess && module === 'dailyTrackingLog') {
-                const isTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead'].includes(user.role?.toLowerCase()?.replace(/\s+/g, ''));
+                const isTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'assistantzonalmanager', 'assistantcenterincharge'].includes(user.role?.toLowerCase()?.replace(/\s+/g, ''));
                 if (isTargetRole || user.granularPermissions?.['marketingCRM']) {
                     hasAccess = true;
                 }

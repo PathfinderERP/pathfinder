@@ -298,7 +298,7 @@ export const getEmployees = async (req, res) => {
 
         // Data Isolation: Restrict visibility based on role
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod"];
+        const privilegedRoles = ["superadmin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         if (userRoleStr !== 'superadmin' && userRoleStr !== 'hr') {
