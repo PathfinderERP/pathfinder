@@ -559,6 +559,7 @@ const DailyUserActivityLog = () => {
                                     <th className="px-5 py-3 font-black">Course</th>
                                     <th className="px-5 py-3 font-black text-center">Call Type</th>
                                     <th className="px-5 py-3 font-black text-center">Lead Status</th>
+                                    <th className="px-5 py-3 font-black text-center">Follow-Ups</th>
                                     <th className="px-5 py-3 font-black">Feedback</th>
                                     <th className="px-5 py-3 font-black">Remarks</th>
                                     <th className="px-5 py-3 font-black text-center">Lead</th>
@@ -572,7 +573,7 @@ const DailyUserActivityLog = () => {
                             <tbody className={`divide-y ${divider}`}>
                                 {filteredCalls.length === 0 ? (
                                     <tr>
-                                        <td colSpan="17" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
+                                        <td colSpan="18" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
                                             No call records found for the selected filters.
                                         </td>
                                     </tr>
@@ -609,6 +610,11 @@ const DailyUserActivityLog = () => {
                                             <td className="px-5 py-3 text-center">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter border ${cfg.bg} ${cfg.color} ${cfg.border}`}>
                                                     {cfg.icon} {cfg.label}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3 text-center">
+                                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${isDark ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                                    {call.followUpCount || 0}
                                                 </span>
                                             </td>
                                             <td className={`px-5 py-3 text-xs max-w-[160px] truncate ${subText}`} title={call.feedback}>

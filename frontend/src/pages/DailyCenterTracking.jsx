@@ -17,7 +17,9 @@ const DailyCenterTracking = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCenters, setSelectedCenters] = useState([]);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dateRange, setDateRange] = useState("Today");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
     const [viewMode, setViewMode] = useState("card"); // "card" or "table"
     const navigate = useNavigate();
 
@@ -28,6 +30,70 @@ const DailyCenterTracking = () => {
     const [modalTitle, setModalTitle] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("");
 
+    const getDateRangeLimits = (range) => {
+        const today = new Date();
+        const formatDate = (d) => {
+            const tzOffset = d.getTimezoneOffset() * 60 * 1000;
+            const localTime = d.getTime() - tzOffset;
+            const localDate = new Date(localTime);
+            return localDate.toISOString().split('T')[0];
+        };
+
+        let start, end;
+        switch (range) {
+            case "Today":
+                start = formatDate(today);
+                end = formatDate(today);
+                break;
+            case "Yesterday":
+                const yesterday = new Date(today);
+                yesterday.setDate(today.getDate() - 1);
+                start = formatDate(yesterday);
+                end = formatDate(yesterday);
+                break;
+            case "Last 7 Days":
+                const sevenDaysAgo = new Date(today);
+                sevenDaysAgo.setDate(today.getDate() - 6);
+                start = formatDate(sevenDaysAgo);
+                end = formatDate(today);
+                break;
+            case "This Month":
+                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                start = formatDate(startOfMonth);
+                end = formatDate(today);
+                break;
+            case "This Year":
+                const startOfYear = new Date(today.getFullYear(), 0, 1);
+                start = formatDate(startOfYear);
+                end = formatDate(today);
+                break;
+            case "Last Year":
+                const startOfLastYear = new Date(today.getFullYear() - 1, 0, 1);
+                const endOfLastYear = new Date(today.getFullYear() - 1, 11, 31);
+                start = formatDate(startOfLastYear);
+                end = formatDate(endOfLastYear);
+                break;
+            default:
+                start = formatDate(today);
+                end = formatDate(today);
+                break;
+        }
+        return { start, end };
+    };
+
+    const getCardLabel = (baseLabel) => {
+        if (dateRange === "Today") {
+            return baseLabel === "Collection" ? "Total Collection" : `Daily ${baseLabel}`;
+        }
+        if (dateRange === "Yesterday") return `Yesterday's ${baseLabel}`;
+        if (dateRange === "Last 7 Days") return `Last 7 Days ${baseLabel}`;
+        if (dateRange === "This Month") return `This Month's ${baseLabel}`;
+        if (dateRange === "This Year") return `This Year's ${baseLabel}`;
+        if (dateRange === "Last Year") return `Last Year's ${baseLabel}`;
+        if (dateRange === "Custom Range") return `Custom Range ${baseLabel}`;
+        return baseLabel === "Collection" ? "Total Collection" : `Daily ${baseLabel}`;
+    };
+
     const handleCardClick = async (category, title) => {
         setSelectedCategory(category);
         setModalTitle(title);
@@ -36,7 +102,18 @@ const DailyCenterTracking = () => {
         try {
             const token = localStorage.getItem("token");
             const apiUrl = import.meta.env.VITE_API_URL;
-            const response = await fetch(`${apiUrl}/operations/daily-tracking/details?date=${selectedDate}&category=${category}`, {
+
+            const params = new URLSearchParams({ category });
+            if (dateRange === "Custom Range") {
+                params.append("startDate", customStartDate);
+                params.append("endDate", customEndDate);
+            } else {
+                const { start, end } = getDateRangeLimits(dateRange);
+                params.append("startDate", start);
+                params.append("endDate", end);
+            }
+
+            const response = await fetch(`${apiUrl}/operations/daily-tracking/details?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -67,40 +144,56 @@ const DailyCenterTracking = () => {
         }
     }, [canView, user.role, navigate]);
 
+    const fetchCenters = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            const params = new URLSearchParams();
+            if (dateRange === "Custom Range") {
+                if (customStartDate && customEndDate) {
+                    params.append("startDate", customStartDate);
+                    params.append("endDate", customEndDate);
+                } else {
+                    return; // Don't fetch if custom range is incomplete
+                }
+            } else {
+                const { start, end } = getDateRangeLimits(dateRange);
+                params.append("startDate", start);
+                params.append("endDate", end);
+            }
+
+            const response = await fetch(`${apiUrl}/operations/daily-tracking?${params.toString()}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                const filteredData = Array.isArray(data) 
+                    ? data.filter(c => 
+                        user.role === 'superAdmin' || user.role === 'superadmin' ||
+                        (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name))
+                    )
+                    : [];
+                setCenters(filteredData);
+            } else {
+                toast.error("Failed to fetch centers");
+            }
+        } catch (error) {
+            console.error("Error fetching centers:", error);
+            toast.error("Error fetching centers");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
-        const fetchCenters = async () => {
-            try {
-                setLoading(true);
-                const token = localStorage.getItem("token");
-                const apiUrl = import.meta.env.VITE_API_URL;
-                const response = await fetch(`${apiUrl}/operations/daily-tracking?date=${selectedDate}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    const filteredData = Array.isArray(data) 
-                        ? data.filter(c => 
-                            user.role === 'superAdmin' || user.role === 'superadmin' ||
-                            (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name))
-                        )
-                        : [];
-                    setCenters(filteredData);
-                } else {
-                    toast.error("Failed to fetch centers");
-                }
-            } catch (error) {
-                console.error("Error fetching centers:", error);
-                toast.error("Error fetching centers");
-            } finally {
-                setLoading(false);
-            }
-        };
-
+        if (dateRange === "Custom Range" && (!customStartDate || !customEndDate)) return;
         fetchCenters();
-    }, [selectedDate, canView]);
+    }, [dateRange, customStartDate, customEndDate, canView]);
 
     const filteredCenters = centers.filter(center => {
         const matchesSearch = center.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -160,18 +253,67 @@ const DailyCenterTracking = () => {
                             <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-white text-gray-400'}`}>Centre</span>
                         </div>
 
-                        <div className="relative">
-                            <input 
-                                type="date" 
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className={`pl-3 pr-4 py-2 rounded border focus:ring-2 focus:ring-cyan-500 outline-none transition-all ${
-                                    isDarkMode 
-                                        ? 'bg-[#1a1f24] border-gray-700 text-white' 
+                        {/* Date Range Dropdown */}
+                        <div className="relative min-w-[140px]">
+                            <select
+                                value={dateRange}
+                                onChange={e => {
+                                    setDateRange(e.target.value);
+                                    if (e.target.value !== "Custom Range") {
+                                        setCustomStartDate("");
+                                        setCustomEndDate("");
+                                    }
+                                }}
+                                className={`w-full px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer appearance-none transition-all ${
+                                    isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-white'
                                         : 'bg-white border-gray-200 text-gray-900'
                                 }`}
-                            />
+                            >
+                                {["Today", "Yesterday", "Last 7 Days", "This Month", "This Year", "Last Year", "Custom Range"].map(d => (
+                                    <option key={d} value={d} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{d}</option>
+                                ))}
+                            </select>
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
+                                isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                            }`}>Date Range</span>
                         </div>
+
+                        {/* Custom Start/End Dates */}
+                        {dateRange === "Custom Range" && (
+                            <>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={e => setCustomStartDate(e.target.value)}
+                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${
+                                            isDarkMode
+                                                ? 'bg-[#1a1f24] border-gray-700 text-white'
+                                                : 'bg-white border-gray-200 text-[#05080c]'
+                                        }`}
+                                    />
+                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
+                                        isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                                    }`}>From</span>
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={e => setCustomEndDate(e.target.value)}
+                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${
+                                            isDarkMode
+                                                ? 'bg-[#1a1f24] border-gray-700 text-white'
+                                                : 'bg-white border-gray-200 text-[#05080c]'
+                                        }`}
+                                    />
+                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
+                                        isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                                    }`}>To</span>
+                                </div>
+                            </>
+                        )}
 
                         <button
                             onClick={() => setShowCallsReportModal(true)}
@@ -185,9 +327,9 @@ const DailyCenterTracking = () => {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                     {[
-                        { title: "Daily Walk-Ins", category: "walkins", value: centers.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
+                        { title: getCardLabel("Walk-Ins"), category: "walkins", value: centers.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
                         { 
-                            title: "Daily Counselling", 
+                            title: getCardLabel("Counselling"), 
                             category: "counselling", 
                             value: centers.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), 
                             subtext: `Normal: ${centers.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${centers.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
@@ -196,7 +338,7 @@ const DailyCenterTracking = () => {
                             bg: "bg-green-500/10" 
                         },
                         { 
-                            title: "Daily Admission", 
+                            title: getCardLabel("Admission"), 
                             category: "admission",
                             value: centers.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(), 
                             subtext: `Normal: ${centers.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${centers.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
@@ -204,9 +346,9 @@ const DailyCenterTracking = () => {
                             color: "text-purple-500", 
                             bg: "bg-purple-500/10" 
                         },
-                        { title: "Daily Calls", category: "calls", value: centers.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0).toString(), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+                        { title: getCardLabel("Calls"), category: "calls", value: centers.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0).toString(), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
                         { 
-                            title: "Total Collection", 
+                            title: getCardLabel("Collection"), 
                             category: "collection",
                             value: `₹${centers.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`, 
                             subtext: `Admission: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
@@ -313,7 +455,18 @@ const DailyCenterTracking = () => {
                                                 <td className="p-4 font-semibold text-cyan-600 dark:text-cyan-400">{center.collections}</td>
                                                 <td className="p-4 text-center">
                                                     <button 
-                                                        onClick={() => navigate(`/daily-center-tracking/${center.id}?date=${selectedDate}`)}
+                                                        onClick={() => {
+                                                            let start = "", end = "";
+                                                            if (dateRange === "Custom Range") {
+                                                                start = customStartDate;
+                                                                end = customEndDate;
+                                                            } else {
+                                                                const limits = getDateRangeLimits(dateRange);
+                                                                start = limits.start;
+                                                                end = limits.end;
+                                                            }
+                                                            navigate(`/daily-center-tracking/${center.id}?fromDate=${start}&toDate=${end}`);
+                                                        }}
                                                         className={`px-4 py-1.5 rounded text-xs font-medium transition-colors ${
                                                         isDarkMode 
                                                             ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
@@ -379,7 +532,18 @@ const DailyCenterTracking = () => {
                                         </div>
 
                                         <button 
-                                            onClick={() => navigate(`/daily-center-tracking/${center.id}?date=${selectedDate}`)}
+                                            onClick={() => {
+                                                let start = "", end = "";
+                                                if (dateRange === "Custom Range") {
+                                                    start = customStartDate;
+                                                    end = customEndDate;
+                                                } else {
+                                                    const limits = getDateRangeLimits(dateRange);
+                                                    start = limits.start;
+                                                    end = limits.end;
+                                                }
+                                                navigate(`/daily-center-tracking/${center.id}?fromDate=${start}&toDate=${end}`);
+                                            }}
                                             className={`w-full py-2 rounded text-sm font-medium transition-colors ${
                                             isDarkMode 
                                                 ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' 

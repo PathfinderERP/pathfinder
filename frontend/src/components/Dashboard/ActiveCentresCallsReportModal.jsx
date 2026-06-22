@@ -7,6 +7,73 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
     const todayStr = new Date().toISOString().split('T')[0];
     const [fromDate, setFromDate] = useState(todayStr);
     const [toDate, setToDate] = useState(todayStr);
+    const [dateRange, setDateRange] = useState("Today");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
+
+    const getDateRangeLimits = (range) => {
+        const today = new Date();
+        const formatDate = (d) => {
+            const tzOffset = d.getTimezoneOffset() * 60 * 1000;
+            const localTime = d.getTime() - tzOffset;
+            const localDate = new Date(localTime);
+            return localDate.toISOString().split('T')[0];
+        };
+
+        let start, end;
+        switch (range) {
+            case "Today":
+                start = formatDate(today);
+                end = formatDate(today);
+                break;
+            case "Yesterday":
+                const yesterday = new Date(today);
+                yesterday.setDate(today.getDate() - 1);
+                start = formatDate(yesterday);
+                end = formatDate(yesterday);
+                break;
+            case "Last 7 Days":
+                const sevenDaysAgo = new Date(today);
+                sevenDaysAgo.setDate(today.getDate() - 6);
+                start = formatDate(sevenDaysAgo);
+                end = formatDate(today);
+                break;
+            case "This Month":
+                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                start = formatDate(startOfMonth);
+                end = formatDate(today);
+                break;
+            case "This Year":
+                const startOfYear = new Date(today.getFullYear(), 0, 1);
+                start = formatDate(startOfYear);
+                end = formatDate(today);
+                break;
+            case "Last Year":
+                const startOfLastYear = new Date(today.getFullYear() - 1, 0, 1);
+                const endOfLastYear = new Date(today.getFullYear() - 1, 11, 31);
+                start = formatDate(startOfLastYear);
+                end = formatDate(endOfLastYear);
+                break;
+            default:
+                start = formatDate(today);
+                end = formatDate(today);
+                break;
+        }
+        return { start, end };
+    };
+
+    useEffect(() => {
+        if (dateRange === "Custom Range") {
+            if (customStartDate && customEndDate) {
+                setFromDate(customStartDate);
+                setToDate(customEndDate);
+            }
+        } else {
+            const { start, end } = getDateRangeLimits(dateRange);
+            setFromDate(start);
+            setToDate(end);
+        }
+    }, [dateRange, customStartDate, customEndDate]);
     const [selectedCenters, setSelectedCenters] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [reportData, setReportData] = useState([]);
@@ -260,28 +327,67 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                 {/* Filters */}
                 <div className={`p-4 border-b flex flex-wrap items-center justify-between gap-4 ${isDarkMode ? 'bg-[#181d23] border-gray-800' : 'bg-white border-gray-100'}`}>
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* Date Range Selector */}
-                        <div className={`flex flex-wrap items-center gap-3 p-2 rounded border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <div className="flex items-center gap-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-gray-500">From:</label>
-                                <input 
-                                    type="date" 
-                                    value={fromDate}
-                                    onChange={(e) => setFromDate(e.target.value)}
-                                    className="bg-transparent text-cyan-500 font-black text-xs outline-none cursor-pointer [color-scheme:dark]"
-                                />
-                            </div>
-                            <div className="h-4 w-[1px] bg-gray-800 hidden md:block" />
-                            <div className="flex items-center gap-2">
-                                <label className="text-[9px] font-black uppercase tracking-widest text-gray-500">To:</label>
-                                <input 
-                                    type="date" 
-                                    value={toDate}
-                                    onChange={(e) => setToDate(e.target.value)}
-                                    className="bg-transparent text-cyan-500 font-black text-xs outline-none cursor-pointer [color-scheme:dark]"
-                                />
-                            </div>
+                        {/* Date Range Dropdown */}
+                        <div className="relative min-w-[140px]">
+                            <select
+                                value={dateRange}
+                                onChange={e => {
+                                    setDateRange(e.target.value);
+                                    if (e.target.value !== "Custom Range") {
+                                        setCustomStartDate("");
+                                        setCustomEndDate("");
+                                    }
+                                }}
+                                className={`w-full px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer appearance-none transition-all ${
+                                    isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-white'
+                                        : 'bg-white border-gray-200 text-gray-900'
+                                }`}
+                            >
+                                {["Today", "Yesterday", "Last 7 Days", "This Month", "This Year", "Last Year", "Custom Range"].map(d => (
+                                    <option key={d} value={d} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{d}</option>
+                                ))}
+                            </select>
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
+                                isDarkMode ? 'bg-[#181d23] text-gray-500' : 'bg-white text-gray-400'
+                            }`}>Date Range</span>
                         </div>
+
+                        {/* Custom Start/End Dates */}
+                        {dateRange === "Custom Range" && (
+                            <>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={e => setCustomStartDate(e.target.value)}
+                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${
+                                            isDarkMode
+                                                ? 'bg-[#1a1f24] border-gray-700 text-white'
+                                                : 'bg-white border-gray-200 text-[#05080c]'
+                                        }`}
+                                    />
+                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
+                                        isDarkMode ? 'bg-[#181d23] text-gray-500' : 'bg-white text-gray-400'
+                                    }`}>From</span>
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={e => setCustomEndDate(e.target.value)}
+                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${
+                                            isDarkMode
+                                                ? 'bg-[#1a1f24] border-gray-700 text-white'
+                                                : 'bg-white border-gray-200 text-[#05080c]'
+                                        }`}
+                                    />
+                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
+                                        isDarkMode ? 'bg-[#181d23] text-gray-500' : 'bg-white text-gray-400'
+                                    }`}>To</span>
+                                </div>
+                            </>
+                        )}
 
                         {/* Centre Selector */}
                         <div className="relative min-w-[200px] z-30">

@@ -252,6 +252,13 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
                                                     </div>
                                                 )}
 
+                                                {item.amount !== undefined && item.amount !== null && !isCollectionType && (
+                                                    <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                                                        <FaRupeeSign className="shrink-0" />
+                                                        <span>Amount Paid: ₹{item.amount.toLocaleString()}</span>
+                                                    </div>
+                                                )}
+
                                                 <div className={`p-4 rounded-[2px] border-l-2 border-cyan-500 ${isDarkMode ? 'bg-[#0a0a0b]' : 'bg-gray-50'}`}>
                                                     <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Description / Remarks</p>
                                                     <p className={`text-xs font-medium leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{item.feedback}</p>

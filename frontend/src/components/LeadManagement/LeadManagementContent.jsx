@@ -1634,6 +1634,7 @@ const LeadManagementContent = () => {
                                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-100 text-cyan-600'}`}>
                                                         <FaWalking size={10} className="animate-pulse" />
                                                         <span className="text-[9px] font-black uppercase tracking-widest">Walk In</span>
+                                                        <span className={`ml-1 text-[8px] font-black px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-cyan-500/20' : 'bg-cyan-100'}`}>{lead.followUps?.length || 0}</span>
                                                     </div>
                                                 ) : lead.followUps?.length > 0 ? (
                                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
@@ -1645,6 +1646,7 @@ const LeadManagementContent = () => {
                                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-yellow-50 border-yellow-100 text-yellow-600'}`}>
                                                         <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></div>
                                                         <span className="text-[9px] font-black uppercase tracking-widest">Pending</span>
+                                                        <span className={`ml-1 text-[8px] font-black px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-yellow-500/20' : 'bg-yellow-100'}`}>{lead.followUps?.length || 0}</span>
                                                     </div>
                                                 )}
                                             </td>

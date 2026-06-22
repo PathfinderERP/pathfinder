@@ -29,17 +29,26 @@ const checkRestrictIndividual = (role) => {
 
 export const getDailyTracking = async (req, res) => {
     try {
-        const { date } = req.query;
-        let today = new Date();
-        if (date) {
-            today = new Date(date);
+        const { date, startDate, endDate } = req.query;
+        let start, end;
+        if (startDate && endDate) {
+            start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else {
+            let today = new Date();
+            if (date) {
+                today = new Date(date);
+            }
+            today.setHours(0, 0, 0, 0);
+            
+            start = today;
+            end = new Date(today);
+            end.setHours(23, 59, 59, 999);
         }
-        today.setHours(0, 0, 0, 0);
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const dateFilter = { $gte: today, $lt: tomorrow };
+        const dateFilter = { $gte: start, $lte: end };
 
         const isRestricted = checkRestricted(req.user?.role);
 
@@ -60,8 +69,8 @@ export const getDailyTracking = async (req, res) => {
             const leadMatch = { centre: centerId, "followUps.date": dateFilter };
 
             const filterCond = [
-                { $gte: ["$$fu.date", today] },
-                { $lt: ["$$fu.date", tomorrow] }
+                { $gte: ["$$fu.date", start] },
+                { $lte: ["$$fu.date", end] }
             ];
 
             if (isRestricted) {
@@ -201,13 +210,13 @@ export const getDailyTracking = async (req, res) => {
                         {
                             $gte: [
                                 { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
-                                today
+                                start
                             ]
                         },
                         {
-                            $lt: [
+                            $lte: [
                                 { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
-                                tomorrow
+                                end
                             ]
                         }
                     ]
@@ -290,8 +299,6 @@ export const getDailyCenterDetails = async (req, res) => {
         endDate.setHours(23, 59, 59, 999);
         
         const dateFilter = { $gte: startDate, $lte: endDate };
-        const tomorrow = new Date(endDate);
-        tomorrow.setDate(tomorrow.getDate() + 1); // For Payment aggregation logic if needed
 
         // 1. Fetch center info
         const center = await CentreSchema.findById(centerId).lean();
@@ -470,7 +477,7 @@ export const getDailyCenterDetails = async (req, res) => {
                         $expr: {
                             $and: [
                                 { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, startDate] },
-                                { $lt: [{ $ifNull: ["$receivedDate", "$paidDate"] }, tomorrow] }
+                                { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, endDate] }
                             ]
                         }
                     }
@@ -580,8 +587,6 @@ export const getDailyUserActivity = async (req, res) => {
         endDate.setHours(23, 59, 59, 999);
         
         const dateFilter = { $gte: startDate, $lte: endDate };
-        const tomorrow = new Date(endDate);
-        tomorrow.setDate(tomorrow.getDate() + 1);
 
         // 1. Fetch User Info
         const user = await User.findById(userId).lean();
@@ -695,7 +700,7 @@ export const getDailyUserActivity = async (req, res) => {
             $expr: {
                 $and: [
                     { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, startDate] },
-                    { $lt: [{ $ifNull: ["$receivedDate", "$paidDate"] }, tomorrow] }
+                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, endDate] }
                 ]
             }
         }).lean();
@@ -767,7 +772,8 @@ export const getDailyUserActivity = async (req, res) => {
                 courseName: lead.course?.courseName || lead.courseText || '-',
                 className: lead.className?.name || '-',
                 boardName: lead.board?.boardName || '-',
-                schoolName: lead.schoolName || '-'
+                schoolName: lead.schoolName || '-',
+                followUpCount: lead.followUps?.length || 0
             });
         });
 
@@ -803,7 +809,8 @@ export const getDailyUserActivity = async (req, res) => {
                     courseName: lead.course?.courseName || lead.courseText || '-',
                     className: lead.className?.name || '-',
                     boardName: lead.board?.boardName || '-',
-                    schoolName: lead.schoolName || '-'
+                    schoolName: lead.schoolName || '-',
+                    followUpCount: lead.followUps?.length || 0
                 });
             });
         });
@@ -875,7 +882,8 @@ export const getDailyUserActivity = async (req, res) => {
                 courseName: adm.course?.courseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
                 className: adm.class?.name || adm.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
                 boardName: adm.board?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
-                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-'
+                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -913,7 +921,8 @@ export const getDailyUserActivity = async (req, res) => {
                 courseName: adm.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
                 className: adm.lastClass || adm.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
                 boardName: adm.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
-                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-'
+                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -954,7 +963,8 @@ export const getDailyUserActivity = async (req, res) => {
                 courseName: couns.boardId?.boardName || couns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-',
                 className: couns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
                 boardName: couns.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
-                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-'
+                schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1350,7 +1360,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 courseName: lead.course?.courseName || lead.courseText || '-',
                 className: lead.className?.name || '-',
                 boardName: lead.board?.boardName || '-',
-                schoolName: lead.schoolName || '-'
+                schoolName: lead.schoolName || '-',
+                followUpCount: lead.followUps?.length || 0
             });
         });
 
@@ -1375,7 +1386,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                     courseName: lead.course?.courseName || lead.courseText || '-',
                     className: lead.className?.name || '-',
                     boardName: lead.board?.boardName || '-',
-                    schoolName: lead.schoolName || '-'
+                    schoolName: lead.schoolName || '-',
+                    followUpCount: lead.followUps?.length || 0
                 });
             });
         });
@@ -1460,7 +1472,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 courseName,
                 className,
                 boardName,
-                schoolName
+                schoolName,
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1486,6 +1499,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
             "Course Name": call.courseName || '-',
             "Call Type": call.callType,
             "Lead Status": call.leadType,
+            "Total Follow-Ups": call.followUpCount || 0,
             "Feedback": call.feedback,
             "Remarks": call.remarks,
             "Next Follow-Up Date": call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : 'N/A',
@@ -1510,21 +1524,30 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
 export const getDailyTrackingDetails = async (req, res) => {
     try {
-        const { date, category } = req.query;
+        const { date, category, startDate, endDate } = req.query;
         if (!category) {
             return res.status(400).json({ message: "Category parameter is required" });
         }
 
-        let today = new Date();
-        if (date) {
-            today = new Date(date);
+        let start, end;
+        if (startDate && endDate) {
+            start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else {
+            let today = new Date();
+            if (date) {
+                today = new Date(date);
+            }
+            today.setHours(0, 0, 0, 0);
+            
+            start = today;
+            end = new Date(today);
+            end.setHours(23, 59, 59, 999);
         }
-        today.setHours(0, 0, 0, 0);
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const dateFilter = { $gte: today, $lt: tomorrow };
+        const dateFilter = { $gte: start, $lte: end };
         
         const isRestricted = checkRestricted(req.user?.role);
         let detailsList = [];
@@ -1675,7 +1698,11 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 normalQuery.createdBy = req.user._id;
             }
-            const normalAdmissions = await Admission.find(normalQuery).populate('student').populate('createdBy').lean();
+            const normalAdmissions = await Admission.find(normalQuery)
+                .populate('student')
+                .populate('course', 'courseName')
+                .populate('createdBy')
+                .lean();
 
             const normalDetails = normalAdmissions.map(adm => {
                 const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
@@ -1690,6 +1717,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                     centreName: adm.centre || 'N/A',
                     dateTime: adm.createdAt,
                     tag: 'NORMAL ADM',
+                    course: adm.course?.courseName || 'N/A',
+                    amount: adm.downPayment || 0,
                     feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
                 };
             });
@@ -1701,12 +1730,16 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 boardQuery.createdBy = req.user._id;
             }
-            const boardAdmissions = await BoardCourseAdmission.find(boardQuery).populate('studentId').populate('createdBy').lean();
+            const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
+                .populate('studentId')
+                .populate('createdBy')
+                .lean();
 
             const boardDetails = boardAdmissions.map(adm => {
                 const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
                 const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
+                const dpAmount = (adm.installments && adm.installments.length > 0) ? (adm.installments[0].paidAmount || 0) : (adm.totalPaidAmount || 0);
                 return {
                     id: adm._id,
                     name: studentName,
@@ -1716,6 +1749,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                     centreName: adm.centre || 'N/A',
                     dateTime: adm.createdAt,
                     tag: 'BOARD ADM',
+                    course: adm.boardCourseName || 'N/A',
+                    amount: dpAmount,
                     feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
                 };
             });
@@ -1735,7 +1770,7 @@ export const getDailyTrackingDetails = async (req, res) => {
             leadsWithCalls.forEach(lead => {
                 const matchingFollowups = (lead.followUps || []).filter(fu => {
                     const fuDate = new Date(fu.date);
-                    return fuDate >= today && fuDate < tomorrow && (!isRestricted || fu.updatedBy === req.user.name);
+                    return fuDate >= start && fuDate <= end && (!isRestricted || fu.updatedBy === req.user.name);
                 });
 
                 matchingFollowups.forEach(fu => {
@@ -1767,8 +1802,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                 ],
                 $expr: {
                     $and: [
-                        { $gte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, today] },
-                        { $lt: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, tomorrow] }
+                        { $gte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, start] },
+                        { $lte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, end] }
                     ]
                 }
             };
