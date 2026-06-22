@@ -77,6 +77,23 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         fetchMasterData();
     }, []);
 
+    useEffect(() => {
+        if (admission && admission.admissionType === 'BOARD') {
+            if (masterClasses.length > 0 && !formData.class && admission.lastClass) {
+                const matchedClass = masterClasses.find(c => (c.name || c.className || "").toUpperCase() === admission.lastClass.toUpperCase());
+                if (matchedClass) {
+                    setFormData(prev => ({ ...prev, class: matchedClass._id }));
+                }
+            }
+            if (masterCourses.length > 0 && !formData.course && admission.boardCourseName) {
+                const matchedCourse = masterCourses.find(c => (c.courseName || "").toUpperCase() === admission.boardCourseName.toUpperCase());
+                if (matchedCourse) {
+                    setFormData(prev => ({ ...prev, course: matchedCourse._id }));
+                }
+            }
+        }
+    }, [masterClasses, masterCourses, admission, formData.class, formData.course]);
+
     const fetchMasterData = async () => {
         try {
             const token = localStorage.getItem('token');

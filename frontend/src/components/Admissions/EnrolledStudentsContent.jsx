@@ -1018,8 +1018,11 @@ const EnrolledStudentsContent = () => {
         setStudentAdmissions([]);
     };
 
-    const handleEditProfile = (studentItem) => {
-        setEditAdmission(studentItem.latestAdmission);
+    const handleEditProfile = (studentItem, admission = null) => {
+        const targetAdmission = admission || 
+            studentItem.admissions.find(a => a.admissionType === 'NORMAL') || 
+            studentItem.latestAdmission;
+        setEditAdmission(targetAdmission);
         setShowEditModal(true);
     };
 
@@ -2157,7 +2160,7 @@ const EnrolledStudentsContent = () => {
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    handleEditProfile(studentItem);
+                                                                    handleEditProfile(studentItem, latestAdmission);
                                                                 }}
                                                                 className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-500 hover:text-white shadow-sm'}`}
                                                                 title="Edit Profile"
