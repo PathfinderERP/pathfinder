@@ -327,12 +327,12 @@ const DailyCenterTracking = () => {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                     {[
-                        { title: getCardLabel("Walk-Ins"), category: "walkins", value: centers.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
+                        { title: getCardLabel("Walk-Ins"), category: "walkins", value: filteredCenters.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
                         { 
                             title: getCardLabel("Counselling"), 
                             category: "counselling", 
-                            value: centers.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), 
-                            subtext: `Normal: ${centers.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${centers.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
+                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), 
+                            subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
                             icon: <FaComments />, 
                             color: "text-green-500", 
                             bg: "bg-green-500/10" 
@@ -340,18 +340,18 @@ const DailyCenterTracking = () => {
                         { 
                             title: getCardLabel("Admission"), 
                             category: "admission",
-                            value: centers.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(), 
-                            subtext: `Normal: ${centers.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${centers.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
+                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(), 
+                            subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
                             icon: <FaUserPlus />, 
                             color: "text-purple-500", 
                             bg: "bg-purple-500/10" 
                         },
-                        { title: getCardLabel("Calls"), category: "calls", value: centers.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0).toString(), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+                        { title: getCardLabel("Calls"), category: "calls", value: filteredCenters.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
                         { 
                             title: getCardLabel("Collection"), 
                             category: "collection",
-                            value: `₹${centers.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`, 
-                            subtext: `Admission: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment: ₹${centers.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
+                            value: `₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`, 
+                            subtext: `Admission: ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment: ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
                             icon: <FaRupeeSign />, 
                             color: "text-cyan-500", 
                             bg: "bg-cyan-500/10" 
