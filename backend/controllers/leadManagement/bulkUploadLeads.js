@@ -1,6 +1,12 @@
 import CampaignLead from "../../models/CampaignLead.js";
+import LeadManagement from "../../models/LeadManagement.js";
 import Campaign from "../../models/Campaign.js";
 import mongoose from "mongoose";
+import Class from "../../models/Master_data/Class.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
+import Boards from "../../models/Master_data/Boards.js";
+import Course from "../../models/Master_data/Courses.js";
+import Sources from "../../models/Master_data/Sources.js";
 
 /**
  * POST /lead-management/bulk-upload
@@ -21,6 +27,15 @@ export const bulkUploadLeads = async (req, res) => {
         const uploaderName = req.user?.name || req.user?.email || "Unknown";
         const uploaderId   = req.user?.id;
 
+        // Fetch all master data for resolution
+        const [allClasses, allCentres, allCourses, allBoards, allSources] = await Promise.all([
+            Class.find().lean(),
+            CentreSchema.find().lean(),
+            Course.find().lean(),
+            Boards.find().lean(),
+            Sources.find().lean()
+        ]);
+
         // Validate campaignId if provided
         let resolvedCampaignId = null;
         let campaignName = null;
@@ -39,11 +54,7 @@ export const bulkUploadLeads = async (req, res) => {
                 phoneNumber:        row.phoneNumber ? String(row.phoneNumber).trim() : "",
                 secondPhoneNumber:  row.secondPhoneNumber ? String(row.secondPhoneNumber).trim() : "",
                 schoolName:         row.schoolName || "",
-                source:             row.source || "Campaign",
                 targetExam:         row.targetExam || "",
-                leadType:           ["HOT LEAD","WARM LEAD","COLD LEAD","NEUTRAL LEAD","INVALID LEAD"].includes(row.leadType)
-                                        ? row.leadType
-                                        : undefined,
                 leadResponsibility: uploaderName,
                 createdBy:          uploaderId,
                 marketingBy:        uploaderName,
@@ -56,20 +67,65 @@ export const bulkUploadLeads = async (req, res) => {
                 doc.campaignFrom = campaignName;
             }
 
-            // Only add ObjectId refs if they look valid
-            if (row.className && mongoose.Types.ObjectId.isValid(row.className))
-                doc.className = row.className;
-            if (row.centre && mongoose.Types.ObjectId.isValid(row.centre))
-                doc.centre = row.centre;
-            // course: if it's a valid ObjectId, store as ref; otherwise store raw string in courseText
-            if (row.course) {
-                if (mongoose.Types.ObjectId.isValid(row.course))
-                    doc.course = row.course;
-                else if (typeof row.course === 'string' && row.course.trim())
-                    doc.courseText = row.course.trim();
+            // 1. Class resolution
+            if (row.className) {
+                if (mongoose.Types.ObjectId.isValid(row.className)) {
+                    doc.className = row.className;
+                } else {
+                    const matchedClass = allClasses.find(c => c.name && c.name.toLowerCase().trim() === String(row.className).toLowerCase().trim());
+                    if (matchedClass) doc.className = matchedClass._id;
+                }
             }
-            if (row.board && mongoose.Types.ObjectId.isValid(row.board))
-                doc.board = row.board;
+
+            // 2. Centre resolution
+            if (row.centre) {
+                if (mongoose.Types.ObjectId.isValid(row.centre)) {
+                    doc.centre = row.centre;
+                } else {
+                    const matchedCentre = allCentres.find(c => (c.centreName || c.name || "").toLowerCase().trim() === String(row.centre).toLowerCase().trim());
+                    if (matchedCentre) doc.centre = matchedCentre._id;
+                }
+            }
+
+            // 3. Board resolution
+            if (row.board) {
+                if (mongoose.Types.ObjectId.isValid(row.board)) {
+                    doc.board = row.board;
+                } else {
+                    const matchedBoard = allBoards.find(b => (b.boardName || b.boardCourse || b.name || "").toLowerCase().trim() === String(row.board).toLowerCase().trim());
+                    if (matchedBoard) doc.board = matchedBoard._id;
+                }
+            }
+
+            // 4. Source resolution (String matching against Sources master data sourceName)
+            if (row.source) {
+                const matchedSource = allSources.find(s => s.sourceName && s.sourceName.toLowerCase().trim() === String(row.source).toLowerCase().trim());
+                if (matchedSource) {
+                    doc.source = matchedSource.sourceName;
+                }
+            } else {
+                // If not provided at all, default fallback "Campaign" if it is in master data
+                const campaignSourceExists = allSources.some(s => s.sourceName && s.sourceName.toLowerCase().trim() === "campaign");
+                if (campaignSourceExists) doc.source = "Campaign";
+            }
+
+            // 5. Lead Type resolution (String matching against valid enum values)
+            if (row.leadType) {
+                const normalizedLeadType = String(row.leadType).toUpperCase().trim();
+                const validLeadTypes = ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'];
+                if (validLeadTypes.includes(normalizedLeadType)) {
+                    doc.leadType = normalizedLeadType;
+                }
+            }
+
+            // Course mapping (Directly map ObjectId if valid, or store raw string text)
+            if (row.course) {
+                if (mongoose.Types.ObjectId.isValid(row.course)) {
+                    doc.course = row.course;
+                } else if (typeof row.course === 'string' && row.course.trim()) {
+                    doc.courseText = row.course.trim();
+                }
+            }
 
             return doc;
         });
@@ -82,7 +138,12 @@ export const bulkUploadLeads = async (req, res) => {
             return res.status(400).json({ message: "All rows are missing the required 'name' and 'schoolName' fields." });
         }
 
-        const inserted = await CampaignLead.insertMany(valid, { ordered: false });
+        let inserted;
+        if (resolvedCampaignId) {
+            inserted = await CampaignLead.insertMany(valid, { ordered: false });
+        } else {
+            inserted = await LeadManagement.insertMany(valid, { ordered: false });
+        }
 
         return res.status(201).json({
             message:    `${inserted.length} lead(s) uploaded successfully.`,

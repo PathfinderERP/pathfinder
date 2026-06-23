@@ -58,20 +58,36 @@ export const getAllTelecallerAnalytics = async (req, res) => {
 
         // Filters - Synchronize with Lead Management Dashboard for consistency
         const user = req.user;
-        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(user.role?.toLowerCase().replace(/\s/g, ''));
+        const userRoleStr = (user.role || "").toLowerCase().replace(/\s+/g, "");
+        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(userRoleStr);
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge"];
+        const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         const baseLeadFilters = {};
 
         if (!isFullAccess) {
             const allowedCentreIds = (user.centres || []).map(id => id.toString());
-            if (allowedCentreIds.length === 0) return res.json({ performance: [], trends: [], admissionDetail: { bySource: [], byCenter: [] } });
-
-            if (centre) {
-                const requested = Array.isArray(centre) ? centre : [centre];
-                const valid = requested.filter(id => allowedCentreIds.includes(id.toString()));
-                baseLeadFilters.centre = { $in: (valid.length > 0 ? valid : allowedCentreIds).map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+            
+            if (isPrivileged) {
+                if (allowedCentreIds.length === 0) {
+                    return res.json({ performance: [], trends: [], admissionDetail: { bySource: [], byCenter: [] } });
+                }
+                if (centre) {
+                    const requested = Array.isArray(centre) ? centre : [centre];
+                    const valid = requested.filter(id => allowedCentreIds.includes(id.toString()));
+                    baseLeadFilters.centre = { $in: (valid.length > 0 ? valid : allowedCentreIds).map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+                } else {
+                    baseLeadFilters.centre = { $in: allowedCentreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+                }
             } else {
-                baseLeadFilters.centre = { $in: allowedCentreIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+                // Non-privileged: only restrict by centre if centre filter is explicitly requested
+                if (centre) {
+                    const requested = Array.isArray(centre) ? centre : [centre];
+                    const valid = allowedCentreIds.length > 0
+                        ? requested.filter(id => allowedCentreIds.includes(id.toString()))
+                        : requested;
+                    baseLeadFilters.centre = { $in: valid.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
+                }
             }
         } else if (centre) {
             const requested = Array.isArray(centre) ? centre : [centre];
@@ -97,13 +113,17 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             } else {
                 specificLeadMatch.leadResponsibility = { $regex: respRegex };
             }
+        } else if (!isFullAccess && !isPrivileged) {
+            // If no specific leadResponsibility is requested and user is non-privileged, restrict to their own leads
+            const escapedName = user.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const nameRegex = new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i");
+            specificLeadMatch.$or = [
+                { leadResponsibility: { $regex: nameRegex } },
+                { createdBy: user._id }
+            ];
         }
 
         // 1. Fetch Users (Telemetry Targets) - Respecting Access Control
-        const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge"];
-        const isPrivileged = privilegedRoles.includes(userRoleStr);
-
         let userQuery = {
             role: { $in: ['telecaller', 'counsellor', 'centralizedTelecaller', 'marketing', 'admin', 'superAdmin', 'superadmin', 'centerIncharge', 'zonalManager', 'HOD', 'hr', 'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'] },
             isActive: true
