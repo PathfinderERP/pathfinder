@@ -23,6 +23,7 @@ import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../cont
 import { getPlanners, createPlanner, updatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
 import { getCampaigns, createCampaign, deleteCampaign, updateCampaign } from "../../controllers/leadManagement/campaignController.js";
+import { pushCampaignLeads } from "../../controllers/leadManagement/pushCampaignLeads.js";
 import multer from "multer";
 import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
 
@@ -53,6 +54,7 @@ router.post("/planner/draft", requireAuth, saveDraftPlanner);
 
 router.get("/my-uploads", requireAuth, getMyUploads);
 router.post("/bulk-upload", requireAuth, bulkUploadLeads);
+router.post("/campaign-leads/push", requireAuth, pushCampaignLeads);
 router.post("/bulk-delete", requireAuth, bulkDeleteLeads);
 router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);
 router.post("/bulk-contacted", requireAuth, bulkContactedLeads);

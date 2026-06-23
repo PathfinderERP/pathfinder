@@ -1,17 +1,18 @@
-import LeadManagement from "../../models/LeadManagement.js";
+import CampaignLead from "../../models/CampaignLead.js";
+import Campaign from "../../models/Campaign.js";
 import mongoose from "mongoose";
 
 /**
  * POST /lead-management/bulk-upload
- * Body: { leads: [ { name, email, phoneNumber, secondPhoneNumber, schoolName, className,
- *                    centre, course, board, source, targetExam, leadType } ] }
+ * Body: { leads: [...], campaignId?: string }
  *
  * leadResponsibility is automatically set to the logged-in user's name.
  * createdBy is set to the logged-in user's _id.
+ * If campaignId is provided and valid, it is linked to every lead via the campaign field.
  */
 export const bulkUploadLeads = async (req, res) => {
     try {
-        const { leads } = req.body;
+        const { leads, campaignId } = req.body;
 
         if (!Array.isArray(leads) || leads.length === 0) {
             return res.status(400).json({ message: "No lead data provided." });
@@ -20,6 +21,17 @@ export const bulkUploadLeads = async (req, res) => {
         const uploaderName = req.user?.name || req.user?.email || "Unknown";
         const uploaderId   = req.user?.id;
 
+        // Validate campaignId if provided
+        let resolvedCampaignId = null;
+        let campaignName = null;
+        if (campaignId && mongoose.Types.ObjectId.isValid(campaignId)) {
+            const campaignExists = await Campaign.findById(campaignId).lean();
+            if (campaignExists) {
+                resolvedCampaignId = campaignId;
+                campaignName = campaignExists.adName;
+            }
+        }
+
         const prepared = leads.map((row) => {
             const doc = {
                 name:               (row.name || "").trim(),
@@ -27,17 +39,22 @@ export const bulkUploadLeads = async (req, res) => {
                 phoneNumber:        row.phoneNumber ? String(row.phoneNumber).trim() : "",
                 secondPhoneNumber:  row.secondPhoneNumber ? String(row.secondPhoneNumber).trim() : "",
                 schoolName:         row.schoolName || "",
-                source:             row.source || "",
+                source:             row.source || "Campaign",
                 targetExam:         row.targetExam || "",
                 leadType:           ["HOT LEAD","WARM LEAD","COLD LEAD","NEUTRAL LEAD","INVALID LEAD"].includes(row.leadType)
                                         ? row.leadType
                                         : undefined,
-                // The uploader IS the lead responsibility person
                 leadResponsibility: uploaderName,
                 createdBy:          uploaderId,
                 marketingBy:        uploaderName,
                 assignedAt:         new Date(),
             };
+
+            // Link to campaign if valid
+            if (resolvedCampaignId) {
+                doc.campaign = resolvedCampaignId;
+                doc.campaignFrom = campaignName;
+            }
 
             // Only add ObjectId refs if they look valid
             if (row.className && mongoose.Types.ObjectId.isValid(row.className))
@@ -62,16 +79,17 @@ export const bulkUploadLeads = async (req, res) => {
         const skipped = prepared.length - valid.length;
 
         if (valid.length === 0) {
-            return res.status(400).json({ message: "All rows are missing the required 'name' field." });
+            return res.status(400).json({ message: "All rows are missing the required 'name' and 'schoolName' fields." });
         }
 
-        const inserted = await LeadManagement.insertMany(valid, { ordered: false });
+        const inserted = await CampaignLead.insertMany(valid, { ordered: false });
 
         return res.status(201).json({
-            message:  `${inserted.length} lead(s) uploaded successfully.`,
-            total:    inserted.length,
+            message:    `${inserted.length} lead(s) uploaded successfully.`,
+            total:      inserted.length,
             skipped,
             uploadedBy: uploaderName,
+            campaign:   resolvedCampaignId || null,
         });
     } catch (err) {
         console.error("Bulk upload error:", err);

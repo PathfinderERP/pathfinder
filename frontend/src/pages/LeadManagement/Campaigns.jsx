@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
-import { FaArrowLeft, FaBullhorn, FaSync, FaTimes, FaEye, FaEdit } from "react-icons/fa";
+import { FaArrowLeft, FaBullhorn, FaSync, FaTimes, FaEye, FaEdit, FaUpload } from "react-icons/fa";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -397,25 +397,33 @@ export default function Campaigns() {
                                                 <td className="py-4 px-2 text-right font-bold text-cyan-500">{c.leads}</td>
                                                 <td className="py-4 px-2 text-right font-mono">{formatCurrency(cpl)}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-green-500">{c.admission}</td>
-                                                <td className="py-4 pl-2 text-center flex items-center justify-center gap-1.5">
-                                                    <button
-                                                        onClick={() => handleOpenViewEdit(c)}
-                                                        className="px-2.5 py-1.5 rounded-[4px] border border-cyan-500 text-cyan-500 hover:bg-cyan-500 hover:text-white transition-all text-[10px] font-black uppercase active:scale-95 cursor-pointer flex items-center gap-1"
-                                                    >
-                                                        <FaEye size={10} /> View
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenViewEdit(c)}
-                                                        className="px-2.5 py-1.5 rounded-[4px] border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all text-[10px] font-black uppercase active:scale-95 cursor-pointer flex items-center gap-1"
-                                                    >
-                                                        <FaEdit size={10} /> Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(c._id)}
-                                                        className="px-2.5 py-1.5 rounded-[4px] border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase active:scale-95 cursor-pointer"
-                                                    >
-                                                        Delete
-                                                    </button>
+                                                <td className="py-4 pl-2 text-center">
+                                                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                                        <button
+                                                            onClick={() => handleOpenViewEdit(c)}
+                                                            className="px-2.5 py-1.5 rounded-[4px] border border-cyan-500 text-cyan-500 hover:bg-cyan-500 hover:text-white transition-all text-[10px] font-black uppercase active:scale-95 cursor-pointer flex items-center gap-1"
+                                                        >
+                                                            <FaEye size={10} /> View
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenViewEdit(c)}
+                                                            className="px-2.5 py-1.5 rounded-[4px] border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all text-[10px] font-black uppercase active:scale-95 cursor-pointer flex items-center gap-1"
+                                                        >
+                                                            <FaEdit size={10} /> Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => navigate(`/lead-management/campaigns/${c._id}/upload-leads`, { state: { campaignName: c.adName, campaignId: c._id } })}
+                                                            className="px-2.5 py-1.5 rounded-[4px] border border-emerald-500 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase active:scale-95 cursor-pointer flex items-center gap-1"
+                                                        >
+                                                            <FaUpload size={10} /> Upload Leads
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(c._id)}
+                                                            className="px-2.5 py-1.5 rounded-[4px] border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase active:scale-95 cursor-pointer"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );

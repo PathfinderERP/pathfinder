@@ -161,6 +161,9 @@ const leadManagementSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Campaign',
         default: null
+    },
+    campaignFrom: {
+        type: String
     }
 }, { timestamps: true });
 

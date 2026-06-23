@@ -1564,6 +1564,7 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Source</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Campaign From</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[350px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
@@ -1699,6 +1700,11 @@ const LeadManagementContent = () => {
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                     {lead.source || "N/A"}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                    {lead.campaignFrom || "—"}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

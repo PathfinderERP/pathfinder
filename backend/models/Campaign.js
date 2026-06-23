@@ -39,6 +39,10 @@ const campaignSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    leads: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 
