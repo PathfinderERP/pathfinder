@@ -112,7 +112,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 const leadUsers = (userData.users || []).filter(u => {
                     const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
                     const isActive = u.isActive !== false;
-                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin'];
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'];
                     return isActive && allowedRoles.includes(r);
                 });
 
@@ -437,7 +437,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hod'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
+                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
                                 <CustomSearchSelect
                                     options={telecallers.map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))}
                                     value={formData.leadResponsibility}
