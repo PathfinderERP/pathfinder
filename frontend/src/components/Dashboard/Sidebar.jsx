@@ -674,6 +674,11 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                 }).join(", ");
                             })() : "Role"}
                         </p>
+                        {user.designation && (
+                            <p className="text-[10px] text-cyan-500 dark:text-cyan-400 font-medium truncate mt-0.5">
+                                {user.designation}
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

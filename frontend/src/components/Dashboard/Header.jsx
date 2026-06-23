@@ -95,6 +95,26 @@ const Header = ({ toggleSidebar }) => {
         };
 
         window.addEventListener('storage', handleStorageChange);
+
+        // Fetch fresh profile so designation & other fields stay current
+        const fetchProfile = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) return;
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.user) {
+                        localStorage.setItem("user", JSON.stringify(data.user));
+                        setUserInfo(data.user);
+                    }
+                }
+            } catch (e) { /* silently ignore */ }
+        };
+        fetchProfile();
+
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
@@ -303,6 +323,9 @@ const Header = ({ toggleSidebar }) => {
                             <div className="flex flex-col">
                                 <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
                                 <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
+                                {userInfo.designation && (
+                                    <span className="text-[10px] text-cyan-500 dark:text-cyan-400 font-medium">{userInfo.designation}</span>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -316,6 +339,9 @@ const Header = ({ toggleSidebar }) => {
                             <div className="flex flex-col">
                                 <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
                                 <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
+                                {userInfo.designation && (
+                                    <span className="text-[10px] text-cyan-500 dark:text-cyan-400 font-medium">{userInfo.designation}</span>
+                                )}
                             </div>
                         </div>
                     )}

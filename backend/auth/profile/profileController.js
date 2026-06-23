@@ -16,11 +16,17 @@ export const getMyProfile = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // Fetch profile image from Employee record
+        // Fetch profile image and designation from Employee record
         const userObj = user.toObject();
-        const employee = await Employee.findOne({ user: user._id });
-        if (employee && employee.profileImage) {
-            userObj.profileImage = await getSignedFileUrl(employee.profileImage);
+        const employee = await Employee.findOne({ user: user._id }).populate("designation", "name");
+        if (employee) {
+            if (employee.profileImage) {
+                userObj.profileImage = await getSignedFileUrl(employee.profileImage);
+            }
+            // Attach designation name from Employee record (overrides any string in User model)
+            if (employee.designation && employee.designation.name) {
+                userObj.designation = employee.designation.name;
+            }
         }
 
         res.status(200).json({
