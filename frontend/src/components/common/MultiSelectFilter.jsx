@@ -221,10 +221,10 @@ const MultiSelectFilter = ({ options: rawOptions, selectedValues, onChange, plac
                                     <div
                                         key={option.value}
                                         onClick={() => toggleOption(option.value)}
-                                        className={`px-4 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${isSelected ? 'bg-cyan-500/10 text-cyan-400' : `${isDark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}`}
+                                        className={`px-4 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${isSelected ? `bg-cyan-500/10 ${isDark ? 'text-cyan-400' : 'text-cyan-700'}` : `${isDark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}`}
                                     >
-                                        <span className="text-sm">{option.label}</span>
-                                        {isSelected && <FaCheck size={12} className="text-cyan-400" />}
+                                        <span className="text-sm font-semibold">{option.label}</span>
+                                        {isSelected && <FaCheck size={12} className={isDark ? "text-cyan-400" : "text-cyan-600"} />}
                                     </div>
                                 );
                             })

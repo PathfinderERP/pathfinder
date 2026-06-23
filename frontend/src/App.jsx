@@ -77,6 +77,8 @@ import UploadLeads from "./pages/LeadManagement/UploadLeads";
 // ... [existing routes]
 // ... (removed misplaced routes)
 import CarryForward from "./pages/CarryForward";
+import Tasks from "./pages/TaskWorkflow/Tasks";
+import AssignTask from "./pages/TaskWorkflow/AssignTask";
 import CourseTransfer from "./pages/CourseTransfer";
 import DocumentCenter from "./pages/Employee/DocumentCenter";
 // Academics Pages
@@ -368,6 +370,8 @@ function App() {
         <Route path="/edit-board-subjects/:admissionId" element={<ProtectedRoute><EditBoardSubjects /></ProtectedRoute>} />
         <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         {/* <Route path="/system-logs" element={<ProtectedRoute><SystemLogs /></ProtectedRoute>} /> */}
+        <Route path="/task-workflow/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+        <Route path="/task-workflow/assign-task" element={<ProtectedRoute allowedRoles={['superadmin']}><AssignTask /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>

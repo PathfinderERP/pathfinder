@@ -89,6 +89,7 @@ import notificationRoutes from "./routes/notification.routes.js";
 // import systemLogRoutes from "./routes/systemLog.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
+import taskWorkflowRoutes from "./routes/taskWorkflow/taskWorkflow.routes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -212,6 +213,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/category",categoryRoutes);
+app.use("/api/task-workflow", taskWorkflowRoutes);
 // app.use("/api/system-logs", systemLogRoutes);
 
 

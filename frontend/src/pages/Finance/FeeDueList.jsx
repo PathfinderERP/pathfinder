@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
+import { useTheme } from "../../context/ThemeContext";
 import {
     FaSearch, FaFilter, FaDownload, FaSyncAlt, FaCalendarAlt,
     FaUser, FaExclamationCircle, FaCheckCircle, FaClock,
@@ -8,6 +9,8 @@ import {
 import { toast } from "react-toastify";
 
 const FeeDueList = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === "dark";
     const [dueList, setDueList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ critical: 0, overdue: 0, dueToday: 0 });
@@ -205,7 +208,7 @@ const FeeDueList = () => {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
+                        <h1 className={`text-4xl font-black italic uppercase tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Fee Due <span className="text-orange-500">List</span>
                         </h1>
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
@@ -215,7 +218,9 @@ const FeeDueList = () => {
                     <div className="flex gap-4">
                         <button
                             onClick={handleRefresh}
-                            className="px-6 py-3 bg-gray-800 text-white font-black uppercase text-sm tracking-widest rounded-xl hover:bg-gray-700 transition-all flex items-center gap-2"
+                            className={`px-6 py-3 font-black uppercase text-sm tracking-widest rounded-xl transition-all flex items-center gap-2 ${
+                                isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                            }`}
                         >
                             <FaSyncAlt /> Refresh
                         </button>
@@ -230,25 +235,33 @@ const FeeDueList = () => {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-gradient-to-br from-red-500/20 to-transparent border border-red-500/20 p-6 rounded-2xl relative overflow-hidden group">
+                    <div className={`bg-gradient-to-br from-red-500/10 to-transparent border p-6 rounded-2xl relative overflow-hidden group ${
+                        isDarkMode ? 'bg-[#131619]/40 border-red-500/20' : 'bg-red-500/[0.03] border-red-500/10'
+                    }`}>
                         <FaExclamationCircle className="absolute -right-4 -bottom-4 text-8xl text-red-500/10 group-hover:scale-110 transition-transform" />
                         <div className="text-red-500 text-xs font-black uppercase tracking-widest mb-2">Critical (7+ Days Overdue)</div>
-                        <div className="text-5xl font-black text-white">{stats.critical}</div>
+                        <div className={`text-5xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats.critical}</div>
                     </div>
-                    <div className="bg-gradient-to-br from-orange-500/20 to-transparent border border-orange-500/20 p-6 rounded-2xl relative overflow-hidden group">
+                    <div className={`bg-gradient-to-br from-orange-500/10 to-transparent border p-6 rounded-2xl relative overflow-hidden group ${
+                        isDarkMode ? 'bg-[#131619]/40 border-orange-500/20' : 'bg-orange-500/[0.03] border-orange-500/10'
+                    }`}>
                         <FaClock className="absolute -right-4 -bottom-4 text-8xl text-orange-500/10 group-hover:scale-110 transition-transform" />
                         <div className="text-orange-500 text-xs font-black uppercase tracking-widest mb-2">Overdue (1-7 Days)</div>
-                        <div className="text-5xl font-black text-white">{stats.overdue}</div>
+                        <div className={`text-5xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats.overdue}</div>
                     </div>
-                    <div className="bg-gradient-to-br from-yellow-500/20 to-transparent border border-yellow-500/20 p-6 rounded-2xl relative overflow-hidden group">
+                    <div className={`bg-gradient-to-br from-yellow-500/10 to-transparent border p-6 rounded-2xl relative overflow-hidden group ${
+                        isDarkMode ? 'bg-[#131619]/40 border-yellow-500/20' : 'bg-yellow-500/[0.03] border-yellow-500/10'
+                    }`}>
                         <FaCalendarAlt className="absolute -right-4 -bottom-4 text-8xl text-yellow-500/10 group-hover:scale-110 transition-transform" />
                         <div className="text-yellow-500 text-xs font-black uppercase tracking-widest mb-2">Due Today</div>
-                        <div className="text-5xl font-black text-white">{stats.dueToday}</div>
+                        <div className={`text-5xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats.dueToday}</div>
                     </div>
                 </div>
 
                 {/* Filter Section */}
-                <div className="bg-[#131619] border border-gray-800 rounded-2xl p-6 mb-8">
+                <div className={`border rounded-2xl p-6 mb-8 transition-colors ${
+                    isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                }`}>
                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                         <div className="md:col-span-2 relative group">
                             <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-orange-500 transition-colors" />
@@ -258,18 +271,26 @@ const FeeDueList = () => {
                                 value={filters.searchTerm}
                                 onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
                                 onKeyPress={(e) => e.key === "Enter" && fetchDueList()}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 pl-12 pr-4 text-gray-200 font-bold text-xs uppercase tracking-widest outline-none focus:border-orange-500/50 transition-all"
+                                className={`w-full border rounded-xl py-3 pl-12 pr-4 font-bold text-xs uppercase tracking-widest outline-none transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-800 focus:border-orange-500/50 focus:bg-white'
+                                }`}
                             />
                         </div>
                         <div className="relative">
                             <select
                                 value={filters.centre}
                                 onChange={(e) => setFilters({ ...filters, centre: e.target.value })}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-200 font-bold text-xs uppercase outline-none focus:border-orange-500/50 transition-all appearance-none"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs uppercase outline-none transition-all appearance-none ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-805 focus:border-orange-500/50'
+                                }`}
                             >
-                                <option value="">Select Centre</option>
+                                <option value="" className={isDarkMode ? 'bg-[#131619] text-gray-200' : 'bg-white text-gray-800'}>Select Centre</option>
                                 {centres.map((c, i) => (
-                                    <option key={i} value={c.centreName}>{c.centreName}</option>
+                                    <option key={i} value={c.centreName} className={isDarkMode ? 'bg-[#131619] text-gray-200' : 'bg-white text-gray-800'}>{c.centreName}</option>
                                 ))}
                             </select>
                         </div>
@@ -277,11 +298,15 @@ const FeeDueList = () => {
                             <select
                                 value={filters.course}
                                 onChange={(e) => setFilters({ ...filters, course: e.target.value })}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-200 font-bold text-xs uppercase outline-none focus:border-orange-500/50 transition-all appearance-none"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs uppercase outline-none transition-all appearance-none ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-805 focus:border-orange-500/50'
+                                }`}
                             >
-                                <option value="">Select Course</option>
+                                <option value="" className={isDarkMode ? 'bg-[#131619] text-gray-200' : 'bg-white text-gray-800'}>Select Course</option>
                                 {courses.map((c, i) => (
-                                    <option key={i} value={c._id}>{c.courseName}</option>
+                                    <option key={i} value={c._id} className={isDarkMode ? 'bg-[#131619] text-gray-200' : 'bg-white text-gray-800'}>{c.courseName}</option>
                                 ))}
                             </select>
                         </div>
@@ -289,11 +314,15 @@ const FeeDueList = () => {
                             <select
                                 value={filters.department}
                                 onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-                                className="w-full bg-black/40 border border-gray-800 rounded-xl py-3 px-4 text-gray-200 font-bold text-xs uppercase outline-none focus:border-orange-500/50 transition-all appearance-none"
+                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs uppercase outline-none transition-all appearance-none ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-805 focus:border-orange-500/50'
+                                }`}
                             >
-                                <option value="">Select Department</option>
+                                <option value="" className={isDarkMode ? 'bg-[#131619] text-gray-200' : 'bg-white text-gray-800'}>Select Department</option>
                                 {departments.map((d, i) => (
-                                    <option key={i} value={d._id}>{d.departmentName}</option>
+                                    <option key={i} value={d._id} className={isDarkMode ? 'bg-[#131619] text-gray-200' : 'bg-white text-gray-800'}>{d.departmentName}</option>
                                 ))}
                             </select>
                         </div>
@@ -311,7 +340,11 @@ const FeeDueList = () => {
                                 type="date"
                                 value={filters.startDate}
                                 onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                                className="flex-1 bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-gray-200 font-bold text-xs outline-none focus:border-orange-500/50 transition-all"
+                                className={`flex-1 border rounded-xl py-2 px-4 font-bold text-xs outline-none transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-800 focus:border-orange-500/50'
+                                }`}
                             />
                         </div>
                         <div className="flex items-center gap-4">
@@ -320,11 +353,17 @@ const FeeDueList = () => {
                                 type="date"
                                 value={filters.endDate}
                                 onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                                className="flex-1 bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-gray-200 font-bold text-xs outline-none focus:border-orange-500/50 transition-all"
+                                className={`flex-1 border rounded-xl py-2 px-4 font-bold text-xs outline-none transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-800 focus:border-orange-500/50'
+                                }`}
                             />
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 bg-black/20 p-4 rounded-xl border border-gray-800/30">
+                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 rounded-xl border ${
+                        isDarkMode ? 'bg-black/20 border-gray-800/30' : 'bg-gray-50 border-gray-200/50'
+                    }`}>
                         <div className="flex items-center gap-4">
                             <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest w-20">Min Due:</span>
                             <input
@@ -332,7 +371,11 @@ const FeeDueList = () => {
                                 placeholder="Min Amount"
                                 value={filters.minAmount}
                                 onChange={(e) => setFilters({ ...filters, minAmount: e.target.value })}
-                                className="flex-1 bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-gray-200 font-bold text-xs outline-none focus:border-orange-500/50 transition-all"
+                                className={`flex-1 border rounded-xl py-2 px-4 font-bold text-xs outline-none transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-800 focus:border-orange-500/50'
+                                }`}
                             />
                         </div>
                         <div className="flex items-center gap-4">
@@ -342,17 +385,25 @@ const FeeDueList = () => {
                                 placeholder="Max Amount"
                                 value={filters.maxAmount}
                                 onChange={(e) => setFilters({ ...filters, maxAmount: e.target.value })}
-                                className="flex-1 bg-black/40 border border-gray-800 rounded-xl py-2 px-4 text-gray-200 font-bold text-xs outline-none focus:border-orange-500/50 transition-all"
+                                className={`flex-1 border rounded-xl py-2 px-4 font-bold text-xs outline-none transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-gray-200 focus:border-orange-500/50' 
+                                        : 'bg-white border-gray-200 text-gray-800 focus:border-orange-500/50'
+                                }`}
                             />
                         </div>
                     </div>
                 </div>
 
                 {/* Table Section */}
-                <div className="bg-[#131619] border border-gray-800 rounded-[2rem] overflow-hidden shadow-2xl">
+                <div className={`border rounded-[2rem] overflow-hidden shadow-2xl transition-colors ${
+                    isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'
+                }`}>
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-900/50 border-b border-gray-800 text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                            <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-widest ${
+                                isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-55 border-gray-200'
+                            }`}>
                                 <th className="p-6">Admission No.</th>
                                 <th className="p-6">Student Details</th>
                                 <th className="p-6">Course / Centre</th>
@@ -363,7 +414,7 @@ const FeeDueList = () => {
                                 <th className="p-6 text-right">Action</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-800">
+                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                             {loading ? (
                                 <tr>
                                     <td colSpan="8" className="p-20 text-center">
@@ -372,28 +423,32 @@ const FeeDueList = () => {
                                 </tr>
                             ) : dueList.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                    <td colSpan="8" className={`p-20 text-center font-bold uppercase tracking-widest text-xs ${
+                                        isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                                    }`}>
                                         No overdue payments found matching filters
                                     </td>
                                 </tr>
                             ) : (
                                 dueList.map((item, index) => (
-                                    <tr key={index} className="hover:bg-orange-500/[0.02] transition-colors group">
+                                    <tr key={index} className={`transition-colors group ${
+                                        isDarkMode ? 'hover:bg-orange-500/[0.02]' : 'hover:bg-gray-50'
+                                    }`}>
                                         <td className="p-6">
                                             <span className="text-orange-500 font-black">{item.admissionNumber}</span>
                                         </td>
                                         <td className="p-6">
-                                            <div className="font-bold text-white">{item.studentName}</div>
+                                            <div className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.studentName}</div>
                                             <div className="text-[10px] text-gray-500 uppercase">{item.phoneNumber}</div>
                                         </td>
                                         <td className="p-6">
-                                            <div className="text-gray-300 font-bold text-xs">{item.course}</div>
+                                            <div className={`font-bold text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{item.course}</div>
                                             <div className="text-[9px] text-gray-500 uppercase tracking-tighter">{item.department}</div>
-                                            <div className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-widest">{item.centre}</div>
+                                            <div className={`text-[10px] uppercase font-bold mt-1 tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{item.centre}</div>
                                         </td>
-                                        <td className="p-6 text-white font-black">₹{item.amount.toLocaleString()}</td>
-                                        <td className="p-6 text-gray-300">
-                                            <div className="font-bold text-xs">{new Date(item.dueDate).toLocaleDateString('en-IN')}</div>
+                                        <td className={`p-6 font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{item.amount.toLocaleString()}</td>
+                                        <td className="p-6 text-gray-350">
+                                            <div className={`font-bold text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{new Date(item.dueDate).toLocaleDateString('en-IN')}</div>
                                             <div className="text-[9px] text-red-500 font-black uppercase">Inst # {item.installmentNumber}</div>
                                         </td>
                                         <td className="p-6">
@@ -429,16 +484,20 @@ const FeeDueList = () => {
                 {/* Student Details Popup Modal */}
                 {selectedStudent && financialData && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className="bg-[#131619] border border-gray-800 w-full max-w-6xl max-h-[90vh] rounded-[2rem] overflow-hidden flex flex-col relative animate-in fade-in zoom-in duration-300">
+                        <div className={`border w-full max-w-6xl max-h-[90vh] rounded-[2rem] overflow-hidden flex flex-col relative animate-in fade-in zoom-in duration-300 ${
+                            isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-2xl'
+                        }`}>
                             {/* Modal Header */}
-                            <div className="p-8 border-b border-gray-800 flex items-start justify-between bg-gradient-to-r from-orange-500/10 to-transparent">
+                            <div className={`p-8 border-b flex items-start justify-between bg-gradient-to-r from-orange-500/10 to-transparent ${
+                                isDarkMode ? 'border-gray-800' : 'border-gray-200'
+                            }`}>
                                 <div>
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 text-xl font-black">
                                             {selectedStudent.name.charAt(0)}
                                         </div>
                                         <div>
-                                            <h2 className="text-2xl font-black text-white">{selectedStudent.name}</h2>
+                                            <h2 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStudent.name}</h2>
                                             <div className="flex items-center gap-4 text-xs text-gray-500 font-bold uppercase tracking-widest">
                                                 <span className="flex items-center gap-1"><FaEnvelope className="text-orange-500" /> {selectedStudent.email}</span>
                                                 <span className="flex items-center gap-1"><FaPhone className="text-orange-500" /> {selectedStudent.mobile}</span>
@@ -451,7 +510,9 @@ const FeeDueList = () => {
                                         setSelectedStudent(null);
                                         setFinancialData(null);
                                     }}
-                                    className="p-3 bg-gray-800/50 text-gray-400 rounded-full hover:bg-red-500 hover:text-white transition-all"
+                                    className={`p-3 rounded-full hover:bg-red-500 hover:text-white transition-all ${
+                                        isDarkMode ? 'bg-gray-800/50 text-gray-400' : 'bg-gray-100 text-gray-500 hover:text-white'
+                                    }`}
                                 >
                                     <FaSyncAlt className="rotate-45" />
                                 </button>
@@ -461,30 +522,32 @@ const FeeDueList = () => {
                             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                                 {/* Summary Stats */}
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                                    <div className="bg-black/40 border border-gray-800 rounded-xl p-4">
+                                    <div className={`border rounded-xl p-4 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                         <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Fees</div>
-                                        <div className="text-xl font-black text-white">₹{financialData.summary.totalFeesAcrossAll.toLocaleString()}</div>
+                                        <div className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{financialData.summary.totalFeesAcrossAll.toLocaleString()}</div>
                                     </div>
-                                    <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-4">
+                                    <div className={`border rounded-xl p-4 ${isDarkMode ? 'bg-black/40 border-emerald-500/20' : 'bg-emerald-500/[0.02] border-emerald-500/20'}`}>
                                         <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Paid</div>
                                         <div className="text-xl font-black text-emerald-500">₹{financialData.summary.totalPaidAcrossAll.toLocaleString()}</div>
                                     </div>
-                                    <div className="bg-black/40 border border-orange-500/20 rounded-xl p-4">
+                                    <div className={`border rounded-xl p-4 ${isDarkMode ? 'bg-black/40 border-orange-500/20' : 'bg-orange-500/[0.02] border-orange-500/20'}`}>
                                         <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Remaining</div>
                                         <div className="text-xl font-black text-orange-500">₹{financialData.summary.totalRemainingAcrossAll.toLocaleString()}</div>
                                     </div>
-                                    <div className="bg-black/40 border border-gray-800 rounded-xl p-4">
+                                    <div className={`border rounded-xl p-4 ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                         <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Centre</div>
-                                        <div className="text-xl font-black text-white">{selectedStudent.centre}</div>
+                                        <div className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedStudent.centre}</div>
                                     </div>
                                 </div>
 
                                 {/* Admissions Breakdown */}
                                 {financialData.admissions.map((adm, i) => (
-                                    <div key={i} className="mb-8 last:mb-0 border border-gray-800 rounded-2xl p-6 bg-black/20">
-                                        <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-800">
+                                    <div key={i} className={`mb-8 last:mb-0 border rounded-2xl p-6 ${
+                                        isDarkMode ? 'border-gray-800 bg-black/20' : 'border-gray-200 bg-gray-50/50'
+                                    }`}>
+                                        <div className={`flex items-center justify-between mb-6 pb-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                             <div>
-                                                <h3 className="text-xl font-black text-white uppercase italic">{adm.course}</h3>
+                                                <h3 className={`text-xl font-black uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{adm.course}</h3>
                                                 <div className="text-xs text-orange-500 font-bold uppercase tracking-widest mt-1">
                                                     Admission No: {adm.admissionNumber} • Status: {adm.paymentStatus}
                                                 </div>
@@ -501,19 +564,19 @@ const FeeDueList = () => {
                                                 <h4 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                                                     <FaFileInvoice className="text-orange-500" /> Installment Breakdown
                                                 </h4>
-                                                <div className="bg-black/40 rounded-xl overflow-hidden border border-gray-800">
+                                                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-white border-gray-200'}`}>
                                                     <table className="w-full text-left text-[10px]">
                                                         <thead>
-                                                            <tr className="bg-gray-900/50 border-b border-gray-800 text-gray-500 uppercase font-black">
+                                                            <tr className={`border-b text-gray-500 uppercase font-black ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                                                                 <th className="p-3">#</th>
                                                                 <th className="p-3">Due Date</th>
                                                                 <th className="p-3">Amount</th>
                                                                 <th className="p-3">Status</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody className="divide-y divide-gray-800">
+                                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                                             {adm.paymentBreakdown.map((p, pi) => (
-                                                                <tr key={pi} className="hover:bg-white/5 transition-colors">
+                                                                <tr key={pi} className={`transition-colors ${isDarkMode ? 'hover:bg-white/5 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
                                                                     <td className="p-3 font-bold text-orange-500">{p.installmentNumber}</td>
                                                                     <td className="p-3 font-bold">{new Date(p.dueDate).toLocaleDateString('en-IN')}</td>
                                                                     <td className="p-3 font-bold">₹{p.amount.toLocaleString()}</td>
@@ -530,20 +593,20 @@ const FeeDueList = () => {
                                                 <h4 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                                                     <FaMoneyBillWave className="text-emerald-500" /> Transaction History
                                                 </h4>
-                                                <div className="bg-black/40 rounded-xl overflow-hidden border border-gray-800">
+                                                <div className={`rounded-xl overflow-hidden border ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-white border-gray-200'}`}>
                                                     <table className="w-full text-left text-[10px]">
                                                         <thead>
-                                                            <tr className="bg-gray-900/50 border-b border-gray-800 text-gray-500 uppercase font-black">
+                                                            <tr className={`border-b text-gray-500 uppercase font-black ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                                                                 <th className="p-3">Date</th>
                                                                 <th className="p-3">Amount</th>
                                                                 <th className="p-3">Method</th>
                                                                 <th className="p-3">Recorded By</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody className="divide-y divide-gray-800">
+                                                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                                             {adm.paymentHistory && adm.paymentHistory.length > 0 ? (
                                                                 adm.paymentHistory.map((h, hi) => (
-                                                                    <tr key={hi} className="hover:bg-white/5 transition-colors">
+                                                                    <tr key={hi} className={`transition-colors ${isDarkMode ? 'hover:bg-white/5 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
                                                                         <td className="p-3 font-bold">{new Date(h.createdAt).toLocaleDateString('en-IN')}</td>
                                                                         <td className="p-3 font-bold text-emerald-500">₹{h.paidAmount.toLocaleString()}</td>
                                                                         <td className="p-3 font-bold">{h.paymentMethod}</td>
@@ -552,7 +615,7 @@ const FeeDueList = () => {
                                                                 ))
                                                             ) : (
                                                                 <tr>
-                                                                    <td colSpan="4" className="p-6 text-center text-gray-600 font-bold uppercase tracking-widest text-[8px]">No transactions yet</td>
+                                                                    <td colSpan="4" className="p-6 text-center text-gray-400 font-bold uppercase tracking-widest text-[8px]">No transactions yet</td>
                                                                 </tr>
                                                             )}
                                                         </tbody>
@@ -565,13 +628,17 @@ const FeeDueList = () => {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className="p-6 border-t border-gray-800 flex justify-end gap-4 bg-black/40">
+                            <div className={`p-6 border-t flex justify-end gap-4 ${
+                                isDarkMode ? 'border-gray-800 bg-black/40' : 'border-gray-200 bg-gray-50'
+                            }`}>
                                 <button
                                     onClick={() => {
                                         setSelectedStudent(null);
                                         setFinancialData(null);
                                     }}
-                                    className="px-8 py-3 bg-gray-800 text-gray-300 font-black uppercase text-xs tracking-widest rounded-xl hover:bg-gray-700 transition-all"
+                                    className={`px-8 py-3 font-black uppercase text-xs tracking-widest rounded-xl transition-all ${
+                                        isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
                                 >
                                     Close Window
                                 </button>

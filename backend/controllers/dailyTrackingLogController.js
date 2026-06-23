@@ -141,7 +141,9 @@ const getLogsDataHelper = async (req) => {
         centerincharge: ["centerIncharge"],
         assistantzonalmanager: ["assistantZonalManager"],
         assistantcenterincharge: ["assistantCenterIncharge"],
-        supportstaff: ["supportStaff"]
+        supportstaff: ["supportStaff"],
+        hod: ["HOD", "hod"],
+        rm: ["RM", "rm"]
     };
 
     // Handle multi-select roles
@@ -332,11 +334,25 @@ const getDisplayRoleName = (role) => {
     if (!role) return "Employee";
     const rStr = Array.isArray(role) ? role.join(", ") : role;
     const normalized = rStr.toLowerCase();
+    if (normalized === "superadmin") return "SuperAdmin";
+    if (normalized === "admin") return "Admin";
+    if (normalized === "teacher") return "Teacher";
+    if (normalized === "telecaller" || normalized === "centralizedtelecaller") return "Telecaller";
+    if (normalized === "counsellor") return "Counsellor";
+    if (normalized === "marketing") return "Marketing";
+    if (normalized === "centerincharge" || normalized === "centreincharge") return "Center Incharge";
+    if (normalized === "zonalmanager") return "Zonal Manager";
+    if (normalized === "hod") return "HOD";
+    if (normalized === "accounts") return "Accounts";
+    if (normalized === "coordinator") return "Coordinator";
+    if (normalized === "digital") return "Digital";
     if (normalized === "assistantzonalmanager") return "Assistant Zonal Manager";
     if (normalized === "assistantcenterincharge") return "Assistant Center Incharge";
     if (normalized === "supportstaff") return "Support Staff";
+    if (normalized === "hr") return "HR";
+
     if (normalized.includes("admin")) {
-        if (normalized.includes("super")) return "Superadmin";
+        if (normalized.includes("super")) return "SuperAdmin";
         return "Admin";
     }
     if (normalized.includes("coordinator")) return "Coordinator";
@@ -348,7 +364,6 @@ const getDisplayRoleName = (role) => {
     if (normalized.includes("counsellor")) return "Counsellor";
     if (normalized.includes("teacher")) return "Teacher";
     if (normalized.includes("zonal") && normalized.includes("manager")) return "Zonal Manager";
-    if (normalized === "zonalmanager") return "Zonal Manager";
     return rStr.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 };
 

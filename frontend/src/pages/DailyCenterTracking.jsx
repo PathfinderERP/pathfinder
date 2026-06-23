@@ -177,6 +177,7 @@ const DailyCenterTracking = () => {
                         (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name))
                     )
                     : [];
+                filteredData.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
                 setCenters(filteredData);
             } else {
                 toast.error("Failed to fetch centers");

@@ -98,6 +98,53 @@ const DailyTrackingLog = () => {
         ? currentUser.role.includes('superAdmin') || currentUser.role.includes('superadmin')
         : currentUser.role === 'superAdmin' || currentUser.role === 'superadmin';
     const [availableCentres, setAvailableCentres] = useState([]);
+    const [availableRoles, setAvailableRoles] = useState([]);
+
+    // Fetch distinct roles from all users
+    useEffect(() => {
+        const fetchRoles = async () => {
+            const defaultRoles = [
+                'superAdmin',
+                'admin',
+                'teacher',
+                'telecaller',
+                'counsellor',
+                'marketing',
+                'centerIncharge',
+                'zonalManager',
+                'HOD',
+                'accounts',
+                'coordinator',
+                'digital',
+                'assistantZonalManager',
+                'assistantCenterIncharge',
+                'supportStaff'
+            ];
+            try {
+                const res = await fetch(`${apiUrl}/superAdmin/getAllUsers`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data && Array.isArray(data.users)) {
+                    const distinctRoles = [...new Set([
+                        ...defaultRoles,
+                        ...data.users
+                            .map(u => u.role)
+                            .filter(Boolean)
+                            .map(r => Array.isArray(r) ? r : [r])
+                            .flat()
+                    ])];
+                    setAvailableRoles(distinctRoles);
+                } else {
+                    setAvailableRoles(defaultRoles);
+                }
+            } catch (err) {
+                console.error('Failed to fetch roles:', err);
+                setAvailableRoles(defaultRoles);
+            }
+        };
+        fetchRoles();
+    }, [apiUrl, token]);
 
     useEffect(() => {
         const fetchAllCentres = async () => {
@@ -165,27 +212,28 @@ const DailyTrackingLog = () => {
     const [editStatus, setEditStatus] = useState("Completed");
     const [editCentre, setEditCentre] = useState("");
 
-    const rolesMap = {
-        "All": "All",
-        "admin": "Admin",
-        "superadmin": "Superadmin",
-        "coordinator": "Coordinator",
-        "accounts": "Accounts",
-        "hr": "HR",
-        "digital": "Digital",
-        "marketing": "Marketing",
-        "telecaller": "Telecaller",
-        "counsellor": "Counsellor",
-        "teacher": "Teacher",
-        "zonalmanager": "Zonal Manager"
-    };
-    const roles = Object.keys(rolesMap);
-
     const getDisplayRoleName = (role) => {
         if (!role) return "Employee";
         const normalized = role.toLowerCase();
+        if (normalized === "superadmin") return "SuperAdmin";
+        if (normalized === "admin") return "Admin";
+        if (normalized === "teacher") return "Teacher";
+        if (normalized === "telecaller" || normalized === "centralizedtelecaller") return "Telecaller";
+        if (normalized === "counsellor") return "Counsellor";
+        if (normalized === "marketing") return "Marketing";
+        if (normalized === "centerincharge" || normalized === "centreincharge") return "Center Incharge";
+        if (normalized === "zonalmanager") return "Zonal Manager";
+        if (normalized === "hod") return "HOD";
+        if (normalized === "accounts") return "Accounts";
+        if (normalized === "coordinator") return "Coordinator";
+        if (normalized === "digital") return "Digital";
+        if (normalized === "assistantzonalmanager") return "Assistant Zonal Manager";
+        if (normalized === "assistantcenterincharge") return "Assistant Center Incharge";
+        if (normalized === "supportstaff") return "Support Staff";
+        if (normalized === "hr") return "HR";
+
         if (normalized.includes("admin")) {
-            if (normalized.includes("super")) return "Superadmin";
+            if (normalized.includes("super")) return "SuperAdmin";
             return "Admin";
         }
         if (normalized.includes("coordinator")) return "Coordinator";
@@ -197,9 +245,15 @@ const DailyTrackingLog = () => {
         if (normalized.includes("counsellor")) return "Counsellor";
         if (normalized.includes("teacher")) return "Teacher";
         if (normalized.includes("zonal") && normalized.includes("manager")) return "Zonal Manager";
-        if (normalized === "zonalmanager") return "Zonal Manager";
         return role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
     };
+
+    const rolesOptions = availableRoles
+        .map(role => ({
+            value: role,
+            label: getDisplayRoleName(role)
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
     // Fetch user's logs
     const fetchMyLog = async (date) => {
@@ -514,12 +568,6 @@ const DailyTrackingLog = () => {
         label: c.centreName || 'Unknown Centre'
     }));
 
-    const rolesOptions = Object.keys(rolesMap)
-        .filter(key => key !== "All")
-        .map(key => ({
-            value: key,
-            label: rolesMap[key]
-        }));
 
     const handleSearchChange = (val) => {
         setSearchEmployee(val);

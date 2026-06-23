@@ -18,6 +18,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const location = useLocation();
 
     const [user, setUser] = useState(JSON.parse(localStorage.getItem("user") || "{}"));
+    const [unviewedCount, setUnviewedCount] = useState(0);
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -65,8 +66,56 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         ? user.role.some(r => typeof r === "string" && (r.toLowerCase().replace(/\s+/g, "") === "superadmin"))
         : typeof user.role === "string" && (user.role.toLowerCase().replace(/\s+/g, "") === "superadmin");
 
+    useEffect(() => {
+        const fetchUnviewedCount = async () => {
+            if (location.pathname === "/task-workflow/tasks") {
+                setUnviewedCount(0);
+                return;
+            }
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) return;
+
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/task-workflow/tasks/unviewed-count`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setUnviewedCount(data.count || 0);
+                }
+            } catch (err) {
+                console.error("Failed to fetch unviewed tasks count", err);
+            }
+        };
+
+        fetchUnviewedCount();
+
+        const intervalId = setInterval(fetchUnviewedCount, 30000);
+
+        const handleTasksUpdated = () => {
+            fetchUnviewedCount();
+        };
+        window.addEventListener("tasks-updated", handleTasksUpdated);
+
+        return () => {
+            clearInterval(intervalId);
+            window.removeEventListener("tasks-updated", handleTasksUpdated);
+        };
+    }, [location.pathname]);
+
     const menuItems = useMemo(() => [
         { name: "Dashboard", icon: <FaThLarge />, path: "/dashboard" },
+        {
+            name: "Task Workflow",
+            icon: <FaTasks />,
+            subItems: [
+                { name: "Tasks", path: "/task-workflow/tasks" },
+                { name: "Assign Task", path: "/task-workflow/assign-task", restrictedToSuperAdmin: true }
+            ]
+        },
         {
             name: "Tracking & Flagging",
             icon: <FaFlag />,
@@ -391,7 +440,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community") return true;
+        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Task Workflow") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
@@ -430,6 +479,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     }).map(item => {
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
+                if (sub.restrictedToSuperAdmin && !isSuperAdmin) return false;
+                if (sub.name === "Tasks") return true;
                 const permModule = sub.permissionModule || item.permissionModule;
                 if (permModule) {
                     if (sub.permissionSection) {
@@ -514,6 +565,11 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                             <div className="flex items-center gap-3">
                                 <span className="text-lg">{item.icon}</span>
                                 <span className="text-sm">{item.name}</span>
+                                {item.name === "Task Workflow" && unviewedCount > 0 && (
+                                    <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse flex items-center justify-center min-w-[18px] h-[18px] ml-2">
+                                        {unviewedCount}
+                                    </span>
+                                )}
                             </div>
                             {item.subItems && (
                                 <span className="text-xs">
@@ -560,13 +616,20 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                         ) : (
                                             <div
                                                 onClick={() => navigate(sub.path)}
-                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center gap-2 ${(location.pathname + location.search) === sub.path || (sub.path === "/daily-tracking-log?tab=myLog" && (location.pathname + location.search) === "/daily-tracking-log")
+                                                className={`p-2 rounded cursor-pointer text-sm transition-colors flex items-center justify-between ${(location.pathname + location.search) === sub.path || (sub.path === "/daily-tracking-log?tab=myLog" && (location.pathname + location.search) === "/daily-tracking-log")
                                                     ? "text-cyan-400 font-semibold bg-gray-800"
                                                     : "hover:text-white hover:bg-gray-800/50"
                                                     }`}
                                             >
-                                                {sub.icon && <span className="opacity-70">{sub.icon}</span>}
-                                                <span>{sub.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    {sub.icon && <span className="opacity-70">{sub.icon}</span>}
+                                                    <span>{sub.name}</span>
+                                                </div>
+                                                {sub.name === "Tasks" && unviewedCount > 0 && (
+                                                    <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse flex items-center justify-center min-w-[18px] h-[18px]">
+                                                        {unviewedCount}
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                     </div>
