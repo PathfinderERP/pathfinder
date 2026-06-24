@@ -182,7 +182,7 @@ const InstallmentPayment = () => {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [financialData, setFinancialData] = useState(null);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
-    const [activeTab, setActiveTab] = useState("centreSummary"); // Default to Centre-wise Summary
+    const [viewTab, setViewTab] = useState("centreSummary"); // Default to Centre-wise Summary
 
     // Tab state: 'regular' | 'boardCourse'
     const [activeTab, setActiveTab] = useState('regular');
@@ -1768,9 +1768,9 @@ const InstallmentPayment = () => {
                         {/* Tab Switcher */}
                         <div className="flex justify-start items-center mb-6 gap-2 border-b border-gray-800/40 pb-4">
                             <button
-                                onClick={() => setActiveTab("centreSummary")}
+                                onClick={() => setViewTab("centreSummary")}
                                 className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
-                                    activeTab === "centreSummary"
+                                    viewTab === "centreSummary"
                                         ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
                                         : isDarkMode
                                             ? "bg-[#131619] text-gray-400 hover:text-white border border-gray-800"
@@ -1780,9 +1780,9 @@ const InstallmentPayment = () => {
                                 Centre-wise Summary
                             </button>
                             <button
-                                onClick={() => setActiveTab("detailedList")}
+                                onClick={() => setViewTab("detailedList")}
                                 className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
-                                    activeTab === "detailedList"
+                                    viewTab === "detailedList"
                                         ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
                                         : isDarkMode
                                             ? "bg-[#131619] text-gray-400 hover:text-white border border-gray-800"
@@ -1793,7 +1793,7 @@ const InstallmentPayment = () => {
                             </button>
                         </div>
 
-                        {activeTab === "centreSummary" && (
+                        {viewTab === "centreSummary" && (
                             <>
                                 {/* Filters Section */}
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm animate-fade-in`}>
@@ -2014,7 +2014,7 @@ const InstallmentPayment = () => {
                             </>
                         )}
 
-                        {activeTab === "detailedList" && (
+                        {viewTab === "detailedList" && (
                             <>
                                 {/* Filters Section */}
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>
