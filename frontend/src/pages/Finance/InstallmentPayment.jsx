@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
@@ -184,10 +185,31 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
 const InstallmentPayment = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === "dark";
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [financialData, setFinancialData] = useState(null);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
+
+    // Tab state: 'regular' | 'boardCourse'
+    const [activeTab, setActiveTab] = useState('regular');
+
+    // Board Course Admission tab state
+    const [boardAdmissionsList, setBoardAdmissionsList] = useState([]);
+    const [boardLoading, setBoardLoading] = useState(false);
+    const [boardCurrentPage, setBoardCurrentPage] = useState(1);
+    const [boardItemsPerPage, setBoardItemsPerPage] = useState(10);
+    const [boardFilters, setBoardFilters] = useState({
+        centre: [],
+        course: [],
+        department: [],
+        startDate: "",
+        endDate: "",
+        installmentStatus: [],
+        minRemaining: "",
+        maxRemaining: "",
+        searchTerm: ""
+    });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     // Check both permissions: Finance (for visibility) and Admissions (required by backend)
@@ -236,6 +258,34 @@ const InstallmentPayment = () => {
         };
         init();
     }, []);
+
+    // Fetch board admissions when board tab becomes active
+    useEffect(() => {
+        if (activeTab === 'boardCourse' && boardAdmissionsList.length === 0) {
+            fetchBoardAdmissions();
+        }
+    }, [activeTab]);
+
+    const fetchBoardAdmissions = async () => {
+        setBoardLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/board-admission/all`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setBoardAdmissionsList(data);
+            } else {
+                toast.error('Failed to load board admissions');
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('Error loading board admissions');
+        } finally {
+            setBoardLoading(false);
+        }
+    };
 
     const fetchUserPermissions = async () => {
         try {
@@ -385,6 +435,7 @@ const InstallmentPayment = () => {
         }
     };
     const isDetailedView = filters.startDate || filters.endDate || (filters.installmentStatus && filters.installmentStatus.length > 0);
+    const isBoardDetailedView = boardFilters.startDate || boardFilters.endDate || (boardFilters.installmentStatus && boardFilters.installmentStatus.length > 0);
 
     const displayedList = React.useMemo(() => {
         if (!isDetailedView) {
@@ -450,7 +501,132 @@ const InstallmentPayment = () => {
         return flatInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
     }, [admissionsList, isDetailedView, filters.startDate, filters.endDate, filters.installmentStatus]);
 
+    const displayedBoardList = React.useMemo(() => {
+        let filtered = boardAdmissionsList;
+
+        if (boardFilters.centre && boardFilters.centre.length > 0) {
+            filtered = filtered.filter(adm => boardFilters.centre.includes(adm.centre));
+        }
+
+        if (boardFilters.course && boardFilters.course.length > 0) {
+            filtered = filtered.filter(adm => boardFilters.course.includes(adm.boardCourseName));
+        }
+
+        if (boardFilters.department && boardFilters.department.length > 0) {
+            filtered = filtered.filter(adm => boardFilters.department.includes(adm.programme));
+        }
+
+        if (boardFilters.minRemaining !== "") {
+            filtered = filtered.filter(adm => {
+                const totalExpected = adm.totalExpectedAmount || 0;
+                const totalPaid = adm.totalPaidAmount || 0;
+                const totalDue = Math.max(0, totalExpected - totalPaid);
+                return totalDue >= parseFloat(boardFilters.minRemaining);
+            });
+        }
+
+        if (boardFilters.maxRemaining !== "") {
+            filtered = filtered.filter(adm => {
+                const totalExpected = adm.totalExpectedAmount || 0;
+                const totalPaid = adm.totalPaidAmount || 0;
+                const totalDue = Math.max(0, totalExpected - totalPaid);
+                return totalDue <= parseFloat(boardFilters.maxRemaining);
+            });
+        }
+
+        if (boardFilters.searchTerm) {
+            const sq = boardFilters.searchTerm.toLowerCase();
+            filtered = filtered.filter(adm => {
+                const name = (adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || '').toLowerCase();
+                const admNo = (adm.admissionNumber || '').toLowerCase();
+                const mobile = (adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || '').toString();
+                return name.includes(sq) || admNo.includes(sq) || mobile.includes(sq);
+            });
+        }
+
+        if (!isBoardDetailedView) {
+            return filtered;
+        }
+
+        // Flatten installments if filtering by date/status
+        const start = boardFilters.startDate ? new Date(boardFilters.startDate) : new Date(0);
+        start.setHours(0, 0, 0, 0);
+        const end = boardFilters.endDate ? new Date(boardFilters.endDate) : new Date(8640000000000000);
+        end.setHours(23, 59, 59, 999);
+
+        const flatInstallments = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        filtered.forEach(adm => {
+            if (adm.installments && adm.installments.length > 0) {
+                adm.installments.forEach(inst => {
+                    // Date Match
+                    let dateMatch = true;
+                    if (boardFilters.startDate || boardFilters.endDate) {
+                        if (inst.dueDate) {
+                            const d = new Date(inst.dueDate);
+                            dateMatch = d >= start && d <= end;
+                        } else {
+                            dateMatch = false;
+                        }
+                    }
+
+                    // Status Match
+                    let statusMatch = true;
+                    if (boardFilters.installmentStatus && boardFilters.installmentStatus.length > 0) {
+                        const dueDate = new Date(inst.dueDate);
+                        dueDate.setHours(0, 0, 0, 0);
+                        const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                        const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
+                        statusMatch = boardFilters.installmentStatus.includes(currentStatus);
+                    }
+
+                    if (dateMatch && statusMatch) {
+                        const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
+                        const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
+                        const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
+                        
+                        flatInstallments.push({
+                            ...inst,
+                            boardCourseAdmissionId: adm._id,
+                            admissionNumber: adm.admissionNumber,
+                            studentId: adm.studentId?._id || adm.studentId,
+                            studentName: studentName,
+                            email: email,
+                            mobile: mobile,
+                            course: adm.boardCourseName || adm.programme,
+                            department: adm.programme,
+                            centre: adm.centre,
+                            admissionDate: adm.admissionDate,
+                            admissionTotalFees: adm.totalExpectedAmount,
+                            admissionTotalPaid: adm.totalPaidAmount,
+                            admissionRemaining: Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)),
+                            admissionPaymentStatus: (Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)) < 1) ? 'PAID' : 'PENDING'
+                        });
+                    }
+                });
+            }
+        });
+
+        return flatInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    }, [boardAdmissionsList, isBoardDetailedView, boardFilters]);
+
     const stats = React.useMemo(() => {
+        if (activeTab === 'boardCourse') {
+            if (isBoardDetailedView) {
+                const totalFees = displayedBoardList.reduce((sum, inst) => sum + (parseFloat(inst.amount || inst.payableAmount || 0)), 0);
+                const totalPaid = displayedBoardList.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount || 0)), 0);
+                const totalDue = totalFees - totalPaid;
+                return { totalFees, totalPaid, totalDue };
+            } else {
+                const totalFees = displayedBoardList.reduce((sum, adm) => sum + (parseFloat(adm.totalExpectedAmount || 0)), 0);
+                const totalPaid = displayedBoardList.reduce((sum, adm) => sum + (parseFloat(adm.totalPaidAmount || 0)), 0);
+                const totalDue = totalFees - totalPaid;
+                return { totalFees, totalPaid, totalDue };
+            }
+        }
+
         if (isDetailedView) {
             const totalFees = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0), 0);
             const totalPaid = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount) || 0), 0);
@@ -462,38 +638,64 @@ const InstallmentPayment = () => {
             const totalDue = admissionsList.reduce((sum, a) => sum + (parseFloat(a.remainingAmount) || 0), 0);
             return { totalFees, totalPaid, totalDue };
         }
-    }, [admissionsList, displayedList, isDetailedView]);
+    }, [activeTab, admissionsList, displayedList, isDetailedView, boardAdmissionsList, displayedBoardList, isBoardDetailedView]);
 
     const centreStats = React.useMemo(() => {
         const counts = {};
-        if (isDetailedView) {
-            displayedList.forEach(inst => {
-                const c = inst.centre || "Unknown";
-                if (!counts[c]) {
-                    counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
-                }
-                const amt = parseFloat(inst.amount) || 0;
-                const paid = parseFloat(inst.paidAmount) || 0;
-                counts[c].totalFees += amt;
-                counts[c].totalPaid += paid;
-                counts[c].totalDue += (amt - paid);
-            });
+        if (activeTab === 'boardCourse') {
+            if (isBoardDetailedView) {
+                displayedBoardList.forEach(inst => {
+                    const c = inst.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
+                    }
+                    const amt = parseFloat(inst.amount || inst.payableAmount) || 0;
+                    const paid = parseFloat(inst.paidAmount) || 0;
+                    counts[c].totalFees += amt;
+                    counts[c].totalPaid += paid;
+                    counts[c].totalDue += (amt - paid);
+                });
+            } else {
+                displayedBoardList.forEach(a => {
+                    const c = a.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
+                    }
+                    counts[c].totalFees += (parseFloat(a.totalExpectedAmount) || 0);
+                    counts[c].totalPaid += (parseFloat(a.totalPaidAmount) || 0);
+                    counts[c].totalDue += Math.max(0, (parseFloat(a.totalExpectedAmount) || 0) - (parseFloat(a.totalPaidAmount) || 0));
+                });
+            }
         } else {
-            admissionsList.forEach(a => {
-                const c = a.centre || "Unknown";
-                if (!counts[c]) {
-                    counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
-                }
-                counts[c].totalFees += (parseFloat(a.totalFees) || 0);
-                counts[c].totalPaid += (parseFloat(a.totalPaid) || 0);
-                counts[c].totalDue += (parseFloat(a.remainingAmount) || 0);
-            });
+            if (isDetailedView) {
+                displayedList.forEach(inst => {
+                    const c = inst.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
+                    }
+                    const amt = parseFloat(inst.amount) || 0;
+                    const paid = parseFloat(inst.paidAmount) || 0;
+                    counts[c].totalFees += amt;
+                    counts[c].totalPaid += paid;
+                    counts[c].totalDue += (amt - paid);
+                });
+            } else {
+                admissionsList.forEach(a => {
+                    const c = a.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
+                    }
+                    counts[c].totalFees += (parseFloat(a.totalFees) || 0);
+                    counts[c].totalPaid += (parseFloat(a.totalPaid) || 0);
+                    counts[c].totalDue += (parseFloat(a.remainingAmount) || 0);
+                });
+            }
         }
         return Object.entries(counts).map(([name, data]) => ({
             name,
             ...data
         })).sort((a, b) => b.totalFees - a.totalFees);
-    }, [admissionsList, displayedList, isDetailedView]);
+    }, [activeTab, admissionsList, displayedList, isDetailedView, boardAdmissionsList, displayedBoardList, isBoardDetailedView]);
 
     const exportToExcel = () => {
         if (displayedList.length === 0) {
@@ -621,6 +823,153 @@ const InstallmentPayment = () => {
         const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
         saveAs(data, `Detailed_Student_Financial_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
         toast.success("Detailed report exported successfully!");
+    };
+
+    const resetBoardFilters = () => {
+        setBoardFilters({
+            centre: [],
+            course: [],
+            department: [],
+            startDate: "",
+            endDate: "",
+            installmentStatus: [],
+            minRemaining: "",
+            maxRemaining: "",
+            searchTerm: ""
+        });
+        setBoardCurrentPage(1);
+    };
+
+    const exportBoardToExcel = () => {
+        if (displayedBoardList.length === 0) {
+            toast.info("No data to export");
+            return;
+        }
+
+        if (isBoardDetailedView) {
+            const dataToExport = displayedBoardList.map(inst => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const dueDate = new Date(inst.dueDate);
+                dueDate.setHours(0, 0, 0, 0);
+                const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
+
+                return {
+                    "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
+                    "Installment #": `Month ${inst.monthNumber}`,
+                    "Amount Due (₹)": Math.max(0, parseFloat(inst.payableAmount || inst.amount) || 0),
+                    "Amount Paid (₹)": Math.max(0, parseFloat(inst.paidAmount) || 0),
+                    "Inst. Status": inst.status,
+                    "Due Status": dueStatus,
+                    "Student Name": inst.studentName,
+                    "Admission Code": inst.admissionNumber,
+                    "Board Course": inst.course,
+                    "Department/Programme": inst.department,
+                    "Centre": inst.centre,
+                    "Mobile": inst.mobile,
+                    "Email": inst.email
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Filtered Board Installments");
+
+            const columnWidths = Object.keys(dataToExport[0] || {}).map(key => ({
+                wch: Math.max(key.length, ...dataToExport.map(row => (row[key] || "").toString().length)) + 2
+            }));
+            worksheet["!cols"] = columnWidths;
+
+            const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+            const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+            saveAs(data, `Filtered_Board_Installments_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success("Filtered board report exported successfully!");
+            return;
+        }
+
+        const dataToExport = [];
+
+        displayedBoardList.forEach(adm => {
+            const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
+            const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
+            const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
+            const totalExpected = adm.totalExpectedAmount || 0;
+            const totalPaid = adm.totalPaidAmount || 0;
+            const totalDue = Math.max(0, totalExpected - totalPaid);
+
+            if (!adm.installments || adm.installments.length === 0) {
+                dataToExport.push({
+                    "Admission Code": adm.admissionNumber,
+                    "Student Name": studentName,
+                    "Email": email,
+                    "Mobile": mobile,
+                    "Board Course": adm.boardCourseName || '—',
+                    "Department/Programme": adm.programme,
+                    "Centre": adm.centre,
+                    "Admission Date": new Date(adm.admissionDate).toLocaleDateString(),
+                    "Total Fees (₹)": totalExpected,
+                    "Total Paid (₹)": totalPaid,
+                    "Remaining (₹)": totalDue,
+                    "Overall Status": totalDue < 1 ? "PAID" : "PENDING",
+                    "Installment #": "N/A",
+                    "Due Date": "N/A",
+                    "Amount Due": "N/A",
+                    "Amount Paid": "N/A",
+                    "Inst. Status": "N/A"
+                });
+            } else {
+                adm.installments.forEach((inst, idx) => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dueDate = new Date(inst.dueDate);
+                    dueDate.setHours(0, 0, 0, 0);
+                    const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                    const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
+
+                    dataToExport.push({
+                        "Admission Code": idx === 0 ? adm.admissionNumber : "",
+                        "Student Name": idx === 0 ? studentName : "",
+                        "Email": idx === 0 ? email : "",
+                        "Mobile": idx === 0 ? mobile : "",
+                        "Board Course": idx === 0 ? (adm.boardCourseName || '—') : "",
+                        "Department/Programme": idx === 0 ? adm.programme : "",
+                        "Centre": idx === 0 ? adm.centre : "",
+                        "Admission Date": idx === 0 ? new Date(adm.admissionDate).toLocaleDateString() : "",
+                        "Total Fees (₹)": idx === 0 ? totalExpected : "",
+                        "Total Paid (₹)": idx === 0 ? totalPaid : "",
+                        "Remaining (₹)": idx === 0 ? totalDue : "",
+                        "Overall Status": idx === 0 ? (totalDue < 1 ? "PAID" : "PENDING") : "",
+                        "Installment #": `Month ${inst.monthNumber}`,
+                        "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
+                        "Amount Due": Math.max(0, parseFloat(inst.payableAmount || inst.standardAmount) || 0),
+                        "Amount Paid": Math.max(0, parseFloat(inst.paidAmount) || 0),
+                        "Inst. Status": inst.status,
+                        "Due Status": dueStatus
+                    });
+                });
+            }
+            dataToExport.push({
+                "Admission Code": "---", "Student Name": "---", "Email": "---", "Mobile": "---", "Board Course": "---",
+                "Department/Programme": "---", "Centre": "---", "Admission Date": "---", "Total Fees (₹)": "---",
+                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
+                "Installment #": "---", "Due Date": "---", "Amount Due": "---", "Amount Paid": "---", "Inst. Status": "---", "Due Status": "---"
+            });
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Board Financial Report");
+
+        const columnWidths = Object.keys(dataToExport[0]).map(key => ({
+            wch: Math.max(key.length, ...dataToExport.map(row => (row[key] || "").toString().length)) + 2
+        }));
+        worksheet["!cols"] = columnWidths;
+
+        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+        saveAs(data, `Board_Financial_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Board report exported successfully!");
     };
 
     const getStatusBadge = (status) => {
@@ -980,7 +1329,439 @@ const InstallmentPayment = () => {
                     )}
                 </div>
 
-                {!selectedStudent ? (
+                {/* ─── Tab Navigation ─── */}
+                {!selectedStudent && (
+                    <div className={`flex items-center gap-1 p-1 rounded-2xl border mb-8 w-fit ${isDarkMode ? 'bg-gray-900/60 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                        <button
+                            onClick={() => setActiveTab('regular')}
+                            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                activeTab === 'regular'
+                                    ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                                    : isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-white'
+                            }`}
+                        >
+                            📋 Regular Installment
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('boardCourse')}
+                            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                activeTab === 'boardCourse'
+                                    ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                                    : isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-white'
+                            }`}
+                        >
+                            🎓 Board Course Admission Installment
+                        </button>
+                    </div>
+                )}
+
+                {/* ─── Board Course Admission Tab Content ─── */}
+                {!selectedStudent && activeTab === 'boardCourse' && (
+                    <div>
+                        {/* Board Admission Filters */}
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                                {/* Date Range */}
+                                <div className="lg:col-span-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                    <input
+                                        type="date"
+                                        value={boardFilters.startDate}
+                                        onChange={(e) => setBoardFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    />
+                                </div>
+                                <div className="lg:col-span-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                    <input
+                                        type="date"
+                                        value={boardFilters.endDate}
+                                        onChange={(e) => setBoardFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    />
+                                </div>
+
+                                {/* Department Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                                    <Select
+                                        isMulti
+                                        options={[...new Set(boardAdmissionsList.map(a => a.programme).filter(Boolean))].sort().map(p => ({ value: p, label: p }))}
+                                        value={boardFilters.department.map(val => ({ value: val, label: val }))}
+                                        onChange={(selected) => setBoardFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL DEPARTMENTS"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Course Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                                    <Select
+                                        isMulti
+                                        options={[...new Set(boardAdmissionsList.map(a => a.boardCourseName).filter(Boolean))].sort().map(c => ({ value: c, label: c }))}
+                                        value={boardFilters.course.map(val => ({ value: val, label: val }))}
+                                        onChange={(selected) => setBoardFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL COURSES"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Centre Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                                    <Select
+                                        isMulti
+                                        options={[...new Set(boardAdmissionsList.map(a => a.centre).filter(Boolean))].sort().map(c => ({ value: c, label: c }))}
+                                        value={boardFilters.centre.map(val => ({ value: val, label: val }))}
+                                        onChange={(selected) => setBoardFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL CENTRES"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => { setBoardCurrentPage(1); }}
+                                        className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
+                                    >
+                                        Apply
+                                    </button>
+                                    <button
+                                        onClick={exportBoardToExcel}
+                                        className="p-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
+                                        title="Export Excel"
+                                    >
+                                        <FaDownload />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Additional Filters: Amount Range */}
+                            <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-200'}`}>
+                                <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
+                                        <input
+                                            type="number"
+                                            placeholder="₹ Min (e.g. 5000)"
+                                            value={boardFilters.minRemaining}
+                                            onChange={(e) => setBoardFilters(prev => ({ ...prev, minRemaining: e.target.value }))}
+                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        />
+                                    </div>
+                                    <div className="text-gray-700 mt-6">-</div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
+                                        <input
+                                            type="number"
+                                            placeholder="₹ Max (e.g. 50000)"
+                                            value={boardFilters.maxRemaining}
+                                            onChange={(e) => setBoardFilters(prev => ({ ...prev, maxRemaining: e.target.value }))}
+                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <div className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em] ml-1">Installment Status</div>
+                                    <Select
+                                        isMulti
+                                        options={statusOptions}
+                                        value={statusOptions.filter(opt => boardFilters.installmentStatus.includes(opt.value))}
+                                        onChange={(selected) => setBoardFilters(prev => ({ ...prev, installmentStatus: selected ? selected.map(s => s.value) : [] }))}
+                                        placeholder="FILTER STATUS..."
+                                        styles={selectStyles}
+                                    />
+                                </div>
+
+                                <div className="md:col-span-1 self-end">
+                                    <button
+                                        onClick={resetBoardFilters}
+                                        className={`w-full py-4 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border-gray-300'}`}
+                                    >
+                                        <FaEraser /> Reset All Filters
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Text Search & Items Per Page */}
+                            <div className="mt-8 flex flex-col md:flex-row gap-4">
+                                <div className="relative group flex-1">
+                                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
+                                    <input
+                                        type="text"
+                                        placeholder="SEARCH BY STUDENT NAME, ADMISSION NO, MOBILE..."
+                                        value={boardFilters.searchTerm}
+                                        onChange={(e) => setBoardFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                                        className={`w-full border rounded-2xl py-4 pl-12 pr-4 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 text-gray-200 focus:bg-black/40' : 'bg-gray-50 border-gray-300 text-gray-700 focus:bg-white'}`}
+                                    />
+                                </div>
+                                <div className="w-full md:w-64">
+                                    <Select
+                                        options={itemsPerPageOptions}
+                                        value={itemsPerPageOptions.find(opt => opt.value === boardItemsPerPage)}
+                                        onChange={(opt) => {
+                                            setBoardItemsPerPage(opt.value);
+                                            setBoardCurrentPage(1);
+                                        }}
+                                        styles={selectStyles}
+                                        isSearchable={false}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Board Admissions Table */}
+                        {(() => {
+                            const totalPages = Math.ceil(displayedBoardList.length / boardItemsPerPage);
+                            const paginated = displayedBoardList.slice((boardCurrentPage - 1) * boardItemsPerPage, boardCurrentPage * boardItemsPerPage);
+
+                            return (
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl overflow-hidden shadow-2xl`}>
+                                    {/* Summary Stats */}
+                                    <div className={`px-6 py-4 border-b flex flex-wrap gap-6 items-center ${isDarkMode ? 'border-gray-800 bg-gray-900/30' : 'border-gray-100 bg-gray-50'}`}>
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                                {isBoardDetailedView ? "Total Installments" : "Total Students"}
+                                            </div>
+                                            <div className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{displayedBoardList.length}</div>
+                                        </div>
+                                        <div className={`w-px h-8 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total Expected</div>
+                                            <div className="text-xl font-black text-cyan-500">₹{Math.round(stats.totalFees).toLocaleString('en-IN')}</div>
+                                        </div>
+                                        <div className={`w-px h-8 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total Collected</div>
+                                            <div className="text-xl font-black text-emerald-500">₹{Math.round(stats.totalPaid).toLocaleString('en-IN')}</div>
+                                        </div>
+                                        <div className={`w-px h-8 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                                        <div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total Due</div>
+                                            <div className="text-xl font-black text-red-500">₹{Math.round(stats.totalDue).toLocaleString('en-IN')}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isBoardDetailedView ? "Installment Due" : "Admission No."}</th>
+                                                    <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Student</th>
+                                                    <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isBoardDetailedView ? "Course / Dept" : "Board Course"}</th>
+                                                    <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre</th>
+                                                    <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isBoardDetailedView ? "Inst. Amount" : "Financials"}</th>
+                                                    <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isBoardDetailedView ? "Inst. Status" : "Installment Progress"}</th>
+                                                    {isBoardDetailedView && (
+                                                        <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admission Status</th>
+                                                    )}
+                                                    <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-right`}>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
+                                                {boardLoading ? (
+                                                    <tr>
+                                                        <td colSpan={isBoardDetailedView ? 8 : 7} className="p-20 text-center">
+                                                            <div className="flex justify-center flex-col items-center gap-4">
+                                                                 <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
+                                                                 <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Board Admissions...</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : paginated.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={isBoardDetailedView ? 8 : 7} className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No board admission records found</td>
+                                                    </tr>
+                                                ) : paginated.map((item, idx) => {
+                                                    if (isBoardDetailedView) {
+                                                        const isFullyPaid = item.admissionRemaining < 1;
+                                                        return (
+                                                            <tr
+                                                                key={idx}
+                                                                className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
+                                                                onClick={() => navigate(`/manage-board-admission/${item.boardCourseAdmissionId}`)}
+                                                            >
+                                                                <td className="p-5">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-500 font-black text-xs">Month {item.monthNumber}</span>
+                                                                        <span className={`font-bold text-xs ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(item.dueDate).toLocaleDateString('en-GB')}</span>
+                                                                    </div>
+                                                                    <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{item.admissionNumber}</div>
+                                                                </td>
+                                                                <td className="p-5">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
+                                                                            {item.studentName?.charAt(0) || "S"}
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className={`font-black uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.studentName}</div>
+                                                                            <div className="text-[10px] text-gray-500 mt-0.5">{item.mobile} • {item.email}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-5">
+                                                                    <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.course}</div>
+                                                                    <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{item.department}</div>
+                                                                </td>
+                                                                <td className="p-5">
+                                                                    <span className={`text-xs font-black uppercase px-2 py-1 rounded-lg ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>{item.centre || 'N/A'}</span>
+                                                                </td>
+                                                                <td className="p-5">
+                                                                    <div className="space-y-1">
+                                                                        <div className="text-[11px] flex justify-between gap-3">
+                                                                            <span className="text-gray-500 font-bold">DUE:</span>
+                                                                            <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{parseFloat(item.payableAmount || item.amount || 0).toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className={`text-[11px] flex justify-between gap-3 border-t pt-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                                            <span className="text-emerald-500 font-bold">PAID:</span>
+                                                                            <span className="text-emerald-500 font-black">₹{parseFloat(item.paidAmount || 0).toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-5">
+                                                                    {getStatusBadge(item.status)}
+                                                                </td>
+                                                                <td className="p-5">
+                                                                    {getStatusBadge(isFullyPaid ? "PAID" : "PENDING")}
+                                                                </td>
+                                                                <td className="p-5 text-right">
+                                                                    <button
+                                                                        onClick={e => { e.stopPropagation(); navigate(`/manage-board-admission/${item.boardCourseAdmissionId}`); }}
+                                                                        className="px-4 py-2 bg-cyan-500/10 text-cyan-500 border border-cyan-500/30 rounded-xl font-black text-[10px] uppercase hover:bg-cyan-500 hover:text-black transition-all"
+                                                                    >
+                                                                        Manage
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    }
+
+                                                    const adm = item;
+                                                    const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
+                                                    const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
+                                                    const totalInstallments = adm.installments?.length || 0;
+                                                    const paidInstallments = adm.installments?.filter(i => i.status === 'PAID').length || 0;
+                                                    const progressPct = totalInstallments > 0 ? Math.round((paidInstallments / totalInstallments) * 100) : 0;
+                                                    const totalExpected = adm.totalExpectedAmount || 0;
+                                                    const totalPaid = adm.totalPaidAmount || 0;
+                                                    const totalDue = Math.max(0, totalExpected - totalPaid);
+                                                    const isFullyPaid = totalDue < 1;
+
+                                                    return (
+                                                        <tr
+                                                            key={adm._id}
+                                                            className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
+                                                            onClick={() => navigate(`/manage-board-admission/${adm._id}`)}
+                                                        >
+                                                            <td className="p-5">
+                                                                <span className="px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 font-black text-xs uppercase">{adm.admissionNumber || '—'}</span>
+                                                                <div className="text-[10px] text-gray-500 mt-1 font-bold uppercase">{adm.programme || ''} · {adm.lastClass || ''}</div>
+                                                            </td>
+                                                            <td className="p-5">
+                                                                <div className={`font-black text-sm uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'} group-hover:text-cyan-500 transition-colors`}>{studentName}</div>
+                                                                <div className="text-[10px] text-gray-500 font-bold mt-0.5">{mobile}</div>
+                                                            </td>
+                                                            <td className="p-5">
+                                                                <div className={`text-xs font-bold line-clamp-2 max-w-[220px] ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} title={adm.boardCourseName}>
+                                                                    {adm.boardCourseName || '—'}
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-500 font-bold mt-1 uppercase">{adm.academicSession || ''}</div>
+                                                            </td>
+                                                            <td className="p-5">
+                                                                <span className={`text-xs font-black uppercase px-2 py-1 rounded-lg ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>{adm.centre || 'N/A'}</span>
+                                                            </td>
+                                                            <td className="p-5">
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                                                                        <span className="text-gray-500 uppercase">Expected:</span>
+                                                                        <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{Math.round(totalExpected).toLocaleString('en-IN')}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                                                                        <span className="text-gray-500 uppercase">Paid:</span>
+                                                                        <span className="text-emerald-500 font-black">₹{Math.round(totalPaid).toLocaleString('en-IN')}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                                                                        <span className="text-gray-500 uppercase">Due:</span>
+                                                                        <span className={`font-black ${isFullyPaid ? 'text-emerald-500' : 'text-red-500'}`}>₹{Math.round(totalDue).toLocaleString('en-IN')}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-5">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`flex-1 h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                                                                        <div
+                                                                            className={`h-full rounded-full transition-all ${isFullyPaid ? 'bg-emerald-500' : 'bg-cyan-500'}`}
+                                                                            style={{ width: `${progressPct}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className={`text-[10px] font-black whitespace-nowrap ${isFullyPaid ? 'text-emerald-500' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                        {paidInstallments}/{totalInstallments}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-500 font-bold mt-1 uppercase">{progressPct}% complete</div>
+                                                            </td>
+                                                            <td className="p-5 text-right">
+                                                                <button
+                                                                    onClick={e => { e.stopPropagation(); navigate(`/manage-board-admission/${adm._id}`); }}
+                                                                    className="px-4 py-2 bg-cyan-500/10 text-cyan-500 border border-cyan-500/30 rounded-xl font-black text-[10px] uppercase hover:bg-cyan-500 hover:text-black transition-all"
+                                                                >
+                                                                    Manage
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Board Pagination */}
+                                    {totalPages > 1 && (
+                                        <div className={`px-6 py-4 border-t flex items-center justify-between ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                            <div className="text-[11px] font-bold text-gray-500 uppercase">
+                                                Showing {Math.min((boardCurrentPage - 1) * boardItemsPerPage + 1, displayedBoardList.length)}–{Math.min(boardCurrentPage * boardItemsPerPage, displayedBoardList.length)} of {displayedBoardList.length}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setBoardCurrentPage(p => Math.max(1, p - 1))}
+                                                    disabled={boardCurrentPage === 1}
+                                                    className={`px-4 py-2 rounded-xl font-black text-xs uppercase transition-all border ${boardCurrentPage === 1 ? (isDarkMode ? 'opacity-30 border-gray-800 text-gray-600' : 'opacity-30 border-gray-200 text-gray-400') : (isDarkMode ? 'border-gray-700 text-gray-300 hover:border-cyan-500 hover:text-cyan-500' : 'border-gray-300 text-gray-600 hover:border-cyan-500 hover:text-cyan-500')}`}
+                                                >← Prev</button>
+                                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                                    const page = boardCurrentPage <= 3 ? i + 1 : boardCurrentPage + i - 2;
+                                                    if (page < 1 || page > totalPages) return null;
+                                                    return (
+                                                        <button
+                                                            key={page}
+                                                            onClick={() => setBoardCurrentPage(page)}
+                                                            className={`w-10 h-10 rounded-xl font-black text-xs transition-all border ${
+                                                                page === boardCurrentPage
+                                                                    ? 'bg-cyan-500 text-black border-cyan-500'
+                                                                    : isDarkMode ? 'border-gray-700 text-gray-300 hover:border-cyan-500/50' : 'border-gray-200 text-gray-600 hover:border-cyan-400'
+                                                            }`}
+                                                        >{page}</button>
+                                                    );
+                                                })}
+                                                <button
+                                                    onClick={() => setBoardCurrentPage(p => Math.min(totalPages, p + 1))}
+                                                    disabled={boardCurrentPage === totalPages}
+                                                    className={`px-4 py-2 rounded-xl font-black text-xs uppercase transition-all border ${boardCurrentPage === totalPages ? (isDarkMode ? 'opacity-30 border-gray-800 text-gray-600' : 'opacity-30 border-gray-200 text-gray-400') : (isDarkMode ? 'border-gray-700 text-gray-300 hover:border-cyan-500 hover:text-cyan-500' : 'border-gray-300 text-gray-600 hover:border-cyan-500 hover:text-cyan-500')}`}
+                                                >Next →</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {!selectedStudent && activeTab === 'regular' ? (
                     <>
                         {/* Filters Section */}
                         <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>

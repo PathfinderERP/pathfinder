@@ -560,6 +560,18 @@ export const getAllAdmissions = async (req, res) => {
             .populate("department", "departmentName")
             .sort({ createdAt: -1 });
 
+        // Filter out admissions of deactivated students and cancelled admissions
+        admissions = admissions.filter(adm => {
+            if (!adm.student) return false;
+            const studentStatus = (adm.student.status || "").trim().toLowerCase();
+            if (studentStatus === "deactivated") return false;
+
+            const admissionStatus = (adm.status || adm.admissionStatus || "").trim().toUpperCase();
+            if (admissionStatus === "CANCELLED" || admissionStatus === "DEACTIVATED") return false;
+
+            return true;
+        });
+
         if (searchTerm) {
             const searchLower = searchTerm.toLowerCase();
             admissions = admissions.filter(adm => {

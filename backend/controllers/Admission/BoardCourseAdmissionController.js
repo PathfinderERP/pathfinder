@@ -471,6 +471,21 @@ export const getBoardAdmissions = async (req, res) => {
             admissionObj.counselledByDetails = counselledByDetails;
 
             return admissionObj;
+        }).filter(adm => {
+            if (!adm || !adm.studentId) return false;
+
+            // If includeDeactivated=true is passed (e.g. from the Deactivated tab in BoardAdmissionsContent),
+            // we include deactivated students so the frontend can show them separately.
+            const includeDeactivated = req.query.includeDeactivated === 'true';
+            if (!includeDeactivated) {
+                const studentStatus = (adm.studentId.status || "").trim().toLowerCase();
+                if (studentStatus === "deactivated") return false;
+            }
+
+            const admissionStatus = (adm.status || "").trim().toUpperCase();
+            if (admissionStatus === "CANCELLED") return false;
+
+            return true;
         });
 
         res.status(200).json(populatedAdmissions);
