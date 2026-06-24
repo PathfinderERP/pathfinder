@@ -120,7 +120,7 @@ const Header = ({ toggleSidebar }) => {
 
     React.useEffect(() => {
         fetchNotifications();
-        
+
         const socket = io(getSocketURL(), {
             // polling first — works when Nginx doesn't proxy wss:// upgrades,
             // then upgrades to WebSocket if available.
@@ -180,7 +180,7 @@ const Header = ({ toggleSidebar }) => {
             });
             setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
-            
+
             if (post) {
                 navigate("/dashboard");
                 // Trigger glowing effect via custom event
@@ -296,7 +296,7 @@ const Header = ({ toggleSidebar }) => {
             {unreadCount > 0 && (
                 <div className="fixed inset-0 pointer-events-none z-[9998] shadow-[inset_0_0_100px_rgba(6,182,212,0.4)] animate-pulse border-[3px] border-cyan-500/30 transition-opacity duration-1000" />
             )}
-            
+
             <header className="flex items-center justify-between p-4 bg-white dark:bg-[#1a1f24] border-b border-gray-200 dark:border-gray-800 transition-colors relative z-40">
                 <div className="flex items-center gap-4">
                     <button onClick={toggleSidebar} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-xl">
@@ -322,7 +322,6 @@ const Header = ({ toggleSidebar }) => {
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
                                 {userInfo.designation && (
                                     <span className="text-[10px] text-cyan-500 dark:text-cyan-400 font-medium">{userInfo.designation}</span>
                                 )}
@@ -338,7 +337,6 @@ const Header = ({ toggleSidebar }) => {
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-gray-900 dark:text-white font-semibold">{userName}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleDisplayName(userRole)}</span>
                                 {userInfo.designation && (
                                     <span className="text-[10px] text-cyan-500 dark:text-cyan-400 font-medium">{userInfo.designation}</span>
                                 )}
@@ -354,12 +352,12 @@ const Header = ({ toggleSidebar }) => {
 
                 {/* Notifications - Centered */}
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" ref={notificationRef}>
-                    <button 
+                    <button
                         onClick={() => setShowNotifications(!showNotifications)}
                         className={`relative p-3 rounded-full transition-all duration-300 ${unreadCount > 0 ? 'text-cyan-400 drop-shadow-[0_0_15px_rgba(6,182,212,1)] scale-110 bg-cyan-500/10' : 'text-gray-600 dark:text-gray-400 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                     >
                         <FaBell size={26} className={unreadCount > 0 ? "animate-pulse" : ""} />
-                        
+
                         {unreadCount > 0 && (
                             <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-[20px] px-1 text-[10px] font-black leading-none text-white bg-red-600 rounded-full border-2 border-white dark:border-[#1a1f24] shadow-xl z-10">
                                 {unreadCount > 9 ? '9+' : unreadCount}
@@ -375,69 +373,69 @@ const Header = ({ toggleSidebar }) => {
                         </div>
                     )}
 
-                {/* Notification Dropdown */}
-                {showNotifications && (
-                    <div className="absolute top-full mt-3 left-1/2 transform -translate-x-1/2 w-[90vw] sm:w-[400px] bg-white dark:bg-[#1a1f24] shadow-2xl rounded-2xl border border-gray-200 dark:border-gray-800 z-[100] overflow-hidden transition-all">
-                        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-[#131619]">
-                            <h3 className="font-bold text-sm text-gray-800 dark:text-gray-200">Notifications</h3>
-                            <div className="flex gap-3">
-                                {unreadCount > 0 && (
-                                    <button onClick={handleMarkAllAsRead} className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline">Mark all read</button>
-                                )}
-                                <button onClick={handleClearAll} className="text-xs font-semibold text-red-500 dark:text-red-400 hover:underline">Clear all</button>
-                            </div>
-                        </div>
-                        <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
-                            {notifications.length === 0 ? (
-                                <div className="p-8 text-center text-gray-500 dark:text-gray-400 text-sm font-semibold">
-                                    No new notifications!
+                    {/* Notification Dropdown */}
+                    {showNotifications && (
+                        <div className="absolute top-full mt-3 left-1/2 transform -translate-x-1/2 w-[90vw] sm:w-[400px] bg-white dark:bg-[#1a1f24] shadow-2xl rounded-2xl border border-gray-200 dark:border-gray-800 z-[100] overflow-hidden transition-all">
+                            <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-[#131619]">
+                                <h3 className="font-bold text-sm text-gray-800 dark:text-gray-200">Notifications</h3>
+                                <div className="flex gap-3">
+                                    {unreadCount > 0 && (
+                                        <button onClick={handleMarkAllAsRead} className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline">Mark all read</button>
+                                    )}
+                                    <button onClick={handleClearAll} className="text-xs font-semibold text-red-500 dark:text-red-400 hover:underline">Clear all</button>
                                 </div>
-                            ) : (
-                                notifications.map(notif => (
-                                    <div 
-                                        key={notif._id} 
-                                        className={`p-4 border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${!notif.isRead ? 'bg-cyan-50/50 dark:bg-cyan-900/10' : ''}`}
-                                    >
-                                        <div className="flex gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 flex-shrink-0 flex items-center justify-center border border-cyan-200 dark:border-cyan-800 shadow-sm">
-                                                {notif.sender?.profileImage ? (
-                                                    <img src={notif.sender.profileImage} alt="" className="w-full h-full rounded-full object-cover" />
-                                                ) : (
-                                                    <span className="text-cyan-600 dark:text-cyan-400 font-bold text-sm tracking-tighter">{notif.sender?.name?.charAt(0)}</span>
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className={`text-sm tracking-tight ${!notif.isRead ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'}`}>
-                                                    {notif.message}
-                                                </p>
-                                                <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-1.5 flex justify-between items-center">
-                                                    <span>{new Date(notif.createdAt).toLocaleDateString()} at {new Date(notif.createdAt).toLocaleTimeString()}</span>
-                                                    <div className="flex gap-3">
-                                                        {notif.post && (
-                                                            <button onClick={() => handleMarkAsRead(notif._id, notif.post)} className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 font-bold transition-colors">
-                                                                View Details
-                                                            </button>
-                                                        )}
-                                                        {!notif.isRead && !notif.post && (
-                                                            <button onClick={() => handleMarkAsRead(notif._id)} className="hover:text-cyan-500 transition-colors">
-                                                                Mark Read
-                                                            </button>
-                                                        )}
+                            </div>
+                            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                {notifications.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500 dark:text-gray-400 text-sm font-semibold">
+                                        No new notifications!
+                                    </div>
+                                ) : (
+                                    notifications.map(notif => (
+                                        <div
+                                            key={notif._id}
+                                            className={`p-4 border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${!notif.isRead ? 'bg-cyan-50/50 dark:bg-cyan-900/10' : ''}`}
+                                        >
+                                            <div className="flex gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-900 flex-shrink-0 flex items-center justify-center border border-cyan-200 dark:border-cyan-800 shadow-sm">
+                                                    {notif.sender?.profileImage ? (
+                                                        <img src={notif.sender.profileImage} alt="" className="w-full h-full rounded-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-cyan-600 dark:text-cyan-400 font-bold text-sm tracking-tighter">{notif.sender?.name?.charAt(0)}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-sm tracking-tight ${!notif.isRead ? 'font-bold text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'}`}>
+                                                        {notif.message}
+                                                    </p>
+                                                    <div className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mt-1.5 flex justify-between items-center">
+                                                        <span>{new Date(notif.createdAt).toLocaleDateString()} at {new Date(notif.createdAt).toLocaleTimeString()}</span>
+                                                        <div className="flex gap-3">
+                                                            {notif.post && (
+                                                                <button onClick={() => handleMarkAsRead(notif._id, notif.post)} className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 font-bold transition-colors">
+                                                                    View Details
+                                                                </button>
+                                                            )}
+                                                            {!notif.isRead && !notif.post && (
+                                                                <button onClick={() => handleMarkAsRead(notif._id)} className="hover:text-cyan-500 transition-colors">
+                                                                    Mark Read
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
+                                                {!notif.isRead && (
+                                                    <FaCircle className="text-cyan-500 text-[10px] mt-1.5 shrink-0" />
+                                                )}
                                             </div>
-                                            {!notif.isRead && (
-                                                <FaCircle className="text-cyan-500 text-[10px] mt-1.5 shrink-0" />
-                                            )}
                                         </div>
-                                    </div>
-                                ))
-                            )}
+                                    ))
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
-        </header>
+                    )}
+                </div>
+            </header>
         </>
     );
 };
