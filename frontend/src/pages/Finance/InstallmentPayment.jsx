@@ -464,6 +464,37 @@ const InstallmentPayment = () => {
         }
     }, [admissionsList, displayedList, isDetailedView]);
 
+    const centreStats = React.useMemo(() => {
+        const counts = {};
+        if (isDetailedView) {
+            displayedList.forEach(inst => {
+                const c = inst.centre || "Unknown";
+                if (!counts[c]) {
+                    counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
+                }
+                const amt = parseFloat(inst.amount) || 0;
+                const paid = parseFloat(inst.paidAmount) || 0;
+                counts[c].totalFees += amt;
+                counts[c].totalPaid += paid;
+                counts[c].totalDue += (amt - paid);
+            });
+        } else {
+            admissionsList.forEach(a => {
+                const c = a.centre || "Unknown";
+                if (!counts[c]) {
+                    counts[c] = { totalFees: 0, totalPaid: 0, totalDue: 0 };
+                }
+                counts[c].totalFees += (parseFloat(a.totalFees) || 0);
+                counts[c].totalPaid += (parseFloat(a.totalPaid) || 0);
+                counts[c].totalDue += (parseFloat(a.remainingAmount) || 0);
+            });
+        }
+        return Object.entries(counts).map(([name, data]) => ({
+            name,
+            ...data
+        })).sort((a, b) => b.totalFees - a.totalFees);
+    }, [admissionsList, displayedList, isDetailedView]);
+
     const exportToExcel = () => {
         if (displayedList.length === 0) {
             toast.info("No data to export");
@@ -810,7 +841,30 @@ const InstallmentPayment = () => {
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
                             {selectedStudent ? "Financial Details for " + selectedStudent.name : "Manage Student Payments & Financial Records"}
                         </p>
+                        
+                        {!selectedStudent && (
+                            <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-2xl p-4 shadow-sm w-full max-w-[500px] h-[150px] mt-4 flex flex-col`}>
+                                <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Centre Breakdown</div>
+                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+                                    {centreStats.length === 0 ? (
+                                        <div className="text-[10px] italic text-gray-500 font-bold uppercase">No centre data available</div>
+                                    ) : (
+                                        centreStats.map((c, idx) => (
+                                            <div key={idx} className={`flex items-center justify-between text-[10px] font-bold py-1 border-b last:border-b-0 ${isDarkMode ? 'border-gray-800/40 text-gray-300' : 'border-gray-150 text-gray-700'}`}>
+                                                <span className={`font-black uppercase tracking-wider truncate w-32 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`} title={c.name}>{c.name}</span>
+                                                <div className="flex gap-3">
+                                                    <span>T: <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>₹{Math.round(c.totalFees).toLocaleString('en-IN')}</span></span>
+                                                    <span className="text-emerald-500">P: ₹{Math.round(c.totalPaid).toLocaleString('en-IN')}</span>
+                                                    <span className="text-red-500">D: ₹{Math.round(c.totalDue).toLocaleString('en-IN')}</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
+
 
                     {!selectedStudent && (
                         <div className="flex flex-col xl:flex-row gap-4">
