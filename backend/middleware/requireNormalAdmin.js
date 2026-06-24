@@ -24,8 +24,8 @@ export const requireNormalAdmin = async (req, res, next) => {
     }
 
     
-    if (user.role !== "admin" && user.role !== "superAdmin") {
-      return res.status(403).json({ message: "Access denied. Only Admin or SuperAdmin allowed." });
+    if (user.role !== "admin" && user.role !== "superAdmin" && user.role !== "hr" && user.role !== "accounts") {
+      return res.status(403).json({ message: "Access denied. Only Admin, SuperAdmin, HR, or Accounts allowed." });
     }
 
     req.user = user;
