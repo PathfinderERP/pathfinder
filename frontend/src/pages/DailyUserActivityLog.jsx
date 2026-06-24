@@ -146,7 +146,7 @@ const DailyUserActivityLog = () => {
 
         let matchSection = true;
         if (selectedSection === 'FRESH') {
-            matchSection = call.callType === 'FRESH';
+            matchSection = call.callType === 'FRESH' || call.callType === 'CONTACTED_UPLOAD';
         } else if (selectedSection === 'CONTACTED_UPLOADS') {
             matchSection = call.callType === 'CONTACTED_UPLOAD';
         } else if (selectedSection === 'CALLS') {
@@ -395,10 +395,11 @@ const DailyUserActivityLog = () => {
                                 </div>
                             </div>
 
-                            {/* Lower row: Four KPI cards side-by-side */}
-                            <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                            {/* Lower row: Five KPI cards side-by-side */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                                 {[
-                                    { label: 'Folloups counts', value: filteredCalls.filter(c => c.callType === 'FOLLOW-UP' || c.callType === 'CONTACTED_UPLOAD').length, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
+                                    { label: 'Fresh Calls', value: filteredCalls.filter(c => c.callType === 'FRESH' || c.callType === 'CONTACTED_UPLOAD').length, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'FRESH', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
+                                    { label: 'Followup counts', value: filteredCalls.filter(c => c.callType === 'FOLLOW-UP').length, color: 'text-sky-400', bg: 'bg-sky-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-sky-500 shadow-lg shadow-sky-900/20 bg-sky-950/10' },
                                     { label: 'Counselled', value: data.counselled.total, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: <FaUsers />, section: 'COUNSELLED', activeBorder: 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' },
                                     { label: 'Admissions', value: data.admissions.total, color: 'text-green-400', bg: 'bg-green-500/10', icon: <FaUserGraduate />, section: 'ADMISSIONS', activeBorder: 'border-green-500 shadow-lg shadow-green-900/20 bg-green-950/10' },
                                     { label: 'Collection', value: `₹${collectionTotal.toLocaleString('en-IN')}`, color: 'text-amber-400', bg: 'bg-amber-500/10', icon: <FaMoneyBillWave />, section: 'COLLECTION', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
@@ -594,7 +595,7 @@ const DailyUserActivityLog = () => {
                                                 {call.courseName || '-'}
                                             </td>
                                             <td className="px-5 py-3 text-center">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${call.callType === 'FRESH'
+                                                <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${call.callType === 'FRESH' || call.callType === 'CONTACTED_UPLOAD'
                                                     ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                                                     : call.callType === 'ADMISSION'
                                                         ? 'bg-green-500/10 text-green-400 border border-green-500/20'
@@ -604,7 +605,7 @@ const DailyUserActivityLog = () => {
                                                                 ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                                                                 : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                                                     }`}>
-                                                    {call.callType}
+                                                    {call.callType === 'CONTACTED_UPLOAD' ? 'FRESH' : call.callType}
                                                 </span>
                                             </td>
                                             <td className="px-5 py-3 text-center">

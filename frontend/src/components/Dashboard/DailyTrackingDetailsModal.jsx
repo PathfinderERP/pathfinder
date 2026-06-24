@@ -26,7 +26,7 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data, loading, isDa
 
     if (!isOpen) return null;
 
-    const isCollectionType = title === "Total Collection";
+    const isCollectionType = title && title.toLowerCase().includes("collection");
 
     const admissionTotal = data.filter(item => item.isAdmission).reduce((sum, item) => sum + (item.amount || 0), 0);
     const installmentTotal = data.filter(item => !item.isAdmission).reduce((sum, item) => sum + (item.amount || 0), 0);

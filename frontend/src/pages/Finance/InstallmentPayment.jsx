@@ -188,6 +188,7 @@ const InstallmentPayment = () => {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [financialData, setFinancialData] = useState(null);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
+    const [activeTab, setActiveTab] = useState("centreSummary"); // Default to Centre-wise Summary
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     // Check both permissions: Finance (for visibility) and Admissions (required by backend)
@@ -492,7 +493,7 @@ const InstallmentPayment = () => {
         return Object.entries(counts).map(([name, data]) => ({
             name,
             ...data
-        })).sort((a, b) => b.totalFees - a.totalFees);
+        })).sort((a, b) => a.name.localeCompare(b.name));
     }, [admissionsList, displayedList, isDetailedView]);
 
     const exportToExcel = () => {
@@ -621,6 +622,39 @@ const InstallmentPayment = () => {
         const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
         saveAs(data, `Detailed_Student_Financial_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
         toast.success("Detailed report exported successfully!");
+    };
+
+    const exportCentreSummaryToExcel = () => {
+        if (centreStats.length === 0) {
+            toast.info("No data to export");
+            return;
+        }
+
+        const dataToExport = centreStats.map(c => {
+            const progress = c.totalFees > 0 ? (c.totalPaid / c.totalFees) * 100 : 0;
+            return {
+                "Centre Name": c.name,
+                "Total Installment Amount (₹)": Math.round(c.totalFees),
+                "Paid Amount (₹)": Math.round(c.totalPaid),
+                "Remaining Amount (₹)": Math.round(c.totalDue),
+                "Recovery Progress (%)": Math.round(progress) + "%"
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Centre-wise Summary Report");
+
+        // Auto-size columns
+        const columnWidths = Object.keys(dataToExport[0] || {}).map(key => ({
+            wch: Math.max(key.length, ...dataToExport.map(row => (row[key] || "").toString().length)) + 2
+        }));
+        worksheet["!cols"] = columnWidths;
+
+        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+        saveAs(data, `Centre_wise_Installment_Summary_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Centre summary report exported successfully!");
     };
 
     const getStatusBadge = (status) => {
@@ -842,27 +876,6 @@ const InstallmentPayment = () => {
                             {selectedStudent ? "Financial Details for " + selectedStudent.name : "Manage Student Payments & Financial Records"}
                         </p>
                         
-                        {!selectedStudent && (
-                            <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-2xl p-4 shadow-sm w-full max-w-[500px] h-[150px] mt-4 flex flex-col`}>
-                                <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Centre Breakdown</div>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
-                                    {centreStats.length === 0 ? (
-                                        <div className="text-[10px] italic text-gray-500 font-bold uppercase">No centre data available</div>
-                                    ) : (
-                                        centreStats.map((c, idx) => (
-                                            <div key={idx} className={`flex items-center justify-between text-[10px] font-bold py-1 border-b last:border-b-0 ${isDarkMode ? 'border-gray-800/40 text-gray-300' : 'border-gray-150 text-gray-700'}`}>
-                                                <span className={`font-black uppercase tracking-wider truncate w-32 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`} title={c.name}>{c.name}</span>
-                                                <div className="flex gap-3">
-                                                    <span>T: <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>₹{Math.round(c.totalFees).toLocaleString('en-IN')}</span></span>
-                                                    <span className="text-emerald-500">P: ₹{Math.round(c.totalPaid).toLocaleString('en-IN')}</span>
-                                                    <span className="text-red-500">D: ₹{Math.round(c.totalDue).toLocaleString('en-IN')}</span>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </div>
 
 
@@ -982,344 +995,597 @@ const InstallmentPayment = () => {
 
                 {!selectedStudent ? (
                     <>
-                        {/* Filters Section */}
-                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
-                                {/* Date Range */}
-                                <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
-                                    <input
-                                        type="date"
-                                        name="startDate"
-                                        value={filters.startDate}
-                                        onChange={handleFilterChange}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                    />
-                                </div>
-                                <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
-                                    <input
-                                        type="date"
-                                        name="endDate"
-                                        value={filters.endDate}
-                                        onChange={handleFilterChange}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                    />
-                                </div>
-
-                                {/* Dept Filter - Multi-select */}
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
-                                    <Select
-                                        isMulti
-                                        options={metadata.departments.map(d => ({ value: d._id, label: d.departmentName }))}
-                                        value={filters.department.map(id => {
-                                            const dept = metadata.departments.find(d => d._id === id);
-                                            return dept ? { value: dept._id, label: dept.departmentName } : null;
-                                        }).filter(Boolean)}
-                                        onChange={(selected) => setFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
-                                        styles={selectStyles}
-                                        placeholder="ALL DEPARTMENTS"
-                                        isClearable
-                                    />
-                                </div>
-
-                                {/* Course Filter - Multi-select */}
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
-                                    <Select
-                                        isMulti
-                                        options={metadata.courses.map(c => ({ value: c._id, label: c.courseName }))}
-                                        value={filters.course.map(id => {
-                                            const course = metadata.courses.find(c => c._id === id);
-                                            return course ? { value: course._id, label: course.courseName } : null;
-                                        }).filter(Boolean)}
-                                        onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
-                                        styles={selectStyles}
-                                        placeholder="ALL COURSES"
-                                        isClearable
-                                    />
-                                </div>
-
-                                {/* Centre Filter - Multi-select */}
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
-                                    <Select
-                                        isMulti
-                                        options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
-                                        value={filters.centre.map(name => ({ value: name, label: name }))}
-                                        onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
-                                        styles={selectStyles}
-                                        placeholder="ALL CENTRES"
-                                        isClearable
-                                    />
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => fetchAdmissions()}
-                                        className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
-                                    >
-                                        Apply
-                                    </button>
-                                    <button
-                                        onClick={exportToExcel}
-                                        className="p-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
-                                        title="Export Excel"
-                                    >
-                                        <FaDownload />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Additional Filters: Amount Range */}
-                            <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-200'}`}>
-                                <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
-                                    <div className="flex-1">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
-                                        <input
-                                            type="number"
-                                            name="minRemaining"
-                                            placeholder="₹ Min (e.g. 5000)"
-                                            value={filters.minRemaining}
-                                            onChange={handleFilterChange}
-                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        />
-                                    </div>
-                                    <div className="text-gray-700 mt-6">-</div>
-                                    <div className="flex-1">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
-                                        <input
-                                            type="number"
-                                            name="maxRemaining"
-                                            placeholder="₹ Max (e.g. 50000)"
-                                            value={filters.maxRemaining}
-                                            onChange={handleFilterChange}
-                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="md:col-span-1">
-                                    <div className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em] ml-1">Installment Status</div>
-                                    <Select
-                                        isMulti
-                                        options={statusOptions}
-                                        value={statusOptions.filter(opt => filters.installmentStatus.includes(opt.value))}
-                                        onChange={(selected) => setFilters(prev => ({ ...prev, installmentStatus: selected ? selected.map(s => s.value) : [] }))}
-                                        placeholder="FILTER STATUS..."
-                                        styles={selectStyles}
-                                    />
-                                </div>
-
-                                <div className="md:col-span-1 self-end">
-                                    <button
-                                        onClick={resetFilters}
-                                        className={`w-full py-4 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border-gray-300'}`}
-                                    >
-                                        <FaEraser /> Reset All Filters
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Text Search & Items Per Page */}
-                            <div className="mt-8 flex flex-col md:flex-row gap-4">
-                                <div className="relative group flex-1">
-                                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
-                                    <input
-                                        type="text"
-                                        name="searchTerm"
-                                        placeholder="SEARCH BY NAME, EMAIL, OR ADMISSION NUMBER..."
-                                        value={filters.searchTerm}
-                                        onChange={handleFilterChange}
-                                        onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
-                                        className={`w-full border rounded-2xl py-4 pl-12 pr-4 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 text-gray-200 focus:bg-black/40' : 'bg-gray-50 border-gray-300 text-gray-700 focus:bg-white'}`}
-                                    />
-                                </div>
-                                <div className="w-full md:w-64">
-                                    <Select
-                                        options={itemsPerPageOptions}
-                                        value={itemsPerPageOptions.find(opt => opt.value === itemsPerPage)}
-                                        onChange={(opt) => {
-                                            setItemsPerPage(opt.value);
-                                            setCurrentPage(1);
-                                        }}
-                                        styles={selectStyles}
-                                        isSearchable={false}
-                                    />
-                                </div>
-                            </div>
+                        {/* Tab Switcher */}
+                        <div className="flex justify-start items-center mb-6 gap-2 border-b border-gray-800/40 pb-4">
+                            <button
+                                onClick={() => setActiveTab("centreSummary")}
+                                className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                    activeTab === "centreSummary"
+                                        ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                                        : isDarkMode
+                                            ? "bg-[#131619] text-gray-400 hover:text-white border border-gray-800"
+                                            : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200"
+                                }`}
+                            >
+                                Centre-wise Summary
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("detailedList")}
+                                className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                    activeTab === "detailedList"
+                                        ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                                        : isDarkMode
+                                            ? "bg-[#131619] text-gray-400 hover:text-white border border-gray-800"
+                                            : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200"
+                                }`}
+                            >
+                                Detailed Payments
+                            </button>
                         </div>
 
-                        {/* Students List Table */}
-                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl overflow-hidden shadow-2xl`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                                            <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Installment Due" : "Enrollment No."}</th>
-                                            <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Student</th>
-                                            <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course / Dept</th>
-                                            <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre</th>
-                                            <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Inst. Amount" : "Financials"}</th>
-                                            <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Inst. Status" : "Payment Status"}</th>
-                                            <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Admission Status" : "Due Status"}</th>
-                                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
-                                        {loading ? (
-                                            <tr>
-                                                <td colSpan="8" className="p-20 text-center">
-                                                    <div className="flex justify-center flex-col items-center gap-4">
-                                                        <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
-                                                        <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Data...</span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ) : displayedList.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="8" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No records found matching your criteria</td>
-                                            </tr>
-                                        ) : (
-                                            displayedList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, idx) => {
-                                                if (isDetailedView) {
-                                                    return (
-                                                        <tr
-                                                            key={idx}
-                                                            className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
-                                                            onClick={() => handleSelectStudent(item.studentId)}
-                                                        >
-                                                            <td className="p-6">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-500 font-black text-xs">#{item.installmentNumber}</span>
-                                                                    <span className={`font-bold text-xs ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(item.dueDate).toLocaleDateString('en-GB')}</span>
-                                                                </div>
-                                                                <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{item.admissionNumber}</div>
-                                                            </td>
-                                                            <td className="p-6">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
-                                                                        {item.studentName?.charAt(0) || "S"}
-                                                                    </div>
-                                                                    <div>
-                                                                        <div className={`font-black uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.studentName}</div>
-                                                                        <div className="text-[10px] text-gray-500 mt-0.5">{item.mobile} • {item.email}</div>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-6">
-                                                                <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.course}</div>
-                                                                <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{item.department}</div>
-                                                            </td>
-                                                            <td className="p-6">
-                                                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-400' : 'bg-gray-100 border border-gray-200 text-gray-600'}`}>
-                                                                    <FaMapMarkerAlt className="text-cyan-500" />
-                                                                    {item.centre}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-6">
-                                                                <div className="space-y-1">
-                                                                    <div className="text-[11px] flex justify-between gap-3">
-                                                                        <span className="text-gray-500 font-bold">DUE:</span>
-                                                                        <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{parseFloat(item.amount || 0).toLocaleString()}</span>
-                                                                    </div>
-                                                                    <div className={`text-[11px] flex justify-between gap-3 border-t pt-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                                                                        <span className="text-emerald-500 font-bold">PAID:</span>
-                                                                        <span className="text-emerald-500 font-black">₹{parseFloat(item.paidAmount || 0).toLocaleString()}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-6">
-                                                                {getStatusBadge(item.status)}
-                                                            </td>
-                                                            <td className="p-6">
-                                                                {getStatusBadge(item.admissionPaymentStatus || "PENDING")}
-                                                            </td>
-                                                            <td className="p-6 text-right">
-                                                                <button className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border shadow-lg shadow-black/20 text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black group-hover:border-cyan-400 ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-100 border-gray-300'}`}>
-                                                                    <FaChevronRight className="text-xs" />
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                }
+                        {activeTab === "centreSummary" && (
+                            <>
+                                {/* Filters Section */}
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm animate-fade-in`}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                                        {/* Date Range */}
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                            <input
+                                                type="date"
+                                                name="startDate"
+                                                value={filters.startDate}
+                                                onChange={handleFilterChange}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                            <input
+                                                type="date"
+                                                name="endDate"
+                                                value={filters.endDate}
+                                                onChange={handleFilterChange}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
 
-                                                const adm = item;
-                                                return (
-                                                    <tr
-                                                        key={idx}
-                                                        className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
-                                                        onClick={() => handleSelectStudent(adm.studentId)}
-                                                    >
-                                                        <td className="p-6">
-                                                            <span className="text-cyan-500 font-black font-mono text-sm tracking-tighter">{adm.admissionNumber}</span>
-                                                            <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{new Date(adm.admissionDate).toLocaleDateString('en-GB')}</div>
-                                                        </td>
-                                                        <td className="p-6">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
-                                                                    {adm.studentName.charAt(0)}
-                                                                </div>
-                                                                <div>
-                                                                    <div className={`font-black uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{adm.studentName}</div>
-                                                                    <div className="text-[10px] text-gray-500 mt-0.5">{adm.mobile} • {adm.email}</div>
-                                                                </div>
+                                        {/* Dept Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.departments.map(d => ({ value: d._id, label: d.departmentName }))}
+                                                value={filters.department.map(id => {
+                                                    const dept = metadata.departments.find(d => d._id === id);
+                                                    return dept ? { value: dept._id, label: dept.departmentName } : null;
+                                                }).filter(Boolean)}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL DEPARTMENTS"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Course Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.courses.map(c => ({ value: c._id, label: c.courseName }))}
+                                                value={filters.course.map(id => {
+                                                    const course = metadata.courses.find(c => c._id === id);
+                                                    return course ? { value: course._id, label: course.courseName } : null;
+                                                }).filter(Boolean)}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL COURSES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Centre Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                                value={filters.centre.map(name => ({ value: name, label: name }))}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL CENTRES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => fetchAdmissions()}
+                                                className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
+                                            >
+                                                Apply
+                                            </button>
+                                            <button
+                                                onClick={exportCentreSummaryToExcel}
+                                                className="p-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
+                                                title="Export Centre Summary Excel"
+                                            >
+                                                <FaDownload />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Filters: Amount Range */}
+                                    <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-200'}`}>
+                                        <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
+                                                <input
+                                                    type="number"
+                                                    name="minRemaining"
+                                                    placeholder="₹ Min (e.g. 5000)"
+                                                    value={filters.minRemaining}
+                                                    onChange={handleFilterChange}
+                                                    className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                />
+                                            </div>
+                                            <div className="text-gray-700 mt-6">-</div>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
+                                                <input
+                                                    type="number"
+                                                    name="maxRemaining"
+                                                    placeholder="₹ Max (e.g. 50000)"
+                                                    value={filters.maxRemaining}
+                                                    onChange={handleFilterChange}
+                                                    className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="md:col-span-1">
+                                            <div className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em] ml-1">Installment Status</div>
+                                            <Select
+                                                isMulti
+                                                options={statusOptions}
+                                                value={statusOptions.filter(opt => filters.installmentStatus.includes(opt.value))}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, installmentStatus: selected ? selected.map(s => s.value) : [] }))}
+                                                placeholder="FILTER STATUS..."
+                                                styles={selectStyles}
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-1 self-end">
+                                            <button
+                                                onClick={resetFilters}
+                                                className={`w-full py-4 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border-gray-300'}`}
+                                            >
+                                                <FaEraser /> Reset All Filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl overflow-hidden shadow-2xl`}>
+                                    <div className="p-6 border-b border-gray-800/40 flex justify-between items-center">
+                                        <h3 className={`text-lg font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            Centre-wise Installment Summary
+                                        </h3>
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-cyan-500/10 text-cyan-500 px-3 py-1 rounded-full">
+                                            Total Centres: {centreStats.length}
+                                        </span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre Name</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Installment Amount</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Paid Amount</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Recovery Progress</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
+                                                {loading ? (
+                                                    <tr>
+                                                        <td colSpan="5" className="p-20 text-center">
+                                                            <div className="flex justify-center flex-col items-center gap-4">
+                                                                <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
+                                                                <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Data...</span>
                                                             </div>
-                                                        </td>
-                                                        <td className="p-6">
-                                                            <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{adm.course}</div>
-                                                            <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
-                                                        </td>
-                                                        <td className="p-6">
-                                                            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-400' : 'bg-gray-100 border border-gray-200 text-gray-600'}`}>
-                                                                <FaMapMarkerAlt className="text-cyan-500" />
-                                                                {adm.centre}
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-6">
-                                                            <div className="space-y-1">
-                                                                <div className="text-[10px] flex justify-between gap-4">
-                                                                    <span className="text-gray-500 font-bold">TOTAL:</span>
-                                                                    <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{adm.totalFees.toLocaleString()}</span>
-                                                                </div>
-                                                                <div className="text-[10px] flex justify-between gap-4">
-                                                                    <span className="text-emerald-500 font-bold">PAID:</span>
-                                                                    <span className="text-emerald-500 font-black">₹{adm.totalPaid.toLocaleString()}</span>
-                                                                </div>
-                                                                <div className={`text-[10px] flex justify-between gap-4 border-t pt-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                                                                    <span className="text-orange-500 font-bold">DUE:</span>
-                                                                    <span className="text-orange-500 font-black">₹{adm.remainingAmount.toLocaleString()}</span>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-6">
-                                                            {getStatusBadge(adm.paymentStatus)}
-                                                        </td>
-                                                        <td className="p-6">
-                                                            {getDueStatusBadge(adm)}
-                                                        </td>
-                                                        <td className="p-6 text-right">
-                                                            <button className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border shadow-lg shadow-black/20 text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black group-hover:border-cyan-400 ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-100 border-gray-300'}`}>
-                                                                <FaChevronRight className="text-xs" />
-                                                            </button>
                                                         </td>
                                                     </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {!loading && displayedList.length > 0 && (
-                                <Pagination
-                                    currentPage={currentPage}
-                                    totalItems={displayedList.length}
-                                    itemsPerPage={itemsPerPage}
-                                    onPageChange={setCurrentPage}
-                                />
-                            )}
-                        </div>
+                                                ) : centreStats.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="5" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No center summary data found</td>
+                                                    </tr>
+                                                ) : (
+                                                    centreStats.map((c, idx) => {
+                                                        const progress = c.totalFees > 0 ? (c.totalPaid / c.totalFees) * 100 : 0;
+                                                        return (
+                                                            <tr key={idx} className="hover:bg-cyan-500/5 transition-all">
+                                                                <td className="p-6">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-200' : 'bg-gray-100 border border-gray-200 text-gray-700'}`}>
+                                                                            <FaMapMarkerAlt className="text-cyan-500" />
+                                                                            {c.name}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-6 font-black text-sm">
+                                                                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>₹{Math.round(c.totalFees).toLocaleString('en-IN')}</span>
+                                                                </td>
+                                                                <td className="p-6 font-black text-sm text-emerald-500">
+                                                                    ₹{Math.round(c.totalPaid).toLocaleString('en-IN')}
+                                                                </td>
+                                                                <td className="p-6 font-black text-sm text-red-500">
+                                                                    ₹{Math.round(c.totalDue).toLocaleString('en-IN')}
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    <div className="flex items-center gap-3 min-w-[150px]">
+                                                                        <div className={`flex-1 h-2 rounded-full overflow-hidden flex ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                                                                            <div 
+                                                                                className="h-full bg-emerald-500 rounded-full" 
+                                                                                style={{ width: `${progress}%` }} 
+                                                                            />
+                                                                        </div>
+                                                                        <span className="text-[10px] font-black text-emerald-500">{Math.round(progress)}%</span>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {activeTab === "detailedList" && (
+                            <>
+                                {/* Filters Section */}
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                                        {/* Date Range */}
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                            <input
+                                                type="date"
+                                                name="startDate"
+                                                value={filters.startDate}
+                                                onChange={handleFilterChange}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                            <input
+                                                type="date"
+                                                name="endDate"
+                                                value={filters.endDate}
+                                                onChange={handleFilterChange}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+
+                                        {/* Dept Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.departments.map(d => ({ value: d._id, label: d.departmentName }))}
+                                                value={filters.department.map(id => {
+                                                    const dept = metadata.departments.find(d => d._id === id);
+                                                    return dept ? { value: dept._id, label: dept.departmentName } : null;
+                                                }).filter(Boolean)}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL DEPARTMENTS"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Course Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.courses.map(c => ({ value: c._id, label: c.courseName }))}
+                                                value={filters.course.map(id => {
+                                                    const course = metadata.courses.find(c => c._id === id);
+                                                    return course ? { value: course._id, label: course.courseName } : null;
+                                                }).filter(Boolean)}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL COURSES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Centre Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                                value={filters.centre.map(name => ({ value: name, label: name }))}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL CENTRES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => fetchAdmissions()}
+                                                className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
+                                            >
+                                                Apply
+                                            </button>
+                                            <button
+                                                onClick={exportToExcel}
+                                                className="p-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
+                                                title="Export Excel"
+                                            >
+                                                <FaDownload />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Filters: Amount Range */}
+                                    <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-200'}`}>
+                                        <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
+                                                <input
+                                                    type="number"
+                                                    name="minRemaining"
+                                                    placeholder="₹ Min (e.g. 5000)"
+                                                    value={filters.minRemaining}
+                                                    onChange={handleFilterChange}
+                                                    className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                />
+                                            </div>
+                                            <div className="text-gray-700 mt-6">-</div>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
+                                                <input
+                                                    type="number"
+                                                    name="maxRemaining"
+                                                    placeholder="₹ Max (e.g. 50000)"
+                                                    value={filters.maxRemaining}
+                                                    onChange={handleFilterChange}
+                                                    className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="md:col-span-1">
+                                            <div className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em] ml-1">Installment Status</div>
+                                            <Select
+                                                isMulti
+                                                options={statusOptions}
+                                                value={statusOptions.filter(opt => filters.installmentStatus.includes(opt.value))}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, installmentStatus: selected ? selected.map(s => s.value) : [] }))}
+                                                placeholder="FILTER STATUS..."
+                                                styles={selectStyles}
+                                            />
+                                        </div>
+
+                                        <div className="md:col-span-1 self-end">
+                                            <button
+                                                onClick={resetFilters}
+                                                className={`w-full py-4 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border-gray-300'}`}
+                                            >
+                                                <FaEraser /> Reset All Filters
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Text Search & Items Per Page */}
+                                    <div className="mt-8 flex flex-col md:flex-row gap-4">
+                                        <div className="relative group flex-1">
+                                            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-cyan-500 transition-colors" />
+                                            <input
+                                                type="text"
+                                                name="searchTerm"
+                                                placeholder="SEARCH BY NAME, EMAIL, OR ADMISSION NUMBER..."
+                                                value={filters.searchTerm}
+                                                onChange={handleFilterChange}
+                                                onKeyPress={(e) => e.key === "Enter" && fetchAdmissions()}
+                                                className={`w-full border rounded-2xl py-4 pl-12 pr-4 font-bold text-sm uppercase tracking-wider outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 text-gray-200 focus:bg-black/40' : 'bg-gray-50 border-gray-300 text-gray-700 focus:bg-white'}`}
+                                            />
+                                        </div>
+                                        <div className="w-full md:w-64">
+                                            <Select
+                                                options={itemsPerPageOptions}
+                                                value={itemsPerPageOptions.find(opt => opt.value === itemsPerPage)}
+                                                onChange={(opt) => {
+                                                    setItemsPerPage(opt.value);
+                                                    setCurrentPage(1);
+                                                }}
+                                                styles={selectStyles}
+                                                isSearchable={false}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Students List Table */}
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl overflow-hidden shadow-2xl`}>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Installment Due" : "Enrollment No."}</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Student</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course / Dept</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Inst. Amount" : "Financials"}</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Inst. Status" : "Payment Status"}</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isDetailedView ? "Admission Status" : "Due Status"}</th>
+                                                    <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
+                                                {loading ? (
+                                                    <tr>
+                                                        <td colSpan="8" className="p-20 text-center">
+                                                            <div className="flex justify-center flex-col items-center gap-4">
+                                                                <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
+                                                                <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Data...</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : displayedList.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="8" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No records found matching your criteria</td>
+                                                    </tr>
+                                                ) : (
+                                                    displayedList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, idx) => {
+                                                        if (isDetailedView) {
+                                                            return (
+                                                                <tr
+                                                                    key={idx}
+                                                                    className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
+                                                                    onClick={() => handleSelectStudent(item.studentId)}
+                                                                >
+                                                                    <td className="p-6">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-500 font-black text-xs">#{item.installmentNumber}</span>
+                                                                            <span className={`font-bold text-xs ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(item.dueDate).toLocaleDateString('en-GB')}</span>
+                                                                        </div>
+                                                                        <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{item.admissionNumber}</div>
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
+                                                                                {item.studentName?.charAt(0) || "S"}
+                                                                            </div>
+                                                                            <div>
+                                                                                <div className={`font-black uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.studentName}</div>
+                                                                                <div className="text-[10px] text-gray-500 mt-0.5">{item.mobile} • {item.email}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.course}</div>
+                                                                        <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{item.department}</div>
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-400' : 'bg-gray-100 border border-gray-200 text-gray-600'}`}>
+                                                                            <FaMapMarkerAlt className="text-cyan-500" />
+                                                                            {item.centre}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        <div className="space-y-1">
+                                                                            <div className="text-[11px] flex justify-between gap-3">
+                                                                                <span className="text-gray-500 font-bold">DUE:</span>
+                                                                                <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{parseFloat(item.amount || 0).toLocaleString()}</span>
+                                                                            </div>
+                                                                            <div className={`text-[11px] flex justify-between gap-3 border-t pt-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                                                <span className="text-emerald-500 font-bold">PAID:</span>
+                                                                                <span className="text-emerald-500 font-black">₹{parseFloat(item.paidAmount || 0).toLocaleString()}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        {getStatusBadge(item.status)}
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        {getStatusBadge(item.admissionPaymentStatus || "PENDING")}
+                                                                    </td>
+                                                                    <td className="p-6 text-right">
+                                                                        <button className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border shadow-lg shadow-black/20 text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black group-hover:border-cyan-400 ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-100 border-gray-300'}`}>
+                                                                            <FaChevronRight className="text-xs" />
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        }
+
+                                                        const adm = item;
+                                                        return (
+                                                            <tr
+                                                                key={idx}
+                                                                className="hover:bg-cyan-500/5 transition-all cursor-pointer group"
+                                                                onClick={() => handleSelectStudent(adm.studentId)}
+                                                            >
+                                                                <td className="p-6">
+                                                                    <span className="text-cyan-500 font-black font-mono text-sm tracking-tighter">{adm.admissionNumber}</span>
+                                                                    <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">{new Date(adm.admissionDate).toLocaleDateString('en-GB')}</div>
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-black font-black uppercase">
+                                                                            {adm.studentName.charAt(0)}
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className={`font-black uppercase text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{adm.studentName}</div>
+                                                                            <div className="text-[10px] text-gray-500 mt-0.5">{adm.mobile} • {adm.email}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{adm.course}</div>
+                                                                    <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-400' : 'bg-gray-100 border border-gray-200 text-gray-600'}`}>
+                                                                        <FaMapMarkerAlt className="text-cyan-500" />
+                                                                        {adm.centre}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    <div className="space-y-1">
+                                                                        <div className="text-[10px] flex justify-between gap-4">
+                                                                            <span className="text-gray-500 font-bold">TOTAL:</span>
+                                                                            <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{adm.totalFees.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="text-[10px] flex justify-between gap-4">
+                                                                            <span className="text-emerald-500 font-bold">PAID:</span>
+                                                                            <span className="text-emerald-500 font-black">₹{adm.totalPaid.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className={`text-[10px] flex justify-between gap-4 border-t pt-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                                            <span className="text-orange-500 font-bold">DUE:</span>
+                                                                            <span className="text-orange-500 font-black">₹{adm.remainingAmount.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    {getStatusBadge(adm.paymentStatus)}
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    {getDueStatusBadge(adm)}
+                                                                </td>
+                                                                <td className="p-6 text-right">
+                                                                    <button className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all border shadow-lg shadow-black/20 text-cyan-500 group-hover:bg-cyan-500 group-hover:text-black group-hover:border-cyan-400 ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-100 border-gray-300'}`}>
+                                                                        <FaChevronRight className="text-xs" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {!loading && displayedList.length > 0 && (
+                                        <Pagination
+                                            currentPage={currentPage}
+                                            totalItems={displayedList.length}
+                                            itemsPerPage={itemsPerPage}
+                                            onPageChange={setCurrentPage}
+                                        />
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </>
                 ) : (
                     <>

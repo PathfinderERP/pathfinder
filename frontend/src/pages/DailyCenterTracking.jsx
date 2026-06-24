@@ -113,6 +113,10 @@ const DailyCenterTracking = () => {
                 params.append("endDate", end);
             }
 
+            if (selectedCenters && selectedCenters.length > 0) {
+                params.append("centerIds", selectedCenters.map(sc => sc.value).join(","));
+            }
+
             const response = await fetch(`${apiUrl}/operations/daily-tracking/details?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,

@@ -792,13 +792,17 @@ export const getDailyUserActivity = async (req, res) => {
                 else if (status.includes('NEUTRAL')) neutralCount++;
                 else if (status.includes('INVALID')) invalidCount++;
 
-                const isFresh = new Date(lead.createdAt) >= startDate && new Date(lead.createdAt) <= endDate;
+                const fuIndex = (lead.followUps || []).findIndex(f => 
+                    (f._id && fu._id && f._id.toString() === fu._id.toString()) ||
+                    (new Date(f.date).getTime() === new Date(fu.date).getTime() && f.updatedBy === fu.updatedBy)
+                );
+                const isFresh = fuIndex === 0;
 
                 callDetails.push({
                     leadId: lead._id,
                     studentName: lead.name,
                     phoneNumber: lead.phoneNumber || '-',
-                    callType: isFresh ? 'CONTACTED_UPLOAD' : 'FOLLOW-UP',
+                    callType: isFresh ? 'FRESH' : 'FOLLOW-UP',
                     leadType: fu.status || lead.leadType || 'UNTAGGED',
                     isCounseled: lead.isCounseled,
                     feedback: fu.feedback || '-',
@@ -816,11 +820,11 @@ export const getDailyUserActivity = async (req, res) => {
         });
 
         const contactedLeadsCount = new Set(
-            callDetails.filter(c => c.callType === 'FOLLOW-UP').map(c => c.leadId?.toString()).filter(Boolean)
+            callDetails.filter(c => c.callType === 'FOLLOW-UP' || c.callType === 'FRESH').map(c => c.leadId?.toString()).filter(Boolean)
         ).size;
 
-        const uploadedAsContactedCount = new Set(
-            callDetails.filter(c => c.callType === 'CONTACTED_UPLOAD').map(c => c.leadId?.toString()).filter(Boolean)
+        const freshContactedCount = new Set(
+            callDetails.filter(c => c.callType === 'FRESH').map(c => c.leadId?.toString()).filter(Boolean)
         ).size;
 
         // Fetch all direct admissions and counselling today to populate them if they are not in lead list
@@ -1046,7 +1050,7 @@ export const getDailyUserActivity = async (req, res) => {
             leads: {
                 fresh: freshLeadsCount,
                 contacted: contactedLeadsCount,
-                uploadedAsContacted: uploadedAsContactedCount,
+                uploadedAsContacted: freshContactedCount,
                 totalFollowUps: contactedLeadsCount,
                 hot: hotCount,
                 warm: warmCount,
@@ -1372,12 +1376,16 @@ export const exportUserCallingReportExcel = async (req, res) => {
             });
 
             todayFollowUps.forEach(fu => {
-                const isFresh = new Date(lead.createdAt) >= startDate && new Date(lead.createdAt) <= endDate;
+                const fuIndex = (lead.followUps || []).findIndex(f => 
+                    (f._id && fu._id && f._id.toString() === fu._id.toString()) ||
+                    (new Date(f.date).getTime() === new Date(fu.date).getTime() && f.updatedBy === fu.updatedBy)
+                );
+                const isFresh = fuIndex === 0;
                 callDetails.push({
                     centreName: lead.centre?.centreName || '-',
                     studentName: lead.name,
                     phoneNumber: lead.phoneNumber || '-',
-                    callType: isFresh ? 'CONTACTED_UPLOAD' : 'FOLLOW-UP',
+                    callType: isFresh ? 'FRESH' : 'FOLLOW-UP',
                     leadType: fu.status || lead.leadType || 'UNTAGGED',
                     feedback: fu.feedback || '-',
                     remarks: fu.remarks || '',
@@ -1524,7 +1532,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
 export const getDailyTrackingDetails = async (req, res) => {
     try {
-        const { date, category, startDate, endDate } = req.query;
+        const { date, category, startDate, endDate, centerIds } = req.query;
         if (!category) {
             return res.status(400).json({ message: "Category parameter is required" });
         }
@@ -1861,11 +1869,23 @@ export const getDailyTrackingDetails = async (req, res) => {
         }
 
         let activeCenters;
+        let queryCenterIds = [];
+        if (centerIds) {
+            queryCenterIds = centerIds.split(',').filter(Boolean);
+        }
+
         if (isRestricted) {
             const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
-            activeCenters = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
+            const allowedCenterIds = queryCenterIds.length > 0
+                ? queryCenterIds.filter(id => userCenterIds.includes(id))
+                : userCenterIds;
+            activeCenters = await CentreSchema.find({ _id: { $in: allowedCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
         } else {
-            activeCenters = await CentreSchema.find({ status: { $ne: "deactive" } }).select('centreName').lean();
+            if (queryCenterIds.length > 0) {
+                activeCenters = await CentreSchema.find({ _id: { $in: queryCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
+            } else {
+                activeCenters = await CentreSchema.find({ status: { $ne: "deactive" } }).select('centreName').lean();
+            }
         }
         const activeCenterNames = activeCenters.map(c => c.centreName.toLowerCase());
         detailsList = detailsList.filter(d => d.centreName && activeCenterNames.includes(d.centreName.toLowerCase()));
@@ -2241,7 +2261,11 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
             });
 
             matchingFollowups.forEach(fu => {
-                const isFresh = new Date(lead.createdAt) >= startDate && new Date(lead.createdAt) <= endDate;
+                const fuIndex = (lead.followUps || []).findIndex(f => 
+                    (f._id && fu._id && f._id.toString() === fu._id.toString()) ||
+                    (new Date(f.date).getTime() === new Date(fu.date).getTime() && f.updatedBy === fu.updatedBy)
+                );
+                const isFresh = fuIndex === 0;
                 const uName = fu.updatedBy || 'System';
                 const uDetails = userMap[uName.toLowerCase()] || {};
 
@@ -2260,7 +2284,7 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
                     handledBy: uName,
                     employeeId: finalEmployeeId,
                     role: finalRole,
-                    callType: isFresh ? 'CONTACTED_UPLOAD' : 'FOLLOW-UP',
+                    callType: isFresh ? 'FRESH' : 'FOLLOW-UP',
                     leadType: fu.status || lead.leadType || 'UNTAGGED',
                     feedback: fu.feedback || '-',
                     remarks: fu.remarks || '',
