@@ -366,6 +366,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                                             : role === "assistantZonalManager" ? "Assistant Zonal Manager"
                                             : role === "assistantCenterIncharge" ? "Assistant Center Incharge"
                                             : role === "supportStaff" ? "Support Staff"
+                                            : role === "admin" ? "Back Office"
                                             : role.charAt(0).toUpperCase() + role.slice(1)}
                                     </option>
                                 ))}

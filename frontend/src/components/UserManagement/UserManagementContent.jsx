@@ -235,7 +235,7 @@ const UserManagementContent = () => {
         if (label === "Total Users") {
             return [
                 { name: 'SuperAdmin', value: stats.superAdmin, color: '#ef4444' },
-                { name: 'Admin', value: stats.admin, color: '#3b82f6' },
+                { name: 'Back Office', value: stats.admin, color: '#facc15' },
                 { name: 'Teacher', value: stats.teacher, color: '#22c55e' },
                 { name: 'Counsellor', value: stats.counsellor, color: '#f97316' },
                 { name: 'Telecaller', value: stats.telecaller, color: '#a855f7' },
@@ -257,8 +257,9 @@ const UserManagementContent = () => {
                 { name: 'Part Time', value: filteredUsers.filter(u => u.role === 'teacher' && u.teacherType === 'Part Time').length, color: '#10b981' }
             ].filter(d => d.value > 0);
         }
-        if (label === "Admin" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "HOD" || label === "Accounts" || label === "Coordinator" || label === "Digital" || label === "Assistant Zonal Manager" || label === "Assistant Center Incharge" || label === "Support Staff") {
+        if (label === "Back Office" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "HOD" || label === "Accounts" || label === "Coordinator" || label === "Digital" || label === "Assistant Zonal Manager" || label === "Assistant Center Incharge" || label === "Support Staff") {
             let roleKey = label === "HOD" ? "HOD" : label.toLowerCase();
+            if (label === "Back Office") roleKey = "admin";
             if (label === "Assistant Zonal Manager") roleKey = "assistantZonalManager";
             if (label === "Assistant Center Incharge") roleKey = "assistantCenterIncharge";
             if (label === "Support Staff") roleKey = "supportStaff";
@@ -274,7 +275,7 @@ const UserManagementContent = () => {
     const getRoleBadgeColor = (role) => {
         const colors = {
             superAdmin: "bg-red-500/20 text-red-400 border-red-500/50",
-            admin: "bg-blue-500/20 text-blue-400 border-blue-500/50",
+            admin: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50",
             teacher: "bg-green-500/20 text-green-400 border-green-500/50",
             telecaller: "bg-purple-500/20 text-purple-400 border-purple-500/50",
             counsellor: "bg-orange-500/20 text-orange-400 border-orange-500/50",
@@ -294,6 +295,7 @@ const UserManagementContent = () => {
 
     const getRoleDisplayName = (role) => {
         if (role === "superAdmin") return "SuperAdmin";
+        if (role === "admin") return "Back Office";
         if (role === "centerIncharge") return "Center Incharge";
         if (role === "zonalManager") return "Zonal Manager";
         if (role === "HOD") return "HOD";
@@ -480,7 +482,7 @@ const UserManagementContent = () => {
                 {[
                     { label: "Total Users", count: stats.total, color: "from-cyan-500/20 to-blue-500/20", border: "border-cyan-500/30" },
                     { label: "SuperAdmin", count: stats.superAdmin, color: "from-red-500/20 to-orange-500/20", border: "border-red-500/30" },
-                    { label: "Admin", count: stats.admin, color: "from-blue-500/20 to-indigo-500/20", border: "border-blue-500/30" },
+                    { label: "Back Office", count: stats.admin, color: "from-yellow-500/20 to-amber-500/20", border: "border-yellow-500/30" },
                     { label: "Teacher", count: stats.teacher, color: "from-green-500/20 to-emerald-500/20", border: "border-green-500/30" },
                     { label: "Counsellor", count: stats.counsellor, color: "from-orange-500/20 to-yellow-500/20", border: "border-orange-500/30" },
                     { label: "Telecaller", count: stats.telecaller, color: "from-purple-500/20 to-pink-500/20", border: "border-purple-500/30" },
@@ -558,7 +560,7 @@ const UserManagementContent = () => {
                                 <CustomMultiSelect
                                     options={[
                                         { value: 'superAdmin', label: 'SuperAdmin' },
-                                        { value: 'admin', label: 'Admin' },
+                                        { value: 'admin', label: 'Back Office' },
                                         { value: 'teacher', label: 'Teacher' },
                                         { value: 'telecaller', label: 'Telecaller' },
                                         { value: 'counsellor', label: 'Counsellor' },
