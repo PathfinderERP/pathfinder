@@ -72,12 +72,10 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
 
     return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-            <div className={`border w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(6,182,212,0.1)] flex flex-col max-h-[90vh] ${
-                isDarkMode ? 'bg-[#0d0f11] border-gray-800' : 'bg-white border-gray-200'
-            }`}>
-                <div className={`p-8 border-b bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent flex justify-between items-center ${
-                    isDarkMode ? 'border-gray-800' : 'border-gray-200'
+            <div className={`border w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(6,182,212,0.1)] flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-[#0d0f11] border-gray-800' : 'bg-white border-gray-200'
                 }`}>
+                <div className={`p-8 border-b bg-gradient-to-r from-cyan-500/10 via-transparent to-transparent flex justify-between items-center ${isDarkMode ? 'border-gray-800' : 'border-gray-200'
+                    }`}>
                     <div>
                         <h2 className={`text-2xl font-black italic uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Edit <span className="text-cyan-500">Schedule</span></h2>
                         <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Admission # {admission.admissionNumber}</div>
@@ -91,12 +89,10 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                 <div className={`p-8 overflow-y-auto custom-scrollbar flex-1 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50'}`}>
                     <div className="space-y-4">
                         {schedule.map((inst, idx) => (
-                            <div key={idx} className={`p-6 rounded-3xl flex flex-wrap md:flex-nowrap items-center gap-6 group transition-all border ${
-                                isDarkMode ? 'bg-gray-900/40 border-gray-800 hover:border-gray-700' : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'
-                            }`}>
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-cyan-500 font-black italic shadow-md ${
-                                    isDarkMode ? 'bg-gray-800' : 'bg-gray-150'
+                            <div key={idx} className={`p-6 rounded-3xl flex flex-wrap md:flex-nowrap items-center gap-6 group transition-all border ${isDarkMode ? 'bg-gray-900/40 border-gray-800 hover:border-gray-700' : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'
                                 }`}>
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-cyan-500 font-black italic shadow-md ${isDarkMode ? 'bg-gray-800' : 'bg-gray-150'
+                                    }`}>
                                     #{inst.installmentNumber}
                                 </div>
                                 <div className="flex-1 min-w-[150px]">
@@ -105,9 +101,8 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                                         type="date"
                                         value={inst.dueDate}
                                         onChange={(e) => handleChange(idx, 'dueDate', e.target.value)}
-                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-bold outline-none focus:border-cyan-500/50 transition-all ${
-                                            isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
-                                        }`}
+                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-bold outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
+                                            }`}
                                     />
                                 </div>
                                 <div className="flex-1 min-w-[120px]">
@@ -117,9 +112,8 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                                         value={inst.amount}
                                         onFocus={(e) => e.target.select()}
                                         onChange={(e) => handleChange(idx, 'amount', e.target.value)}
-                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-black outline-none focus:border-cyan-500/50 transition-all ${
-                                            isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
-                                        }`}
+                                        className={`w-full border rounded-xl py-2 px-3 text-xs font-black outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
+                                            }`}
                                     />
                                 </div>
                                 <button
@@ -135,9 +129,8 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
 
                     <button
                         onClick={handleAdd}
-                        className={`w-full mt-6 py-4 border-2 border-dashed rounded-3xl font-black uppercase text-[10px] tracking-widest hover:text-cyan-500 transition-all flex items-center justify-center gap-2 ${
-                            isDarkMode ? 'border-gray-800 text-gray-500 hover:border-cyan-500/50' : 'border-gray-300 text-gray-400 hover:border-cyan-500/50'
-                        }`}
+                        className={`w-full mt-6 py-4 border-2 border-dashed rounded-3xl font-black uppercase text-[10px] tracking-widest hover:text-cyan-500 transition-all flex items-center justify-center gap-2 ${isDarkMode ? 'border-gray-800 text-gray-500 hover:border-cyan-500/50' : 'border-gray-300 text-gray-400 hover:border-cyan-500/50'
+                            }`}
                     >
                         <FaPlus /> Add New Installment
                     </button>
@@ -157,11 +150,10 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
                     <div className="flex gap-4">
                         <button
                             onClick={onClose}
-                            className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all border ${
-                                isDarkMode
+                            className={`flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all border ${isDarkMode
                                     ? 'bg-gray-950 text-gray-500 border-gray-800 hover:bg-gray-900 hover:text-white'
                                     : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 hover:text-gray-900'
-                            }`}
+                                }`}
                         >
                             Cancel
                         </button>
@@ -586,7 +578,7 @@ const InstallmentPayment = () => {
                         const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
                         const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
                         const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
-                        
+
                         flatInstallments.push({
                             ...inst,
                             boardCourseAdmissionId: adm._id,
@@ -1056,7 +1048,7 @@ const InstallmentPayment = () => {
 
     const handleRecordPayment = async (overrideData = null) => {
         const dataToSubmit = overrideData || payFormData;
-        
+
         // Validation for Online/Digital/Bank methods
         const mandatoryRefMethods = ['UPI', 'CARD', 'BANK_TRANSFER'];
         if (mandatoryRefMethods.includes(dataToSubmit.paymentMethod) && !dataToSubmit.transactionId?.trim()) {
@@ -1190,7 +1182,7 @@ const InstallmentPayment = () => {
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
                             {selectedStudent ? "Financial Details for " + selectedStudent.name : "Manage Student Payments & Financial Records"}
                         </p>
-                        
+
                         {!selectedStudent && (
                             <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-2xl p-4 shadow-sm w-full max-w-[500px] h-[150px] mt-4 flex flex-col`}>
                                 <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Centre Breakdown</div>
@@ -1235,11 +1227,11 @@ const InstallmentPayment = () => {
                                     </div>
                                 </div>
                                 <div className={`mt-3 h-1 rounded-full overflow-hidden flex ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
-                                    <div 
-                                        className="h-full bg-emerald-500" 
-                                        style={{ 
-                                            width: `${(stats.totalPaid / (stats.totalFees || 1)) * 100}%` 
-                                        }} 
+                                    <div
+                                        className="h-full bg-emerald-500"
+                                        style={{
+                                            width: `${(stats.totalPaid / (stats.totalFees || 1)) * 100}%`
+                                        }}
                                     />
                                 </div>
                             </div>
@@ -1334,21 +1326,19 @@ const InstallmentPayment = () => {
                     <div className={`flex items-center gap-1 p-1 rounded-2xl border mb-8 w-fit ${isDarkMode ? 'bg-gray-900/60 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                         <button
                             onClick={() => setActiveTab('regular')}
-                            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
-                                activeTab === 'regular'
+                            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${activeTab === 'regular'
                                     ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
                                     : isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-white'
-                            }`}
+                                }`}
                         >
                             📋 Regular Installment
                         </button>
                         <button
                             onClick={() => setActiveTab('boardCourse')}
-                            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
-                                activeTab === 'boardCourse'
+                            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${activeTab === 'boardCourse'
                                     ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
                                     : isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-white'
-                            }`}
+                                }`}
                         >
                             🎓 Board Course Admission Installment
                         </button>
@@ -1557,9 +1547,9 @@ const InstallmentPayment = () => {
                                                     <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre</th>
                                                     <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isBoardDetailedView ? "Inst. Amount" : "Financials"}</th>
                                                     <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{isBoardDetailedView ? "Inst. Status" : "Installment Progress"}</th>
-                                                    {isBoardDetailedView && (
+                                                    {/* {isBoardDetailedView && (
                                                         <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admission Status</th>
-                                                    )}
+                                                    )} */}
                                                     <th className={`p-5 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-right`}>Action</th>
                                                 </tr>
                                             </thead>
@@ -1568,8 +1558,8 @@ const InstallmentPayment = () => {
                                                     <tr>
                                                         <td colSpan={isBoardDetailedView ? 8 : 7} className="p-20 text-center">
                                                             <div className="flex justify-center flex-col items-center gap-4">
-                                                                 <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
-                                                                 <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Board Admissions...</span>
+                                                                <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
+                                                                <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Board Admissions...</span>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1626,9 +1616,9 @@ const InstallmentPayment = () => {
                                                                 <td className="p-5">
                                                                     {getStatusBadge(item.status)}
                                                                 </td>
-                                                                <td className="p-5">
+                                                                {/* <td className="p-5">
                                                                     {getStatusBadge(isFullyPaid ? "PAID" : "PENDING")}
-                                                                </td>
+                                                                </td> */}
                                                                 <td className="p-5 text-right">
                                                                     <button
                                                                         onClick={e => { e.stopPropagation(); navigate(`/manage-board-admission/${item.boardCourseAdmissionId}`); }}
@@ -1739,11 +1729,10 @@ const InstallmentPayment = () => {
                                                         <button
                                                             key={page}
                                                             onClick={() => setBoardCurrentPage(page)}
-                                                            className={`w-10 h-10 rounded-xl font-black text-xs transition-all border ${
-                                                                page === boardCurrentPage
+                                                            className={`w-10 h-10 rounded-xl font-black text-xs transition-all border ${page === boardCurrentPage
                                                                     ? 'bg-cyan-500 text-black border-cyan-500'
                                                                     : isDarkMode ? 'border-gray-700 text-gray-300 hover:border-cyan-500/50' : 'border-gray-200 text-gray-600 hover:border-cyan-400'
-                                                            }`}
+                                                                }`}
                                                         >{page}</button>
                                                     );
                                                 })}
@@ -2702,13 +2691,13 @@ const InstallmentPayment = () => {
                     onPaymentSuccess={(posData) => {
                         console.log("POS Success Callback Data:", posData);
                         // Exhaustive extraction of any potential transaction identifier
-                        const finalTransactionId = posData.externalTransactionId || 
-                                                 posData.txnId || 
-                                                 posData.transactionId || 
-                                                 posData.receiptNumber || 
-                                                 posData.p2pRequestId ||
-                                                 posData.origP2pRequestId;
-                        
+                        const finalTransactionId = posData.externalTransactionId ||
+                            posData.txnId ||
+                            posData.transactionId ||
+                            posData.receiptNumber ||
+                            posData.p2pRequestId ||
+                            posData.origP2pRequestId;
+
                         console.log("Extracted Transaction ID:", finalTransactionId);
 
                         const updatedData = {
@@ -2716,8 +2705,8 @@ const InstallmentPayment = () => {
                             paymentMethod: "RAZORPAY_POS",
                             transactionId: finalTransactionId,
                             p2pRequestId: posData.p2pRequestId,
-                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") + 
-                                    `POS payment completed (Req: ${posData.p2pRequestId || 'N/A'})`
+                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") +
+                                `POS payment completed (Req: ${posData.p2pRequestId || 'N/A'})`
                         };
 
                         console.log("Submitting payment record with data:", updatedData);
@@ -2742,8 +2731,8 @@ const InstallmentPayment = () => {
                             ...payFormData,
                             paymentMethod: "RAZORPAY_SMS",
                             transactionId: finalId,
-                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") + 
-                                    `SMS payment completed (ID: ${finalId})`
+                            remarks: (payFormData.remarks ? payFormData.remarks + " | " : "") +
+                                `SMS payment completed (ID: ${finalId})`
                         };
 
                         console.log("Submitting SMS payment record with data:", updatedData);
