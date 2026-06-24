@@ -661,7 +661,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-gray-900 dark:text-white text-sm font-semibold truncate">{user.name || "User"}</p>
-                        <p className="text-xs text-gray-500 truncate">
+                        {/* <p className="text-xs text-gray-500 truncate">
                             {user.role ? (() => {
                                 const roles = Array.isArray(user.role) ? user.role : [user.role];
                                 return roles.map(r => {
@@ -673,7 +673,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                                     return (typeof r === 'string' && r.length > 0) ? r.charAt(0).toUpperCase() + r.slice(1) : r;
                                 }).join(", ");
                             })() : "Role"}
-                        </p>
+                        </p> */}
                         {user.designation && (
                             <p className="text-[10px] text-cyan-500 dark:text-cyan-400 font-medium truncate mt-0.5">
                                 {user.designation}
