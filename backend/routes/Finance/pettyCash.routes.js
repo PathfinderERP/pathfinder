@@ -3,7 +3,8 @@ import {
     getPettyCashCentres, syncPettyCashCentres, addExpenditure,
     getExpenditures, approveExpenditure, rejectExpenditure,
     addPettyCashDeposit, requestPettyCash, getPettyCashRequests,
-    approvePettyCashRequest, rejectPettyCashRequest, updatePettyCashRequest, upload
+    approvePettyCashRequest, rejectPettyCashRequest, updatePettyCashRequest, upload,
+    bulkApproveExpenditure, bulkRejectExpenditure
 } from "../../controllers/Finance/pettyCashController.js";
 import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
@@ -18,12 +19,14 @@ router.post("/deposit", requireGranularPermission("pettyCashManagement", "pettyC
 
 // Expenditure
 router.get("/expenditure", requireGranularPermission("pettyCashManagement", "addExpenditure", "view"), getExpenditures);
-router.post("/expenditure", upload.single("billImage"), requireGranularPermission("pettyCashManagement", "addExpenditure", "create"), addExpenditure);
+router.post("/expenditure", upload.array("billImage", 10), requireGranularPermission("pettyCashManagement", "addExpenditure", "create"), addExpenditure);
 
 // Approval
 router.get("/approval", requireGranularPermission("pettyCashManagement", "expenditureApproval", "view"), getExpenditures);
 router.put("/approve/:id", requireGranularPermission("pettyCashManagement", "expenditureApproval", "approve"), approveExpenditure);
 router.put("/reject/:id", requireGranularPermission("pettyCashManagement", "expenditureApproval", "approve"), rejectExpenditure);
+router.put("/bulk-approve", requireGranularPermission("pettyCashManagement", "expenditureApproval", "approve"), bulkApproveExpenditure);
+router.put("/bulk-reject", requireGranularPermission("pettyCashManagement", "expenditureApproval", "approve"), bulkRejectExpenditure);
 
 // Petty Cash Requests (Add Petty Cash)
 router.get("/requests", requireGranularPermission("pettyCashManagement", "addPettyCash", "view"), getPettyCashRequests);

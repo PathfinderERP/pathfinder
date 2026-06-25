@@ -300,15 +300,23 @@ const ReimbursementList = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">Proof Document</label>
-                                        {selectedReimbursement.proofUrl ? (
-                                            <a href={selectedReimbursement.proofUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-3 rounded-xl border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider w-full justify-center">
-                                                <FaFileInvoiceDollar /> View Uploaded Receipt
-                                            </a>
-                                        ) : (
-                                            <div className="bg-gray-800/50 p-4 rounded-xl text-center text-gray-500 text-xs italic">No proof uploaded</div>
-                                        )}
-                                    </div>
+                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">Proof Document(s)</label>
+                                         {selectedReimbursement.proofUrls && selectedReimbursement.proofUrls.length > 0 ? (
+                                             <div className="flex flex-col gap-2">
+                                                 {selectedReimbursement.proofUrls.map((url, idx) => (
+                                                     <a key={idx} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-3 rounded-xl border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider w-full justify-center">
+                                                         <FaFileInvoiceDollar /> View Receipt {selectedReimbursement.proofUrls.length > 1 ? `#${idx + 1}` : ''}
+                                                     </a>
+                                                 ))}
+                                             </div>
+                                         ) : selectedReimbursement.proofUrl ? (
+                                             <a href={selectedReimbursement.proofUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-3 rounded-xl border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider w-full justify-center">
+                                                 <FaFileInvoiceDollar /> View Uploaded Receipt
+                                             </a>
+                                         ) : (
+                                             <div className="bg-gray-800/50 p-4 rounded-xl text-center text-gray-500 text-xs italic">No proof uploaded</div>
+                                         )}
+                                     </div>
                                 </div>
 
                                 <div className="space-y-4">

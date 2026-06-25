@@ -13,13 +13,11 @@ const pettyCashExpenditureSchema = new mongoose.Schema({
     },
     category: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "ExpenseCategory",
-        required: true
+        ref: "ExpenseCategory"
     },
     subCategory: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "ExpenseSubCategory",
-        required: true
+        ref: "ExpenseSubCategory"
     },
     expenditureType: {
         type: mongoose.Schema.Types.ObjectId,
@@ -32,6 +30,7 @@ const pettyCashExpenditureSchema = new mongoose.Schema({
     },
     description: {
         type: String,
+        required: true,
         trim: true
     },
     approvedBy: {
@@ -51,7 +50,7 @@ const pettyCashExpenditureSchema = new mongoose.Schema({
         default: false
     },
     billImage: {
-        type: String,
+        type: mongoose.Schema.Types.Mixed,
         trim: true
     },
     status: {

@@ -5,6 +5,74 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 
+// Client-side image auto-compression utility (ensures files are under 1MB)
+const compressImage = (file) => {
+    return new Promise((resolve) => {
+        if (!file.type.startsWith("image/")) {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+
+                const MAX_WIDTH = 1920;
+                const MAX_HEIGHT = 1080;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                let quality = 0.8;
+                const convert = (q) => {
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            resolve(file);
+                            return;
+                        }
+                        if (blob.size > 1024 * 1024 && q > 0.1) {
+                            convert(q - 0.15);
+                        } else {
+                            const compressedFile = new File([blob], file.name, {
+                                type: "image/jpeg",
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        }
+                    }, "image/jpeg", q);
+                };
+                convert(quality);
+            };
+            img.onerror = () => {
+                resolve(file);
+            };
+        };
+        reader.onerror = () => {
+            resolve(file);
+        };
+    });
+};
+
 const AddReimbursement = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
@@ -23,7 +91,30 @@ const AddReimbursement = () => {
         amount: "",
         description: ""
     });
-    const [file, setFile] = useState(null);
+    const [files, setFiles] = useState([]);
+
+    const handleFileChange = async (e) => {
+        const selectedFiles = Array.from(e.target.files);
+        if (selectedFiles.length === 0) return;
+
+        setLoading(true);
+        toast.info("Compressing files, please wait...");
+        
+        const compressedList = [];
+        for (const file of selectedFiles) {
+            const compressed = await compressImage(file);
+            compressedList.push(compressed);
+        }
+        
+        setFiles(prev => [...prev, ...compressedList]);
+        setLoading(false);
+        toast.success(`${selectedFiles.length} file(s) compressed and added!`);
+        e.target.value = "";
+    };
+
+    const removeFile = (index) => {
+        setFiles(prev => prev.filter((_, i) => i !== index));
+    };
 
     useEffect(() => {
         fetchMyReimbursements();
@@ -52,7 +143,9 @@ const AddReimbursement = () => {
             const token = localStorage.getItem("token");
             const data = new FormData();
             Object.keys(formData).forEach(key => data.append(key, formData[key]));
-            if (file) data.append("proof", file);
+            if (files.length > 0) {
+                files.forEach(f => data.append("proof", f));
+            }
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/reimbursement/submit`, {
                 method: "POST",
@@ -73,7 +166,7 @@ const AddReimbursement = () => {
                     amount: "",
                     description: ""
                 });
-                setFile(null);
+                setFiles([]);
                 // Refresh list
                 fetchMyReimbursements();
             } else {
@@ -220,20 +313,53 @@ const AddReimbursement = () => {
                         </div>
 
                         <div className="col-span-1 md:col-span-2">
-                            <label className={`text-[10px] font-black uppercase tracking-widest block mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Upload Proof</label>
+                            <label className={`text-[10px] font-black uppercase tracking-widest block mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Upload Proof (Multiple Allowed)</label>
                             <div className="relative group">
                                 <input
                                     type="file"
+                                    multiple
+                                    accept="image/*"
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                    onChange={(e) => setFile(e.target.files[0])}
+                                    onChange={handleFileChange}
                                 />
                                 <div className={`w-full border border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 group-hover:border-cyan-500' : 'bg-gray-50 border-gray-200 group-hover:border-cyan-600 shadow-inner'}`}>
                                     <FaFileUpload className={`mb-2 text-2xl transition-colors ${isDarkMode ? 'text-gray-600 group-hover:text-cyan-500' : 'text-gray-400 group-hover:text-cyan-600'}`} />
                                     <span className={`text-xs font-bold uppercase tracking-wide transition-colors ${isDarkMode ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-700'}`}>
-                                        {file ? file.name : "Choose File or Drag & Drop"}
+                                        Choose Files or Click Photo
                                     </span>
                                 </div>
                             </div>
+
+                            {/* Preview List */}
+                            {files.length > 0 && (
+                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                    {files.map((file, idx) => {
+                                        const previewUrl = URL.createObjectURL(file);
+                                        return (
+                                            <div key={idx} className={`relative border rounded-xl p-2 flex flex-col items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                <img
+                                                    src={previewUrl}
+                                                    alt="preview"
+                                                    className="w-full h-24 object-cover rounded-lg mb-2"
+                                                />
+                                                <span className={`text-[9px] font-bold truncate max-w-full block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={file.name}>
+                                                    {file.name}
+                                                </span>
+                                                <span className={`text-[9px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeFile(idx)}
+                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors w-6 h-6 flex items-center justify-center text-xs shadow-lg"
+                                                >
+                                                    &times;
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         <div className="col-span-1 md:col-span-2">
@@ -290,8 +416,16 @@ const AddReimbursement = () => {
                                                 <td className={`p-4 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{item.travelType}</td>
                                                 <td className={`p-4 text-xs font-black ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>₹{item.amount}</td>
                                                 <td className="p-4">
-                                                    {item.proofUrl ? (
-                                                        <a href={item.proofUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-white transition-colors">
+                                                    {item.proofUrls && item.proofUrls.length > 0 ? (
+                                                        <div className="flex gap-2">
+                                                            {item.proofUrls.map((url, idx) => (
+                                                                <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-cyan-400 transition-colors" title={`Receipt ${idx + 1}`}>
+                                                                    <FaFileInvoiceDollar />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    ) : item.proofUrl ? (
+                                                        <a href={item.proofUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-cyan-400 transition-colors">
                                                             <FaFileInvoiceDollar />
                                                         </a>
                                                     ) : (

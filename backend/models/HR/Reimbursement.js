@@ -45,7 +45,7 @@ const reimbursementSchema = new mongoose.Schema({
         trim: true
     },
     proof: {
-        type: String // Path to uploaded file
+        type: mongoose.Schema.Types.Mixed // Path to uploaded file
     },
     status: {
         type: String,

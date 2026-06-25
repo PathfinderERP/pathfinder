@@ -441,7 +441,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community") return true;
+        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Employee Center") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
@@ -481,6 +481,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
                 if (sub.restrictedToSuperAdmin && !isSuperAdmin) return false;
+                if (sub.name === "Reimbursement Management") return true;
                 const permModule = sub.permissionModule || item.permissionModule;
                 if (permModule) {
                     if (sub.permissionSection) {
@@ -496,6 +497,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             }).map(sub => {
                 if (sub.subItems && !isSuperAdmin) {
                     const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
+                        if (nestedSub.name === "Add Reimbursement") return true;
                         const nestedPermModule = nestedSub.permissionModule || sub.permissionModule || item.permissionModule;
                         if (nestedPermModule) {
                             if (nestedSub.permissionSection) {

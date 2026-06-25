@@ -13,6 +13,9 @@ const PettyCashApproval = () => {
     const [selectedExpenditure, setSelectedExpenditure] = useState(null);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
+    const [bulkRejectionReason, setBulkRejectionReason] = useState("");
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -140,6 +143,68 @@ const PettyCashApproval = () => {
         }
     };
 
+    const handleSelectAll = (e) => {
+        const pendingItems = expenditures.filter(item => item.status === 'pending');
+        if (e.target.checked) {
+            const pendingIds = pendingItems.map(item => item._id);
+            setSelectedIds(prev => [...new Set([...prev, ...pendingIds])]);
+        } else {
+            const pendingIds = pendingItems.map(item => item._id);
+            setSelectedIds(prev => prev.filter(id => !pendingIds.includes(id)));
+        }
+    };
+
+    const handleSelectRow = (id, checked) => {
+        if (checked) {
+            setSelectedIds(prev => [...prev, id]);
+        } else {
+            setSelectedIds(prev => prev.filter(item => item !== id));
+        }
+    };
+
+    const handleBulkApprove = async () => {
+        if (!window.confirm(`Are you sure you want to approve the ${selectedIds.length} selected expenditures?`)) return;
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/bulk-approve`, {
+                ids: selectedIds
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success("Selected expenditures approved successfully");
+            setSelectedIds([]);
+            fetchExpenditures();
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Bulk approval failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBulkReject = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/bulk-reject`, {
+                ids: selectedIds,
+                reason: bulkRejectionReason
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success("Selected expenditures rejected successfully");
+            setShowBulkRejectModal(false);
+            setBulkRejectionReason("");
+            setSelectedIds([]);
+            fetchExpenditures();
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Bulk rejection failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchMetadata();
     }, []);
@@ -147,6 +212,10 @@ const PettyCashApproval = () => {
     useEffect(() => {
         fetchExpenditures(1);
     }, [filters, itemsPerPage]);
+
+    useEffect(() => {
+        setSelectedIds([]);
+    }, [filters, currentPage, itemsPerPage]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -349,11 +418,47 @@ const PettyCashApproval = () => {
                     </div>
                 </div>
 
+                {selectedIds.length > 0 && (
+                    <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-xl flex justify-between items-center mb-4 transition-all animate-fadeIn">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-blue-400">{selectedIds.length} item(s) selected</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleBulkApprove}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                            >
+                                Approve Selected
+                            </button>
+                            <button
+                                onClick={() => setShowBulkRejectModal(true)}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                            >
+                                Reject Selected
+                            </button>
+                            <button
+                                onClick={() => setSelectedIds([])}
+                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all border border-gray-700 active:scale-95"
+                            >
+                                Cancel Selection
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="bg-[#1a1f24] rounded-xl border border-gray-800 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-800 text-gray-300">
+                                    <th className="p-4 w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={expenditures.filter(item => item.status === 'pending').length > 0 && expenditures.filter(item => item.status === 'pending').every(item => selectedIds.includes(item._id))}
+                                            onChange={handleSelectAll}
+                                            className="w-4 h-4 bg-[#131619] border-gray-700 text-blue-600 rounded cursor-pointer focus:ring-0"
+                                        />
+                                    </th>
                                     <th className="p-4 uppercase text-xs">Date</th>
                                     <th className="p-4 uppercase text-xs">Centre</th>
                                     <th className="p-4 uppercase text-xs">Category</th>
@@ -361,28 +466,46 @@ const PettyCashApproval = () => {
                                     <th className="p-4 uppercase text-xs">Type</th>
                                     <th className="p-4 uppercase text-xs">Amount</th>
                                     <th className="p-4 uppercase text-xs">Description</th>
-                                    <th className="p-4 uppercase text-xs">Vendor</th>
+                                    <th className="p-4 uppercase text-xs">VENDOR/STAFF</th>
                                     <th className="p-4 uppercase text-xs">Payment Mode</th>
                                     <th className="p-4 uppercase text-xs">Tax</th>
+                                    <th className="p-4 uppercase text-xs">Created By</th>
+                                    <th className="p-4 uppercase text-xs">Approved/Rejected By</th>
                                     <th className="p-4 uppercase text-xs text-center">Status</th>
                                     <th className="p-4 uppercase text-xs text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="12" className="p-20 text-center">
+                                    <tr><td colSpan="15" className="p-20 text-center">
                                         <div className="flex flex-col items-center gap-4">
                                             <div className="w-10 h-10 border-4 border-blue-500/10 border-t-blue-500 rounded-full animate-spin"></div>
                                             <p className="text-gray-500 font-bold uppercase text-[10px] tracking-widest italic">Synchronizing Ledger...</p>
                                         </div>
                                     </td></tr>
                                 ) : expenditures.length === 0 ? (
-                                    <tr><td colSpan="12" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest italic">
+                                    <tr><td colSpan="15" className="p-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest italic">
                                         No expenditure movements found for current filters
                                     </td></tr>
                                 ) : (
                                     expenditures.map((item) => (
                                         <tr key={item._id} className="hover:bg-white/5 transition-colors">
+                                            <td className="p-4">
+                                                {item.status === "pending" ? (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.includes(item._id)}
+                                                        onChange={(e) => handleSelectRow(item._id, e.target.checked)}
+                                                        className="w-4 h-4 bg-[#131619] border-gray-700 text-blue-600 rounded cursor-pointer focus:ring-0"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="checkbox"
+                                                        disabled
+                                                        className="w-4 h-4 bg-gray-800 border-gray-800 text-gray-600 rounded opacity-20 cursor-not-allowed"
+                                                    />
+                                                )}
+                                            </td>
                                             <td className="p-4 text-gray-400">{new Date(item.date).toLocaleDateString()}</td>
                                             <td className="p-4 font-bold">{item.centre?.centreName}</td>
                                             <td className="p-4 text-gray-400">{item.category?.name}</td>
@@ -393,6 +516,8 @@ const PettyCashApproval = () => {
                                             <td className="p-4 text-gray-400">{item.vendorName || "-"}</td>
                                             <td className="p-4 text-gray-400">{item.paymentMode}</td>
                                             <td className="p-4 text-gray-400">{item.taxApplicable ? "Yes" : "No"}</td>
+                                            <td className="p-4 text-gray-400 font-bold">{item.requestedBy?.name || "-"}</td>
+                                            <td className="p-4 text-gray-400 font-bold">{item.actionTakenBy?.name || "-"}</td>
                                             <td className="p-4 text-center">
                                                 {item.status === "pending" ? (
                                                     <span className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-amber-500/20 flex items-center gap-2 w-fit mx-auto">
@@ -571,6 +696,45 @@ const PettyCashApproval = () => {
                                         className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold"
                                     >
                                         Reject
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {showBulkRejectModal && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                        <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold">Bulk Reject Expenditures</h3>
+                                <button onClick={() => setShowBulkRejectModal(false)} className="text-gray-400 hover:text-white"><FaTimes /></button>
+                            </div>
+                            <form onSubmit={handleBulkReject}>
+                                <div className="mb-6">
+                                    <label className="block text-sm text-gray-400 mb-2">Rejection Reason</label>
+                                    <textarea
+                                        value={bulkRejectionReason}
+                                        onChange={(e) => setBulkRejectionReason(e.target.value)}
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-500"
+                                        placeholder="Enter reason for rejection"
+                                        rows="4"
+                                        required
+                                    />
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowBulkRejectModal(false)}
+                                        className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold"
+                                    >
+                                        Reject Selected
                                     </button>
                                 </div>
                             </form>

@@ -5,6 +5,74 @@ import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
 
+// Client-side image auto-compression utility (ensures files are under 1MB)
+const compressImage = (file) => {
+    return new Promise((resolve) => {
+        if (!file.type.startsWith("image/")) {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+
+                const MAX_WIDTH = 1920;
+                const MAX_HEIGHT = 1080;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                let quality = 0.8;
+                const convert = (q) => {
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            resolve(file);
+                            return;
+                        }
+                        if (blob.size > 1024 * 1024 && q > 0.1) {
+                            convert(q - 0.15);
+                        } else {
+                            const compressedFile = new File([blob], file.name, {
+                                type: "image/jpeg",
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        }
+                    }, "image/jpeg", q);
+                };
+                convert(quality);
+            };
+            img.onerror = () => {
+                resolve(file);
+            };
+        };
+        reader.onerror = () => {
+            resolve(file);
+        };
+    });
+};
+
 const AddPettyCashExpenditure = () => {
     const [expenditures, setExpenditures] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -22,12 +90,35 @@ const AddPettyCashExpenditure = () => {
         expenditureType: "",
         amount: "",
         description: "",
-        approvedBy: "",
         vendorName: "",
-        paymentMode: "",
+        paymentMode: "Cash",
         taxApplicable: false,
         billImage: null
     });
+    const [files, setFiles] = useState([]);
+
+    const handleFileChange = async (e) => {
+        const selectedFiles = Array.from(e.target.files);
+        if (selectedFiles.length === 0) return;
+
+        setLoading(true);
+        toast.info("Compressing files, please wait...");
+        
+        const compressedList = [];
+        for (const file of selectedFiles) {
+            const compressed = await compressImage(file);
+            compressedList.push(compressed);
+        }
+        
+        setFiles(prev => [...prev, ...compressedList]);
+        setLoading(false);
+        toast.success(`${selectedFiles.length} file(s) compressed and added!`);
+        e.target.value = "";
+    };
+
+    const removeFile = (index) => {
+        setFiles(prev => prev.filter((_, i) => i !== index));
+    };
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = hasPermission(user, 'pettyCashManagement', 'addExpenditure', 'create');
@@ -97,16 +188,17 @@ const AddPettyCashExpenditure = () => {
         }));
     };
 
-    const handleFileChange = (e) => {
-        setFormData(prev => ({ ...prev, billImage: e.target.files[0] }));
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         const data = new FormData();
         Object.keys(formData).forEach(key => {
-            data.append(key, formData[key]);
+            if (key !== 'billImage') {
+                data.append(key, formData[key]);
+            }
         });
+        if (files.length > 0) {
+            files.forEach(f => data.append("billImage", f));
+        }
 
         try {
             const token = localStorage.getItem("token");
@@ -127,12 +219,12 @@ const AddPettyCashExpenditure = () => {
                 expenditureType: "",
                 amount: "",
                 description: "",
-                approvedBy: "",
                 vendorName: "",
-                paymentMode: "",
+                paymentMode: "Cash",
                 taxApplicable: false,
                 billImage: null
             });
+            setFiles([]);
         } catch (error) {
             toast.error(error.response?.data?.message || "Submission failed");
         }
@@ -171,6 +263,7 @@ const AddPettyCashExpenditure = () => {
                                     <th className="p-4 uppercase text-xs">Amount</th>
                                     <th className="p-4 uppercase text-xs">Description</th>
                                     <th className="p-4 uppercase text-xs">Payment Mode</th>
+                                    <th className="p-4 uppercase text-xs">Created By</th>
                                     <th className="p-4 uppercase text-xs">Status</th>
                                     <th className="p-4 uppercase text-xs">Bill</th>
                                 </tr>
@@ -191,6 +284,7 @@ const AddPettyCashExpenditure = () => {
                                             <td className="p-4 font-bold">₹{item.amount}</td>
                                             <td className="p-4 text-gray-400 text-sm max-w-xs truncate">{item.description}</td>
                                             <td className="p-4 text-gray-400">{item.paymentMode}</td>
+                                            <td className="p-4 text-gray-400 font-bold">{item.requestedBy?.name || "-"}</td>
                                             <td className="p-4">
                                                 <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold ${item.status === 'approved' ? 'bg-green-900/40 text-green-400 border border-green-800/50' :
                                                     item.status === 'rejected' ? 'bg-red-900/40 text-red-400 border border-red-800/50' :
@@ -200,7 +294,15 @@ const AddPettyCashExpenditure = () => {
                                                 </span>
                                             </td>
                                             <td className="p-4">
-                                                {item.billImage ? (
+                                                {item.billImages && item.billImages.length > 0 ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        {item.billImages.map((img, idx) => (
+                                                            <a key={idx} href={img} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-[11px]" title={`Bill ${idx + 1}`}>
+                                                                <FaEye /> View {item.billImages.length > 1 ? `#${idx + 1}` : ''}
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                ) : item.billImage ? (
                                                     <a href={item.billImage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1">
                                                         <FaEye /> View
                                                     </a>
@@ -251,26 +353,24 @@ const AddPettyCashExpenditure = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Category <span className="text-red-500">*</span></label>
+                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Category</label>
                                         <select
                                             name="category"
                                             value={formData.category}
                                             onChange={handleInputChange}
                                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
-                                            required
                                         >
                                             <option value="">Choose</option>
                                             {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Sub Category <span className="text-red-500">*</span></label>
+                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Sub Category</label>
                                         <select
                                             name="subCategory"
                                             value={formData.subCategory}
                                             onChange={handleInputChange}
                                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
-                                            required
                                         >
                                             <option value="">Choose</option>
                                             {subCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
@@ -302,38 +402,28 @@ const AddPettyCashExpenditure = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs text-gray-400 mb-1 font-bold">Description</label>
+                                    <label className="block text-xs text-gray-400 mb-1 font-bold">Description <span className="text-red-500">*</span></label>
                                     <textarea
                                         name="description"
                                         value={formData.description}
                                         onChange={handleInputChange}
                                         className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
-                                        placeholder="Optional details..."
+                                        placeholder="Description Details (Required)..."
                                         rows="2"
+                                        required
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Approved By</label>
-                                        <input
-                                            type="text"
-                                            name="approvedBy"
-                                            value={formData.approvedBy}
-                                            onChange={handleInputChange}
-                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
-                                            placeholder="Approver name"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Vendor Name</label>
+                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Vendor/Staff Name</label>
                                         <input
                                             type="text"
                                             name="vendorName"
                                             value={formData.vendorName}
                                             onChange={handleInputChange}
                                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
-                                            placeholder="Vendor name"
+                                            placeholder="Vendor/Staff Name"
                                         />
                                     </div>
                                     <div>
@@ -341,10 +431,9 @@ const AddPettyCashExpenditure = () => {
                                         <input
                                             type="text"
                                             name="paymentMode"
-                                            value={formData.paymentMode}
-                                            onChange={handleInputChange}
-                                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
-                                            placeholder="Cash, Card, etc."
+                                            value="Cash"
+                                            disabled
+                                            className="w-full bg-[#131619]/50 border border-gray-700 rounded-lg p-3 text-gray-400 outline-none cursor-not-allowed"
                                         />
                                     </div>
                                     <div className="flex items-center pt-6">
@@ -362,16 +451,47 @@ const AddPettyCashExpenditure = () => {
                                 </div>
 
                                 <div className="border border-dashed border-gray-700 rounded-lg p-6 bg-[#131619]">
-                                    <label className="block text-sm text-gray-400 mb-2 font-bold">Upload Bill (optional)</label>
+                                    <label className="block text-sm text-gray-400 mb-2 font-bold">Upload Bill (optional, Multiple Allowed)</label>
                                     <div className="flex items-center gap-4">
                                         <label className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2">
-                                            <FaFileImage /> Choose File
-                                            <input type="file" onChange={handleFileChange} className="hidden" />
+                                            <FaFileImage /> Choose Files / Click Photo
+                                            <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
                                         </label>
                                         <span className="text-xs text-gray-500 truncate">
-                                            {formData.billImage ? formData.billImage.name : "No file chosen"}
+                                            {files.length > 0 ? `${files.length} file(s) chosen` : "No files chosen"}
                                         </span>
                                     </div>
+
+                                    {/* Preview Grid */}
+                                    {files.length > 0 && (
+                                        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                            {files.map((file, idx) => {
+                                                const previewUrl = URL.createObjectURL(file);
+                                                return (
+                                                    <div key={idx} className="relative border border-gray-800 rounded-xl p-2 flex flex-col items-center bg-[#1a1f24]">
+                                                        <img
+                                                            src={previewUrl}
+                                                            alt="preview"
+                                                            className="w-full h-24 object-cover rounded-lg mb-2"
+                                                        />
+                                                        <span className="text-[9px] font-bold text-gray-400 truncate max-w-full block" title={file.name}>
+                                                            {file.name}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-gray-500">
+                                                             {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeFile(idx)}
+                                                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors w-6 h-6 flex items-center justify-center text-xs shadow-lg"
+                                                        >
+                                                            &times;
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <button

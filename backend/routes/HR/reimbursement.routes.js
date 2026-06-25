@@ -30,13 +30,13 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Employee Routes
-router.post("/submit", protect, upload.single("proof"), submitReimbursement);
+router.post("/submit", protect, upload.array("proof", 10), submitReimbursement);
 router.get("/my", protect, getMyReimbursements);
 
 // HR/Admin Routes
 router.get("/all", protect, requireNormalOrSuper, getAllReimbursements);
 router.get("/:id", protect, requireNormalOrSuper, getReimbursementById);
-router.put("/:id", protect, requireNormalOrSuper, upload.single("proof"), updateReimbursement);
+router.put("/:id", protect, requireNormalOrSuper, upload.array("proof", 10), updateReimbursement);
 router.delete("/:id", protect, requireNormalOrSuper, deleteReimbursement);
 
 export default router;

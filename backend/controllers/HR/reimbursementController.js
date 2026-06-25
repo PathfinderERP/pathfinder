@@ -14,6 +14,35 @@ const getLocalOrSignedUrl = async (path, req) => {
     return await getSignedFileUrl(path);
 };
 
+// Helper to resolve single or multiple proof URLs
+const resolveProofUrls = async (proof, req) => {
+    if (!proof) return { proofUrl: null, proofUrls: [] };
+    
+    let paths = [];
+    if (Array.isArray(proof)) {
+        paths = proof;
+    } else if (typeof proof === 'string') {
+        try {
+            const parsed = JSON.parse(proof);
+            if (Array.isArray(parsed)) {
+                paths = parsed;
+            } else {
+                paths = [proof];
+            }
+        } catch (e) {
+            paths = [proof];
+        }
+    } else {
+        paths = [proof];
+    }
+
+    const urls = await Promise.all(paths.map(p => getLocalOrSignedUrl(p, req)));
+    return {
+        proofUrl: urls[0] || null,
+        proofUrls: urls
+    };
+};
+
 // Submit Reimbursement (Employee)
 export const submitReimbursement = async (req, res) => {
     try {
@@ -38,7 +67,7 @@ export const submitReimbursement = async (req, res) => {
             allowanceType,
             amount,
             description,
-            proof: req.file ? req.file.path : null
+            proof: req.files && req.files.length > 0 ? req.files.map(f => f.path) : (req.file ? req.file.path : null)
         });
 
         await reimbursement.save();
@@ -79,9 +108,9 @@ export const getMyReimbursements = async (req, res) => {
         // Generate URLs
         const enriched = await Promise.all(reimbursements.map(async (r) => {
             const obj = r.toObject();
-            if (obj.proof) {
-                obj.proofUrl = await getLocalOrSignedUrl(obj.proof, req);
-            }
+            const resolved = await resolveProofUrls(obj.proof, req);
+            obj.proofUrl = resolved.proofUrl;
+            obj.proofUrls = resolved.proofUrls;
             return obj;
         }));
 
@@ -120,9 +149,9 @@ export const getAllReimbursements = async (req, res) => {
                 obj.employee.profileImage = await getSignedFileUrl(obj.employee.profileImage);
             }
             // Proof documents use our new helper
-            if (obj.proof) {
-                obj.proofUrl = await getLocalOrSignedUrl(obj.proof, req);
-            }
+            const resolved = await resolveProofUrls(obj.proof, req);
+            obj.proofUrl = resolved.proofUrl;
+            obj.proofUrls = resolved.proofUrls;
             return obj;
         }));
 
@@ -144,9 +173,9 @@ export const getReimbursementById = async (req, res) => {
         }
 
         const obj = reimbursement.toObject();
-        if (obj.proof) {
-            obj.proofUrl = await getLocalOrSignedUrl(obj.proof, req);
-        }
+        const resolved = await resolveProofUrls(obj.proof, req);
+        obj.proofUrl = resolved.proofUrl;
+        obj.proofUrls = resolved.proofUrls;
 
         res.status(200).json(obj);
     } catch (error) {
@@ -161,7 +190,9 @@ export const updateReimbursement = async (req, res) => {
         const { status, approvedBy, ...updateData } = req.body;
 
         let updateFields = { ...updateData };
-        if (req.file) {
+        if (req.files && req.files.length > 0) {
+            updateFields.proof = req.files.map(f => f.path);
+        } else if (req.file) {
             updateFields.proof = req.file.path;
         }
 

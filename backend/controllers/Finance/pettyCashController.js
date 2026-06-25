@@ -70,8 +70,14 @@ export const addExpenditure = async (req, res) => {
             }
         }
 
+        if (!description || description.trim() === "") {
+            return res.status(400).json({ message: "Description is a required field." });
+        }
+
         let billImageUrl = null;
-        if (req.file) {
+        if (req.files && req.files.length > 0) {
+            billImageUrl = await Promise.all(req.files.map(file => uploadToR2(file, "petty_cash")));
+        } else if (req.file) {
             billImageUrl = await uploadToR2(req.file, "petty_cash");
         }
 
@@ -82,8 +88,8 @@ export const addExpenditure = async (req, res) => {
         const expenditure = new PettyCashExpenditure({
             centre,
             date,
-            category,
-            subCategory,
+            category: (category && category !== "" && category !== "null") ? category : undefined,
+            subCategory: (subCategory && subCategory !== "" && subCategory !== "null") ? subCategory : undefined,
             expenditureType,
             amount: Number(amount),
             description,
@@ -175,6 +181,8 @@ export const getExpenditures = async (req, res) => {
             .populate("category", "name")
             .populate("subCategory", "name")
             .populate("expenditureType", "name")
+            .populate("requestedBy", "name employeeId")
+            .populate("actionTakenBy", "name employeeId")
             .sort({ date: -1, createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -183,7 +191,27 @@ export const getExpenditures = async (req, res) => {
             expenditures.map(async (exp) => {
                 const expObj = exp.toObject();
                 if (expObj.billImage) {
-                    expObj.billImage = await getSignedFileUrl(expObj.billImage);
+                    if (Array.isArray(expObj.billImage)) {
+                        expObj.billImages = await Promise.all(expObj.billImage.map(img => getSignedFileUrl(img)));
+                        expObj.billImage = expObj.billImages[0] || null;
+                    } else if (typeof expObj.billImage === 'string') {
+                        try {
+                            const parsed = JSON.parse(expObj.billImage);
+                            if (Array.isArray(parsed)) {
+                                expObj.billImages = await Promise.all(parsed.map(img => getSignedFileUrl(img)));
+                                expObj.billImage = expObj.billImages[0] || null;
+                            } else {
+                                expObj.billImage = await getSignedFileUrl(expObj.billImage);
+                                expObj.billImages = [expObj.billImage];
+                            }
+                        } catch (e) {
+                            expObj.billImage = await getSignedFileUrl(expObj.billImage);
+                            expObj.billImages = [expObj.billImage];
+                        }
+                    }
+                } else {
+                    expObj.billImages = [];
+                    expObj.billImage = null;
                 }
                 return expObj;
             })
@@ -286,6 +314,126 @@ export const rejectExpenditure = async (req, res) => {
         res.status(200).json({ message: "Expenditure rejected", data: expObj });
     } catch (err) {
         console.error("Reject Expenditure Error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Bulk Approve Expenditures
+export const bulkApproveExpenditure = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "Invalid or empty IDs list" });
+        }
+
+        const employee = await Employee.findOne({ user: req.user.id || req.user._id });
+        if (!employee) return res.status(404).json({ message: "Employee profile not found" });
+
+        let userCentres = [];
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+        }
+
+        const expenditures = await PettyCashExpenditure.find({ _id: { $in: ids } });
+        let approvedCount = 0;
+        let errors = [];
+
+        for (const exp of expenditures) {
+            try {
+                if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+                    if (!userCentres.includes(exp.centre?.toString())) {
+                        errors.push(`Access denied for expenditure ${exp._id}`);
+                        continue;
+                    }
+                }
+                if (exp.status !== "pending") {
+                    errors.push(`Expenditure ${exp._id} is already processed`);
+                    continue;
+                }
+                const pCentre = await PettyCashCentre.findOne({ centre: exp.centre });
+                if (!pCentre) {
+                    errors.push(`Petty cash record not found for centre of expenditure ${exp._id}`);
+                    continue;
+                }
+
+                pCentre.totalExpenditure += exp.amount;
+                pCentre.remainingBalance = pCentre.totalDeposit - pCentre.totalExpenditure;
+                await pCentre.save();
+
+                exp.status = "approved";
+                exp.actionTakenBy = employee._id;
+                exp.actionDate = new Date();
+                await exp.save();
+                approvedCount++;
+            } catch (e) {
+                errors.push(`Error processing ${exp._id}: ${e.message}`);
+            }
+        }
+
+        res.status(200).json({
+            message: `Bulk approval complete. Approved: ${approvedCount}, Failed: ${errors.length}`,
+            approvedCount,
+            errors
+        });
+    } catch (err) {
+        console.error("Bulk Approve Expenditure Error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Bulk Reject Expenditures
+export const bulkRejectExpenditure = async (req, res) => {
+    try {
+        const { ids, reason } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "Invalid or empty IDs list" });
+        }
+
+        const employee = await Employee.findOne({ user: req.user.id || req.user._id });
+        if (!employee) return res.status(404).json({ message: "Employee profile not found" });
+
+        let userCentres = [];
+        if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+            const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
+            userCentres = (currentUser ? currentUser.centres : []).map(c => c._id?.toString() || c.toString());
+        }
+
+        const expenditures = await PettyCashExpenditure.find({ _id: { $in: ids } });
+        let rejectedCount = 0;
+        let errors = [];
+
+        for (const exp of expenditures) {
+            try {
+                if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
+                    if (!userCentres.includes(exp.centre?.toString())) {
+                        errors.push(`Access denied for expenditure ${exp._id}`);
+                        continue;
+                    }
+                }
+                if (exp.status !== "pending") {
+                    errors.push(`Expenditure ${exp._id} is already processed`);
+                    continue;
+                }
+
+                exp.status = "rejected";
+                exp.actionTakenBy = employee._id;
+                exp.actionDate = new Date();
+                exp.rejectionReason = reason || "Bulk rejected";
+                await exp.save();
+                rejectedCount++;
+            } catch (e) {
+                errors.push(`Error processing ${exp._id}: ${e.message}`);
+            }
+        }
+
+        res.status(200).json({
+            message: `Bulk rejection complete. Rejected: ${rejectedCount}, Failed: ${errors.length}`,
+            rejectedCount,
+            errors
+        });
+    } catch (err) {
+        console.error("Bulk Reject Expenditure Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
