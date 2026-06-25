@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../../components/Layout';
-import { FaPlus, FaTimes, FaFileImage, FaEye } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaCamera, FaImages, FaEye } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
@@ -81,6 +81,10 @@ const AddPettyCashExpenditure = () => {
     const [categories, setCategories] = useState([]);
     const [subCategories, setSubCategories] = useState([]);
     const [expenditureTypes, setExpenditureTypes] = useState([]);
+
+    // Refs for file inputs
+    const cameraInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
         centre: "",
@@ -416,7 +420,7 @@ const AddPettyCashExpenditure = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Vendor/Staff Name</label>
+                                        <label className="block text-xs text-gray-400 mb-1 font-bold">Vendor/Staff Name <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             name="vendorName"
@@ -424,6 +428,7 @@ const AddPettyCashExpenditure = () => {
                                             onChange={handleInputChange}
                                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
                                             placeholder="Vendor/Staff Name"
+                                            required
                                         />
                                     </div>
                                     <div>
@@ -451,16 +456,52 @@ const AddPettyCashExpenditure = () => {
                                 </div>
 
                                 <div className="border border-dashed border-gray-700 rounded-lg p-6 bg-[#131619]">
-                                    <label className="block text-sm text-gray-400 mb-2 font-bold">Upload Bill (optional, Multiple Allowed)</label>
-                                    <div className="flex items-center gap-4">
-                                        <label className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2">
-                                            <FaFileImage /> Choose Files / Click Photo
-                                            <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
-                                        </label>
-                                        <span className="text-xs text-gray-500 truncate">
-                                            {files.length > 0 ? `${files.length} file(s) chosen` : "No files chosen"}
-                                        </span>
+                                    <label className="block text-sm text-gray-400 mb-3 font-bold">Upload Bill (optional, Multiple Allowed)</label>
+
+                                    {/* Hidden file inputs */}
+                                    <input
+                                        ref={cameraInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                    />
+                                    <input
+                                        ref={galleryInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                    />
+
+                                    {/* Two action buttons */}
+                                    <div className="flex gap-3 mb-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => cameraInputRef.current && cameraInputRef.current.click()}
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-blue-700 bg-blue-900/20 text-blue-400 font-bold text-xs uppercase tracking-widest hover:bg-blue-800/30 hover:border-blue-500 transition-all"
+                                        >
+                                            <FaCamera className="text-base" />
+                                            Camera
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => galleryInputRef.current && galleryInputRef.current.click()}
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-gray-700 bg-[#1a1f24] text-gray-300 font-bold text-xs uppercase tracking-widest hover:border-gray-500 hover:text-white transition-all"
+                                        >
+                                            <FaImages className="text-base" />
+                                            Upload Photo
+                                        </button>
                                     </div>
+
+                                    {files.length > 0 && (
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">
+                                            {files.length} file(s) selected — all compressed to under 1 MB
+                                        </p>
+                                    )}
 
                                     {/* Preview Grid */}
                                     {files.length > 0 && (

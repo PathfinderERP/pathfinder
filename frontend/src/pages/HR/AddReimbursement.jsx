@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPaperPlane, FaFileUpload, FaCalendarAlt, FaMoneyBillWave, FaSuitcase, FaFileInvoiceDollar } from "react-icons/fa";
+import { FaPaperPlane, FaCamera, FaImages, FaCalendarAlt, FaMoneyBillWave, FaSuitcase, FaFileInvoiceDollar } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
@@ -79,6 +79,10 @@ const AddReimbursement = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [myReimbursements, setMyReimbursements] = useState([]);
+
+    // Refs for file inputs
+    const cameraInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -313,26 +317,66 @@ const AddReimbursement = () => {
                         </div>
 
                         <div className="col-span-1 md:col-span-2">
-                            <label className={`text-[10px] font-black uppercase tracking-widest block mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Upload Proof (Multiple Allowed)</label>
-                            <div className="relative group">
-                                <input
-                                    type="file"
-                                    multiple
-                                    accept="image/*"
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                    onChange={handleFileChange}
-                                />
-                                <div className={`w-full border border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 group-hover:border-cyan-500' : 'bg-gray-50 border-gray-200 group-hover:border-cyan-600 shadow-inner'}`}>
-                                    <FaFileUpload className={`mb-2 text-2xl transition-colors ${isDarkMode ? 'text-gray-600 group-hover:text-cyan-500' : 'text-gray-400 group-hover:text-cyan-600'}`} />
-                                    <span className={`text-xs font-bold uppercase tracking-wide transition-colors ${isDarkMode ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-700'}`}>
-                                        Choose Files or Click Photo
-                                    </span>
-                                </div>
+                            <label className={`text-[10px] font-black uppercase tracking-widest block mb-3 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Upload Proof (Multiple Allowed)</label>
+
+                            {/* Hidden Inputs */}
+                            {/* Camera input: back camera, multiple captures */}
+                            <input
+                                ref={cameraInputRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                className="hidden"
+                                onChange={handleFileChange}
+                            />
+                            {/* Gallery/File picker input */}
+                            <input
+                                ref={galleryInputRef}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={handleFileChange}
+                            />
+
+                            {/* Two action buttons */}
+                            <div className="flex gap-3 mb-4">
+                                <button
+                                    type="button"
+                                    onClick={() => cameraInputRef.current && cameraInputRef.current.click()}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border-2 font-black text-xs uppercase tracking-widest transition-all hover:-translate-y-0.5 ${
+                                        isDarkMode
+                                            ? 'border-cyan-700 bg-cyan-900/20 text-cyan-400 hover:bg-cyan-800/30 hover:border-cyan-500'
+                                            : 'border-cyan-600 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 hover:border-cyan-700'
+                                    }`}
+                                >
+                                    <FaCamera className="text-lg" />
+                                    Camera
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => galleryInputRef.current && galleryInputRef.current.click()}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border-2 font-black text-xs uppercase tracking-widest transition-all hover:-translate-y-0.5 ${
+                                        isDarkMode
+                                            ? 'border-gray-700 bg-[#1a1f24] text-gray-300 hover:border-gray-500 hover:text-white'
+                                            : 'border-gray-300 bg-gray-50 text-gray-600 hover:border-gray-500 hover:text-gray-800'
+                                    }`}
+                                >
+                                    <FaImages className="text-lg" />
+                                    Upload Photo
+                                </button>
                             </div>
 
-                            {/* Preview List */}
                             {files.length > 0 && (
-                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-3 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    {files.length} file(s) selected — all compressed to under 1 MB
+                                </p>
+                            )}
+
+                            {/* Preview Grid */}
+                            {files.length > 0 && (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                     {files.map((file, idx) => {
                                         const previewUrl = URL.createObjectURL(file);
                                         return (
