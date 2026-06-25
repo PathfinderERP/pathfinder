@@ -1659,14 +1659,15 @@ const Classes = () => {
                 "Date": "2024-12-01",
                 "Class Mode": "Offline",
                 "Start Time": "10:00",
+                "Class Hours": 2.0,
                 "End Time": "12:00",
-                "Center": "HAZRA H.O",
-                "Batch": "Batch 1, Batch 2",
                 "Subject": "MATHS",
                 "Teacher": "ANITA PAUL",
-                "Session": "2024-2025",
-                "Exam": "",
                 "Coordinator": "Optional Coordinator Name",
+                "Session": "2024-2025",
+                "Exam": "JEE MAINS",
+                "Center": "HAZRA H.O",
+                "Batch": "Batch 1, Batch 2",
                 "Academic Class": "Class 11",
                 "Chapter Name": "Algebra",
                 "Topic Names": "Polynomials",
@@ -1691,13 +1692,19 @@ const Classes = () => {
             "Date": cls.date ? new Date(cls.date).toLocaleDateString('en-GB') : "-",
             "Class Mode": cls.classMode || "-",
             "Start Time": cls.startTime || "-",
+            "Class Hours": cls.classHours || 0,
             "End Time": cls.endTime || "-",
-            "Center": cls.centreId?.centreName || cls.centreId?.name || "-",
-            "Batch": cls.batchIds ? cls.batchIds.map(b => b.batchName || b.name).join(", ") : (cls.batchId?.batchName || "-"),
-            "Subject": cls.subjectId?.subjectName || cls.subjectId?.name || "-",
+            "Subject": cls.subjectName || cls.subjectId?.subjectName || cls.subjectId?.name || "-",
             "Teacher": cls.teacherId?.name || "-",
+            "Coordinator": cls.coordinatorName || cls.coordinatorId?.name || "-",
             "Session": cls.session || "-",
-            "Coordinator": cls.coordinatorId?.name || "-",
+            "Exam": cls.examId?.name || cls.examId?.tagName || "-",
+            "Center": cls.centreNames || cls.centreId?.centreName || cls.centreId?.name || "-",
+            "Batch": cls.batchNames || (cls.batchIds ? cls.batchIds.map(b => b.batchName || b.name).join(", ") : (cls.batchId?.batchName || "-")),
+            "Academic Class": cls.acadClassId?.className || cls.classNameLegacy || "-",
+            "Chapter Name": cls.chapterName || "-",
+            "Topic Names": cls.topicName || "-",
+            "Message": cls.message || "-",
             "Status": cls.status || "-"
         }));
 
@@ -2966,17 +2973,25 @@ const Classes = () => {
                         <div className={`p-6 max-h-[70vh] overflow-y-auto ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                             <p className="mb-4">Before downloading and filling out the template, please ensure you follow these strict matching rules to avoid import failures:</p>
 
-                            <ul className="space-y-3 mb-6 list-disc list-inside">
-                                <li><strong>Teacher</strong>: Must exactly match a Teacher's Name registered in User Management (Case-Insensitive).</li>
-                                <li><strong>Subject</strong>: Must exactly match an Academics Subject Name.</li>
-                                <li><strong>Center</strong>: Must match an active Center Name (e.g., HAZRA H.O).</li>
-                                <li><strong>Batch</strong>: Must match a Batch Name. If multiple batches, separate them with a comma (e.g., <code className="bg-gray-500/20 px-1 rounded">Batch A, Batch B</code>).</li>
-                                <li><strong>Exam (Optional)</strong>: If provided, must exactly match an Exam Tag Name (e.g., JEE MAINS).</li>
-                                <li><strong>Session</strong>: Must exactly match a Session Name (e.g., 2024-2025).</li>
+                            <ul className="space-y-3 mb-6 list-disc list-inside text-sm">
+                                <li><strong>Class Name</strong>: The name of the class schedule to display.</li>
+                                <li><strong>Date</strong>: The date of the class (e.g., <code className="bg-gray-500/20 px-1 rounded">2024-12-01</code>).</li>
                                 <li><strong>Class Mode</strong>: Must be exactly <code className="bg-gray-500/20 px-1 rounded">Online</code> or <code className="bg-gray-500/20 px-1 rounded">Offline</code>.</li>
+                                <li><strong>Start Time & End Time</strong>: Expected in 24-hour time format (e.g., <code className="bg-gray-500/20 px-1 rounded">10:00</code> & <code className="bg-gray-500/20 px-1 rounded">12:00</code>).</li>
+                                <li><strong>Class Hours</strong>: The duration of the class as a positive decimal number (e.g., <code className="bg-gray-500/20 px-1 rounded">2.0</code>).</li>
+                                <li><strong>Subject</strong>: Must exactly match a Subject Name registered in Master Data (e.g., <code className="bg-gray-500/20 px-1 rounded">MATHS</code>).</li>
+                                <li><strong>Teacher</strong>: Must exactly match a Teacher's Name registered in User Management (Case-Insensitive).</li>
+                                <li><strong>Session</strong>: Must exactly match an active Session Name (e.g., <code className="bg-gray-500/20 px-1 rounded">2024-2025</code>).</li>
+                                <li><strong>Exam</strong>: Must exactly match a registered Exam Tag Name (e.g., <code className="bg-gray-500/20 px-1 rounded">JEE MAINS</code>).</li>
+                                <li><strong>Center</strong>: Must match an active Center Name (e.g., <code className="bg-gray-500/20 px-1 rounded">HAZRA H.O</code>).</li>
+                                <li><strong>Batch</strong>: Must match Batch Name(s). If multiple batches, separate them with a comma (e.g., <code className="bg-gray-500/20 px-1 rounded">Batch 1, Batch 2</code>). All batches must exist.</li>
+                                <li><strong>Academic Class</strong>: Must match a registered Academic Class Name (e.g., <code className="bg-gray-500/20 px-1 rounded">Class 11</code>).</li>
+                                <li><strong>Chapter Name</strong>: Must match Chapter Name(s) under the Subject. If multiple chapters, separate them with a comma (e.g., <code className="bg-gray-500/20 px-1 rounded">Algebra, Calculus</code>).</li>
+                                <li><strong>Topic Names</strong>: Must match Topic Name(s) under the selected chapters. If multiple topics, separate them with a comma.</li>
+                                <li><strong>Coordinator (Optional)</strong>: If provided, must match a registered Class Coordinator's Name.</li>
                             </ul>
                             <div className={`p-4 rounded-xl border-l-4 ${isDarkMode ? 'bg-yellow-900/20 border-yellow-600 text-yellow-300' : 'bg-yellow-50 border-yellow-500 text-yellow-800'}`}>
-                                <p className="text-sm font-semibold">⚠️ All of the above fields are MANDATORY and CANNOT be blank.</p>
+                                <p className="text-sm font-semibold">⚠️ All of the above fields (except Coordinator and Message) are MANDATORY and CANNOT be blank.</p>
                             </div>
                         </div>
                         <div className={`px-6 py-4 border-t flex justify-end gap-3 bg-opacity-50 ${isDarkMode ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>

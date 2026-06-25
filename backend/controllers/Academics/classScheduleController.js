@@ -2034,11 +2034,29 @@ export const importClassesExcel = async (req, res) => {
             const row = rows[i];
             const rowNumber = i + 2; // +2 considering header and 0-indexing
 
-            // 1. Check Mandatory string fields
-            const requiredFields = ['Class Name', 'Date', 'Class Mode', 'Start Time', 'End Time', 'Center', 'Batch', 'Subject', 'Teacher', 'Session'];
+            // 1. Check Mandatory fields
+            const requiredFields = [
+                'Class Name', 
+                'Date', 
+                'Class Mode', 
+                'Start Time', 
+                'Class Hours',
+                'End Time', 
+                'Center', 
+                'Batch', 
+                'Subject', 
+                'Teacher', 
+                'Session',
+                'Exam',
+                'Academic Class',
+                'Chapter Name',
+                'Topic Names'
+            ];
             let missingFields = [];
             for (let field of requiredFields) {
-                if (!row[field]) missingFields.push(field);
+                if (row[field] === undefined || row[field] === null || String(row[field]).trim() === "") {
+                    missingFields.push(field);
+                }
             }
             if (missingFields.length > 0) {
                 errors.push(`Row ${rowNumber}: Missing mandatory fields -> ${missingFields.join(", ")}`);
@@ -2049,6 +2067,12 @@ export const importClassesExcel = async (req, res) => {
             const classMode = String(row['Class Mode']).trim();
             if (!["Online", "Offline"].includes(classMode)) {
                 errors.push(`Row ${rowNumber}: Class Mode must be exactly 'Online' or 'Offline'`);
+                continue;
+            }
+
+            const classHours = Number(row['Class Hours']);
+            if (isNaN(classHours) || classHours <= 0) {
+                errors.push(`Row ${rowNumber}: Class Hours must be a positive number`);
                 continue;
             }
 
@@ -2078,18 +2102,14 @@ export const importClassesExcel = async (req, res) => {
                 continue;
             }
 
-
-            // Exam (Optional)
-            let examId = undefined;
-            if (row['Exam']) {
-                const examRegex = new RegExp(`^${String(row['Exam']).trim()}$`, "i");
-                const exam = await ExamTag.findOne({ $or: [{ name: examRegex }, { tagName: examRegex }] });
-                if (!exam) {
-                    errors.push(`Row ${rowNumber}: Exam '${row['Exam']}' not found`);
-                    continue;
-                }
-                examId = exam._id;
+            // Exam (Required)
+            const examRegex = new RegExp(`^${String(row['Exam']).trim()}$`, "i");
+            const exam = await ExamTag.findOne({ $or: [{ name: examRegex }, { tagName: examRegex }] });
+            if (!exam) {
+                errors.push(`Row ${rowNumber}: Exam '${row['Exam']}' not found`);
+                continue;
             }
+            const examId = exam._id;
 
             // Subject Lookup (Direct Master Subject)
             const masterSubRegex = new RegExp(`^${String(row['Subject']).trim()}$`, "i");
@@ -2123,16 +2143,18 @@ export const importClassesExcel = async (req, res) => {
                     { name: { $in: batchNames.map(b => new RegExp(`^${b}$`, "i")) } }
                 ]
             });
-            if (batchDocs.length === 0) {
-                errors.push(`Row ${rowNumber}: None of the Batches '${row['Batch']}' were found`);
+            if (batchDocs.length !== batchNames.length) {
+                const foundBatchNames = batchDocs.map(b => (b.batchName || b.name).toLowerCase());
+                const missing = batchNames.filter(b => !foundBatchNames.includes(b.toLowerCase()));
+                errors.push(`Row ${rowNumber}: Batches not found: ${missing.join(", ")}`);
                 continue;
             }
             const batchIds = batchDocs.map(b => b._id);
 
-            // Optional Lookups
+            // Optional Coordinator Lookup
             let coordinatorId = undefined;
-            let acadClassId = undefined;
-            if (row['Coordinator']) {
+            let coordinatorIds = [];
+            if (row['Coordinator'] && String(row['Coordinator']).trim() !== "") {
                 const coordRegex = new RegExp(`^${String(row['Coordinator']).trim()}$`, "i");
                 const coordinator = await User.findOne({ name: coordRegex, role: { $in: ['Class_Coordinator', 'coordinator'] } });
                 if (!coordinator) {
@@ -2140,17 +2162,56 @@ export const importClassesExcel = async (req, res) => {
                     continue;
                 }
                 coordinatorId = coordinator._id;
+                coordinatorIds = [coordinator._id];
             }
 
-            if (row['Academic Class']) {
-                const acadRegex = new RegExp(`^${String(row['Academic Class']).trim()}$`, "i");
-                const acadClass = await Class.findOne({ name: acadRegex });
-                if (!acadClass) {
-                    errors.push(`Row ${rowNumber}: Academic Class '${row['Academic Class']}' not found`);
-                    continue;
-                }
-                acadClassId = acadClass._id;
+            // Academic Class Lookup (from AcademicsClass model, className field)
+            const acadClassRegex = new RegExp(`^${String(row['Academic Class']).trim()}$`, "i");
+            const acadClass = await AcademicsClass.findOne({ className: acadClassRegex });
+            if (!acadClass) {
+                errors.push(`Row ${rowNumber}: Academic Class '${row['Academic Class']}' not found`);
+                continue;
             }
+            const acadClassId = acadClass._id;
+
+            // Academic Subject Lookup (from AcademicsSubject model, linking classId and masterSubjectId)
+            const acadSubject = await AcademicsSubject.findOne({
+                classId: acadClassId,
+                masterSubjectId: subject._id
+            });
+            if (!acadSubject) {
+                errors.push(`Row ${rowNumber}: Subject '${row['Subject']}' is not linked to Academic Class '${row['Academic Class']}'`);
+                continue;
+            }
+            const acadSubjectId = acadSubject._id;
+
+            // Chapter Name Lookup (multiple, comma separated)
+            const chapterNames = String(row['Chapter Name']).split(',').map(c => c.trim()).filter(c => c);
+            const chapterDocs = await AcademicsChapter.find({
+                subjectId: acadSubjectId,
+                chapterName: { $in: chapterNames.map(name => new RegExp(`^${name}$`, "i")) }
+            });
+            if (chapterDocs.length !== chapterNames.length) {
+                const foundChapterNames = chapterDocs.map(c => c.chapterName.toLowerCase());
+                const missing = chapterNames.filter(c => !foundChapterNames.includes(c.toLowerCase()));
+                errors.push(`Row ${rowNumber}: Chapter(s) not found under Subject '${row['Subject']}': ${missing.join(", ")}`);
+                continue;
+            }
+            const chapterIds = chapterDocs.map(c => c._id);
+
+            // Topic Names Lookup (multiple, comma separated)
+            const topicNames = String(row['Topic Names']).split(',').map(t => t.trim()).filter(t => t);
+            const topicDocs = await AcademicsTopic.find({
+                chapterId: { $in: chapterIds },
+                topicName: { $in: topicNames.map(name => new RegExp(`^${name}$`, "i")) }
+            });
+            if (topicDocs.length !== topicNames.length) {
+                const foundTopicNames = topicDocs.map(t => t.topicName.toLowerCase());
+                const missing = topicNames.filter(t => !foundTopicNames.includes(t.toLowerCase()));
+                errors.push(`Row ${rowNumber}: Topic(s) not found under selected chapters: ${missing.join(", ")}`);
+                continue;
+            }
+            const topicIds = topicDocs.map(t => t._id);
 
             classesToInsert.push({
                 className: String(row['Class Name']).trim(),
@@ -2160,18 +2221,19 @@ export const importClassesExcel = async (req, res) => {
                 endTime: String(row['End Time']).trim(),
                 subjectId: subject._id,
                 teacherId: teacher._id,
-                session: sessionDoc.sessionName, // Schema stores string or ObjectId, existing script usually passes string
+                session: sessionDoc.sessionName,
                 examId: examId,
                 centreIds: [centre._id],
                 batchIds: batchIds,
                 coordinatorId: coordinatorId,
-                coordinatorIds: coordinatorId ? [coordinatorId] : [],
+                coordinatorIds: coordinatorIds,
                 acadClassId: acadClassId,
-                acadSubjectId: subject._id, // Direct reference to Master Subject as requested
-                chapterName: row['Chapter Name'] ? String(row['Chapter Name']).trim() : "",
-                topicName: row['Topic Names'] ? String(row['Topic Names']).trim() : "",
+                acadSubjectId: acadSubjectId,
+                chapterId: chapterIds[0],
+                chapterIds: chapterIds,
+                topicIds: topicIds,
                 message: row['Message'] ? String(row['Message']).trim() : "",
-                classHours: row['Class Hours'] ? Number(row['Class Hours']) : 0
+                classHours: classHours
             });
         }
 
