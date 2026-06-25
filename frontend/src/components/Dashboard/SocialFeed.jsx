@@ -41,7 +41,11 @@ const SocialFeed = () => {
     const [participantModalData, setParticipantModalData] = useState(null);
 
     useEffect(() => {
-        fetchPosts();
+        setLoading(true);
+        fetchPosts(filterDate);
+    }, [filterDate]);
+
+    useEffect(() => {
         fetchUsers();
         recordSocialVisit();
         fetchSocialActivity();
@@ -90,10 +94,13 @@ const SocialFeed = () => {
         };
     }, []);
 
-    const fetchPosts = async () => {
+    const fetchPosts = async (selectedDate = filterDate) => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/posts`, {
+            const url = selectedDate
+                ? `${import.meta.env.VITE_API_URL}/posts?date=${selectedDate}`
+                : `${import.meta.env.VITE_API_URL}/posts`;
+            const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -427,7 +434,7 @@ const SocialFeed = () => {
                 setPollOptions(["", ""]);
                 setSelectedTags([]);
                 setUploadProgress(0);
-                fetchPosts();
+                fetchPosts(filterDate);
             } else {
                 // Parse actual server error for a meaningful message
                 let errMsg = "Failed to share post";
@@ -455,7 +462,7 @@ const SocialFeed = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
-                fetchPosts();
+                fetchPosts(filterDate);
             }
         } catch (error) {
             console.error("Like error:", error);
@@ -474,7 +481,7 @@ const SocialFeed = () => {
                 body: JSON.stringify({ optionId })
             });
             if (response.ok) {
-                fetchPosts();
+                fetchPosts(filterDate);
                 toast.success("Vote recorded! Each person can vote only once.");
             } else {
                 const data = await response.json();
@@ -498,7 +505,7 @@ const SocialFeed = () => {
                 body: JSON.stringify({ text, tags })
             });
             if (response.ok) {
-                fetchPosts();
+                fetchPosts(filterDate);
             }
         } catch (error) {
             console.error("Comment error:", error);
