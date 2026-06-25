@@ -10,6 +10,8 @@ import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 import Pagination from "../../components/common/Pagination";
+import { useNavigate } from "react-router-dom";
+import { hasPermission } from "../../config/permissions";
 
 const ALL_ROLES = [
     { value: "admin", label: "Admin" },
@@ -32,6 +34,20 @@ const ALL_ROLES = [
 ];
 
 const AssignTask = () => {
+    const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canView = hasPermission(user, "taskWorkflow", "assignTask", "view") ||
+                    hasPermission(user, "taskWorkflow", "assignTask", "create") ||
+                    hasPermission(user, "taskWorkflow", "assignTask", "edit") ||
+                    hasPermission(user, "taskWorkflow", "assignTask", "delete");
+
+    useEffect(() => {
+        if (!canView && user.role !== "superAdmin" && user.role !== "superadmin") {
+            toast.error("Access Denied");
+            navigate("/");
+        }
+    }, [canView, user.role, navigate]);
+
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 

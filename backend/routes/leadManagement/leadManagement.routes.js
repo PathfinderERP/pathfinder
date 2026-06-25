@@ -15,7 +15,7 @@ import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadD
 import { getFollowUpStats } from "../../controllers/leadManagement/getFollowUpStats.js";
 import { exportLeadsExcel } from "../../controllers/leadManagement/exportLeadsExcel.js";
 import { exportTelecallerLogs } from "../../controllers/leadManagement/exportTelecallerLogs.js";
-import { requireAuth } from "../../middleware/permissionMiddleware.js";
+import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 import { getTelecallerAnalytics } from "../../controllers/leadManagement/getTelecallerAnalytics.js";
 import { getAllTelecallerAnalytics } from "../../controllers/leadManagement/getAllTelecallerAnalytics.js";
 import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentreAnalysis.js";
@@ -61,10 +61,10 @@ router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
 router.post("/bulk-update", requireAuth, bulkUpdateLeads);
 
 // Campaign / Ads routes
-router.get("/campaigns", requireAuth, getCampaigns);
-router.post("/campaigns", requireAuth, createCampaign);
-router.delete("/campaigns/:id", requireAuth, deleteCampaign);
-router.put("/campaigns/:id", requireAuth, updateCampaign);
+router.get("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "view"), getCampaigns);
+router.post("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "create"), createCampaign);
+router.delete("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "delete"), deleteCampaign);
+router.put("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "edit"), updateCampaign);
 
 // Generic ID route must come AFTER specific routes
 router.get("/:id/journey", requireAuth, getLeadJourney);

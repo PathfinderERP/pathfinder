@@ -4,11 +4,25 @@ import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
 import { FaArrowLeft, FaBullhorn, FaSync, FaTimes, FaEye, FaEdit, FaUpload } from "react-icons/fa";
+import { hasPermission } from "../../config/permissions";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Campaigns() {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canView = hasPermission(user, "leadManagement", "campaignAds", "view") ||
+                    hasPermission(user, "leadManagement", "campaignAds", "create") ||
+                    hasPermission(user, "leadManagement", "campaignAds", "edit") ||
+                    hasPermission(user, "leadManagement", "campaignAds", "delete");
+
+    useEffect(() => {
+        if (!canView && user.role !== "superAdmin" && user.role !== "superadmin") {
+            toast.error("Access Denied");
+            navigate("/");
+        }
+    }, [canView, user.role, navigate]);
+
     const { theme } = useTheme();
     const isDark = theme === "dark";
 

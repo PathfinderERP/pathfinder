@@ -34,8 +34,9 @@ const SourceContent = () => {
             const data = await response.json();
 
             if (response.ok) {
-                setSources(data.sources);
-                setFilteredSources(data.sources);
+                const sorted = (data.sources || []).sort((a, b) => (a.sourceName || "").localeCompare(b.sourceName || ""));
+                setSources(sorted);
+                setFilteredSources(sorted);
             } else {
                 toast.error(data.message || "Failed to fetch sources");
             }

@@ -33,7 +33,8 @@ const BoardContent = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setBoards(data);
+                const sorted = data.sort((a, b) => (a.boardCourse || "").localeCompare(b.boardCourse || ""));
+                setBoards(sorted);
             } else {
                 toast.error(data.message || "Failed to fetch boards");
             }

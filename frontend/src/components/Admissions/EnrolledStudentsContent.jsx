@@ -40,6 +40,7 @@ const EnrolledStudentsContent = () => {
     const [filterLeadBy, setFilterLeadBy] = useState([]);
     const [filterCounselledBy, setFilterCounselledBy] = useState([]);
     const [filterAdmissionBy, setFilterAdmissionBy] = useState([]);
+    const [filterBatch, setFilterBatch] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -55,6 +56,7 @@ const EnrolledStudentsContent = () => {
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterSessions, setMasterSessions] = useState([]);
     const [masterExamTags, setMasterExamTags] = useState([]);
+    const [batches, setBatches] = useState([]);
     const [selectedAdmissionIds, setSelectedAdmissionIds] = useState([]);
     const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -137,14 +139,15 @@ const EnrolledStudentsContent = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes, tagRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes, tagRes, batchRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/session/list`, { headers }),
                 fetch(`${apiUrl}/admission/active-employees`, { headers }),
                 fetch(`${apiUrl}/master-data/account`, { headers }),
-                fetch(`${apiUrl}/examTag`, { headers })
+                fetch(`${apiUrl}/examTag`, { headers }),
+                fetch(`${apiUrl}/batch/list`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -163,6 +166,9 @@ const EnrolledStudentsContent = () => {
             }
             if (tagRes && tagRes.ok) {
                 setMasterExamTags(await tagRes.json());
+            }
+            if (batchRes && batchRes.ok) {
+                setBatches(await batchRes.json());
             }
         } catch (error) {
             console.error("Error fetching master data:", error);
@@ -354,7 +360,7 @@ const EnrolledStudentsContent = () => {
     // Reset selected IDs when any filter or view mode changes
     useEffect(() => {
         setSelectedAdmissionIds([]);
-    }, [viewMode, currentPage, searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, startDate, endDate]);
+    }, [viewMode, currentPage, searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, startDate, endDate, filterBatch]);
 
     const toggleSelection = (admissionId) => {
         if (!admissionId) return;
@@ -606,7 +612,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
 
     // Filter students
     useEffect(() => {
@@ -836,6 +842,14 @@ const EnrolledStudentsContent = () => {
             });
         }
 
+        if (filterBatch.length > 0) {
+            result = result.filter(item => {
+                const studentBatches = item.student?.batches || [];
+                const studentBatchIds = studentBatches.map(b => b._id?.toString() || b.toString());
+                return filterBatch.some(bid => studentBatchIds.includes(bid));
+            });
+        }
+
         // Filter by student status (viewMode)
         result = result.filter(item => {
             if (viewMode === 'Board') {
@@ -846,7 +860,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -936,6 +950,7 @@ const EnrolledStudentsContent = () => {
         setFilterLeadBy([]);
         setFilterCounselledBy([]);
         setFilterAdmissionBy([]);
+        setFilterBatch([]);
         setStartDate("");
         setEndDate("");
         setCurrentPage(1);
@@ -1654,6 +1669,20 @@ const EnrolledStudentsContent = () => {
                                 options={Array.from(new Set(uniqueExamTags)).filter(Boolean).map(t => ({ value: t, label: t.toUpperCase() }))}
                                 selectedValues={filterExamTag}
                                 onChange={setFilterExamTag}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Batch"
+                                placeholder="ALL BATCHES"
+                                options={batches.map(b => ({
+                                    value: b._id,
+                                    label: `${b.batchName} (${b.centreId?.centreName || 'No Centre'})`.toUpperCase()
+                                }))}
+                                selectedValues={filterBatch}
+                                onChange={setFilterBatch}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

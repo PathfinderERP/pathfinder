@@ -371,7 +371,7 @@ function App() {
         <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         {/* <Route path="/system-logs" element={<ProtectedRoute><SystemLogs /></ProtectedRoute>} /> */}
         <Route path="/task-workflow/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-        <Route path="/task-workflow/assign-task" element={<ProtectedRoute allowedRoles={['superadmin']}><AssignTask /></ProtectedRoute>} />
+        <Route path="/task-workflow/assign-task" element={<ProtectedRoute><AssignTask /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>

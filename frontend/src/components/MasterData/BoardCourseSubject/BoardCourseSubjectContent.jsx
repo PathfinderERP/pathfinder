@@ -36,10 +36,39 @@ const BoardCourseSubjectContent = () => {
                 fetch(`${import.meta.env.VITE_API_URL}/subject`, { headers })
             ]);
 
-            if (entriesRes.ok) setEntries(await entriesRes.json());
-            if (boardsRes.ok) setBoards(await boardsRes.json());
-            if (classesRes.ok) setClasses(await classesRes.json());
-            if (subjectsRes.ok) setAllSubjects(await subjectsRes.json());
+            if (entriesRes.ok) {
+                const data = await entriesRes.json();
+                data.forEach(entry => {
+                    if (entry.subjects) {
+                        entry.subjects.sort((a, b) => 
+                            (a.subjectId?.subName || "").localeCompare(b.subjectId?.subName || "")
+                        );
+                    }
+                });
+                data.sort((a, b) => {
+                    const boardA = a.boardId?.boardCourse || "";
+                    const boardB = b.boardId?.boardCourse || "";
+                    const boardCompare = boardA.localeCompare(boardB);
+                    if (boardCompare !== 0) return boardCompare;
+
+                    const classA = a.classId?.name || a.classId?.className || "";
+                    const classB = b.classId?.name || b.classId?.className || "";
+                    return classA.localeCompare(classB);
+                });
+                setEntries(data);
+            }
+            if (boardsRes.ok) {
+                const data = await boardsRes.json();
+                setBoards(data.sort((a, b) => (a.boardCourse || "").localeCompare(b.boardCourse || "")));
+            }
+            if (classesRes.ok) {
+                const data = await classesRes.json();
+                setClasses(data.sort((a, b) => (a.name || a.className || "").localeCompare(b.name || b.className || "")));
+            }
+            if (subjectsRes.ok) {
+                const data = await subjectsRes.json();
+                setAllSubjects(data.sort((a, b) => (a.subName || "").localeCompare(b.subName || "")));
+            }
         } catch (err) {
             toast.error("Failed to fetch data");
         } finally {

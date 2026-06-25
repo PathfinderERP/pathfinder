@@ -30,7 +30,8 @@ const DepartmentContent = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setDepartments(data);
+                const sorted = data.sort((a, b) => (a.departmentName || "").localeCompare(b.departmentName || ""));
+                setDepartments(sorted);
             } else {
                 toast.error(data.message || "Failed to fetch departments");
             }

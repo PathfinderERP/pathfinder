@@ -8,6 +8,8 @@ import {
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import Pagination from "../../components/common/Pagination";
+import { useNavigate } from "react-router-dom";
+import { hasPermission } from "../../config/permissions";
 
 const ALL_ROLES = [
     { value: "admin", label: "Admin" },
@@ -30,6 +32,20 @@ const ALL_ROLES = [
 ];
 
 const Tasks = () => {
+    const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canView = hasPermission(user, "taskWorkflow", "tasks", "view") ||
+                    hasPermission(user, "taskWorkflow", "tasks", "create") ||
+                    hasPermission(user, "taskWorkflow", "tasks", "edit") ||
+                    hasPermission(user, "taskWorkflow", "tasks", "delete");
+
+    useEffect(() => {
+        if (!canView && user.role !== "superAdmin" && user.role !== "superadmin") {
+            toast.error("Access Denied");
+            navigate("/");
+        }
+    }, [canView, user.role, navigate]);
+
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 

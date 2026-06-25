@@ -111,9 +111,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         {
             name: "Task Workflow",
             icon: <FaTasks />,
+            permissionModule: "taskWorkflow",
             subItems: [
-                { name: "Tasks", path: "/task-workflow/tasks" },
-                { name: "Assign Task", path: "/task-workflow/assign-task", restrictedToSuperAdmin: true }
+                { name: "Tasks", path: "/task-workflow/tasks", permissionSection: "tasks" },
+                { name: "Assign Task", path: "/task-workflow/assign-task", permissionSection: "assignTask" }
             ]
         },
         {
@@ -154,7 +155,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 { name: "All Leads", path: "/lead-management", permissionSection: "leads" },
                 { name: "Teacher Schedule", path: "/lead-management/teacher-schedule", permissionSection: "leads" },
-                { name: "Campaigns/Ads", path: "/lead-management/campaigns", permissionSection: "leads" },
+                { name: "Campaigns/Ads", path: "/lead-management/campaigns", permissionSection: "campaignAds" },
             ]
         },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
@@ -440,7 +441,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Task Workflow") return true;
+        if (item.name === "Dashboard" || item.name === "Community") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
@@ -480,7 +481,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         if (item.subItems && !isSuperAdmin) {
             const filteredSubItems = item.subItems.filter(sub => {
                 if (sub.restrictedToSuperAdmin && !isSuperAdmin) return false;
-                if (sub.name === "Tasks") return true;
                 const permModule = sub.permissionModule || item.permissionModule;
                 if (permModule) {
                     if (sub.permissionSection) {
