@@ -65,6 +65,7 @@ import MasterDataBoard from "./pages/MasterDataBoard";
 import MasterDataSubject from "./pages/MasterDataSubject";
 import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
 import ZoneManagement from "./pages/ZoneManagement";
+import MasterDataSchoolData from "./pages/MasterDataSchoolData";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
 import MasterDataBoardCourseSubject from "./pages/MasterDataBoardCourseSubject.jsx";
 import MarketingCRM from "./pages/MarketingCRM";
@@ -352,6 +353,7 @@ function App() {
         <Route path="/master-data/board-course-subject" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataBoardCourseSubject /></ProtectedRoute>} />
         <Route path="/master-data/subject" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSubject /></ProtectedRoute>} />
         <Route path="/master-data/zone" element={<ProtectedRoute allowedRoles={['superadmin']}><ZoneManagement /></ProtectedRoute>} />
+        <Route path="/master-data/school-data" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSchoolData /></ProtectedRoute>} />
 
         {/* Petty Cash Routes */}
         <Route path="/petty-cash/centre" element={<ProtectedRoute><PettyCashCentre /></ProtectedRoute>} />

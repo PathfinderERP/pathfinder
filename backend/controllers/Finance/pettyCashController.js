@@ -149,9 +149,18 @@ export const getExpenditures = async (req, res) => {
             }
         }
 
-        if (categoryId) query.category = categoryId;
-        if (subCategoryId) query.subCategory = subCategoryId;
-        if (expenditureTypeId) query.expenditureType = expenditureTypeId;
+        if (categoryId) {
+            const catIds = categoryId.split(',').filter(id => id.trim() !== '');
+            query.category = catIds.length === 1 ? catIds[0] : { $in: catIds };
+        }
+        if (subCategoryId) {
+            const subIds = subCategoryId.split(',').filter(id => id.trim() !== '');
+            query.subCategory = subIds.length === 1 ? subIds[0] : { $in: subIds };
+        }
+        if (expenditureTypeId) {
+            const typeIds = expenditureTypeId.split(',').filter(id => id.trim() !== '');
+            query.expenditureType = typeIds.length === 1 ? typeIds[0] : { $in: typeIds };
+        }
 
         if (startDate || endDate) {
             query.date = {};

@@ -1,12 +1,99 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../../components/Layout';
-import { FaCheck, FaTimes, FaEye, FaSearch, FaFilter, FaCalendarAlt, FaBuilding, FaTag, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaCheck, FaTimes, FaEye, FaSearch, FaFilter, FaCalendarAlt, FaBuilding, FaTag, FaChevronLeft, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
+// ─── Custom Multi-Select Dropdown ────────────────────────────────────────────
+const MultiSelectDropdown = ({ label, options, selected, onChange, valueKey = '_id', labelKey = 'name', placeholder = 'All' }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const toggle = (val) => {
+        if (selected.includes(val)) {
+            onChange(selected.filter(v => v !== val));
+        } else {
+            onChange([...selected, val]);
+        }
+    };
+
+    const clearAll = (e) => { e.stopPropagation(); onChange([]); };
+
+    const displayLabel = selected.length === 0
+        ? placeholder
+        : selected.length === 1
+            ? (options.find(o => (o[valueKey] || o) === selected[0])?.[labelKey] || selected[0])
+            : `${selected.length} selected`;
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className={`w-full flex items-center justify-between bg-[#131619] border rounded-xl py-3 px-4 text-sm transition-all focus:outline-none ${open ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-gray-800 hover:border-gray-600'}`}
+            >
+                <span className={`truncate font-medium ${selected.length > 0 ? 'text-white' : 'text-gray-500'}`}>
+                    {displayLabel}
+                </span>
+                <div className="flex items-center gap-2 ml-2 shrink-0">
+                    {selected.length > 0 && (
+                        <span
+                            onClick={clearAll}
+                            className="text-[10px] bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded px-1.5 py-0.5 font-black hover:bg-red-600/20 hover:text-red-400 hover:border-red-500/30 transition-colors cursor-pointer"
+                        >
+                            ×{selected.length}
+                        </span>
+                    )}
+                    <FaChevronDown className={`text-gray-500 text-[10px] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                </div>
+            </button>
+
+            {open && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a2030] border border-gray-700 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto">
+                    {options.length === 0 ? (
+                        <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest p-4 text-center">No options</p>
+                    ) : (
+                        options.map((opt, i) => {
+                            const val = opt[valueKey] || opt;
+                            const lbl = opt[labelKey] || opt;
+                            const checked = selected.includes(val);
+                            return (
+                                <div
+                                    key={val || i}
+                                    onClick={() => toggle(val)}
+                                    className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors text-sm ${checked ? 'bg-blue-600/10' : 'hover:bg-white/5'}`}
+                                >
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-600 bg-[#131619]'}`}>
+                                        {checked && <FaCheck className="text-white text-[8px]" />}
+                                    </div>
+                                    <span className={`font-medium ${checked ? 'text-white' : 'text-gray-400'}`}>{lbl}</span>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ─── Status options (not from API) ────────────────────────────────────────────
+const STATUS_OPTIONS = [
+    { _id: 'pending', name: 'Pending Approval' },
+    { _id: 'approved', name: 'Approved / Cleared' },
+    { _id: 'rejected', name: 'Rejected / Returned' },
+];
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const PettyCashApproval = () => {
     const [expenditures, setExpenditures] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -17,16 +104,16 @@ const PettyCashApproval = () => {
     const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
     const [bulkRejectionReason, setBulkRejectionReason] = useState("");
 
-    // Filters State
+    // Multi-select Filters State (arrays)
     const [filters, setFilters] = useState({
-        status: "pending",
-        centreId: "",
-        categoryId: "",
-        subCategoryId: "",
-        expenditureTypeId: "",
-        startDate: "",
-        endDate: "",
-        search: ""
+        statuses: ['pending'],       // multi
+        centreIds: [],               // multi
+        categoryIds: [],             // multi
+        subCategoryIds: [],          // multi
+        expenditureTypeIds: [],      // multi
+        startDate: '',
+        endDate: '',
+        search: ''
     });
 
     // Pagination State
@@ -34,7 +121,7 @@ const PettyCashApproval = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [jumpPage, setJumpPage] = useState("");
+    const [jumpPage, setJumpPage] = useState('');
 
     // Metadata State
     const [centres, setCentres] = useState([]);
@@ -42,13 +129,13 @@ const PettyCashApproval = () => {
     const [subCategories, setSubCategories] = useState([]);
     const [expenditureTypes, setExpenditureTypes] = useState([]);
 
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canApprove = hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'create') || 
-                       hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'edit') || 
-                       hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'delete');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const canApprove = hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'create') ||
+        hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'edit') ||
+        hasPermission(user, 'pettyCashManagement', 'expenditureApproval', 'delete');
 
     const fetchMetadata = async () => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
 
         try {
@@ -60,40 +147,42 @@ const PettyCashApproval = () => {
                 const userCentres = (user.centres || []).map(c => c._id || c);
                 setCentres(allCentres.filter(c => userCentres.includes(c._id)));
             }
-        } catch (e) { console.error("Centres fetch failed", e); }
+        } catch (e) { console.error('Centres fetch failed', e); }
 
         try {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/category`, { headers });
             setCategories(res.data);
-        } catch (e) { console.error("Categories fetch failed", e); }
+        } catch (e) { console.error('Categories fetch failed', e); }
 
         try {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/subcategory`, { headers });
             setSubCategories(res.data);
-        } catch (e) { console.error("Subcategories fetch failed", e); }
+        } catch (e) { console.error('Subcategories fetch failed', e); }
 
         try {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/expenditure-type`, { headers });
             setExpenditureTypes(res.data);
-        } catch (e) { console.error("Exp types fetch failed", e); }
+        } catch (e) { console.error('Exp types fetch failed', e); }
     };
 
     const fetchExpenditures = async (pageValue = currentPage) => {
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem('token');
             const params = new URLSearchParams();
-            if (filters.status) params.append("status", filters.status);
-            if (filters.centreId) params.append("centreId", filters.centreId);
-            if (filters.categoryId) params.append("categoryId", filters.categoryId);
-            if (filters.subCategoryId) params.append("subCategoryId", filters.subCategoryId);
-            if (filters.expenditureTypeId) params.append("expenditureTypeId", filters.expenditureTypeId);
-            if (filters.startDate) params.append("startDate", filters.startDate);
-            if (filters.endDate) params.append("endDate", filters.endDate);
-            if (filters.search) params.append("search", filters.search);
 
-            params.append("page", pageValue);
-            params.append("limit", itemsPerPage);
+            // Multi-value params — send as comma-separated
+            if (filters.statuses.length > 0) params.append('status', filters.statuses.join(','));
+            if (filters.centreIds.length > 0) params.append('centreId', filters.centreIds.join(','));
+            if (filters.categoryIds.length > 0) params.append('categoryId', filters.categoryIds.join(','));
+            if (filters.subCategoryIds.length > 0) params.append('subCategoryId', filters.subCategoryIds.join(','));
+            if (filters.expenditureTypeIds.length > 0) params.append('expenditureTypeId', filters.expenditureTypeIds.join(','));
+            if (filters.startDate) params.append('startDate', filters.startDate);
+            if (filters.endDate) params.append('endDate', filters.endDate);
+            if (filters.search) params.append('search', filters.search);
+
+            params.append('page', pageValue);
+            params.append('limit', itemsPerPage);
 
             const response = await axios.get(`${import.meta.env.VITE_API_URL}/finance/petty-cash/approval?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -105,41 +194,41 @@ const PettyCashApproval = () => {
             setCurrentPage(response.data.currentPage || 1);
             setJumpPage((response.data.currentPage || 1).toString());
         } catch (error) {
-            toast.error("Failed to load expenditures");
+            toast.error('Failed to load expenditures');
         } finally {
             setLoading(false);
         }
     };
 
     const handleApprove = async (id) => {
-        if (!window.confirm("Are you sure you want to approve this expenditure?")) return;
+        if (!window.confirm('Are you sure you want to approve this expenditure?')) return;
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem('token');
             await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/approve/${id}`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            toast.success("Expenditure approved successfully");
+            toast.success('Expenditure approved successfully');
             fetchExpenditures();
         } catch (error) {
-            toast.error(error.response?.data?.message || "Approval failed");
+            toast.error(error.response?.data?.message || 'Approval failed');
         }
     };
 
     const handleReject = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem('token');
             await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/reject/${selectedExpenditure._id}`, {
                 reason: rejectionReason
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            toast.success("Expenditure rejected");
+            toast.success('Expenditure rejected');
             setShowRejectModal(false);
-            setRejectionReason("");
+            setRejectionReason('');
             fetchExpenditures();
         } catch (error) {
-            toast.error("Rejection failed");
+            toast.error('Rejection failed');
         }
     };
 
@@ -166,17 +255,17 @@ const PettyCashApproval = () => {
         if (!window.confirm(`Are you sure you want to approve the ${selectedIds.length} selected expenditures?`)) return;
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem('token');
             await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/bulk-approve`, {
                 ids: selectedIds
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            toast.success("Selected expenditures approved successfully");
+            toast.success('Selected expenditures approved successfully');
             setSelectedIds([]);
             fetchExpenditures();
         } catch (error) {
-            toast.error(error.response?.data?.message || "Bulk approval failed");
+            toast.error(error.response?.data?.message || 'Bulk approval failed');
         } finally {
             setLoading(false);
         }
@@ -186,42 +275,30 @@ const PettyCashApproval = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem('token');
             await axios.put(`${import.meta.env.VITE_API_URL}/finance/petty-cash/bulk-reject`, {
                 ids: selectedIds,
                 reason: bulkRejectionReason
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            toast.success("Selected expenditures rejected successfully");
+            toast.success('Selected expenditures rejected successfully');
             setShowBulkRejectModal(false);
-            setBulkRejectionReason("");
+            setBulkRejectionReason('');
             setSelectedIds([]);
             fetchExpenditures();
         } catch (error) {
-            toast.error(error.response?.data?.message || "Bulk rejection failed");
+            toast.error(error.response?.data?.message || 'Bulk rejection failed');
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchMetadata();
-    }, []);
+    useEffect(() => { fetchMetadata(); }, []);
 
-    useEffect(() => {
-        fetchExpenditures(1);
-    }, [filters, itemsPerPage]);
+    useEffect(() => { fetchExpenditures(1); }, [filters, itemsPerPage]);
 
-    useEffect(() => {
-        setSelectedIds([]);
-    }, [filters, currentPage, itemsPerPage]);
-
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-        setCurrentPage(1);
-    };
+    useEffect(() => { setSelectedIds([]); }, [filters, currentPage, itemsPerPage]);
 
     const handleJumpPage = (e) => {
         e.preventDefault();
@@ -237,43 +314,58 @@ const PettyCashApproval = () => {
 
     const resetFilters = () => {
         setFilters({
-            status: "pending",
-            centreId: "",
-            categoryId: "",
-            subCategoryId: "",
-            expenditureTypeId: "",
-            startDate: "",
-            endDate: "",
-            search: ""
+            statuses: ['pending'],
+            centreIds: [],
+            categoryIds: [],
+            subCategoryIds: [],
+            expenditureTypeIds: [],
+            startDate: '',
+            endDate: '',
+            search: ''
         });
         setCurrentPage(1);
     };
 
+    // Filtered sub-categories based on selected categories
+    const filteredSubCategories = subCategories.filter(s =>
+        filters.categoryIds.length === 0 ||
+        filters.categoryIds.includes(s.category?._id || s.category)
+    );
+
     const exportToExcel = () => {
-        if (expenditures.length === 0) return toast.info("No data to export");
+        if (expenditures.length === 0) return toast.info('No data to export');
         const data = expenditures.map(exp => ({
-            "Date": new Date(exp.date).toLocaleDateString(),
-            "Centre": exp.centre?.centreName,
-            "Category": exp.category?.name,
-            "Sub Category": exp.subCategory?.name,
-            "Type": exp.expenditureType?.name,
-            "Amount": exp.amount,
-            "Description": exp.description,
-            "Vendor": exp.vendorName || "-",
-            "Payment Mode": exp.paymentMode,
-            "Tax": exp.taxApplicable ? "Yes" : "No",
-            "Status": exp.status,
-            "Rejection Reason": exp.rejectionReason || ""
+            'Date': new Date(exp.date).toLocaleDateString(),
+            'Centre': exp.centre?.centreName,
+            'Category': exp.category?.name,
+            'Sub Category': exp.subCategory?.name,
+            'Type': exp.expenditureType?.name,
+            'Amount': exp.amount,
+            'Description': exp.description,
+            'Vendor': exp.vendorName || '-',
+            'Payment Mode': exp.paymentMode,
+            'Tax': exp.taxApplicable ? 'Yes' : 'No',
+            'Status': exp.status,
+            'Rejection Reason': exp.rejectionReason || ''
         }));
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Expenditures");
+        XLSX.utils.book_append_sheet(wb, ws, 'Expenditures');
         const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const finalData = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         saveAs(finalData, `PettyCash_Expenditures_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
-
+    // Active filter count badge
+    const activeFilterCount = [
+        filters.statuses.length > 0 && filters.statuses.length < 3,
+        filters.centreIds.length > 0,
+        filters.categoryIds.length > 0,
+        filters.subCategoryIds.length > 0,
+        filters.expenditureTypeIds.length > 0,
+        !!filters.startDate || !!filters.endDate,
+        !!filters.search
+    ].filter(Boolean).length;
 
     return (
         <Layout activePage="Petty Cash Management">
@@ -288,51 +380,102 @@ const PettyCashApproval = () => {
                         <button onClick={exportToExcel} className="px-4 py-2 bg-emerald-600/20 text-emerald-500 border border-emerald-500/20 rounded-xl hover:bg-emerald-600 hover:text-white transition-all font-bold text-sm">
                             Export Excel
                         </button>
-                        <button onClick={resetFilters} className="px-4 py-2 bg-gray-800 text-gray-400 rounded-xl hover:text-white transition-all font-bold text-sm border border-gray-700">
+                        <button onClick={resetFilters} className="px-4 py-2 bg-gray-800 text-gray-400 rounded-xl hover:text-white transition-all font-bold text-sm border border-gray-700 flex items-center gap-2">
                             Reset
+                            {activeFilterCount > 0 && (
+                                <span className="bg-blue-600 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                                    {activeFilterCount}
+                                </span>
+                            )}
                         </button>
                     </div>
                 </div>
 
-                {/* Advanced Filter Bar */}
+                {/* ── Advanced Multi-Select Filter Bar ─────────────────────── */}
                 <div className="bg-[#1a1f24] border border-gray-800 p-6 rounded-2xl mb-8 shadow-xl">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {/* Status Filter */}
+                    <div className="flex items-center gap-2 mb-5">
+                        <FaFilter className="text-blue-500 text-xs" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filters</span>
+                        {activeFilterCount > 0 && (
+                            <span className="ml-1 text-[9px] bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-full px-2 py-0.5 font-black">
+                                {activeFilterCount} active
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+
+                        {/* Status */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                <FaFilter className="text-[8px]" />Status
+                                <FaFilter className="text-[8px]" /> Status
                             </label>
-                            <select
-                                name="status"
-                                value={filters.status}
-                                onChange={handleFilterChange}
-                                className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 appearance-none text-sm cursor-pointer"
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="pending">Pending Approval</option>
-                                <option value="approved">Approved / Cleared</option>
-                                <option value="rejected">Rejected / Returned</option>
-                            </select>
+                            <MultiSelectDropdown
+                                options={STATUS_OPTIONS}
+                                selected={filters.statuses}
+                                onChange={(val) => { setFilters(p => ({ ...p, statuses: val })); setCurrentPage(1); }}
+                                placeholder="All Statuses"
+                            />
                         </div>
 
-                        {/* Centre Filter */}
+                        {/* Centre */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                <FaBuilding className="text-[8px]" />Center
+                                <FaBuilding className="text-[8px]" /> Centre
                             </label>
-                            <select
-                                name="centreId"
-                                value={filters.centreId}
-                                onChange={handleFilterChange}
-                                className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 appearance-none text-sm cursor-pointer"
-                            >
-                                <option value="">All Center</option>
-                                {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                            </select>
+                            <MultiSelectDropdown
+                                options={centres}
+                                selected={filters.centreIds}
+                                onChange={(val) => { setFilters(p => ({ ...p, centreIds: val })); setCurrentPage(1); }}
+                                labelKey="centreName"
+                                placeholder="All Centres"
+                            />
                         </div>
 
-                        {/* Search Bar */}
+                        {/* Category */}
                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                <FaTag className="text-[8px]" /> Category
+                            </label>
+                            <MultiSelectDropdown
+                                options={categories}
+                                selected={filters.categoryIds}
+                                onChange={(val) => {
+                                    setFilters(p => ({ ...p, categoryIds: val, subCategoryIds: [] }));
+                                    setCurrentPage(1);
+                                }}
+                                placeholder="All Categories"
+                            />
+                        </div>
+
+                        {/* Sub Category */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                <FaTag className="text-[8px]" /> Sub Category
+                            </label>
+                            <MultiSelectDropdown
+                                options={filteredSubCategories}
+                                selected={filters.subCategoryIds}
+                                onChange={(val) => { setFilters(p => ({ ...p, subCategoryIds: val })); setCurrentPage(1); }}
+                                placeholder="All Sub-Categories"
+                            />
+                        </div>
+
+                        {/* Expenditure Type */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                <FaTag className="text-[8px]" /> Expenditure Type
+                            </label>
+                            <MultiSelectDropdown
+                                options={expenditureTypes}
+                                selected={filters.expenditureTypeIds}
+                                onChange={(val) => { setFilters(p => ({ ...p, expenditureTypeIds: val })); setCurrentPage(1); }}
+                                placeholder="All Types"
+                            />
+                        </div>
+
+                        {/* Search */}
+                        <div className="space-y-2 md:col-span-2 lg:col-span-2">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
                                 <FaSearch className="text-[8px]" /> Content Search
                             </label>
@@ -340,82 +483,98 @@ const PettyCashApproval = () => {
                                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" />
                                 <input
                                     type="text"
-                                    name="search"
                                     placeholder="Description, Vendor..."
                                     value={filters.search}
-                                    onChange={handleFilterChange}
-                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 text-sm"
+                                    onChange={(e) => { setFilters(p => ({ ...p, search: e.target.value })); setCurrentPage(1); }}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 text-sm hover:border-gray-600 transition-all"
                                 />
                             </div>
                         </div>
 
                         {/* Date Range */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 md:col-span-2 lg:col-span-1 xl:col-span-3">
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                <FaCalendarAlt className="text-[8px]" /> Temporal Interval
+                                <FaCalendarAlt className="text-[8px]" /> Date Range
                             </label>
                             <div className="flex gap-2">
                                 <input
                                     type="date"
-                                    name="startDate"
                                     value={filters.startDate}
-                                    onChange={handleFilterChange}
-                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-3 text-white focus:outline-none focus:border-blue-500 text-xs [color-scheme:dark]"
+                                    onChange={(e) => { setFilters(p => ({ ...p, startDate: e.target.value })); setCurrentPage(1); }}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-3 text-white focus:outline-none focus:border-blue-500 text-xs [color-scheme:dark] hover:border-gray-600 transition-all"
                                 />
                                 <input
                                     type="date"
-                                    name="endDate"
                                     value={filters.endDate}
-                                    onChange={handleFilterChange}
-                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-3 text-white focus:outline-none focus:border-blue-500 text-xs [color-scheme:dark]"
+                                    onChange={(e) => { setFilters(p => ({ ...p, endDate: e.target.value })); setCurrentPage(1); }}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-3 text-white focus:outline-none focus:border-blue-500 text-xs [color-scheme:dark] hover:border-gray-600 transition-all"
                                 />
                             </div>
                         </div>
-
-                        {/* Additional Metadata Filters */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                <FaTag className="text-[8px]" /> Expense Category
-                            </label>
-                            <select
-                                name="categoryId"
-                                value={filters.categoryId}
-                                onChange={handleFilterChange}
-                                className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 appearance-none text-sm cursor-pointer"
-                            >
-                                <option value="">All Categories</option>
-                                {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                <FaTag className="text-[8px]" /> Sub Category
-                            </label>
-                            <select
-                                name="subCategoryId"
-                                value={filters.subCategoryId}
-                                onChange={handleFilterChange}
-                                className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 appearance-none text-sm cursor-pointer"
-                            >
-                                <option value="">All Subcategories</option>
-                                {subCategories.filter(s => !filters.categoryId || (s.category?._id || s.category) === filters.categoryId).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-2 lg:col-span-2">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                <FaTag className="text-[8px]" /> Expenditure Type
-                            </label>
-                            <select
-                                name="expenditureTypeId"
-                                value={filters.expenditureTypeId}
-                                onChange={handleFilterChange}
-                                className="w-full bg-[#131619] border border-gray-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 appearance-none text-sm cursor-pointer"
-                            >
-                                <option value="">All Expenditure Types</option>
-                                {expenditureTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                            </select>
-                        </div>
                     </div>
+
+                    {/* Active Filter Pills */}
+                    {activeFilterCount > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-800/50">
+                            {filters.statuses.map(s => {
+                                const opt = STATUS_OPTIONS.find(o => o._id === s);
+                                return (
+                                    <span key={s} className="flex items-center gap-1.5 bg-blue-600/10 border border-blue-500/20 text-blue-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                        {opt?.name || s}
+                                        <button onClick={() => setFilters(p => ({ ...p, statuses: p.statuses.filter(v => v !== s) }))} className="hover:text-white transition-colors">×</button>
+                                    </span>
+                                );
+                            })}
+                            {filters.centreIds.map(id => {
+                                const c = centres.find(c => c._id === id);
+                                return (
+                                    <span key={id} className="flex items-center gap-1.5 bg-purple-600/10 border border-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                        {c?.centreName || id}
+                                        <button onClick={() => setFilters(p => ({ ...p, centreIds: p.centreIds.filter(v => v !== id) }))} className="hover:text-white transition-colors">×</button>
+                                    </span>
+                                );
+                            })}
+                            {filters.categoryIds.map(id => {
+                                const c = categories.find(c => c._id === id);
+                                return (
+                                    <span key={id} className="flex items-center gap-1.5 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                        {c?.name || id}
+                                        <button onClick={() => setFilters(p => ({ ...p, categoryIds: p.categoryIds.filter(v => v !== id) }))} className="hover:text-white transition-colors">×</button>
+                                    </span>
+                                );
+                            })}
+                            {filters.subCategoryIds.map(id => {
+                                const s = subCategories.find(s => s._id === id);
+                                return (
+                                    <span key={id} className="flex items-center gap-1.5 bg-amber-600/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                        {s?.name || id}
+                                        <button onClick={() => setFilters(p => ({ ...p, subCategoryIds: p.subCategoryIds.filter(v => v !== id) }))} className="hover:text-white transition-colors">×</button>
+                                    </span>
+                                );
+                            })}
+                            {filters.expenditureTypeIds.map(id => {
+                                const t = expenditureTypes.find(t => t._id === id);
+                                return (
+                                    <span key={id} className="flex items-center gap-1.5 bg-cyan-600/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                        {t?.name || id}
+                                        <button onClick={() => setFilters(p => ({ ...p, expenditureTypeIds: p.expenditureTypeIds.filter(v => v !== id) }))} className="hover:text-white transition-colors">×</button>
+                                    </span>
+                                );
+                            })}
+                            {(filters.startDate || filters.endDate) && (
+                                <span className="flex items-center gap-1.5 bg-rose-600/10 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                    {filters.startDate || '...'} → {filters.endDate || '...'}
+                                    <button onClick={() => setFilters(p => ({ ...p, startDate: '', endDate: '' }))} className="hover:text-white transition-colors">×</button>
+                                </span>
+                            )}
+                            {filters.search && (
+                                <span className="flex items-center gap-1.5 bg-gray-600/20 border border-gray-500/20 text-gray-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                    "{filters.search}"
+                                    <button onClick={() => setFilters(p => ({ ...p, search: '' }))} className="hover:text-white transition-colors">×</button>
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {selectedIds.length > 0 && (
@@ -491,7 +650,7 @@ const PettyCashApproval = () => {
                                     expenditures.map((item) => (
                                         <tr key={item._id} className="hover:bg-white/5 transition-colors">
                                             <td className="p-4">
-                                                {item.status === "pending" ? (
+                                                {item.status === 'pending' ? (
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedIds.includes(item._id)}
@@ -513,18 +672,18 @@ const PettyCashApproval = () => {
                                             <td className="p-4 text-gray-400">{item.expenditureType?.name}</td>
                                             <td className="p-4 font-bold text-lg">₹{item.amount.toLocaleString()}</td>
                                             <td className="p-4 text-gray-400 text-sm max-w-xs truncate">{item.description}</td>
-                                            <td className="p-4 text-gray-400">{item.vendorName || "-"}</td>
+                                            <td className="p-4 text-gray-400">{item.vendorName || '-'}</td>
                                             <td className="p-4 text-gray-400">{item.paymentMode}</td>
-                                            <td className="p-4 text-gray-400">{item.taxApplicable ? "Yes" : "No"}</td>
-                                            <td className="p-4 text-gray-400 font-bold">{item.requestedBy?.name || "-"}</td>
-                                            <td className="p-4 text-gray-400 font-bold">{item.actionTakenBy?.name || "-"}</td>
+                                            <td className="p-4 text-gray-400">{item.taxApplicable ? 'Yes' : 'No'}</td>
+                                            <td className="p-4 text-gray-400 font-bold">{item.requestedBy?.name || '-'}</td>
+                                            <td className="p-4 text-gray-400 font-bold">{item.actionTakenBy?.name || '-'}</td>
                                             <td className="p-4 text-center">
-                                                {item.status === "pending" ? (
+                                                {item.status === 'pending' ? (
                                                     <span className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-amber-500/20 flex items-center gap-2 w-fit mx-auto">
                                                         <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse"></span>
                                                         Pending
                                                     </span>
-                                                ) : item.status === "approved" ? (
+                                                ) : item.status === 'approved' ? (
                                                     <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 flex items-center gap-2 w-fit mx-auto">
                                                         <FaCheck />
                                                         Cleared
@@ -538,7 +697,7 @@ const PettyCashApproval = () => {
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex justify-center gap-3">
-                                                    {item.status === "pending" && canApprove && (
+                                                    {item.status === 'pending' && canApprove && (
                                                         <>
                                                             <button
                                                                 onClick={() => handleApprove(item._id)}
@@ -561,7 +720,7 @@ const PettyCashApproval = () => {
                                                             <FaEye />
                                                         </a>
                                                     )}
-                                                    {item.status === "rejected" && item.rejectionReason && (
+                                                    {item.status === 'rejected' && item.rejectionReason && (
                                                         <div className="group relative">
                                                             <div className="p-2 bg-gray-800 text-amber-500 border border-gray-700 rounded-lg cursor-help">
                                                                 <FaSearch className="text-xs" />
@@ -664,6 +823,7 @@ const PettyCashApproval = () => {
                     </div>
                 </div>
 
+                {/* Reject Modal */}
                 {showRejectModal && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                         <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
@@ -684,25 +844,15 @@ const PettyCashApproval = () => {
                                     />
                                 </div>
                                 <div className="flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowRejectModal(false)}
-                                        className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold"
-                                    >
-                                        Reject
-                                    </button>
+                                    <button type="button" onClick={() => setShowRejectModal(false)} className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg">Cancel</button>
+                                    <button type="submit" className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold">Reject</button>
                                 </div>
                             </form>
                         </div>
                     </div>
                 )}
 
+                {/* Bulk Reject Modal */}
                 {showBulkRejectModal && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                         <div className="bg-[#1a1f24] w-full max-w-md rounded-xl border border-gray-700 shadow-2xl p-6">
@@ -723,19 +873,8 @@ const PettyCashApproval = () => {
                                     />
                                 </div>
                                 <div className="flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowBulkRejectModal(false)}
-                                        className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold"
-                                    >
-                                        Reject Selected
-                                    </button>
+                                    <button type="button" onClick={() => setShowBulkRejectModal(false)} className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg">Cancel</button>
+                                    <button type="submit" className="flex-1 bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold">Reject All Selected</button>
                                 </div>
                             </form>
                         </div>
