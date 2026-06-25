@@ -521,6 +521,10 @@ export const PERMISSION_MODULES = {
             dashboard: {
                 label: "Dashboard",
                 operations: ["view"]
+            },
+            campaignAds: {
+                label: "Campaign/Ads",
+                operations: ["view", "create", "edit", "delete"]
             }
         }
     },
@@ -558,6 +562,19 @@ export const PERMISSION_MODULES = {
             },
             redFlagDesk: {
                 label: "Red Flag Desk",
+                operations: ["view", "create", "edit", "delete"]
+            }
+        }
+    },
+    taskWorkflow: {
+        label: "Task Workflow",
+        sections: {
+            tasks: {
+                label: "Tasks",
+                operations: ["view", "create", "edit", "delete"]
+            },
+            assignTask: {
+                label: "Assign Task",
                 operations: ["view", "create", "edit", "delete"]
             }
         }

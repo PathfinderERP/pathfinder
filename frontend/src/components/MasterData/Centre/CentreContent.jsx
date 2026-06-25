@@ -35,7 +35,8 @@ const CentreContent = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setCentres(data);
+                const sorted = data.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(sorted);
             } else {
                 toast.error("Failed to fetch centres");
             }

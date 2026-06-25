@@ -29,7 +29,8 @@ const ExamTagContent = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setExamTags(data);
+                const sorted = data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setExamTags(sorted);
             } else {
                 setError(data.message || "Failed to fetch exam tags");
             }

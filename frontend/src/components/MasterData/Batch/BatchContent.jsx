@@ -30,7 +30,8 @@ const BatchContent = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setBatches(data);
+                const sorted = data.sort((a, b) => (a.batchName || "").localeCompare(b.batchName || ""));
+                setBatches(sorted);
             } else {
                 setError(data.message || "Failed to fetch batches");
             }

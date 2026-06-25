@@ -33,6 +33,7 @@ const BatchAllocationContent = () => {
     const [filterProgramme, setFilterProgramme] = useState([]);
     const [filterSession, setFilterSession] = useState([]);
     const [filterBatch, setFilterBatch] = useState([]);
+    const [filterExamTag, setFilterExamTag] = useState([]);
 
     // Master Data for filters
     const [allowedCentres, setAllowedCentres] = useState([]);
@@ -43,6 +44,7 @@ const BatchAllocationContent = () => {
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterCourses, setMasterCourses] = useState([]);
     const [masterSessions, setMasterSessions] = useState([]);
+    const [masterExamTags, setMasterExamTags] = useState([]);
 
     const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
     const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
@@ -157,6 +159,10 @@ const BatchAllocationContent = () => {
                 const sessionList = (Array.isArray(sData) ? sData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setMasterSessions(sessionList);
             }
+
+            // Fetch Exam Tags
+            const tagRes = await fetch(`${apiUrl}/examTag`, { headers });
+            if (tagRes.ok) setMasterExamTags(await tagRes.json());
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
@@ -199,9 +205,12 @@ const BatchAllocationContent = () => {
             const studentBatchIds = student.batches?.map(b => b._id?.toString() || b.toString()) || [];
             const matchesBatch = filterBatch.length === 0 || filterBatch.some(bid => studentBatchIds.includes(bid));
 
-            return matchesSearch && matchesCentre && matchesCourse && matchesClass && matchesProgramme && matchesSession && matchesBatch;
+            const examTagName = student.latestAdmission?.examTag?.name || "";
+            const matchesExamTag = filterExamTag.length === 0 || filterExamTag.includes(examTagName);
+
+            return matchesSearch && matchesCentre && matchesCourse && matchesClass && matchesProgramme && matchesSession && matchesBatch && matchesExamTag;
         });
-    }, [students, searchQuery, filterCentre, filterCourse, filterClass, filterProgramme, filterSession, filterBatch, allowedCentres, isSuperAdmin]);
+    }, [students, searchQuery, filterCentre, filterCourse, filterClass, filterProgramme, filterSession, filterBatch, filterExamTag, allowedCentres, isSuperAdmin]);
 
     const paginatedStudents = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -214,6 +223,7 @@ const BatchAllocationContent = () => {
         const classes = new Set();
         const programmes = new Set();
         const sessions = new Set();
+        const examTags = new Set();
 
         students.forEach(s => {
             const details = s.studentsDetails?.[0] || {};
@@ -223,11 +233,13 @@ const BatchAllocationContent = () => {
             const className = s.latestAdmission?.class?.name || s.latestAdmission?.class?.className || s.latestAdmission?.lastClass;
             const programme = details.programme;
             const session = s.latestAdmission?.academicSession;
+            const examTag = s.latestAdmission?.examTag?.name;
 
             if (course) courses.add(course);
             if (className) classes.add(className);
             if (programme) programmes.add(programme);
             if (session) sessions.add(session);
+            if (examTag) examTags.add(examTag);
         });
 
         return {
@@ -241,9 +253,12 @@ const BatchAllocationContent = () => {
             programmes: Array.from(programmes).sort(),
             sessions: masterSessions.length > 0 
                 ? masterSessions.map(s => s.sessionName).sort() 
-                : Array.from(sessions).sort()
+                : Array.from(sessions).sort(),
+            examTags: masterExamTags.length > 0
+                ? masterExamTags.map(t => t.name).sort()
+                : Array.from(examTags).sort()
         };
-    }, [students, masterClasses, masterCourses, masterSessions]);
+    }, [students, masterClasses, masterCourses, masterSessions, masterExamTags]);
 
     const handleSelectAll = () => {
         if (selectedStudentIds.length === paginatedStudents.length) {
@@ -474,6 +489,15 @@ const BatchAllocationContent = () => {
                     />
 
                     <MultiSelectFilter
+                        label="Exam Tag"
+                        placeholder="All Exam Tags"
+                        options={uniqueValues.examTags.map(t => ({ value: t, label: t.toUpperCase() }))}
+                        selectedValues={filterExamTag}
+                        onChange={setFilterExamTag}
+                        theme={isDarkMode ? 'dark' : 'light'}
+                    />
+
+                    <MultiSelectFilter
                         label="In Batch"
                         placeholder="Filter by Batch"
                         options={batches.map(b => ({ 
@@ -494,6 +518,7 @@ const BatchAllocationContent = () => {
                             setFilterProgramme([]);
                             setFilterSession([]);
                             setFilterBatch([]);
+                            setFilterExamTag([]);
                             setCurrentPage(1);
                             fetchStudents();
                             toast.info("Filters reset");

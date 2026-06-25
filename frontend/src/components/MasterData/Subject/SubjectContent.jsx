@@ -30,7 +30,8 @@ const SubjectContent = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                setSubjects(data);
+                const sorted = data.sort((a, b) => (a.subName || "").localeCompare(b.subName || ""));
+                setSubjects(sorted);
             } else {
                 toast.error(data.message || "Failed to fetch subjects");
             }
