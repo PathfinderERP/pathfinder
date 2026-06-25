@@ -31,6 +31,54 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
+    const [primaryCheck, setPrimaryCheck] = useState({ checking: false, taken: false, name: "" });
+    const [secondaryCheck, setSecondaryCheck] = useState({ checking: false, taken: false, name: "" });
+
+    const isSelfDuplicate = formData.phoneNumber && formData.secondPhoneNumber && formData.phoneNumber.trim() === formData.secondPhoneNumber.trim() && formData.phoneNumber.trim() !== "";
+
+    // Debounced duplicate check for primary phone number
+    useEffect(() => {
+        const phone = formData.phoneNumber;
+        if (!phone || phone.trim().length < 10) {
+            setPrimaryCheck({ checking: false, taken: false, name: "" });
+            return;
+        }
+        setPrimaryCheck(prev => ({ ...prev, checking: true }));
+        const timer = setTimeout(async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/lead-management/check-duplicate?phone=${phone.trim()}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const data = await res.json();
+                setPrimaryCheck({ checking: false, taken: !!data.taken, name: data.name || "" });
+            } catch { setPrimaryCheck({ checking: false, taken: false, name: "" }); }
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [formData.phoneNumber]);
+
+    // Debounced duplicate check for secondary phone number
+    useEffect(() => {
+        const phone = formData.secondPhoneNumber;
+        if (!phone || phone.trim().length < 10) {
+            setSecondaryCheck({ checking: false, taken: false, name: "" });
+            return;
+        }
+        setSecondaryCheck(prev => ({ ...prev, checking: true }));
+        const timer = setTimeout(async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/lead-management/check-duplicate?phone=${phone.trim()}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const data = await res.json();
+                setSecondaryCheck({ checking: false, taken: !!data.taken, name: data.name || "" });
+            } catch { setSecondaryCheck({ checking: false, taken: false, name: "" }); }
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [formData.secondPhoneNumber]);
     const [courseFilters, setCourseFilters] = useState({
         class: "",
         mode: "",
@@ -186,6 +234,22 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (primaryCheck.taken) {
+            toast.error(`Phone number already registered to "${primaryCheck.name}". Please use a different number.`);
+            return;
+        }
+
+        if (isSelfDuplicate) {
+            toast.error("Primary and Secondary phone numbers cannot be the same.");
+            return;
+        }
+
+        if (secondaryCheck.taken) {
+            toast.error(`Secondary phone number already registered to "${secondaryCheck.name}". Please use a different number.`);
+            return;
+        }
+
         setLoading(true);
 
         // For non-admins, always ensure leadResponsibility is set to current user
@@ -271,11 +335,37 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                 </div>
                                 <div>
                                      <label className={labelClasses}>Phone Number *</label>
-                                     <input type="text" name="phoneNumber" required value={formData.phoneNumber} onChange={handleChange} className={inputClasses} placeholder="Phone Number..." />
+                                     <input 
+                                         type="text" 
+                                         name="phoneNumber" 
+                                         required 
+                                         value={formData.phoneNumber} 
+                                         onChange={handleChange} 
+                                         className={`${inputClasses} ${primaryCheck.taken ? 'border-red-500 focus:border-red-500' : ''}`} 
+                                         placeholder="Phone Number..." 
+                                     />
+                                     {primaryCheck.checking && <p className="text-[8px] text-gray-500 mt-1 font-bold">Checking...</p>}
+                                     {!primaryCheck.checking && primaryCheck.taken && (
+                                         <p className="text-[8px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Already registered to: {primaryCheck.name}</p>
+                                     )}
                                 </div>
                                 <div>
                                      <label className={labelClasses}>Second Phone Number</label>
-                                     <input type="text" name="secondPhoneNumber" value={formData.secondPhoneNumber || ""} onChange={handleChange} className={inputClasses} placeholder="Second Phone..." />
+                                     <input 
+                                         type="text" 
+                                         name="secondPhoneNumber" 
+                                         value={formData.secondPhoneNumber || ""} 
+                                         onChange={handleChange} 
+                                         className={`${inputClasses} ${(secondaryCheck.taken || isSelfDuplicate) ? 'border-red-500 focus:border-red-500' : ''}`} 
+                                         placeholder="Second Phone..." 
+                                     />
+                                     {secondaryCheck.checking && <p className="text-[8px] text-gray-500 mt-1 font-bold">Checking...</p>}
+                                     {isSelfDuplicate && (
+                                         <p className="text-[8px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Primary and Secondary phone numbers cannot be the same</p>
+                                     )}
+                                     {!secondaryCheck.checking && !isSelfDuplicate && secondaryCheck.taken && (
+                                         <p className="text-[8px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Already registered to: {secondaryCheck.name}</p>
+                                     )}
                                 </div>
                             </div>
                         </div>

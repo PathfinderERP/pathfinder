@@ -1,4 +1,5 @@
 import LeadManagement from "../../models/LeadManagement.js";
+import CampaignLead from "../../models/CampaignLead.js";
 
 export const createLead = async (req, res) => {
     try {
@@ -21,6 +22,41 @@ export const createLead = async (req, res) => {
 
         if (!name) {
             return res.status(400).json({ message: "Required fields are missing." });
+        }
+
+        // Phone number duplication check
+        if (phoneNumber && secondPhoneNumber && phoneNumber.trim() === secondPhoneNumber.trim() && phoneNumber.trim() !== "") {
+            return res.status(400).json({ message: "Primary and Secondary phone numbers cannot be the same." });
+        }
+
+        const checkPhoneNumber = async (phone) => {
+            if (!phone || phone.trim() === "") return null;
+            const cleanPhone = phone.trim();
+            // Check in LeadManagement
+            const matchLead = await LeadManagement.findOne({
+                $or: [{ phoneNumber: cleanPhone }, { secondPhoneNumber: cleanPhone }]
+            }).lean();
+            if (matchLead) return matchLead;
+            
+            // Check in CampaignLead
+            const matchCampaign = await CampaignLead.findOne({
+                $or: [{ phoneNumber: cleanPhone }, { secondPhoneNumber: cleanPhone }]
+            }).lean();
+            return matchCampaign;
+        };
+
+        if (phoneNumber && phoneNumber.trim() !== "") {
+            const dup = await checkPhoneNumber(phoneNumber);
+            if (dup) {
+                return res.status(400).json({ message: `A lead already exists with the phone number: ${phoneNumber.trim()}.` });
+            }
+        }
+
+        if (secondPhoneNumber && secondPhoneNumber.trim() !== "") {
+            const dup = await checkPhoneNumber(secondPhoneNumber);
+            if (dup) {
+                return res.status(400).json({ message: `A lead already exists with the secondary phone number: ${secondPhoneNumber.trim()}.` });
+            }
         }
 
         const leadData = {

@@ -130,12 +130,82 @@ export const bulkUploadLeads = async (req, res) => {
             return doc;
         });
 
-        // Filter out rows missing the mandatory `name` or `schoolName` field
-        const valid   = prepared.filter(r => r.name && r.schoolName);
-        const skipped = prepared.length - valid.length;
+        // Collect all non-empty phone numbers from prepared data
+        const incomingPhones = new Set();
+        prepared.forEach(row => {
+            if (row.phoneNumber) incomingPhones.add(row.phoneNumber);
+            if (row.secondPhoneNumber) incomingPhones.add(row.secondPhoneNumber);
+        });
+
+        // Find existing phone numbers in database
+        const existingPhones = new Set();
+        if (incomingPhones.size > 0) {
+            const phoneList = Array.from(incomingPhones);
+            const [leadsWithPhones, campaignLeadsWithPhones] = await Promise.all([
+                LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phoneList } },
+                        { secondPhoneNumber: { $in: phoneList } }
+                    ]
+                }, 'phoneNumber secondPhoneNumber').lean(),
+                CampaignLead.find({
+                    $or: [
+                        { phoneNumber: { $in: phoneList } },
+                        { secondPhoneNumber: { $in: phoneList } }
+                    ]
+                }, 'phoneNumber secondPhoneNumber').lean()
+            ]);
+
+            leadsWithPhones.forEach(l => {
+                if (l.phoneNumber) existingPhones.add(l.phoneNumber.trim());
+                if (l.secondPhoneNumber) existingPhones.add(l.secondPhoneNumber.trim());
+            });
+            campaignLeadsWithPhones.forEach(l => {
+                if (l.phoneNumber) existingPhones.add(l.phoneNumber.trim());
+                if (l.secondPhoneNumber) existingPhones.add(l.secondPhoneNumber.trim());
+            });
+        }
+
+        // Filter valid leads and check for duplicates (both against DB and within the file)
+        const valid = [];
+        const seenPhonesInImport = new Set();
+        let skipped = 0;
+
+        for (const row of prepared) {
+            if (!row.name || !row.schoolName) {
+                skipped++;
+                continue;
+            }
+
+            const p = row.phoneNumber;
+            const s = row.secondPhoneNumber;
+            let isDuplicate = false;
+
+            if (p) {
+                if (existingPhones.has(p) || seenPhonesInImport.has(p)) {
+                    isDuplicate = true;
+                }
+            }
+
+            if (!isDuplicate && s) {
+                if (existingPhones.has(s) || seenPhonesInImport.has(s)) {
+                    isDuplicate = true;
+                }
+            }
+
+            if (isDuplicate) {
+                skipped++;
+                continue;
+            }
+
+            if (p) seenPhonesInImport.add(p);
+            if (s) seenPhonesInImport.add(s);
+
+            valid.push(row);
+        }
 
         if (valid.length === 0) {
-            return res.status(400).json({ message: "All rows are missing the required 'name' and 'schoolName' fields." });
+            return res.status(400).json({ message: "All rows were skipped because they are missing the required 'name' or 'schoolName' fields, or contain duplicate phone numbers." });
         }
 
         let inserted;

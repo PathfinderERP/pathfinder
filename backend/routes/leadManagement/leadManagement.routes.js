@@ -26,6 +26,7 @@ import { getCampaigns, createCampaign, deleteCampaign, updateCampaign } from "..
 import { pushCampaignLeads } from "../../controllers/leadManagement/pushCampaignLeads.js";
 import multer from "multer";
 import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
+import { checkDuplicatePhone } from "../../controllers/leadManagement/checkDuplicatePhone.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -67,6 +68,7 @@ router.delete("/campaigns/:id", requireAuth, requireGranularPermission("leadMana
 router.put("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "edit"), updateCampaign);
 
 // Generic ID route must come AFTER specific routes
+router.get("/check-duplicate", requireAuth, checkDuplicatePhone);
 router.get("/:id/journey", requireAuth, getLeadJourney);
 router.get("/:id", requireAuth, getLeadById);
 
