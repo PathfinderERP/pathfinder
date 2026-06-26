@@ -3,13 +3,13 @@ import Layout from "../components/Layout";
 import {
     FaPlus, FaEdit, FaTrash, FaSearch, FaFileImport, FaFileExport,
     FaSchool, FaUserGraduate, FaChalkboard, FaBook, FaTimes, FaCheck,
-    FaFilter, FaMapMarkerAlt, FaChevronDown
+    FaFilter, FaMapMarkerAlt, FaChevronDown, FaBuilding
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-const EMPTY_FORM = { schoolName: "", studentName: "", className: "", board: "", area: "" };
+const EMPTY_FORM = { schoolName: "", studentName: "", className: "", board: "", area: "", centre: "" };
 
 // ─── Custom Multi-Select Dropdown ─────────────────────────────────────────────
 const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
@@ -94,6 +94,7 @@ const MasterDataSchoolData = () => {
     // Master data for dropdowns
     const [masterClasses, setMasterClasses] = useState([]);   // { _id, name }
     const [masterBoards, setMasterBoards] = useState([]);     // { _id, boardCourse }
+    const [activeCentres, setActiveCentres] = useState([]);   // { _id, centreName }
 
     // Multi-select filter state (arrays)
     const [filterSearch, setFilterSearch] = useState("");
@@ -101,6 +102,7 @@ const MasterDataSchoolData = () => {
     const [filterClasses, setFilterClasses] = useState([]);
     const [filterBoards, setFilterBoards] = useState([]);
     const [filterAreas, setFilterAreas] = useState([]);
+    const [filterCentres, setFilterCentres] = useState([]);   // array of centre _id strings
 
     // Derived unique values for filter dropdowns
     const [allSchools, setAllSchools] = useState([]);
@@ -121,12 +123,13 @@ const MasterDataSchoolData = () => {
     const headers = { Authorization: `Bearer ${token}` };
     const BASE = `${import.meta.env.VITE_API_URL}/master-data/school-data`;
 
-    // ── Fetch master class & board lists ─────────────────────────────────────
+    // ── Fetch master class, board & active centres lists ──────────────────────
     const fetchMasterData = async () => {
         try {
-            const [classRes, boardRes] = await Promise.all([
+            const [classRes, boardRes, centreRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/board`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/board`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers })
             ]);
             if (classRes.ok) {
                 const data = await classRes.json();
@@ -136,8 +139,14 @@ const MasterDataSchoolData = () => {
                 const data = await boardRes.json();
                 setMasterBoards(Array.isArray(data) ? data : []);
             }
+            if (centreRes.ok) {
+                const data = await centreRes.json();
+                // Only active centres
+                const active = Array.isArray(data) ? data.filter(c => c.status !== "deactive") : [];
+                setActiveCentres(active);
+            }
         } catch (err) {
-            console.error("Failed to fetch master class/board", err);
+            console.error("Failed to fetch master data", err);
         }
     };
 
@@ -151,6 +160,7 @@ const MasterDataSchoolData = () => {
             if (filterClasses.length > 0) params.append("className", filterClasses.join(","));
             if (filterBoards.length > 0) params.append("board", filterBoards.join(","));
             if (filterAreas.length > 0) params.append("area", filterAreas.join(","));
+            if (filterCentres.length > 0) params.append("centre", filterCentres.join(","));
             params.append("page", page);
             params.append("limit", ITEMS_PER_PAGE);
 
@@ -191,7 +201,7 @@ const MasterDataSchoolData = () => {
 
     useEffect(() => {
         fetchRecords(1);
-    }, [filterSearch, filterSchools, filterClasses, filterBoards, filterAreas]);
+    }, [filterSearch, filterSchools, filterClasses, filterBoards, filterAreas, filterCentres]);
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
@@ -224,7 +234,14 @@ const MasterDataSchoolData = () => {
     };
 
     const handleEdit = (r) => {
-        setFormData({ schoolName: r.schoolName, studentName: r.studentName, className: r.className, board: r.board, area: r.area || "" });
+        setFormData({
+            schoolName: r.schoolName,
+            studentName: r.studentName,
+            className: r.className,
+            board: r.board,
+            area: r.area || "",
+            centre: r.centre?._id || r.centre || ""
+        });
         setEditingId(r._id);
         setShowModal(true);
     };
@@ -296,8 +313,12 @@ const MasterDataSchoolData = () => {
             const res = await fetch(`${BASE}?limit=99999&page=1`, { headers });
             const data = await res.json();
             const exportData = (data.data || []).map(r => ({
-                "School Name": r.schoolName, "Student Name": r.studentName,
-                "Class": r.className, "Board": r.board, "Area": r.area || "",
+                "School Name": r.schoolName,
+                "Student Name": r.studentName,
+                "Class": r.className,
+                "Board": r.board,
+                "Area": r.area || "",
+                "Centre Name": r.centre?.centreName || "",
                 "Created At": new Date(r.createdAt).toLocaleDateString()
             }));
             const ws = XLSX.utils.json_to_sheet(exportData);
@@ -310,15 +331,20 @@ const MasterDataSchoolData = () => {
     };
 
     const downloadTemplate = () => {
-        const ws = XLSX.utils.json_to_sheet([{ "School Name": "", "Student Name": "", "Class": "", "Board": "", "Area": "" }]);
+        // Build list of active centre names as a hint in the second sample row
+        const centreHint = activeCentres.map(c => c.centreName).join(" / ") || "Centre Name Here";
+        const ws = XLSX.utils.json_to_sheet([
+            { "School Name": "", "Student Name": "", "Class": "", "Board": "", "Area": "", "Centre Name": "" },
+            { "School Name": "-- Centre Name must exactly match one of the active centres --", "Student Name": "", "Class": "", "Board": "", "Area": "", "Centre Name": centreHint }
+        ]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Template");
         const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "SchoolData_Template.xlsx");
     };
 
-    const resetFilters = () => { setFilterSearch(""); setFilterSchools([]); setFilterClasses([]); setFilterBoards([]); setFilterAreas([]); };
-    const activeCount = [filterSearch, filterSchools.length > 0, filterClasses.length > 0, filterBoards.length > 0, filterAreas.length > 0].filter(Boolean).length;
+    const resetFilters = () => { setFilterSearch(""); setFilterSchools([]); setFilterClasses([]); setFilterBoards([]); setFilterAreas([]); setFilterCentres([]); };
+    const activeCount = [filterSearch, filterSchools.length > 0, filterClasses.length > 0, filterBoards.length > 0, filterAreas.length > 0, filterCentres.length > 0].filter(Boolean).length;
 
     // Derived class/board name lists for filters (from master data)
     const classNames = masterClasses.map(c => c.name);
@@ -372,7 +398,7 @@ const MasterDataSchoolData = () => {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                         {/* Search */}
                         <div className="lg:col-span-1 relative">
                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs z-10" />
@@ -424,6 +450,22 @@ const MasterDataSchoolData = () => {
                                 placeholder="All Areas"
                             />
                         </div>
+
+                        {/* Centre multi-select */}
+                        <div>
+                            <MultiSelect
+                                options={activeCentres.map(c => c.centreName).filter(Boolean)}
+                                selected={filterCentres.map(id => activeCentres.find(c => c._id === id)?.centreName || id)}
+                                onChange={(names) => {
+                                    const ids = names.map(n => {
+                                        const found = activeCentres.find(c => c.centreName === n);
+                                        return found ? found._id : n;
+                                    });
+                                    setFilterCentres(ids);
+                                }}
+                                placeholder="All Centres"
+                            />
+                        </div>
                     </div>
 
                     {/* Active filter pills */}
@@ -459,6 +501,15 @@ const MasterDataSchoolData = () => {
                                     <button onClick={() => setFilterAreas(p => p.filter(v => v !== a))} className="hover:text-red-400 transition-colors">×</button>
                                 </span>
                             ))}
+                            {filterCentres.map(id => {
+                                const cName = activeCentres.find(c => c._id === id)?.centreName || id;
+                                return (
+                                    <span key={id} className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-600/10 text-sky-600 dark:text-sky-400 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-sky-200 dark:border-sky-500/20">
+                                        <FaBuilding className="text-[8px]" />{cName}
+                                        <button onClick={() => setFilterCentres(p => p.filter(v => v !== id))} className="hover:text-red-400 transition-colors">×</button>
+                                    </span>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -482,7 +533,7 @@ const MasterDataSchoolData = () => {
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                                     <tr>
-                                        {["#", "School Name", "Student Name", "Class", "Board", "Area", "Actions"].map((h, i) => (
+                                        {["#", "School Name", "Student Name", "Class", "Board", "Area", "Centre", "Actions"].map((h, i) => (
                                             <th key={i} className="px-5 py-3.5 text-left text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
                                                 {h}
                                             </th>
@@ -511,6 +562,15 @@ const MasterDataSchoolData = () => {
                                                 {rec.area ? (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700/40">
                                                         <FaMapMarkerAlt className="text-[8px]" />{rec.area}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-300 dark:text-gray-700">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-3.5 whitespace-nowrap">
+                                                {rec.centre?.centreName ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-700/40">
+                                                        <FaBuilding className="text-[8px]" />{rec.centre.centreName}
                                                     </span>
                                                 ) : (
                                                     <span className="text-gray-300 dark:text-gray-700">—</span>
@@ -662,6 +722,23 @@ const MasterDataSchoolData = () => {
                                     placeholder="e.g. South Delhi, Sector 12"
                                     className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white outline-none transition-all"
                                 />
+                            </div>
+
+                            {/* Centre — from active centres */}
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
+                                    <FaBuilding className="inline mr-1.5 text-sky-500" /> Centre
+                                </label>
+                                <select
+                                    value={formData.centre}
+                                    onChange={e => setFormData(p => ({ ...p, centre: e.target.value }))}
+                                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white outline-none transition-all appearance-none"
+                                >
+                                    <option value="">Select Centre (optional)</option>
+                                    {activeCentres.map(c => (
+                                        <option key={c._id} value={c._id}>{c.centreName}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* Actions */}
