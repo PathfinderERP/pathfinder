@@ -20,6 +20,7 @@ const DailyCenterTracking = () => {
     const [dateRange, setDateRange] = useState("Today");
     const [customStartDate, setCustomStartDate] = useState("");
     const [customEndDate, setCustomEndDate] = useState("");
+    const [leadTypeFilter, setLeadTypeFilter] = useState("");
     const [viewMode, setViewMode] = useState("card"); // "card" or "table"
     const navigate = useNavigate();
 
@@ -117,6 +118,10 @@ const DailyCenterTracking = () => {
                 params.append("centerIds", selectedCenters.map(sc => sc.value).join(","));
             }
 
+            if (leadTypeFilter) {
+                params.append("leadType", leadTypeFilter);
+            }
+
             const response = await fetch(`${apiUrl}/operations/daily-tracking/details?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -168,6 +173,10 @@ const DailyCenterTracking = () => {
                 params.append("endDate", end);
             }
 
+            if (leadTypeFilter) {
+                params.append("leadType", leadTypeFilter);
+            }
+
             const response = await fetch(`${apiUrl}/operations/daily-tracking?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -198,7 +207,7 @@ const DailyCenterTracking = () => {
         if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
         if (dateRange === "Custom Range" && (!customStartDate || !customEndDate)) return;
         fetchCenters();
-    }, [dateRange, customStartDate, customEndDate, canView]);
+    }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter]);
 
     const filteredCenters = centers.filter(center => {
         const matchesSearch = center.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -282,6 +291,27 @@ const DailyCenterTracking = () => {
                             <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
                                 isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
                             }`}>Date Range</span>
+                        </div>
+
+                        {/* Lead Intensity Dropdown */}
+                        <div className="relative min-w-[160px]">
+                            <select
+                                value={leadTypeFilter}
+                                onChange={e => setLeadTypeFilter(e.target.value)}
+                                className={`w-full px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer appearance-none transition-all ${
+                                    isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-white'
+                                        : 'bg-white border-gray-200 text-gray-900'
+                                }`}
+                            >
+                                <option value="" className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>All Lead Intensity</option>
+                                {["HOT LEAD", "WARM LEAD", "COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"].map(t => (
+                                    <option key={t} value={t} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{t}</option>
+                                ))}
+                            </select>
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
+                                isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                            }`}>Lead Intensity</span>
                         </div>
 
                         {/* Custom Start/End Dates */}

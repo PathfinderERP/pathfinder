@@ -29,7 +29,7 @@ const checkRestrictIndividual = (role) => {
 
 export const getDailyTracking = async (req, res) => {
     try {
-        const { date, startDate, endDate } = req.query;
+        const { date, startDate, endDate, leadType } = req.query;
         let start, end;
         if (startDate && endDate) {
             start = new Date(startDate);
@@ -78,6 +78,10 @@ export const getDailyTracking = async (req, res) => {
                 filterCond.push({ $eq: ["$$fu.updatedBy", req.user.name] });
             }
 
+            if (leadType) {
+                leadMatch.leadType = leadType;
+            }
+
             const dailyCallsCountResult = await LeadManagement.aggregate([
                 { $match: leadMatch },
                 { $project: {
@@ -103,6 +107,9 @@ export const getDailyTracking = async (req, res) => {
             if (isRestricted) {
                 walkInsQuery.createdBy = req.user._id;
             }
+            if (leadType) {
+                walkInsQuery.leadType = leadType;
+            }
             const walkInsCount = await LeadManagement.countDocuments(walkInsQuery);
 
             // Counseling Analysis (Union of direct records and admissions)
@@ -124,13 +131,60 @@ export const getDailyTracking = async (req, res) => {
                 admittedNormalQuery.createdBy = req.user._id;
             }
 
-            const centerCounsellingNormalLeads = await LeadManagement.find(counsellingNormalQuery).distinct('_id');
-            const centerAdmittedNormalStudents = await Admission.find(admittedNormalQuery).distinct('student');
+            if (leadType) {
+                counsellingNormalQuery.leadType = leadType;
+            }
 
-            const counselledNormalCount = new Set([
-                ...centerCounsellingNormalLeads.map(id => id.toString()),
-                ...centerAdmittedNormalStudents.map(id => id.toString())
-            ]).size;
+            let counselledNormalCount = 0;
+            if (leadType) {
+                const centerCounsellingNormalLeads = await LeadManagement.find(counsellingNormalQuery).distinct('_id');
+                const centerAdmittedNormalStudents = await Admission.find(admittedNormalQuery).populate('student').lean();
+                
+                const studentIds = centerAdmittedNormalStudents.map(adm => adm.student?._id).filter(Boolean);
+                const students = await Student.find({ _id: { $in: studentIds } }).lean();
+                const studentPhoneMap = {};
+                const phones = [];
+                
+                students.forEach(s => {
+                    const phone = s.studentsDetails?.[0]?.mobileNum;
+                    if (phone) {
+                        phones.push(phone);
+                        studentPhoneMap[s._id.toString()] = phone;
+                    }
+                });
+
+                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phones } },
+                        { secondPhoneNumber: { $in: phones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                
+                const matchingPhones = new Set();
+                matchingLeads.forEach(l => {
+                    if (l.phoneNumber) matchingPhones.add(l.phoneNumber);
+                    if (l.secondPhoneNumber) matchingPhones.add(l.secondPhoneNumber);
+                });
+
+                const filteredStudentIds = studentIds.filter(sid => {
+                    const phone = studentPhoneMap[sid.toString()];
+                    return phone && matchingPhones.has(phone);
+                });
+
+                counselledNormalCount = new Set([
+                    ...centerCounsellingNormalLeads.map(id => id.toString()),
+                    ...filteredStudentIds.map(id => id.toString())
+                ]).size;
+            } else {
+                const centerCounsellingNormalLeads = await LeadManagement.find(counsellingNormalQuery).distinct('_id');
+                const centerAdmittedNormalStudents = await Admission.find(admittedNormalQuery).distinct('student');
+
+                counselledNormalCount = new Set([
+                    ...centerCounsellingNormalLeads.map(id => id.toString()),
+                    ...centerAdmittedNormalStudents.map(id => id.toString())
+                ]).size;
+            }
 
             const counsellingBoardQuery = {
                 centre: new RegExp(`^${center.centreName}$`, 'i'),
@@ -146,13 +200,52 @@ export const getDailyTracking = async (req, res) => {
                 admittedBoardQuery.createdBy = req.user._id;
             }
 
-            const centerCounsellingBoardRecords = await BoardCourseCounselling.find(counsellingBoardQuery).distinct('studentId');
-            const centerAdmittedBoardStudents = await BoardCourseAdmission.find(admittedBoardQuery).distinct('studentId');
+            let counselledBoardCount = 0;
+            if (leadType) {
+                const boardCounsStudents = await BoardCourseCounselling.find(counsellingBoardQuery).distinct('studentId');
+                const boardAdmStudents = await BoardCourseAdmission.find(admittedBoardQuery).distinct('studentId');
+                const allBoardStudentIds = Array.from(new Set([...boardCounsStudents, ...boardAdmStudents].map(id => id.toString())));
+                
+                const students = await Student.find({ _id: { $in: allBoardStudentIds } }).lean();
+                const studentPhoneMap = {};
+                const phones = [];
+                students.forEach(s => {
+                    const phone = s.studentsDetails?.[0]?.mobileNum;
+                    if (phone) {
+                        phones.push(phone);
+                        studentPhoneMap[s._id.toString()] = phone;
+                    }
+                });
 
-            const counselledBoardCount = new Set([
-                ...centerCounsellingBoardRecords.map(id => id.toString()),
-                ...centerAdmittedBoardStudents.map(id => id.toString())
-            ]).size;
+                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phones } },
+                        { secondPhoneNumber: { $in: phones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                
+                const matchingPhones = new Set();
+                matchingLeads.forEach(l => {
+                    if (l.phoneNumber) matchingPhones.add(l.phoneNumber);
+                    if (l.secondPhoneNumber) matchingPhones.add(l.secondPhoneNumber);
+                });
+
+                const filteredStudentIds = allBoardStudentIds.filter(sid => {
+                    const phone = studentPhoneMap[sid];
+                    return phone && matchingPhones.has(phone);
+                });
+
+                counselledBoardCount = filteredStudentIds.length;
+            } else {
+                const centerCounsellingBoardRecords = await BoardCourseCounselling.find(counsellingBoardQuery).distinct('studentId');
+                const centerAdmittedBoardStudents = await BoardCourseAdmission.find(admittedBoardQuery).distinct('studentId');
+
+                counselledBoardCount = new Set([
+                    ...centerCounsellingBoardRecords.map(id => id.toString()),
+                    ...centerAdmittedBoardStudents.map(id => id.toString())
+                ]).size;
+            }
 
             // --- Admissions (Total records) ---
             const admissionNormalQuery = {
@@ -169,8 +262,49 @@ export const getDailyTracking = async (req, res) => {
                 admissionBoardQuery.createdBy = req.user._id;
             }
 
-            const admissionNormalCount = await Admission.countDocuments(admissionNormalQuery);
-            const admissionBoardCount = await BoardCourseAdmission.countDocuments(admissionBoardQuery);
+            let admissionNormalCount = 0;
+            let admissionBoardCount = 0;
+
+            if (leadType) {
+                // Normal
+                const normalAdmissions = await Admission.find(admissionNormalQuery).populate('student').lean();
+                const normalPhones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const matchingNormalLeads = normalPhones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: normalPhones } },
+                        { secondPhoneNumber: { $in: normalPhones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                const matchingNormalPhones = new Set(
+                    matchingNormalLeads.map(l => l.phoneNumber).concat(matchingNormalLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+                admissionNormalCount = normalAdmissions.filter(adm => {
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingNormalPhones.has(phone);
+                }).length;
+
+                // Board
+                const boardAdmissions = await BoardCourseAdmission.find(admissionBoardQuery).populate('studentId').lean();
+                const boardPhones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const matchingBoardLeads = boardPhones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: boardPhones } },
+                        { secondPhoneNumber: { $in: boardPhones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                const matchingBoardPhones = new Set(
+                    matchingBoardLeads.map(l => l.phoneNumber).concat(matchingBoardLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+                admissionBoardCount = boardAdmissions.filter(adm => {
+                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingBoardPhones.has(phone);
+                }).length;
+            } else {
+                admissionNormalCount = await Admission.countDocuments(admissionNormalQuery);
+                admissionBoardCount = await BoardCourseAdmission.countDocuments(admissionBoardQuery);
+            }
 
             // --- Attendance ---
             const staffPresentCount = await EmployeeAttendance.countDocuments({
@@ -186,13 +320,46 @@ export const getDailyTracking = async (req, res) => {
 
             // --- Collections ---
             // To get collections, we need to find payments for admissions linked to this center.
-            const admissionsForCenter = await Admission.find({ centre: new RegExp(`^${center.centreName}$`, 'i') }).select('_id');
-            const boardAdmissionsForCenter = await BoardCourseAdmission.find({ centre: new RegExp(`^${center.centreName}$`, 'i') }).select('_id');
+            let admissionIds = [];
+            if (leadType) {
+                const admissionsForCenter = await Admission.find({ centre: new RegExp(`^${center.centreName}$`, 'i') }).populate('student').lean();
+                const boardAdmissionsForCenter = await BoardCourseAdmission.find({ centre: new RegExp(`^${center.centreName}$`, 'i') }).populate('studentId').lean();
 
-            const admissionIds = [
-                ...admissionsForCenter.map(a => a._id),
-                ...boardAdmissionsForCenter.map(a => a._id)
-            ];
+                const normalPhones = admissionsForCenter.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const boardPhones = boardAdmissionsForCenter.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const allPhones = Array.from(new Set([...normalPhones, ...boardPhones]));
+
+                const matchingLeads = allPhones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: allPhones } },
+                        { secondPhoneNumber: { $in: allPhones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                
+                const matchingPhones = new Set(
+                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+
+                const filteredNormalAdms = admissionsForCenter.filter(adm => {
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                }).map(a => a._id);
+
+                const filteredBoardAdms = boardAdmissionsForCenter.filter(adm => {
+                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                }).map(a => a._id);
+
+                admissionIds = [...filteredNormalAdms, ...filteredBoardAdms];
+            } else {
+                const admissionsForCenter = await Admission.find({ centre: new RegExp(`^${center.centreName}$`, 'i') }).select('_id');
+                const boardAdmissionsForCenter = await BoardCourseAdmission.find({ centre: new RegExp(`^${center.centreName}$`, 'i') }).select('_id');
+                admissionIds = [
+                    ...admissionsForCenter.map(a => a._id),
+                    ...boardAdmissionsForCenter.map(a => a._id)
+                ];
+            }
 
             const paymentMatch = {
                 admission: { $in: admissionIds },
@@ -1532,7 +1699,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
 export const getDailyTrackingDetails = async (req, res) => {
     try {
-        const { date, category, startDate, endDate, centerIds } = req.query;
+        const { date, category, startDate, endDate, centerIds, leadType } = req.query;
         if (!category) {
             return res.status(400).json({ message: "Category parameter is required" });
         }
@@ -1569,6 +1736,9 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 walkinsQuery.createdBy = req.user._id;
             }
+            if (leadType) {
+                walkinsQuery.leadType = leadType;
+            }
             const walkins = await LeadManagement.find(walkinsQuery).populate('centre').populate('createdBy').lean();
 
             detailsList = walkins.map(lead => ({
@@ -1596,6 +1766,9 @@ export const getDailyTrackingDetails = async (req, res) => {
                     { followUps: { $elemMatch: { updatedBy: req.user.name, date: dateFilter } } }
                 ];
             }
+            if (leadType) {
+                normalQuery.leadType = leadType;
+            }
             const normalLeads = await LeadManagement.find(normalQuery).populate('centre').populate('createdBy').lean();
 
             const normalDetails = normalLeads.map(lead => ({
@@ -1617,7 +1790,24 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 admittedNormalQuery.createdBy = req.user._id;
             }
-            const normalAdmissions = await Admission.find(admittedNormalQuery).populate('student').populate('createdBy').lean();
+            let normalAdmissions = await Admission.find(admittedNormalQuery).populate('student').populate('createdBy').lean();
+            if (leadType) {
+                const phones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phones } },
+                        { secondPhoneNumber: { $in: phones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                const matchingPhones = new Set(
+                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+                normalAdmissions = normalAdmissions.filter(adm => {
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                });
+            }
             const admittedNormalDetails = normalAdmissions.map(adm => {
                 const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
                 const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
@@ -1647,8 +1837,24 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 boardQuery.counselledBy = req.user._id;
             }
-            const boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('studentId').populate('counselledBy').lean();
-
+            let boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('studentId').populate('counselledBy').lean();
+            if (leadType) {
+                const phones = boardCounsellings.map(bc => bc.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phones } },
+                        { secondPhoneNumber: { $in: phones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                const matchingPhones = new Set(
+                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+                boardCounsellings = boardCounsellings.filter(bc => {
+                    const phone = bc.studentId?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                });
+            }
             const boardDetails = boardCounsellings.map(bc => {
                 const studentName = bc.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
                 const phone = bc.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
@@ -1672,7 +1878,24 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 admittedBoardQuery.createdBy = req.user._id;
             }
-            const boardAdmissions = await BoardCourseAdmission.find(admittedBoardQuery).populate('studentId').populate('createdBy').lean();
+            let boardAdmissions = await BoardCourseAdmission.find(admittedBoardQuery).populate('studentId').populate('createdBy').lean();
+            if (leadType) {
+                const phones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phones } },
+                        { secondPhoneNumber: { $in: phones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                const matchingPhones = new Set(
+                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+                boardAdmissions = boardAdmissions.filter(adm => {
+                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                });
+            }
             const admittedBoardDetails = boardAdmissions.map(adm => {
                 const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
                 const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
@@ -1706,11 +1929,28 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 normalQuery.createdBy = req.user._id;
             }
-            const normalAdmissions = await Admission.find(normalQuery)
+            let normalAdmissions = await Admission.find(normalQuery)
                 .populate('student')
                 .populate('course', 'courseName')
                 .populate('createdBy')
                 .lean();
+            if (leadType) {
+                const phones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phones } },
+                        { secondPhoneNumber: { $in: phones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                const matchingPhones = new Set(
+                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+                normalAdmissions = normalAdmissions.filter(adm => {
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                });
+            }
 
             const normalDetails = normalAdmissions.map(adm => {
                 const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
@@ -1738,10 +1978,27 @@ export const getDailyTrackingDetails = async (req, res) => {
             if (isRestricted) {
                 boardQuery.createdBy = req.user._id;
             }
-            const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
+            let boardAdmissions = await BoardCourseAdmission.find(boardQuery)
                 .populate('studentId')
                 .populate('createdBy')
                 .lean();
+            if (leadType) {
+                const phones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: phones } },
+                        { secondPhoneNumber: { $in: phones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                const matchingPhones = new Set(
+                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+                boardAdmissions = boardAdmissions.filter(adm => {
+                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                });
+            }
 
             const boardDetails = boardAdmissions.map(adm => {
                 const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
@@ -1772,6 +2029,9 @@ export const getDailyTrackingDetails = async (req, res) => {
             };
             if (isRestricted) {
                 callsQuery["followUps.updatedBy"] = req.user.name;
+            }
+            if (leadType) {
+                callsQuery.leadType = leadType;
             }
             const leadsWithCalls = await LeadManagement.find(callsQuery).populate('centre').lean();
 
@@ -1827,15 +2087,44 @@ export const getDailyTrackingDetails = async (req, res) => {
                 BoardCourseAdmission.find({ _id: { $in: admissionIdsForPayments } }).populate('studentId').lean()
             ]);
 
+            let filteredNormalAdms = normalAdms;
+            let filteredBoardAdms = boardAdms;
+            if (leadType) {
+                const normalPhones = normalAdms.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const boardPhones = boardAdms.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                const allPhones = Array.from(new Set([...normalPhones, ...boardPhones]));
+
+                const matchingLeads = allPhones.length > 0 ? await LeadManagement.find({
+                    $or: [
+                        { phoneNumber: { $in: allPhones } },
+                        { secondPhoneNumber: { $in: allPhones } }
+                    ],
+                    leadType: leadType
+                }).lean() : [];
+                
+                const matchingPhones = new Set(
+                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                );
+
+                filteredNormalAdms = normalAdms.filter(adm => {
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                });
+                filteredBoardAdms = boardAdms.filter(adm => {
+                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                    return phone && matchingPhones.has(phone);
+                });
+            }
+
             const admissionMap = {};
-            normalAdms.forEach(adm => {
+            filteredNormalAdms.forEach(adm => {
                 const studentName = adm.student?.studentsDetails?.[0]?.studentName || "Unknown Student";
                 const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
                 const courseName = adm.course?.courseName || "N/A";
                 admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName, admissionNumber: adm.admissionNumber };
             });
-            boardAdms.forEach(adm => {
+            filteredBoardAdms.forEach(adm => {
                 const studentName = adm.studentName || adm.studentId?.studentsDetails?.[0]?.studentName || "Unknown Student";
                 const phone = adm.mobileNum || adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
                 const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
@@ -1845,6 +2134,7 @@ export const getDailyTrackingDetails = async (req, res) => {
 
             detailsList = payments.map(p => {
                 const admInfo = admissionMap[p.admission?.toString()];
+                if (leadType && !admInfo) return null;
                 const amountWithoutGst = Math.round(p.paidAmount / 1.18);
                 const centreName = admInfo?.centreName || 'N/A';
                 const isAdmission = p.installmentNumber === 0;
@@ -1865,7 +2155,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                         ? `Admission No: ${admInfo?.admissionNumber || 'N/A'} | Admission Fee (excl. GST)`
                         : `Method: ${p.paymentMethod || 'Other'} | Installment #${p.installmentNumber}`
                 };
-            });
+            }).filter(Boolean);
         }
 
         let activeCenters;
