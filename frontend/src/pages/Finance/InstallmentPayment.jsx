@@ -183,6 +183,7 @@ const InstallmentPayment = () => {
     const [financialData, setFinancialData] = useState(null);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
     const [viewTab, setViewTab] = useState("centreSummary"); // Default to Centre-wise Summary
+    const [boardViewTab, setBoardViewTab] = useState("centreSummary"); // Board Course sub-tab
 
     // Tab state: 'regular' | 'boardCourse'
     const [activeTab, setActiveTab] = useState('regular');
@@ -1361,6 +1362,249 @@ const InstallmentPayment = () => {
                 {/* ─── Board Course Admission Tab Content ─── */}
                 {!selectedStudent && activeTab === 'boardCourse' && (
                     <div>
+                        {/* Board Sub-tab Switcher */}
+                        <div className="flex justify-start items-center mb-6 gap-2 border-b border-gray-800/40 pb-4">
+                            <button
+                                onClick={() => setBoardViewTab("centreSummary")}
+                                className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                    boardViewTab === "centreSummary"
+                                        ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                                        : isDarkMode
+                                            ? "bg-[#131619] text-gray-400 hover:text-white border border-gray-800"
+                                            : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200"
+                                }`}
+                            >
+                                Centre-wise Summary
+                            </button>
+                            <button
+                                onClick={() => setBoardViewTab("detailedList")}
+                                className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                    boardViewTab === "detailedList"
+                                        ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                                        : isDarkMode
+                                            ? "bg-[#131619] text-gray-400 hover:text-white border border-gray-800"
+                                            : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200"
+                                }`}
+                            >
+                                Detailed Payments
+                            </button>
+                        </div>
+
+                        {/* ─── Board Centre-wise Summary Sub-tab ─── */}
+                        {boardViewTab === "centreSummary" && (
+                            <>
+                                {/* Board Centre Summary Filters */}
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm animate-fade-in`}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                                        {/* Date Range */}
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                            <input
+                                                type="date"
+                                                value={boardFilters.startDate}
+                                                onChange={(e) => setBoardFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                            <input
+                                                type="date"
+                                                value={boardFilters.endDate}
+                                                onChange={(e) => setBoardFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+
+                                        {/* Department Filter */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                                            <Select
+                                                isMulti
+                                                options={[...new Set(boardAdmissionsList.map(a => a.programme).filter(Boolean))].sort().map(p => ({ value: p, label: p }))}
+                                                value={boardFilters.department.map(val => ({ value: val, label: val }))}
+                                                onChange={(selected) => setBoardFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL DEPARTMENTS"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Course Filter */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                                            <Select
+                                                isMulti
+                                                options={[...new Set(boardAdmissionsList.map(a => a.boardCourseName).filter(Boolean))].sort().map(c => ({ value: c, label: c }))}
+                                                value={boardFilters.course.map(val => ({ value: val, label: val }))}
+                                                onChange={(selected) => setBoardFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL COURSES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Centre Filter */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                                            <Select
+                                                isMulti
+                                                options={[...new Set(boardAdmissionsList.map(a => a.centre).filter(Boolean))].sort().map(c => ({ value: c, label: c }))}
+                                                value={boardFilters.centre.map(val => ({ value: val, label: val }))}
+                                                onChange={(selected) => setBoardFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL CENTRES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => { setBoardCurrentPage(1); }}
+                                                className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
+                                            >
+                                                Apply
+                                            </button>
+                                            <button
+                                                onClick={exportCentreSummaryToExcel}
+                                                className="p-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
+                                                title="Export Centre Summary Excel"
+                                            >
+                                                <FaDownload />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Filters: Amount Range */}
+                                    <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-200'}`}>
+                                        <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="₹ Min (e.g. 5000)"
+                                                    value={boardFilters.minRemaining}
+                                                    onChange={(e) => setBoardFilters(prev => ({ ...prev, minRemaining: e.target.value }))}
+                                                    className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                />
+                                            </div>
+                                            <div className="text-gray-700 mt-6">-</div>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="₹ Max (e.g. 50000)"
+                                                    value={boardFilters.maxRemaining}
+                                                    onChange={(e) => setBoardFilters(prev => ({ ...prev, maxRemaining: e.target.value }))}
+                                                    className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="md:col-span-1">
+                                            <div className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em] ml-1">Installment Status</div>
+                                            <Select
+                                                isMulti
+                                                options={statusOptions}
+                                                value={statusOptions.filter(opt => boardFilters.installmentStatus.includes(opt.value))}
+                                                onChange={(selected) => setBoardFilters(prev => ({ ...prev, installmentStatus: selected ? selected.map(s => s.value) : [] }))}
+                                                placeholder="FILTER STATUS..."
+                                                styles={selectStyles}
+                                            />
+                                        </div>
+                                        <div className="md:col-span-1 self-end">
+                                            <button
+                                                onClick={resetBoardFilters}
+                                                className={`w-full py-4 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border-gray-300'}`}
+                                            >
+                                                <FaEraser /> Reset All Filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Board Centre-wise Summary Table */}
+                                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl overflow-hidden shadow-2xl`}>
+                                    <div className="p-6 border-b border-gray-800/40 flex justify-between items-center">
+                                        <h3 className={`text-lg font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            Centre-wise Installment Summary
+                                        </h3>
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-cyan-500/10 text-cyan-500 px-3 py-1 rounded-full">
+                                            Total Centres: {centreStats.length}
+                                        </span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre Name</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Installment Amount</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Paid Amount</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</th>
+                                                    <th className={`p-6 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Recovery Progress</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
+                                                {boardLoading ? (
+                                                    <tr>
+                                                        <td colSpan="5" className="p-20 text-center">
+                                                            <div className="flex justify-center flex-col items-center gap-4">
+                                                                <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
+                                                                <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Data...</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : centreStats.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="5" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No centre summary data found</td>
+                                                    </tr>
+                                                ) : (
+                                                    centreStats.map((c, idx) => {
+                                                        const progress = c.totalFees > 0 ? (c.totalPaid / c.totalFees) * 100 : 0;
+                                                        return (
+                                                            <tr key={idx} className="hover:bg-cyan-500/5 transition-all">
+                                                                <td className="p-6">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-200' : 'bg-gray-100 border border-gray-200 text-gray-700'}`}>
+                                                                            <FaMapMarkerAlt className="text-cyan-500" />
+                                                                            {c.name}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-6 font-black text-sm">
+                                                                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>₹{Math.round(c.totalFees).toLocaleString('en-IN')}</span>
+                                                                </td>
+                                                                <td className="p-6 font-black text-sm text-emerald-500">
+                                                                    ₹{Math.round(c.totalPaid).toLocaleString('en-IN')}
+                                                                </td>
+                                                                <td className="p-6 font-black text-sm text-red-500">
+                                                                    ₹{Math.round(c.totalDue).toLocaleString('en-IN')}
+                                                                </td>
+                                                                <td className="p-6">
+                                                                    <div className="flex items-center gap-3 min-w-[150px]">
+                                                                        <div className={`flex-1 h-2 rounded-full overflow-hidden flex ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                                                                            <div
+                                                                                className="h-full bg-emerald-500 rounded-full"
+                                                                                style={{ width: `${progress}%` }}
+                                                                            />
+                                                                        </div>
+                                                                        <span className="text-[10px] font-black text-emerald-500">{Math.round(progress)}%</span>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* ─── Board Detailed Payments Sub-tab ─── */}
+                        {boardViewTab === "detailedList" && (
+                            <>
                         {/* Board Admission Filters */}
                         <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
@@ -1760,6 +2004,8 @@ const InstallmentPayment = () => {
                                 </div>
                             );
                         })()}
+                            </>
+                        )}
                     </div>
                 )}
 
