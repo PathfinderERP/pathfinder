@@ -1,14 +1,23 @@
 import SchoolData from "../../models/Master_data/SchoolData.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
 
 // CREATE
 export const createSchoolData = async (req, res) => {
     try {
-        const { schoolName, studentName, className, board, area } = req.body;
+        const { schoolName, studentName, className, board, area, centre } = req.body;
         if (!schoolName || !studentName || !className || !board) {
             return res.status(400).json({ message: "Required fields: schoolName, studentName, className, board" });
         }
-        const record = new SchoolData({ schoolName, studentName, className, board, area: area || "" });
+        const record = new SchoolData({
+            schoolName,
+            studentName,
+            className,
+            board,
+            area: area || "",
+            centre: centre || null
+        });
         await record.save();
+        await record.populate("centre", "centreName");
         res.status(201).json({ message: "School data record created", data: record });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
@@ -18,7 +27,7 @@ export const createSchoolData = async (req, res) => {
 // READ ALL (with search / multi-value filter / pagination)
 export const getSchoolData = async (req, res) => {
     try {
-        const { search, schoolName, className, board, area, page = 1, limit = 50 } = req.query;
+        const { search, schoolName, className, board, area, centre, page = 1, limit = 50 } = req.query;
         const query = {};
 
         if (search) {
@@ -48,10 +57,15 @@ export const getSchoolData = async (req, res) => {
             const vals = area.split(",").map(v => v.trim()).filter(Boolean);
             query.area = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
         }
+        if (centre) {
+            const ids = centre.split(",").map(v => v.trim()).filter(Boolean);
+            query.centre = ids.length === 1 ? ids[0] : { $in: ids };
+        }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const total = await SchoolData.countDocuments(query);
         const records = await SchoolData.find(query)
+            .populate("centre", "centreName")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -71,12 +85,12 @@ export const getSchoolData = async (req, res) => {
 export const updateSchoolData = async (req, res) => {
     try {
         const { id } = req.params;
-        const { schoolName, studentName, className, board, area } = req.body;
+        const { schoolName, studentName, className, board, area, centre } = req.body;
         const record = await SchoolData.findByIdAndUpdate(
             id,
-            { schoolName, studentName, className, board, area: area || "" },
+            { schoolName, studentName, className, board, area: area || "", centre: centre || null },
             { new: true, runValidators: true }
-        );
+        ).populate("centre", "centreName");
         if (!record) return res.status(404).json({ message: "Record not found" });
         res.status(200).json({ message: "School data updated", data: record });
     } catch (err) {
@@ -103,11 +117,18 @@ export const bulkImportSchoolData = async (req, res) => {
         if (!Array.isArray(rows) || rows.length === 0) {
             return res.status(400).json({ message: "No data provided for import" });
         }
-        
+
         const cleanVal = (val) => {
             if (val === undefined || val === null) return "";
             return String(val).trim();
         };
+
+        // Pre-fetch all active centres for name→ID resolution
+        const allCentres = await CentreSchema.find({ status: { $ne: "deactive" } }, "_id centreName");
+        const centreNameMap = {};
+        for (const c of allCentres) {
+            if (c.centreName) centreNameMap[c.centreName.trim().toLowerCase()] = c._id;
+        }
 
         const results = { inserted: 0, failed: [], total: rows.length };
         for (const row of rows) {
@@ -117,17 +138,22 @@ export const bulkImportSchoolData = async (req, res) => {
                 const className = cleanVal(row.className || row["Class"]);
                 const board = cleanVal(row.board || row["Board"]);
                 const area = cleanVal(row.area || row["Area"]);
+                const centreName = cleanVal(row.centreName || row["Centre Name"] || row["centre"]);
 
                 if (!schoolName || !studentName || !className || !board) {
                     throw new Error("Missing required fields: School Name, Student Name, Class, Board");
                 }
+
+                // Resolve centre name to ObjectId (case-insensitive)
+                const centreId = centreName ? (centreNameMap[centreName.toLowerCase()] || null) : null;
 
                 const record = new SchoolData({
                     schoolName,
                     studentName,
                     className,
                     board,
-                    area
+                    area,
+                    centre: centreId
                 });
                 await record.save();
                 results.inserted++;

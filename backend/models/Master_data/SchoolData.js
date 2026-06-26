@@ -25,6 +25,11 @@ const schoolDataSchema = new mongoose.Schema({
         type: String,
         trim: true,
         default: ""
+    },
+    centre: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CentreSchema",
+        default: null
     }
 }, { timestamps: true });
 
