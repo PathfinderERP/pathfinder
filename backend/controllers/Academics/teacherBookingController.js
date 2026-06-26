@@ -1,6 +1,7 @@
 import TeacherBooking from "../../models/Academics/TeacherBooking.js";
 import TeacherRoutine from "../../models/Academics/TeacherRoutine.js";
 import User from "../../models/User.js";
+import Employee from "../../models/HR/Employee.js";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -15,17 +16,28 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
             .populate("classId", "name")
             .sort({ teacherId: 1, day: 1, startTime: 1 });
 
-        // 2. Get all existing bookings
-        const bookings = await TeacherBooking.find()
-            .populate("bookedBy", "name employeeId")
-            .populate("students.leadId", "name phoneNumber");
+        // 2. Get all existing bookings and employee profiles in parallel
+        const teacherIds = Array.from(new Set(routines.map(r => r.teacherId?._id?.toString()).filter(Boolean)));
+        const [bookings, employees] = await Promise.all([
+            TeacherBooking.find()
+                .populate("bookedBy", "name employeeId")
+                .populate("students.leadId", "name phoneNumber"),
+            Employee.find({ user: { $in: teacherIds } }).select("user workingHours")
+        ]);
 
-        // 3. Build booking map: teacherId_day_startTime -> [bookings]
+        // 3. Build booking map and employee map
         const bookingMap = {};
         bookings.forEach(b => {
             const key = `${b.teacherId}_${b.day}_${b.startTime}`;
             if (!bookingMap[key]) bookingMap[key] = [];
             bookingMap[key].push(b);
+        });
+
+        const employeeMap = {};
+        employees.forEach(emp => {
+            if (emp.user) {
+                employeeMap[emp.user.toString()] = emp;
+            }
         });
 
         // 4. Time helpers
@@ -94,6 +106,9 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
 
         // 6. Compute FREE gap slots for each teacher per day
         for (const [teacherId, data] of groupedMap.entries()) {
+            const empRecord = employeeMap[teacherId];
+            const workingHours = (empRecord && empRecord.workingHours && empRecord.workingHours > 0) ? empRecord.workingHours : 9;
+
             for (const day of DAYS) {
                 const sessions = data.days[day].classSessions;
 
@@ -101,8 +116,25 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
                     .filter(s => s.startTime && s.endTime)
                     .sort((a, b) => timeToMins(a.startTime) - timeToMins(b.startTime));
 
+                // Determine workday start and end based on workingHours (default 9)
+                let dayWorkStart = WORK_START;
+                if (sorted.length > 0) {
+                    const firstClassStart = timeToMins(sorted[0].startTime);
+                    if (firstClassStart < dayWorkStart) {
+                        dayWorkStart = firstClassStart;
+                    }
+                }
+
+                let dayWorkEnd = dayWorkStart + workingHours * 60;
+                if (sorted.length > 0) {
+                    const lastClassEnd = timeToMins(sorted[sorted.length - 1].endTime);
+                    if (lastClassEnd > dayWorkEnd) {
+                        dayWorkEnd = lastClassEnd;
+                    }
+                }
+
                 const freeSlots = [];
-                let cursor = WORK_START;
+                let cursor = dayWorkStart;
 
                 const pushFree = (start, end) => {
                     if (end - start < MIN_FREE) return;
@@ -129,7 +161,7 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
                 }
 
                 // Gap after last class (or full day if teacher has no classes)
-                pushFree(cursor, WORK_END);
+                pushFree(cursor, dayWorkEnd);
 
                 data.days[day].freeSlots = freeSlots;
             }
