@@ -90,7 +90,7 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
     let query = {};
 
     // If not superAdmin, further filter to show only users who share the same centers
-    if (!isSuperAdmin) {
+    if (!isSuperAdmin && req.query.ignoreCentre !== "true") {
       const userCentreIds = (requestingUser.centres || []).map(c => (c._id || c).toString());
 
       if (userCentreIds.length > 0) {
@@ -123,19 +123,28 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
       .lean();
 
     // Enrich users with employee data (profile image)
-    const enrichedUsers = await Promise.all(users.map(async (user) => {
-      const employee = await Employee.findOne({ user: user._id });
-      let profileImageUrl = null;
-      if (employee?.profileImage) {
-        profileImageUrl = await getSignedFileUrl(employee.profileImage);
-      }
-
-      return {
+    let enrichedUsers;
+    if (req.query.ignoreCentre === "true") {
+      enrichedUsers = users.map(user => ({
         ...user,
-        profileImage: profileImageUrl,
-        mobNum: user.mobNum || employee?.phoneNumber
-      };
-    }));
+        profileImage: null,
+        mobNum: user.mobNum || ""
+      }));
+    } else {
+      enrichedUsers = await Promise.all(users.map(async (user) => {
+        const employee = await Employee.findOne({ user: user._id });
+        let profileImageUrl = null;
+        if (employee?.profileImage) {
+          profileImageUrl = await getSignedFileUrl(employee.profileImage);
+        }
+
+        return {
+          ...user,
+          profileImage: profileImageUrl,
+          mobNum: user.mobNum || employee?.phoneNumber
+        };
+      }));
+    }
 
     res.status(200).json({
       message: "List of all users based on access permissions",

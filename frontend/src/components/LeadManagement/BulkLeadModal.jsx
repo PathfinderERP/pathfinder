@@ -52,7 +52,6 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     const [courses, setCourses] = useState([]);
     const [boards, setBoards] = useState([]);
     const [sources, setSources] = useState([]);
-    const [telecallers, setTelecallers] = useState([]);
     const [feedbackOptions, setFeedbackOptions] = useState([]);
 
     useEffect(() => {
@@ -74,13 +73,12 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             const headers = { Authorization: `Bearer ${token}` };
             const baseUrl = import.meta.env.VITE_API_URL;
 
-            const [classRes, centreRes, courseRes, boardRes, sourceRes, userRes, feedbackRes] = await Promise.all([
+            const [classRes, centreRes, courseRes, boardRes, sourceRes, feedbackRes] = await Promise.all([
                 fetch(`${baseUrl}/class`, { headers }),
                 fetch(`${baseUrl}/centre`, { headers }),
                 fetch(`${baseUrl}/course`, { headers }),
                 fetch(`${baseUrl}/board`, { headers }),
                 fetch(`${baseUrl}/source`, { headers }),
-                fetch(`${baseUrl}/superAdmin/getAllUsers`, { headers }),
                 fetch(`${baseUrl}/master-data/follow-up-feedback`, { headers })
             ]);
 
@@ -89,7 +87,6 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             const courseData = await courseRes.json();
             const boardData = await boardRes.json();
             const sourceData = await sourceRes.json();
-            const userData = await userRes.json();
             const feedbackData = feedbackRes.ok ? await feedbackRes.json() : [];
 
             setClasses(Array.isArray(classData) ? classData : []);
@@ -98,40 +95,6 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             setBoards(Array.isArray(boardData) ? boardData : []);
             setSources(sourceData.sources || []);
             setFeedbackOptions(Array.isArray(feedbackData) ? feedbackData.map(f => f.name) : []);
-
-            if (userRes.ok && userData.users) {
-                const leadUsers = (userData.users || []).filter(u => {
-                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-                    const isActive = u.isActive !== false;
-                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'];
-                    return isActive && allowedRoles.includes(r);
-                });
-
-                // Find duplicate active user names
-                const nameCounts = {};
-                leadUsers.forEach(u => {
-                    const name = u.name?.trim();
-                    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
-                });
-
-                const formattedUsers = leadUsers.map(u => {
-                    const name = u.name?.trim();
-                    const isDuplicate = nameCounts[name] > 1;
-                    let displayName = u.name;
-                    if (isDuplicate) {
-                        const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
-                        displayName = `${u.name} (${centreNames || 'No Centre'})`;
-                    }
-                    return {
-                        ...u,
-                        displayName,
-                        value: isDuplicate ? displayName : u.name
-                    };
-                });
-
-                formattedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
-                setTelecallers(formattedUsers);
-            }
         } catch (error) {
             console.error("Error fetching validation data:", error);
             toast.error("Failed to load data");
@@ -252,17 +215,6 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         continue;
                     }
 
-                    if (row.LeadResponse) {
-                        const telecallerExists = telecallers.some(
-                            t => (t.displayName || t.name).toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim() ||
-                                 t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
-                        );
-                        if (!telecallerExists) {
-                            errors.push(`Row ${rowNum}: Agent '${row.LeadResponse}' not found`);
-                            continue;
-                        }
-                    }
-
                     let classId = null;
                     if (row.Class) {
                         const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
@@ -296,8 +248,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     validLeads.push({
                         name: row.Name,
-                        phoneNumber: row.PhoneNum,
-                        secondPhoneNumber: row.SecondPhoneNum,
+                        phoneNumber: row.PhoneNum ? row.PhoneNum.toString().trim() : "",
+                        secondPhoneNumber: row.SecondPhoneNum ? row.SecondPhoneNum.toString().trim() : "",
                         schoolName: row.SchoolName ? row.SchoolName.toString().trim() : "",
                         className: classId,
                         centre: centreId,
@@ -414,17 +366,6 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     if (!row.SchoolName || !row.SchoolName.toString().trim()) {
                         errors.push(`Row ${rowNum}: Missing Required Data (SchoolName required)`);
                         continue;
-                    }
-
-                    if (row.LeadResponse) {
-                        const telecallerExists = telecallers.some(
-                            t => (t.displayName || t.name).toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim() ||
-                                 t.name.toLowerCase().trim() === row.LeadResponse.toString().toLowerCase().trim()
-                        );
-                        if (!telecallerExists) {
-                            errors.push(`Row ${rowNum}: Agent '${row.LeadResponse}' not found`);
-                            continue;
-                        }
                     }
 
                     let classId = null;

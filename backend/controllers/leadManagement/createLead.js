@@ -25,13 +25,16 @@ export const createLead = async (req, res) => {
         }
 
         // Phone number duplication check
-        if (phoneNumber && secondPhoneNumber && phoneNumber.trim() === secondPhoneNumber.trim() && phoneNumber.trim() !== "") {
+        const phoneStr = phoneNumber !== undefined && phoneNumber !== null ? String(phoneNumber).trim() : "";
+        const secondPhoneStr = secondPhoneNumber !== undefined && secondPhoneNumber !== null ? String(secondPhoneNumber).trim() : "";
+
+        if (phoneStr && secondPhoneStr && phoneStr === secondPhoneStr) {
             return res.status(400).json({ message: "Primary and Secondary phone numbers cannot be the same." });
         }
 
         const checkPhoneNumber = async (phone) => {
-            if (!phone || phone.trim() === "") return null;
-            const cleanPhone = phone.trim();
+            const cleanPhone = phone !== undefined && phone !== null ? String(phone).trim() : "";
+            if (cleanPhone === "") return null;
             // Check in LeadManagement
             const matchLead = await LeadManagement.findOne({
                 $or: [{ phoneNumber: cleanPhone }, { secondPhoneNumber: cleanPhone }]
@@ -45,17 +48,17 @@ export const createLead = async (req, res) => {
             return matchCampaign;
         };
 
-        if (phoneNumber && phoneNumber.trim() !== "") {
-            const dup = await checkPhoneNumber(phoneNumber);
+        if (phoneStr !== "") {
+            const dup = await checkPhoneNumber(phoneStr);
             if (dup) {
-                return res.status(400).json({ message: `A lead already exists with the phone number: ${phoneNumber.trim()}.` });
+                return res.status(400).json({ message: `A lead already exists with the phone number: ${phoneStr}.` });
             }
         }
 
-        if (secondPhoneNumber && secondPhoneNumber.trim() !== "") {
-            const dup = await checkPhoneNumber(secondPhoneNumber);
+        if (secondPhoneStr !== "") {
+            const dup = await checkPhoneNumber(secondPhoneStr);
             if (dup) {
-                return res.status(400).json({ message: `A lead already exists with the secondary phone number: ${secondPhoneNumber.trim()}.` });
+                return res.status(400).json({ message: `A lead already exists with the secondary phone number: ${secondPhoneStr}.` });
             }
         }
 

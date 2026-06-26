@@ -152,7 +152,35 @@ export const getFollowUpStats = async (req, res) => {
         const stats = await LeadManagement.aggregate([
             {
                 $facet: {
-                    "activityStats": [
+                    "activityCounts": [
+                        { $match: baseMatch },
+                        {
+                            $project: {
+                                followUp: "$followUps",
+                                leadType: 1
+                            }
+                        },
+                        { $unwind: "$followUp" },
+                        {
+                            $match: {
+                                ...(Object.keys(activityDateFilter).length > 0 ? { "followUp.date": activityDateFilter } : {}),
+                                ...timeMatch,
+                                ...(followUpUserQuery.$or && followUpUserQuery.$or.length > 0 ? followUpUserQuery : {})
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: null,
+                                totalFollowUps: { $sum: 1 },
+                                hotLeads: { $sum: { $cond: [{ $in: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, ["HOT LEAD", "ADMISSION TAKEN"]] }, 1, 0] } },
+                                warmLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "WARM LEAD"] }, 1, 0] } },
+                                coldLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] }, 1, 0] } },
+                                neutralLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "NEUTRAL LEAD"] }, 1, 0] } },
+                                invalidLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "INVALID LEAD"] }, 1, 0] } }
+                            }
+                        }
+                    ],
+                    "recentActivity": [
                         { $match: baseMatch },
                         {
                             $project: {
@@ -173,51 +201,47 @@ export const getFollowUpStats = async (req, res) => {
                                 ...(followUpUserQuery.$or && followUpUserQuery.$or.length > 0 ? followUpUserQuery : {})
                             }
                         },
+                        { $sort: { "followUp.date": -1 } },
+                        { $limit: 500 },
                         {
-                            $group: {
-                                _id: null,
-                                totalFollowUps: { $sum: 1 },
-                                hotLeads: { $sum: { $cond: [{ $in: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, ["HOT LEAD", "ADMISSION TAKEN"]] }, 1, 0] } },
-                                warmLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "WARM LEAD"] }, 1, 0] } },
-                                coldLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] }, 1, 0] } },
-                                neutralLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "NEUTRAL LEAD"] }, 1, 0] } },
-                                invalidLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "INVALID LEAD"] }, 1, 0] } },
-                                recentActivity: {
-                                    $push: {
-                                        leadId: "$_id",
-                                        leadName: "$name",
-                                        phoneNumber: "$phoneNumber",
-                                        email: "$email",
-                                        status: { $ifNull: ["$followUp.status", "$leadType"] },
-                                        time: "$followUp.date",
-                                        updatedBy: "$followUp.updatedBy",
-                                        feedback: "$followUp.feedback",
-                                        remarks: "$followUp.remarks",
-                                        callDuration: "$followUp.callDuration",
-                                        history: "$followUpsHistory"
-                                    }
-                                }
+                            $project: {
+                                leadId: "$_id",
+                                leadName: "$name",
+                                phoneNumber: "$phoneNumber",
+                                email: "$email",
+                                status: { $ifNull: ["$followUp.status", "$leadType"] },
+                                time: "$followUp.date",
+                                updatedBy: "$followUp.updatedBy",
+                                feedback: "$followUp.feedback",
+                                remarks: "$followUp.remarks",
+                                callDuration: "$followUp.callDuration",
+                                history: "$followUpsHistory"
                             }
                         }
                     ],
-                    "scheduledStats": [
+                    "scheduledCounts": [
                         { $match: { ...leadOwnerMatch, ...(Object.keys(scheduledDateFilter).length > 0 ? { nextFollowUpDate: scheduledDateFilter } : {}) } },
                         {
                             $group: {
                                 _id: null,
-                                totalScheduled: { $sum: 1 },
-                                scheduledList: {
-                                    $push: {
-                                        leadId: "$_id",
-                                        leadName: "$name",
-                                        phoneNumber: "$phoneNumber",
-                                        email: "$email",
-                                        status: "$leadType",
-                                        time: "$nextFollowUpDate",
-                                        updatedBy: "$leadResponsibility",
-                                        history: "$followUps"
-                                    }
-                                }
+                                totalScheduled: { $sum: 1 }
+                            }
+                        }
+                    ],
+                    "scheduledList": [
+                        { $match: { ...leadOwnerMatch, ...(Object.keys(scheduledDateFilter).length > 0 ? { nextFollowUpDate: scheduledDateFilter } : {}) } },
+                        { $sort: { nextFollowUpDate: 1 } },
+                        { $limit: 500 },
+                        {
+                            $project: {
+                                leadId: "$_id",
+                                leadName: "$name",
+                                phoneNumber: "$phoneNumber",
+                                email: "$email",
+                                status: "$leadType",
+                                time: "$nextFollowUpDate",
+                                updatedBy: "$leadResponsibility",
+                                history: "$followUps"
                             }
                         }
                     ],
@@ -239,18 +263,11 @@ export const getFollowUpStats = async (req, res) => {
             }
         ]);
 
-        const aS = stats[0].activityStats[0] || {};
-        const sS = stats[0].scheduledStats[0] || {};
+        const aC = stats[0].activityCounts[0] || {};
+        const recentActivity = stats[0].recentActivity || [];
+        const sC = stats[0].scheduledCounts[0] || {};
+        const scheduledList = stats[0].scheduledList || [];
         const lP = stats[0].leadPopulation[0] || {};
-
-        // Increased limit to 500 to cover most cases while maintaining performance
-        const recentActivity = (aS.recentActivity || [])
-            .sort((a, b) => new Date(b.time) - new Date(a.time))
-            .slice(0, 500);
-
-        const scheduledList = (sS.scheduledList || [])
-            .sort((a, b) => new Date(a.time) - new Date(b.time))
-            .slice(0, 500);
 
         // Count walk-ins tagged by the logged-in user today
         const todayStart = new Date();
@@ -266,14 +283,14 @@ export const getFollowUpStats = async (req, res) => {
         });
 
         res.status(200).json({
-            totalFollowUps: aS.totalFollowUps || 0,
-            hotLeads: aS.hotLeads || 0,
-            warmLeads: aS.warmLeads || 0,
-            coldLeads: aS.coldLeads || 0,
-            neutralLeads: aS.neutralLeads || 0,
-            invalidLeads: aS.invalidLeads || 0,
+            totalFollowUps: aC.totalFollowUps || 0,
+            hotLeads: aC.hotLeads || 0,
+            warmLeads: aC.warmLeads || 0,
+            coldLeads: aC.coldLeads || 0,
+            neutralLeads: aC.neutralLeads || 0,
+            invalidLeads: aC.invalidLeads || 0,
             recentActivity,
-            totalScheduled: sS.totalScheduled || 0,
+            totalScheduled: sC.totalScheduled || 0,
             scheduledList,
             leadPopulation: lP,
             walkInsCountToday
