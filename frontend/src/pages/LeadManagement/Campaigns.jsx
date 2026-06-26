@@ -3,10 +3,23 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
-import { FaArrowLeft, FaBullhorn, FaSync, FaTimes, FaEye, FaEdit, FaUpload } from "react-icons/fa";
+import {
+    FaArrowLeft, FaBullhorn, FaSync, FaTimes, FaEye, FaEdit, FaUpload,
+    FaPlay, FaStop, FaRedo, FaClock
+} from "react-icons/fa";
 import { hasPermission } from "../../config/permissions";
 
 const API_URL = import.meta.env.VITE_API_URL;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+const fmtDateTime = (ts) => {
+    if (!ts) return null;
+    const d = new Date(ts);
+    return d.toLocaleString("en-IN", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: true
+    });
+};
 
 export default function Campaigns() {
     const navigate = useNavigate();
@@ -26,31 +39,18 @@ export default function Campaigns() {
     const { theme } = useTheme();
     const isDark = theme === "dark";
 
-    const [campaigns, setCampaigns] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
+    const [campaigns, setCampaigns]         = useState([]);
+    const [loading, setLoading]             = useState(false);
+    const [submitting, setSubmitting]       = useState(false);
+    const [actionLoading, setActionLoading] = useState({}); // {campaignId: true}
     const [selectedCampaign, setSelectedCampaign] = useState(null);
     const [editForm, setEditForm] = useState({
-        adName: "",
-        platform: "Facebook",
-        creativeName: "",
-        duration: "",
-        budget: "",
-        cpc: "",
-        startDate: "",
-        endDate: ""
+        adName: "", platform: "Facebook", creativeName: "", duration: "",
+        budget: "", cpc: "", startDate: "", endDate: ""
     });
-
-    // Form state
     const [form, setForm] = useState({
-        adName: "",
-        platform: "Facebook",
-        creativeName: "",
-        duration: "",
-        budget: "",
-        cpc: "",
-        startDate: "",
-        endDate: ""
+        adName: "", platform: "Facebook", creativeName: "", duration: "",
+        budget: "", cpc: "", startDate: "", endDate: ""
     });
 
     const fetchCampaigns = useCallback(async () => {
@@ -74,46 +74,63 @@ export default function Campaigns() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchCampaigns();
-    }, [fetchCampaigns]);
+    useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
 
-    const handleChange = (e) => {
-        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    // ── Run action (start / end / restart) ───────────────────────────────────
+    const handleRunAction = async (campaignId, action) => {
+        setActionLoading(prev => ({ ...prev, [campaignId]: action }));
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/lead-management/campaigns/${campaignId}/run-action`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ action })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message || `Campaign ${action}ed`);
+                // Update local state so UI reflects immediately (optimistic)
+                setCampaigns(prev => prev.map(c =>
+                    c._id === campaignId ? {
+                        ...c,
+                        runStatus: data.campaign.runStatus,
+                        lastStartedAt:   data.campaign.lastStartedAt,
+                        lastEndedAt:     data.campaign.lastEndedAt,
+                        lastRestartedAt: data.campaign.lastRestartedAt,
+                        runLog: data.campaign.runLog
+                    } : c
+                ));
+            } else {
+                toast.error(data.message || "Action failed");
+            }
+        } catch (err) {
+            console.error("Run action error:", err);
+            toast.error("Server error");
+        } finally {
+            setActionLoading(prev => ({ ...prev, [campaignId]: null }));
+        }
     };
+
+    const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
         if (!form.adName || !form.platform || !form.budget || !form.cpc || !form.startDate || !form.endDate) {
             toast.error("Please fill in all required fields.");
             return;
         }
-
         setSubmitting(true);
         try {
             const token = localStorage.getItem("token");
             const res = await fetch(`${API_URL}/lead-management/campaigns`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(form)
             });
             const data = await res.json();
             if (res.ok) {
                 toast.success("Campaign added successfully!");
-                setForm({
-                    adName: "",
-                    platform: "Facebook",
-                    creativeName: "",
-                    duration: "",
-                    budget: "",
-                    cpc: "",
-                    startDate: "",
-                    endDate: ""
-                });
+                setForm({ adName: "", platform: "Facebook", creativeName: "", duration: "", budget: "", cpc: "", startDate: "", endDate: "" });
                 fetchCampaigns();
             } else {
                 toast.error(data.message || "Failed to add campaign");
@@ -128,7 +145,6 @@ export default function Campaigns() {
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this campaign? This will unlink it from any associated leads.")) return;
-        
         try {
             const token = localStorage.getItem("token");
             const res = await fetch(`${API_URL}/lead-management/campaigns/${id}`, {
@@ -148,10 +164,7 @@ export default function Campaigns() {
         }
     };
 
-    const formatDateForInput = (dateStr) => {
-        if (!dateStr) return "";
-        return dateStr.slice(0, 10);
-    };
+    const formatDateForInput = (dateStr) => dateStr ? dateStr.slice(0, 10) : "";
 
     const handleOpenViewEdit = (campaign) => {
         setSelectedCampaign(campaign);
@@ -173,16 +186,12 @@ export default function Campaigns() {
             toast.error("Please fill in all required fields.");
             return;
         }
-
         setSubmitting(true);
         try {
             const token = localStorage.getItem("token");
             const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}`, {
                 method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(editForm)
             });
             const data = await res.json();
@@ -201,20 +210,96 @@ export default function Campaigns() {
         }
     };
 
-
-    // Styling constants matching Pathfinder theme
     const card = `rounded-[12px] border p-6 mb-8 transition-all duration-200 ${isDark ? "bg-[#1a1f24] border-gray-800 shadow-cyan-500/5" : "bg-white border-gray-200 shadow-sm"}`;
     const inputCls = `w-full px-4 py-2.5 rounded-[6px] border text-xs font-semibold tracking-wide outline-none transition-all ${isDark ? "bg-[#131619] border-gray-850 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`;
-    
-    // Formatting numbers
-    const formatCurrency = (val) => {
-        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+
+    const formatCurrency = (val) =>
+        new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val);
+
+    // ── Run-status pill + action buttons component ────────────────────────────
+    const RunStatusCell = ({ campaign }) => {
+        const status = campaign.runStatus || "idle";
+        const busy   = actionLoading[campaign._id];
+
+        // Status badge colours
+        const pillCls =
+            status === "running" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
+            status === "ended"   ? "bg-red-500/15 text-red-400 border-red-500/30" :
+                                   "bg-gray-500/15 text-gray-400 border-gray-500/30";
+
+        const pillLabel =
+            status === "running" ? "● RUNNING" :
+            status === "ended"   ? "■ ENDED"   : "○ IDLE";
+
+        // Tiny timestamp row helper
+        const TsRow = ({ icon: Icon, label, ts, color }) => ts ? (
+            <div className={`flex items-center gap-1 text-[9px] font-bold ${color} mt-0.5`}>
+                <Icon size={8} />
+                <span className="opacity-80">{label}:</span>
+                <span>{fmtDateTime(ts)}</span>
+            </div>
+        ) : null;
+
+        return (
+            <div className="flex flex-col gap-1.5 min-w-[180px]">
+                {/* Status badge */}
+                <span className={`self-start text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${pillCls}`}>
+                    {pillLabel}
+                </span>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-1">
+                    {/* START — only when idle */}
+                    {status === "idle" && (
+                        <button
+                            disabled={!!busy}
+                            onClick={() => handleRunAction(campaign._id, "start")}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-[4px] border border-emerald-500 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[9px] font-black uppercase active:scale-95 disabled:opacity-40"
+                        >
+                            {busy === "start" ? <FaSync className="animate-spin" size={8} /> : <FaPlay size={8} />}
+                            Start
+                        </button>
+                    )}
+
+                    {/* END — only when running */}
+                    {status === "running" && (
+                        <button
+                            disabled={!!busy}
+                            onClick={() => handleRunAction(campaign._id, "end")}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-[4px] border border-red-500 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[9px] font-black uppercase active:scale-95 disabled:opacity-40"
+                        >
+                            {busy === "end" ? <FaSync className="animate-spin" size={8} /> : <FaStop size={8} />}
+                            End
+                        </button>
+                    )}
+
+                    {/* RESTART — when running or ended */}
+                    {(status === "running" || status === "ended") && (
+                        <button
+                            disabled={!!busy}
+                            onClick={() => handleRunAction(campaign._id, "restart")}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-[4px] border border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-white transition-all text-[9px] font-black uppercase active:scale-95 disabled:opacity-40"
+                        >
+                            {busy === "restart" ? <FaSync className="animate-spin" size={8} /> : <FaRedo size={8} />}
+                            Restart
+                        </button>
+                    )}
+                </div>
+
+                {/* Timestamps beneath buttons */}
+                <div className="pl-0.5">
+                    <TsRow icon={FaClock} label="Started"    ts={campaign.lastStartedAt}   color="text-emerald-500" />
+                    <TsRow icon={FaClock} label="Ended"      ts={campaign.lastEndedAt}     color="text-red-400" />
+                    <TsRow icon={FaClock} label="Restarted"  ts={campaign.lastRestartedAt} color="text-amber-400" />
+                </div>
+            </div>
+        );
     };
 
     return (
         <Layout activePage="Lead Management">
             <div className={`p-4 md:p-8 min-h-screen ${isDark ? "bg-[#0f1215] text-white" : "bg-[#f4f7fe] text-gray-900"}`}>
-                
+
                 {/* Header Row */}
                 <div className="flex justify-between items-center mb-8">
                     <div className="flex items-center gap-4">
@@ -250,108 +335,34 @@ export default function Campaigns() {
                         <button
                             type="submit"
                             disabled={submitting}
-                            className={`px-6 py-2.5 rounded-[6px] text-xs font-bold uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer`}
+                            className="px-6 py-2.5 rounded-[6px] text-xs font-bold uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-md transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                         >
                             {submitting ? "Saving..." : "Add Campaign"}
                         </button>
                     </div>
-
                     <div className="space-y-4">
-                        {/* Row 1 */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <input
-                                    type="text"
-                                    name="adName"
-                                    required
-                                    value={form.adName}
-                                    onChange={handleChange}
-                                    placeholder="Ad Name e.g. NEET Repeater Lead Ad"
-                                    className={inputCls}
-                                />
-                            </div>
-                            <div>
-                                <select
-                                    name="platform"
-                                    required
-                                    value={form.platform}
-                                    onChange={handleChange}
-                                    className={inputCls}
-                                >
-                                    <option value="Facebook">Facebook</option>
-                                    <option value="Instagram">Instagram</option>
-                                    <option value="YouTube">YouTube</option>
-                                    <option value="Google Search">Google Search</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <div>
-                                <input
-                                    type="text"
-                                    name="creativeName"
-                                    value={form.creativeName}
-                                    onChange={handleChange}
-                                    placeholder="Creative / Video Name"
-                                    className={inputCls}
-                                />
-                            </div>
-                            <div>
-                                <input
-                                    type="text"
-                                    name="duration"
-                                    value={form.duration}
-                                    onChange={handleChange}
-                                    placeholder="Duration e.g. 7 Days"
-                                    className={inputCls}
-                                />
-                            </div>
+                            <input type="text" name="adName" required value={form.adName} onChange={handleChange}
+                                placeholder="Ad Name e.g. NEET Repeater Lead Ad" className={inputCls} />
+                            <select name="platform" required value={form.platform} onChange={handleChange} className={inputCls}>
+                                <option value="Facebook">Facebook</option>
+                                <option value="Instagram">Instagram</option>
+                                <option value="YouTube">YouTube</option>
+                                <option value="Google Search">Google Search</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <input type="text" name="creativeName" value={form.creativeName} onChange={handleChange}
+                                placeholder="Creative / Video Name" className={inputCls} />
+                            <input type="text" name="duration" value={form.duration} onChange={handleChange}
+                                placeholder="Duration e.g. 7 Days" className={inputCls} />
                         </div>
-
-                        {/* Row 2 */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <input
-                                    type="number"
-                                    name="budget"
-                                    required
-                                    value={form.budget}
-                                    onChange={handleChange}
-                                    placeholder="Budget ₹"
-                                    className={inputCls}
-                                />
-                            </div>
-                            <div>
-                                <input
-                                    type="number"
-                                    name="cpc"
-                                    step="0.01"
-                                    required
-                                    value={form.cpc}
-                                    onChange={handleChange}
-                                    placeholder="CPC ₹"
-                                    className={inputCls}
-                                />
-                            </div>
-                            <div>
-                                <input
-                                    type="date"
-                                    name="startDate"
-                                    required
-                                    value={form.startDate}
-                                    onChange={handleChange}
-                                    className={inputCls}
-                                />
-                            </div>
-                            <div>
-                                <input
-                                    type="date"
-                                    name="endDate"
-                                    required
-                                    value={form.endDate}
-                                    onChange={handleChange}
-                                    className={inputCls}
-                                />
-                            </div>
+                            <input type="number" name="budget" required value={form.budget} onChange={handleChange}
+                                placeholder="Budget ₹" className={inputCls} />
+                            <input type="number" name="cpc" step="0.01" required value={form.cpc} onChange={handleChange}
+                                placeholder="CPC ₹" className={inputCls} />
+                            <input type="date" name="startDate" required value={form.startDate} onChange={handleChange} className={inputCls} />
+                            <input type="date" name="endDate" required value={form.endDate} onChange={handleChange} className={inputCls} />
                         </div>
                     </div>
                 </form>
@@ -361,7 +372,6 @@ export default function Campaigns() {
                     <h2 className={`text-lg font-black uppercase tracking-tight mb-6 pb-4 border-b border-gray-800/10 ${isDark ? "text-white" : "text-gray-800"}`}>
                         Running / Completed Ads
                     </h2>
-
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
@@ -375,19 +385,21 @@ export default function Campaigns() {
                                     <th className="pb-3 px-2 text-right">LEADS</th>
                                     <th className="pb-3 px-2 text-right">CPL</th>
                                     <th className="pb-3 px-2 text-right">ADMISSION</th>
+                                    {/* NEW STATUS COLUMN */}
+                                    <th className="pb-3 px-2">STATUS / RUN</th>
                                     <th className="pb-3 pl-2 text-center">ACTION</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="10" className="text-center py-8">
+                                        <td colSpan="11" className="text-center py-8">
                                             <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
                                         </td>
                                     </tr>
                                 ) : campaigns.length === 0 ? (
                                     <tr>
-                                        <td colSpan="10" className="text-center py-8 font-semibold opacity-40 text-xs uppercase tracking-widest">
+                                        <td colSpan="11" className="text-center py-8 font-semibold opacity-40 text-xs uppercase tracking-widest">
                                             No Campaigns Registered
                                         </td>
                                     </tr>
@@ -396,21 +408,28 @@ export default function Campaigns() {
                                         const cpl = c.leads > 0 ? c.budget / c.leads : 0;
                                         return (
                                             <tr key={c._id} className={`text-xs font-semibold tracking-wide border-b hover:bg-black/5 dark:hover:bg-white/5 transition-all ${isDark ? "border-gray-800 text-gray-300" : "border-gray-100 text-gray-700"}`}>
-                                                <td 
+                                                <td
                                                     onClick={() => handleOpenViewEdit(c)}
-                                                    className="py-4 pr-2 font-bold max-w-[200px] truncate cursor-pointer text-blue-500 hover:underline hover:text-blue-600 transition-all" 
+                                                    className="py-4 pr-2 font-bold max-w-[160px] truncate cursor-pointer text-blue-500 hover:underline hover:text-blue-600 transition-all"
                                                     title={c.adName}
                                                 >
                                                     {c.adName}
                                                 </td>
                                                 <td className="py-4 px-2">{c.platform}</td>
-                                                <td className="py-4 px-2 max-w-[150px] truncate" title={c.creativeName || "—"}>{c.creativeName || "—"}</td>
+                                                <td className="py-4 px-2 max-w-[130px] truncate" title={c.creativeName || "—"}>{c.creativeName || "—"}</td>
                                                 <td className="py-4 px-2">{c.duration || "—"}</td>
                                                 <td className="py-4 px-2 text-right font-mono">{formatCurrency(c.budget)}</td>
                                                 <td className="py-4 px-2 text-right font-mono">₹{c.cpc.toFixed(2)}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-cyan-500">{c.leads}</td>
                                                 <td className="py-4 px-2 text-right font-mono">{formatCurrency(cpl)}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-green-500">{c.admission}</td>
+
+                                                {/* ── STATUS / RUN COLUMN ── */}
+                                                <td className="py-4 px-2">
+                                                    <RunStatusCell campaign={c} />
+                                                </td>
+
+                                                {/* ACTION COLUMN */}
                                                 <td className="py-4 pl-2 text-center">
                                                     <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                                         <button
@@ -448,180 +467,139 @@ export default function Campaigns() {
                     </div>
                 </div>
             </div>
+
             {/* ── View & Edit Modal ─────────────────────────────────────────── */}
             <Modal
                 isOpen={!!selectedCampaign}
                 onClose={() => setSelectedCampaign(null)}
-                title={`Campaign Details & Configuration`}
+                title="Campaign Details & Configuration"
                 isDarkMode={isDark}
             >
                 {selectedCampaign && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                        {/* Left Column: View Details */}
-                        <div className={`p-5 rounded-xl border ${isDark ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-250 shadow-sm'}`}>
+                        {/* Left: View Details */}
+                        <div className={`p-5 rounded-xl border ${isDark ? "bg-[#131619] border-gray-800" : "bg-gray-50 border-gray-250 shadow-sm"}`}>
                             <h4 className="text-sm font-black uppercase tracking-wider text-cyan-500 mb-4 flex items-center gap-2">
                                 <FaBullhorn /> Ad Metrics & Details
                             </h4>
                             <div className="space-y-4 text-xs">
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Ad Name</span>
-                                    <span className="font-bold">{selectedCampaign.adName}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Platform</span>
-                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
-                                        selectedCampaign.platform === 'Facebook' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
-                                        selectedCampaign.platform === 'Instagram' ? 'bg-pink-500/15 text-pink-400 border border-pink-500/30' :
-                                        selectedCampaign.platform === 'YouTube' ? 'bg-red-500/15 text-red-400 border border-red-500/30' :
-                                        selectedCampaign.platform === 'Google Search' ? 'bg-green-500/15 text-green-400 border border-green-500/30' :
-                                        'bg-gray-500/15 text-gray-400 border border-gray-500/30'
-                                    }`}>{selectedCampaign.platform}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Creative Name</span>
-                                    <span className="font-bold">{selectedCampaign.creativeName || "—"}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Duration</span>
-                                    <span className="font-bold">{selectedCampaign.duration || "—"}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Budget</span>
-                                    <span className="font-mono font-bold">{formatCurrency(selectedCampaign.budget)}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">CPC</span>
-                                    <span className="font-mono font-bold">₹{selectedCampaign.cpc.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Leads</span>
-                                    <span className="font-bold text-cyan-500">{selectedCampaign.leads}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">CPL</span>
-                                    <span className="font-mono font-bold">{formatCurrency(selectedCampaign.leads > 0 ? selectedCampaign.budget / selectedCampaign.leads : 0)}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Admissions</span>
-                                    <span className="font-bold text-green-500">{selectedCampaign.admission}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">Start Date</span>
-                                    <span className="font-bold">{new Date(selectedCampaign.startDate).toLocaleDateString("en-IN")}</span>
-                                </div>
-                                <div className="flex justify-between border-b pb-2 border-gray-800/10">
-                                    <span className="font-semibold opacity-65 uppercase tracking-wider">End Date</span>
-                                    <span className="font-bold">{new Date(selectedCampaign.endDate).toLocaleDateString("en-IN")}</span>
-                                </div>
+                                {[
+                                    ["Ad Name",      selectedCampaign.adName],
+                                    ["Platform",     selectedCampaign.platform],
+                                    ["Creative",     selectedCampaign.creativeName || "—"],
+                                    ["Duration",     selectedCampaign.duration || "—"],
+                                    ["Budget",       formatCurrency(selectedCampaign.budget)],
+                                    ["CPC",          `₹${selectedCampaign.cpc.toFixed(2)}`],
+                                    ["Leads",        selectedCampaign.leads],
+                                    ["CPL",          formatCurrency(selectedCampaign.leads > 0 ? selectedCampaign.budget / selectedCampaign.leads : 0)],
+                                    ["Admissions",   selectedCampaign.admission],
+                                    ["Start Date",   new Date(selectedCampaign.startDate).toLocaleDateString("en-IN")],
+                                    ["End Date",     new Date(selectedCampaign.endDate).toLocaleDateString("en-IN")],
+                                    ["Run Status",   (selectedCampaign.runStatus || "idle").toUpperCase()],
+                                ].map(([label, val]) => (
+                                    <div key={label} className="flex justify-between border-b pb-2 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider">{label}</span>
+                                        <span className="font-bold">{val}</span>
+                                    </div>
+                                ))}
+                                {/* Run timestamps */}
+                                {selectedCampaign.lastStartedAt && (
+                                    <div className="flex justify-between border-b pb-2 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider text-emerald-500">Last Started</span>
+                                        <span className="font-bold text-emerald-400">{fmtDateTime(selectedCampaign.lastStartedAt)}</span>
+                                    </div>
+                                )}
+                                {selectedCampaign.lastEndedAt && (
+                                    <div className="flex justify-between border-b pb-2 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider text-red-400">Last Ended</span>
+                                        <span className="font-bold text-red-400">{fmtDateTime(selectedCampaign.lastEndedAt)}</span>
+                                    </div>
+                                )}
+                                {selectedCampaign.lastRestartedAt && (
+                                    <div className="flex justify-between border-b pb-2 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider text-amber-400">Last Restarted</span>
+                                        <span className="font-bold text-amber-400">{fmtDateTime(selectedCampaign.lastRestartedAt)}</span>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Full run log */}
+                            {selectedCampaign.runLog && selectedCampaign.runLog.length > 0 && (
+                                <div className="mt-4">
+                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Run History</p>
+                                    <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                                        {[...selectedCampaign.runLog].reverse().map((entry, i) => (
+                                            <div key={i} className={`flex justify-between text-[10px] font-semibold px-2 py-1 rounded ${isDark ? "bg-black/20" : "bg-gray-100"}`}>
+                                                <span className={
+                                                    entry.action === "start"   ? "text-emerald-400" :
+                                                    entry.action === "end"     ? "text-red-400"     : "text-amber-400"
+                                                }>
+                                                    {entry.action.toUpperCase()}
+                                                </span>
+                                                <span className="opacity-60">{fmtDateTime(entry.timestamp)}</span>
+                                                <span className="opacity-50">{entry.by}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Right Column: Edit Form */}
+                        {/* Right: Edit Form */}
                         <form onSubmit={handleUpdate} className="space-y-4">
                             <h4 className="text-sm font-black uppercase tracking-wider text-blue-500 mb-4">
                                 Update Ad Configuration
                             </h4>
                             <div className="space-y-3">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Ad Name</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={editForm.adName}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, adName: e.target.value }))}
-                                        className={inputCls}
-                                    />
-                                </div>
+                                {[
+                                    { label: "Ad Name",       key: "adName",       type: "text",   required: true },
+                                    { label: "Creative Name", key: "creativeName", type: "text" },
+                                    { label: "Duration",      key: "duration",     type: "text" },
+                                    { label: "Budget ₹",      key: "budget",       type: "number", required: true },
+                                    { label: "CPC ₹",         key: "cpc",          type: "number", step: "0.01", required: true },
+                                ].map(({ label, key, type, required, step }) => (
+                                    <div key={key}>
+                                        <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">{label}</label>
+                                        <input
+                                            type={type} required={required} step={step}
+                                            value={editForm[key]}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, [key]: e.target.value }))}
+                                            className={inputCls}
+                                        />
+                                    </div>
+                                ))}
                                 <div>
                                     <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Platform</label>
-                                    <select
-                                        required
-                                        value={editForm.platform}
+                                    <select required value={editForm.platform}
                                         onChange={(e) => setEditForm(prev => ({ ...prev, platform: e.target.value }))}
-                                        className={inputCls}
-                                    >
-                                        <option value="Facebook">Facebook</option>
-                                        <option value="Instagram">Instagram</option>
-                                        <option value="YouTube">YouTube</option>
-                                        <option value="Google Search">Google Search</option>
-                                        <option value="Other">Other</option>
+                                        className={inputCls}>
+                                        {["Facebook","Instagram","YouTube","Google Search","Other"].map(p => (
+                                            <option key={p} value={p}>{p}</option>
+                                        ))}
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Creative Name</label>
-                                    <input
-                                        type="text"
-                                        value={editForm.creativeName}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, creativeName: e.target.value }))}
-                                        className={inputCls}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Duration</label>
-                                    <input
-                                        type="text"
-                                        value={editForm.duration}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, duration: e.target.value }))}
-                                        className={inputCls}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Budget ₹</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        value={editForm.budget}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, budget: e.target.value }))}
-                                        className={inputCls}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">CPC ₹</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        required
-                                        value={editForm.cpc}
-                                        onChange={(e) => setEditForm(prev => ({ ...prev, cpc: e.target.value }))}
-                                        className={inputCls}
-                                    />
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
                                         <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Start Date</label>
-                                        <input
-                                            type="date"
-                                            required
-                                            value={editForm.startDate}
+                                        <input type="date" required value={editForm.startDate}
                                             onChange={(e) => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
-                                            className={inputCls}
-                                        />
+                                            className={inputCls} />
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">End Date</label>
-                                        <input
-                                            type="date"
-                                            required
-                                            value={editForm.endDate}
+                                        <input type="date" required value={editForm.endDate}
                                             onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
-                                            className={inputCls}
-                                        />
+                                            className={inputCls} />
                                     </div>
                                 </div>
                             </div>
                             <div className="flex justify-end gap-2 pt-4 border-t border-gray-800/10">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedCampaign(null)}
-                                    className={`px-4 py-2 rounded-[6px] text-xs font-bold uppercase tracking-wider border transition-all active:scale-95 cursor-pointer ${isDark ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'}`}
-                                >
+                                <button type="button" onClick={() => setSelectedCampaign(null)}
+                                    className={`px-4 py-2 rounded-[6px] text-xs font-bold uppercase tracking-wider border transition-all active:scale-95 cursor-pointer ${isDark ? "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700" : "bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200"}`}>
                                     Cancel
                                 </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="px-6 py-2 rounded-[6px] text-xs font-bold uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
-                                >
+                                <button type="submit" disabled={submitting}
+                                    className="px-6 py-2 rounded-[6px] text-xs font-bold uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 cursor-pointer">
                                     {submitting ? "Saving..." : "Save Changes"}
                                 </button>
                             </div>
@@ -637,18 +615,14 @@ const Modal = ({ isOpen, onClose, title, children, isDarkMode }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div
-                className={`relative w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-[#1a1f24] border border-gray-700 text-white' : 'bg-white border border-gray-200 text-gray-900'}`}
-            >
-                <div className={`flex items-center justify-between p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-150'}`}>
-                    <h3 className={`text-lg font-black tracking-tight`}>{title}</h3>
-                    <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}>
+            <div className={`relative w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ${isDarkMode ? "bg-[#1a1f24] border border-gray-700 text-white" : "bg-white border border-gray-200 text-gray-900"}`}>
+                <div className={`flex items-center justify-between p-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-150"}`}>
+                    <h3 className="text-lg font-black tracking-tight">{title}</h3>
+                    <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${isDarkMode ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"}`}>
                         <FaTimes size={16} />
                     </button>
                 </div>
-                <div className="p-6 overflow-y-auto">
-                    {children}
-                </div>
+                <div className="p-6 overflow-y-auto">{children}</div>
             </div>
         </div>
     );

@@ -116,9 +116,6 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
     const users = await User.find(query)
       .populate("centres", "centreName enterCode")
       .populate("assignedScript", "scriptName scriptContent")
-      .populate("createdBy", "name")
-      .populate("updatedBy", "name")
-      .populate("deactivatedBy", "name")
       .select("-password")
       .lean();
 
@@ -131,17 +128,47 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
         mobNum: user.mobNum || ""
       }));
     } else {
+      const userIds = users.map(u => u._id);
+      const employees = await Employee.find({ user: { $in: userIds } }).lean();
+      const employeeMap = {};
+      employees.forEach(emp => {
+        if (emp.user) {
+          employeeMap[emp.user.toString()] = emp;
+        }
+      });
+
+      // Batch load audit users (createdBy, updatedBy, deactivatedBy) to avoid populate queries
+      const auditUserIds = new Set();
+      users.forEach(u => {
+        if (u.createdBy) auditUserIds.add(u.createdBy.toString());
+        if (u.updatedBy) auditUserIds.add(u.updatedBy.toString());
+        if (u.deactivatedBy) auditUserIds.add(u.deactivatedBy.toString());
+      });
+
+      const auditUsers = await User.find({ _id: { $in: Array.from(auditUserIds) } }).select("name").lean();
+      const auditUserMap = {};
+      auditUsers.forEach(au => {
+        auditUserMap[au._id.toString()] = au;
+      });
+
       enrichedUsers = await Promise.all(users.map(async (user) => {
-        const employee = await Employee.findOne({ user: user._id });
+        const employee = employeeMap[user._id.toString()];
         let profileImageUrl = null;
         if (employee?.profileImage) {
           profileImageUrl = await getSignedFileUrl(employee.profileImage);
         }
 
+        const createdByUser = user.createdBy ? auditUserMap[user.createdBy.toString()] : null;
+        const updatedByUser = user.updatedBy ? auditUserMap[user.updatedBy.toString()] : null;
+        const deactivatedByUser = user.deactivatedBy ? auditUserMap[user.deactivatedBy.toString()] : null;
+
         return {
           ...user,
           profileImage: profileImageUrl,
-          mobNum: user.mobNum || employee?.phoneNumber
+          mobNum: user.mobNum || employee?.phoneNumber,
+          createdBy: createdByUser ? { _id: createdByUser._id, name: createdByUser.name } : null,
+          updatedBy: updatedByUser ? { _id: updatedByUser._id, name: updatedByUser.name } : null,
+          deactivatedBy: deactivatedByUser ? { _id: deactivatedByUser._id, name: deactivatedByUser.name } : null
         };
       }));
     }

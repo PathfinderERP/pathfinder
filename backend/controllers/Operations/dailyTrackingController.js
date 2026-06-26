@@ -1958,11 +1958,17 @@ export const getDailyCallsReport = async (req, res) => {
             { $match: matchStage },
             { $unwind: "$followUps" },
             { $match: followUpMatchStage },
+            {
+                $addFields: {
+                    "followUps.updatedByLower": { $toLower: "$followUps.updatedBy" }
+                }
+            },
             { $group: {
                 _id: {
                     centre: "$centre",
-                    userName: "$followUps.updatedBy"
+                    userName: "$followUps.updatedByLower"
                 },
+                originalUserName: { $first: "$followUps.updatedBy" },
                 totalCalls: { $sum: 1 },
                 hot: {
                     $sum: {
@@ -1992,7 +1998,8 @@ export const getDailyCallsReport = async (req, res) => {
             } }
         ]);
 
-        const userNames = aggregatedCalls.map(item => item._id.userName).filter(Boolean);
+        // _id.userName is lowercase key; originalUserName is the first-seen raw-case name
+        const userNames = aggregatedCalls.map(item => item.originalUserName).filter(Boolean);
         const users = await User.find({ name: { $in: userNames } }).select('name role employeeId isActive').lean();
         
         // Sort users so that active users come last, meaning they overwrite inactive ones in the map.
@@ -2003,16 +2010,71 @@ export const getDailyCallsReport = async (req, res) => {
             userMap[u.name.toLowerCase()] = { id: u._id, role: u.role, employeeId: u.employeeId };
         });
 
+        // Fetch walk-ins and admissions in the date filter
+        const walkInMap = {};
+        const walkIns = await LeadManagement.find({
+            isWalkIn: true,
+            walkInDate: dateFilter,
+            walkInBy: { $exists: true, $ne: null }
+        }).select('walkInBy centre').lean();
+
+        walkIns.forEach(wi => {
+            const uId = wi.walkInBy.toString();
+            const cId = wi.centre?.toString();
+            if (uId && cId) {
+                const key = `${uId}_${cId}`;
+                walkInMap[key] = (walkInMap[key] || 0) + 1;
+            }
+        });
+
+        const centreNameToIdMap = {};
+        centres.forEach(c => {
+            centreNameToIdMap[c.centreName.toLowerCase()] = c._id.toString();
+        });
+
+        const admissionMap = {};
+        const [admissions, boardAdmissions] = await Promise.all([
+            Admission.find({
+                createdAt: dateFilter,
+                createdBy: { $exists: true, $ne: null }
+            }).select('createdBy centre').lean(),
+            BoardCourseAdmission.find({
+                createdAt: dateFilter,
+                createdBy: { $exists: true, $ne: null }
+            }).select('createdBy centre').lean()
+        ]);
+
+        const addAdmissionToMap = (adm) => {
+            const uId = adm.createdBy.toString();
+            const cName = adm.centre;
+            if (uId && cName) {
+                const cId = centreNameToIdMap[cName.toLowerCase()];
+                if (cId) {
+                    const key = `${uId}_${cId}`;
+                    admissionMap[key] = (admissionMap[key] || 0) + 1;
+                }
+            }
+        };
+
+        admissions.forEach(addAdmissionToMap);
+        boardAdmissions.forEach(addAdmissionToMap);
+
         const reportData = aggregatedCalls.map(item => {
             const cId = item._id.centre?.toString();
             const cName = centreMap[cId] || "Unknown Centre";
-            const uName = item._id.userName || "System";
-            const uDetails = userMap[uName.toLowerCase()] || {};
+            // Use lowercase key for userMap lookup; display name from originalUserName
+            const uNameLower = item._id.userName || "";
+            const uName = item.originalUserName || uNameLower || "System";
+            const uDetails = userMap[uNameLower] || {};
 
-            const isMatchLoggedInUser = req.user && uName.toLowerCase() === req.user.name.toLowerCase();
+            const isMatchLoggedInUser = req.user && uNameLower === req.user.name.toLowerCase();
             const finalUserId = isMatchLoggedInUser ? req.user._id : (uDetails.id || null);
             const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || "N/A");
             const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || "N/A");
+
+            const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
+            const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;
+            const admissionCount = lookupKey ? (admissionMap[lookupKey] || 0) : 0;
 
             return {
                 centreId: cId,
@@ -2026,7 +2088,9 @@ export const getDailyCallsReport = async (req, res) => {
                 warm: item.warm,
                 cold: item.cold,
                 neutral: item.neutral,
-                invalid: item.invalid
+                invalid: item.invalid,
+                walkInCount,
+                admissionCount
             };
         });
 
@@ -2101,11 +2165,17 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
             { $match: matchStage },
             { $unwind: "$followUps" },
             { $match: followUpMatchStage },
+            {
+                $addFields: {
+                    "followUps.updatedByLower": { $toLower: "$followUps.updatedBy" }
+                }
+            },
             { $group: {
                 _id: {
                     centre: "$centre",
-                    userName: "$followUps.updatedBy"
+                    userName: "$followUps.updatedByLower"
                 },
+                originalUserName: { $first: "$followUps.updatedBy" },
                 totalCalls: { $sum: 1 },
                 hot: {
                     $sum: {
@@ -2135,7 +2205,7 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
             } }
         ]);
 
-        const userNames = aggregatedCalls.map(item => item._id.userName).filter(Boolean);
+        const userNames = aggregatedCalls.map(item => item.originalUserName).filter(Boolean);
         const users = await User.find({ name: { $in: userNames } }).select('name role employeeId isActive').lean();
         
         // Sort users so that active users come last, meaning they overwrite inactive ones in the map.
@@ -2143,18 +2213,73 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
 
         const userMap = {};
         users.forEach(u => {
-            userMap[u.name.toLowerCase()] = { role: u.role, employeeId: u.employeeId };
+            userMap[u.name.toLowerCase()] = { id: u._id, role: u.role, employeeId: u.employeeId };
         });
+
+        // Fetch walk-ins and admissions in the date filter
+        const walkInMap = {};
+        const walkIns = await LeadManagement.find({
+            isWalkIn: true,
+            walkInDate: dateFilter,
+            walkInBy: { $exists: true, $ne: null }
+        }).select('walkInBy centre').lean();
+
+        walkIns.forEach(wi => {
+            const uId = wi.walkInBy.toString();
+            const cId = wi.centre?.toString();
+            if (uId && cId) {
+                const key = `${uId}_${cId}`;
+                walkInMap[key] = (walkInMap[key] || 0) + 1;
+            }
+        });
+
+        const centreNameToIdMap = {};
+        centres.forEach(c => {
+            centreNameToIdMap[c.centreName.toLowerCase()] = c._id.toString();
+        });
+
+        const admissionMap = {};
+        const [admissions, boardAdmissions] = await Promise.all([
+            Admission.find({
+                createdAt: dateFilter,
+                createdBy: { $exists: true, $ne: null }
+            }).select('createdBy centre').lean(),
+            BoardCourseAdmission.find({
+                createdAt: dateFilter,
+                createdBy: { $exists: true, $ne: null }
+            }).select('createdBy centre').lean()
+        ]);
+
+        const addAdmissionToMap = (adm) => {
+            const uId = adm.createdBy.toString();
+            const cName = adm.centre;
+            if (uId && cName) {
+                const cId = centreNameToIdMap[cName.toLowerCase()];
+                if (cId) {
+                    const key = `${uId}_${cId}`;
+                    admissionMap[key] = (admissionMap[key] || 0) + 1;
+                }
+            }
+        };
+
+        admissions.forEach(addAdmissionToMap);
+        boardAdmissions.forEach(addAdmissionToMap);
 
         const sheetData = aggregatedCalls.map(item => {
             const cId = item._id.centre?.toString();
             const cName = centreMap[cId] || "Unknown Centre";
-            const uName = item._id.userName || "System";
-            const uDetails = userMap[uName.toLowerCase()] || {};
+            const uNameLower = item._id.userName || "";
+            const uName = item.originalUserName || uNameLower || "System";
+            const uDetails = userMap[uNameLower] || {};
 
-            const isMatchLoggedInUser = req.user && uName.toLowerCase() === req.user.name.toLowerCase();
+            const isMatchLoggedInUser = req.user && uNameLower === req.user.name.toLowerCase();
+            const finalUserId = isMatchLoggedInUser ? req.user._id : (uDetails.id || null);
             const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || "N/A");
             const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || "N/A");
+
+            const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
+            const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;
+            const admissionCount = lookupKey ? (admissionMap[lookupKey] || 0) : 0;
 
             return {
                 "Centre": cName,
@@ -2166,6 +2291,8 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
                 "Cold Leads": item.cold,
                 "Neutral Leads": item.neutral,
                 "Inactive/Invalid Leads": item.invalid,
+                "Walk Ins": walkInCount,
+                "Admissions": admissionCount,
                 "Total Calls": item.totalCalls
             };
         });
@@ -2328,6 +2455,145 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
     } catch (error) {
         console.error("EXPORT_DAILY_CALLS_REPORT_BULK_ERROR:", error);
         res.status(500).json({ message: "Failed to export bulk calling report", error: error.message });
+    }
+};
+
+export const getDailyUserWalkIns = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { fromDate, toDate, centerId } = req.query;
+
+        let startDate = new Date();
+        let endDate = new Date();
+        if (fromDate && toDate) {
+            startDate = new Date(fromDate);
+            endDate = new Date(toDate);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        const query = {
+            walkInBy: userId,
+            isWalkIn: true,
+            walkInDate: dateFilter
+        };
+        if (centerId) {
+            query.centre = centerId;
+        }
+
+        const walkIns = await LeadManagement.find(query)
+            .populate('className', 'name')
+            .populate('board', 'boardName')
+            .populate('course', 'courseName')
+            .populate('centre')
+            .lean();
+
+        const data = walkIns.map(lead => ({
+            leadId: lead._id,
+            studentName: lead.name,
+            phoneNumber: lead.phoneNumber || '-',
+            className: lead.className?.name || '-',
+            boardName: lead.board?.boardName || '-',
+            schoolName: lead.schoolName || '-',
+            courseName: lead.course?.courseName || lead.courseText || '-',
+            leadType: lead.leadType || 'UNTAGGED',
+            remarks: lead.remarks || '',
+            date: lead.walkInDate || lead.createdAt
+        }));
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("GET_DAILY_USER_WALKINS_ERROR:", error);
+        res.status(500).json({ message: "Failed to fetch user walk-ins", error: error.message });
+    }
+};
+
+export const getDailyUserAdmissions = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { fromDate, toDate, centerId } = req.query;
+
+        let startDate = new Date();
+        let endDate = new Date();
+        if (fromDate && toDate) {
+            startDate = new Date(fromDate);
+            endDate = new Date(toDate);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        let center = null;
+        if (centerId) {
+            center = await CentreSchema.findById(centerId).lean();
+        }
+
+        const normalAdmQuery = { createdBy: userId, createdAt: dateFilter };
+        const boardAdmQuery = { createdBy: userId, createdAt: dateFilter };
+
+        if (center) {
+            normalAdmQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
+            boardAdmQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
+        }
+
+        const [normalAdmissions, boardAdmissions] = await Promise.all([
+            Admission.find(normalAdmQuery)
+                .populate('student')
+                .populate('course', 'courseName')
+                .populate('class', 'name')
+                .populate('board', 'boardName')
+                .lean(),
+            BoardCourseAdmission.find(boardAdmQuery)
+                .populate('studentId')
+                .populate('boardId', 'boardName boardCourse')
+                .lean()
+        ]);
+
+        const data = [];
+
+        normalAdmissions.forEach(adm => {
+            const studentDetails = adm.student?.studentsDetails?.[0];
+            data.push({
+                admissionId: adm._id,
+                studentName: studentDetails?.studentName || 'Unknown Student',
+                admissionNumber: adm.admissionNumber || 'N/A',
+                admissionType: 'NORMAL',
+                className: adm.class?.name || '-',
+                boardName: adm.board?.boardName || '-',
+                courseName: adm.course?.courseName || '-',
+                totalFees: adm.totalFees || 0,
+                downPayment: adm.downPayment || 0,
+                remainingAmount: adm.remainingAmount || 0,
+                remarks: adm.remarks || '',
+                date: adm.createdAt
+            });
+        });
+
+        boardAdmissions.forEach(adm => {
+            const studentDetails = adm.studentId?.studentsDetails?.[0];
+            data.push({
+                admissionId: adm._id,
+                studentName: studentDetails?.studentName || 'Unknown Student',
+                admissionNumber: adm.admissionNumber || 'N/A',
+                admissionType: 'BOARD',
+                className: adm.lastClass || '-',
+                boardName: adm.boardId?.boardName || '-',
+                courseName: adm.boardCourseName || '-',
+                totalFees: adm.totalExpectedAmount || 0,
+                downPayment: adm.totalPaidAmount || 0,
+                remainingAmount: (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0),
+                remarks: adm.remarks || '',
+                date: adm.createdAt
+            });
+        });
+
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("GET_DAILY_USER_ADMISSIONS_ERROR:", error);
+        res.status(500).json({ message: "Failed to fetch user admissions", error: error.message });
     }
 };
 

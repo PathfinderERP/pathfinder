@@ -148,3 +148,48 @@ export const updateCampaign = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+// ── Run lifecycle: start / end / restart ────────────────────────────────────
+export const runCampaignAction = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { action } = req.body; // 'start' | 'end' | 'restart'
+
+        if (!['start', 'end', 'restart'].includes(action)) {
+            return res.status(400).json({ message: "Invalid action. Must be start, end, or restart." });
+        }
+
+        const campaign = await Campaign.findById(id);
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found." });
+        }
+
+        const now = new Date();
+        const userName = req.user?.name || req.user?.email || "Unknown";
+
+        // Determine new runStatus
+        let newStatus;
+        if (action === 'start')    newStatus = 'running';
+        else if (action === 'end') newStatus = 'ended';
+        else                       newStatus = 'running'; // restart → running again
+
+        // Update convenience timestamp fields
+        const update = {
+            runStatus: newStatus,
+            $push: { runLog: { action, timestamp: now, by: userName } }
+        };
+        if (action === 'start')   update.lastStartedAt   = now;
+        if (action === 'end')     update.lastEndedAt     = now;
+        if (action === 'restart') update.lastRestartedAt = now;
+
+        const updated = await Campaign.findByIdAndUpdate(id, update, { new: true });
+
+        res.status(200).json({
+            message: `Campaign ${action}ed successfully.`,
+            campaign: updated
+        });
+    } catch (err) {
+        console.error("Error running campaign action:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};

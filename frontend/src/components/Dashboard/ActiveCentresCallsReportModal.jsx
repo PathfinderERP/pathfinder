@@ -136,13 +136,24 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
             setLoadingPopup(true);
             const token = localStorage.getItem("token");
             const apiUrl = import.meta.env.VITE_API_URL;
-            const response = await fetch(
-                `${apiUrl}/operations/daily-tracking/user/${row.userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            let endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
+            if (leadType === 'WALK_IN') {
+                endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}/walk-ins?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
+            } else if (leadType === 'ADMISSION') {
+                endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}/admissions?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
+            }
+            const response = await fetch(endpoint, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             const result = await response.json();
             if (response.ok) {
-                setPopupCallsData(result.callDetails || []);
+                if (leadType === 'WALK_IN' || leadType === 'ADMISSION') {
+                    setPopupCallsData(result || []);
+                } else {
+                    setPopupCallsData(result.callDetails || []);
+                }
             } else {
                 toast.error(result.message || "Failed to fetch user activity details");
             }
@@ -201,9 +212,11 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
         acc.cold += curr.cold || 0;
         acc.neutral += curr.neutral || 0;
         acc.invalid += curr.invalid || 0;
+        acc.walkInCount += curr.walkInCount || 0;
+        acc.admissionCount += curr.admissionCount || 0;
         acc.totalCalls += curr.totalCalls || 0;
         return acc;
-    }, { hot: 0, warm: 0, cold: 0, neutral: 0, invalid: 0, totalCalls: 0 });
+    }, { hot: 0, warm: 0, cold: 0, neutral: 0, invalid: 0, walkInCount: 0, admissionCount: 0, totalCalls: 0 });
 
     const handleExportSummary = async () => {
         try {
@@ -278,11 +291,12 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
         const matchSearch = popupSearchQuery === '' ||
             (call.studentName || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
             (call.phoneNumber || '').includes(popupSearchQuery) ||
+            (call.admissionNumber || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
             (call.feedback || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
             (call.remarks || '').toLowerCase().includes(popupSearchQuery.toLowerCase());
         
         let matchLead = true;
-        if (selectedLeadType !== 'ALL') {
+        if (selectedLeadType !== 'ALL' && selectedLeadType !== 'WALK_IN' && selectedLeadType !== 'ADMISSION') {
             const key = (call.leadType || '').toUpperCase();
             if (selectedLeadType === 'HOT') matchLead = key.includes('HOT');
             else if (selectedLeadType === 'WARM') matchLead = key.includes('WARM');
@@ -460,6 +474,8 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         <th className={`p-4 font-semibold text-center text-blue-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Cold</th>
                                         <th className={`p-4 font-semibold text-center text-purple-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Neutral</th>
                                         <th className={`p-4 font-semibold text-center text-gray-450 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Inactive</th>
+                                        <th className={`p-4 font-semibold text-center text-emerald-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Walk In</th>
+                                        <th className={`p-4 font-semibold text-center text-indigo-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Admission</th>
                                         <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Total Calls</th>
                                     </tr>
                                 </thead>
@@ -516,6 +532,20 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                     <span className="text-gray-650 opacity-40">{row.invalid}</span>
                                                 )}
                                             </td>
+                                            <td className="p-4 text-center font-bold text-emerald-500">
+                                                {row.walkInCount > 0 ? (
+                                                    <span onClick={() => handleCountClick(row, 'WALK_IN')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.walkInCount}</span>
+                                                ) : (
+                                                    <span className="text-gray-650 opacity-40">{row.walkInCount || 0}</span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-center font-bold text-indigo-500">
+                                                {row.admissionCount > 0 ? (
+                                                    <span onClick={() => handleCountClick(row, 'ADMISSION')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.admissionCount}</span>
+                                                ) : (
+                                                    <span className="text-gray-650 opacity-40">{row.admissionCount || 0}</span>
+                                                )}
+                                            </td>
                                             <td className="p-4 text-center font-extrabold text-cyan-400">
                                                 {row.totalCalls > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'ALL')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.totalCalls}</span>
@@ -533,6 +563,8 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         <td className="p-4 text-center text-blue-500 font-extrabold">{totals.cold}</td>
                                         <td className="p-4 text-center text-purple-500 font-extrabold">{totals.neutral}</td>
                                         <td className="p-4 text-center text-gray-450 font-extrabold">{totals.invalid}</td>
+                                        <td className="p-4 text-center text-emerald-500 font-extrabold">{totals.walkInCount}</td>
+                                        <td className="p-4 text-center text-indigo-500 font-extrabold">{totals.admissionCount}</td>
                                         <td className="p-4 text-center text-cyan-400 font-extrabold">{totals.totalCalls}</td>
                                     </tr>
                                 </tbody>
@@ -564,7 +596,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                             <div>
                                 <h3 className={`text-lg font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     <FaPhoneAlt className="text-cyan-500 shrink-0" />
-                                    {selectedUser.userName}'s {selectedLeadType !== 'ALL' ? `${selectedLeadType} LEAD` : 'TOTAL'} CALLS DETAILS
+                                    {selectedUser.userName}'s {selectedLeadType === 'WALK_IN' ? 'WALK IN DETAILS' : selectedLeadType === 'ADMISSION' ? 'ADMISSION DETAILS' : (selectedLeadType !== 'ALL' ? `${selectedLeadType} LEAD CALL DETAILS` : 'TOTAL CALL DETAILS')}
                                 </h3>
                                 <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">
                                     Centre: {selectedUser.centreName} | Role: {selectedUser.role.toUpperCase()}
@@ -584,21 +616,23 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                 <FaSearch className="text-gray-500 text-sm" />
                                 <input 
                                     type="text"
-                                    placeholder="Search student, phone, feedback or remarks..."
+                                    placeholder={selectedLeadType === 'ADMISSION' ? "Search student, admission number or remarks..." : "Search student, phone, feedback or remarks..."}
                                     value={popupSearchQuery}
                                     onChange={(e) => setPopupSearchQuery(e.target.value)}
                                     className={`bg-transparent border-none outline-none text-xs w-full ${isDarkMode ? 'text-gray-200 placeholder-gray-650' : 'text-gray-750 placeholder-gray-450'}`}
                                 />
                             </div>
 
-                            <button
-                                onClick={handleExportUserCalling}
-                                disabled={exportingUserCalling || loadingPopup}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-[2px] text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg disabled:opacity-50 cursor-pointer"
-                            >
-                                {exportingUserCalling ? <FaSpinner className="animate-spin" /> : <FaFileExcel />}
-                                Export User calling Report
-                            </button>
+                            {selectedLeadType !== 'WALK_IN' && selectedLeadType !== 'ADMISSION' && (
+                                <button
+                                    onClick={handleExportUserCalling}
+                                    disabled={exportingUserCalling || loadingPopup}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-[2px] text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg disabled:opacity-50 cursor-pointer"
+                                >
+                                    {exportingUserCalling ? <FaSpinner className="animate-spin" /> : <FaFileExcel />}
+                                    Export User calling Report
+                                </button>
+                            )}
                         </div>
 
                         {/* Calls Table Content */}
@@ -606,66 +640,160 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                             {loadingPopup ? (
                                 <div className="py-20 text-center flex flex-col items-center justify-center">
                                     <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                                    <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading calls list...</p>
+                                    <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {selectedLeadType === 'WALK_IN' ? 'Loading walk-ins list...' : selectedLeadType === 'ADMISSION' ? 'Loading admissions list...' : 'Loading calls list...'}
+                                    </p>
                                 </div>
                             ) : filteredPopupCalls.length === 0 ? (
                                 <div className="py-20 text-center">
                                     <FaPhoneAlt className={`mx-auto mb-4 text-4xl ${isDarkMode ? 'text-gray-800' : 'text-gray-200'}`} />
-                                    <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>No call entries found matching criteria</p>
+                                    <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                        {selectedLeadType === 'WALK_IN' ? 'No walk-in entries found matching criteria' : selectedLeadType === 'ADMISSION' ? 'No admission entries found matching criteria' : 'No call entries found matching criteria'}
+                                    </p>
                                 </div>
                             ) : (
                                 <div className={`overflow-x-auto border rounded-[2px] ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                     <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Phone Number</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Class</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Board</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>School</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Course</th>
-                                                <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Call Type</th>
-                                                <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Lead Status</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Feedback</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Remarks</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Next Follow Up</th>
-                                                <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Date & Time</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="text-sm">
-                                            {filteredPopupCalls.map((call, index) => (
-                                                <tr key={index} className={`border-b last:border-b-0 transition-colors ${
-                                                    isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
-                                                }`}>
-                                                    <td className="p-4 text-xs font-semibold text-gray-500">{index + 1}</td>
-                                                    <td className="p-4 font-medium uppercase tracking-wide text-cyan-400">{call.studentName}</td>
-                                                    <td className="p-4 font-mono text-xs text-gray-400">{call.phoneNumber}</td>
-                                                    <td className="p-4 text-xs font-bold text-gray-300">{call.className || '-'}</td>
-                                                    <td className="p-4 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
-                                                    <td className="p-4 text-xs text-gray-400">{call.schoolName || '-'}</td>
-                                                    <td className="p-4 text-xs font-bold text-gray-300">{call.courseName || '-'}</td>
-                                                    <td className="p-4 text-center text-xs">
-                                                        <span className="px-2 py-0.5 rounded-[2px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] font-black uppercase">
-                                                            {call.callType}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <span className={`inline-block px-2.5 py-0.5 rounded-[2px] text-[9px] font-extrabold uppercase tracking-tight ${getLeadBadge(call.leadType)}`}>
-                                                            {call.leadType}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 text-xs max-w-[150px] truncate text-gray-400" title={call.feedback}>{call.feedback || '-'}</td>
-                                                    <td className="p-4 text-xs max-w-[150px] truncate text-gray-450" title={call.remarks}>{call.remarks || '-'}</td>
-                                                    <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
-                                                        {call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : '-'}
-                                                    </td>
-                                                    <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
-                                                        {new Date(call.date).toLocaleString('en-GB')}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
+                                        {selectedLeadType === 'WALK_IN' ? (
+                                            <>
+                                                <thead>
+                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Phone Number</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Class</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Board</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>School</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Course</th>
+                                                        <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Lead Status</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Remarks</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Walk-In Date</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-sm">
+                                                    {filteredPopupCalls.map((call, index) => (
+                                                        <tr key={index} className={`border-b last:border-b-0 transition-colors ${
+                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
+                                                        }`}>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500">{index + 1}</td>
+                                                            <td className="p-4 font-medium uppercase tracking-wide text-cyan-400">{call.studentName}</td>
+                                                            <td className="p-4 font-mono text-xs text-gray-400">{call.phoneNumber}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.className || '-'}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
+                                                            <td className="p-4 text-xs text-gray-400">{call.schoolName || '-'}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.courseName || '-'}</td>
+                                                            <td className="p-4 text-center">
+                                                                <span className={`inline-block px-2.5 py-0.5 rounded-[2px] text-[9px] font-extrabold uppercase tracking-tight ${getLeadBadge(call.leadType)}`}>
+                                                                    {call.leadType}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-450" title={call.remarks}>{call.remarks || '-'}</td>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                                                {new Date(call.date).toLocaleString('en-GB')}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </>
+                                        ) : selectedLeadType === 'ADMISSION' ? (
+                                            <>
+                                                <thead>
+                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Admission No</th>
+                                                        <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Type</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Class</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Board</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Course</th>
+                                                        <th className={`p-4 font-semibold text-right border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Total Fees</th>
+                                                        <th className={`p-4 font-semibold text-right border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Down Payment</th>
+                                                        <th className={`p-4 font-semibold text-right border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Remaining</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Remarks</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Admission Date</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-sm">
+                                                    {filteredPopupCalls.map((call, index) => (
+                                                        <tr key={index} className={`border-b last:border-b-0 transition-colors ${
+                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
+                                                        }`}>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500">{index + 1}</td>
+                                                            <td className="p-4 font-medium uppercase tracking-wide text-cyan-400">{call.studentName}</td>
+                                                            <td className="p-4 font-mono text-xs text-gray-400">{call.admissionNumber}</td>
+                                                            <td className="p-4 text-center text-xs">
+                                                                <span className="px-2 py-0.5 rounded-[2px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] font-black uppercase">
+                                                                    {call.admissionType}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.className || '-'}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.courseName || '-'}</td>
+                                                            <td className="p-4 text-right text-xs font-bold text-gray-400">₹{call.totalFees?.toLocaleString('en-IN') || 0}</td>
+                                                            <td className="p-4 text-right text-xs font-bold text-emerald-500">₹{call.downPayment?.toLocaleString('en-IN') || 0}</td>
+                                                            <td className="p-4 text-right text-xs font-bold text-red-500">₹{call.remainingAmount?.toLocaleString('en-IN') || 0}</td>
+                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-450" title={call.remarks}>{call.remarks || '-'}</td>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                                                {new Date(call.date).toLocaleString('en-GB')}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <thead>
+                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Phone Number</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Class</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Board</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>School</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Course</th>
+                                                        <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Call Type</th>
+                                                        <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Lead Status</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Feedback</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Remarks</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Next Follow Up</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Date & Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-sm">
+                                                    {filteredPopupCalls.map((call, index) => (
+                                                        <tr key={index} className={`border-b last:border-b-0 transition-colors ${
+                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
+                                                        }`}>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500">{index + 1}</td>
+                                                            <td className="p-4 font-medium uppercase tracking-wide text-cyan-400">{call.studentName}</td>
+                                                            <td className="p-4 font-mono text-xs text-gray-400">{call.phoneNumber}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.className || '-'}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
+                                                            <td className="p-4 text-xs text-gray-400">{call.schoolName || '-'}</td>
+                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.courseName || '-'}</td>
+                                                            <td className="p-4 text-center text-xs">
+                                                                <span className="px-2 py-0.5 rounded-[2px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] font-black uppercase">
+                                                                    {call.callType}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                <span className={`inline-block px-2.5 py-0.5 rounded-[2px] text-[9px] font-extrabold uppercase tracking-tight ${getLeadBadge(call.leadType)}`}>
+                                                                    {call.leadType}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-400" title={call.feedback}>{call.feedback || '-'}</td>
+                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-450" title={call.remarks}>{call.remarks || '-'}</td>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                                                {call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : '-'}
+                                                            </td>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                                                {new Date(call.date).toLocaleString('en-GB')}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </>
+                                        )}
                                     </table>
                                 </div>
                             )}
