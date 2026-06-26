@@ -3,13 +3,13 @@ import Layout from "../components/Layout";
 import {
     FaPlus, FaEdit, FaTrash, FaSearch, FaFileImport, FaFileExport,
     FaSchool, FaUserGraduate, FaChalkboard, FaBook, FaTimes, FaCheck,
-    FaFilter, FaMapMarkerAlt, FaChevronDown
+    FaFilter, FaMapMarkerAlt, FaChevronDown, FaBuilding, FaPhone, FaCalendarAlt
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-const EMPTY_FORM = { schoolName: "", studentName: "", className: "", board: "", area: "" };
+const EMPTY_FORM = { schoolName: "", studentName: "", className: "", board: "", phoneNumber: "", secondaryPhoneNumber: "", year: "", area: "", centre: "" };
 
 // ─── Custom Multi-Select Dropdown ─────────────────────────────────────────────
 const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
@@ -94,6 +94,7 @@ const MasterDataSchoolData = () => {
     // Master data for dropdowns
     const [masterClasses, setMasterClasses] = useState([]);   // { _id, name }
     const [masterBoards, setMasterBoards] = useState([]);     // { _id, boardCourse }
+    const [activeCentres, setActiveCentres] = useState([]);   // { _id, centreName }
 
     // Multi-select filter state (arrays)
     const [filterSearch, setFilterSearch] = useState("");
@@ -101,6 +102,7 @@ const MasterDataSchoolData = () => {
     const [filterClasses, setFilterClasses] = useState([]);
     const [filterBoards, setFilterBoards] = useState([]);
     const [filterAreas, setFilterAreas] = useState([]);
+    const [filterCentres, setFilterCentres] = useState([]);   // array of centre _id strings
 
     // Derived unique values for filter dropdowns
     const [allSchools, setAllSchools] = useState([]);
@@ -117,16 +119,46 @@ const MasterDataSchoolData = () => {
     const [importErrors, setImportErrors] = useState([]);
     const [showImportErrorsModal, setShowImportErrorsModal] = useState(false);
 
+    // ── Bulk Selection ────────────────────────────────────────────────────────
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
+    const [bulkUpdateLoading, setBulkUpdateLoading] = useState(false);
+    // Fields enabled for bulk update: key = fieldName, value = { enabled, value }
+    const BULK_EMPTY = {
+        className: { enabled: false, value: "" },
+        board: { enabled: false, value: "" },
+        phoneNumber: { enabled: false, value: "" },
+        secondaryPhoneNumber: { enabled: false, value: "" },
+        year: { enabled: false, value: "" },
+        area: { enabled: false, value: "" },
+        centre: { enabled: false, value: "" },
+    };
+    const [bulkFields, setBulkFields] = useState(BULK_EMPTY);
+
+    const allPageSelected = records.length > 0 && records.every(r => selectedIds.has(r._id));
+    const toggleSelectAll = () => {
+        if (allPageSelected) {
+            setSelectedIds(prev => { const n = new Set(prev); records.forEach(r => n.delete(r._id)); return n; });
+        } else {
+            setSelectedIds(prev => { const n = new Set(prev); records.forEach(r => n.add(r._id)); return n; });
+        }
+    };
+    const toggleSelectRow = (id) => {
+        setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    };
+    const clearSelection = () => setSelectedIds(new Set());
+
     const token = localStorage.getItem("token");
     const headers = { Authorization: `Bearer ${token}` };
     const BASE = `${import.meta.env.VITE_API_URL}/master-data/school-data`;
 
-    // ── Fetch master class & board lists ─────────────────────────────────────
+    // ── Fetch master class, board & active centres lists ──────────────────────
     const fetchMasterData = async () => {
         try {
-            const [classRes, boardRes] = await Promise.all([
+            const [classRes, boardRes, centreRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/board`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/board`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers })
             ]);
             if (classRes.ok) {
                 const data = await classRes.json();
@@ -136,8 +168,14 @@ const MasterDataSchoolData = () => {
                 const data = await boardRes.json();
                 setMasterBoards(Array.isArray(data) ? data : []);
             }
+            if (centreRes.ok) {
+                const data = await centreRes.json();
+                // Only active centres
+                const active = Array.isArray(data) ? data.filter(c => c.status !== "deactive") : [];
+                setActiveCentres(active);
+            }
         } catch (err) {
-            console.error("Failed to fetch master class/board", err);
+            console.error("Failed to fetch master data", err);
         }
     };
 
@@ -151,6 +189,7 @@ const MasterDataSchoolData = () => {
             if (filterClasses.length > 0) params.append("className", filterClasses.join(","));
             if (filterBoards.length > 0) params.append("board", filterBoards.join(","));
             if (filterAreas.length > 0) params.append("area", filterAreas.join(","));
+            if (filterCentres.length > 0) params.append("centre", filterCentres.join(","));
             params.append("page", page);
             params.append("limit", ITEMS_PER_PAGE);
 
@@ -191,7 +230,7 @@ const MasterDataSchoolData = () => {
 
     useEffect(() => {
         fetchRecords(1);
-    }, [filterSearch, filterSchools, filterClasses, filterBoards, filterAreas]);
+    }, [filterSearch, filterSchools, filterClasses, filterBoards, filterAreas, filterCentres]);
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
@@ -224,7 +263,17 @@ const MasterDataSchoolData = () => {
     };
 
     const handleEdit = (r) => {
-        setFormData({ schoolName: r.schoolName, studentName: r.studentName, className: r.className, board: r.board, area: r.area || "" });
+        setFormData({
+            schoolName: r.schoolName,
+            studentName: r.studentName,
+            className: r.className,
+            board: r.board,
+            phoneNumber: r.phoneNumber || "",
+            secondaryPhoneNumber: r.secondaryPhoneNumber || "",
+            year: r.year || "",
+            area: r.area || "",
+            centre: r.centre?._id || r.centre || ""
+        });
         setEditingId(r._id);
         setShowModal(true);
     };
@@ -236,6 +285,7 @@ const MasterDataSchoolData = () => {
             const data = await res.json();
             if (res.ok) {
                 toast.success("Record deleted");
+                setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
                 fetchRecords(currentPage);
                 fetchAllForFilterOptions();
             } else {
@@ -243,6 +293,64 @@ const MasterDataSchoolData = () => {
             }
         } catch {
             toast.error("Error deleting record");
+        }
+    };
+
+    // ── Bulk Operations ───────────────────────────────────────────────────────
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        if (!window.confirm(`Delete ${selectedIds.size} selected record(s)? This cannot be undone.`)) return;
+        try {
+            const res = await fetch(`${BASE}/bulk-delete`, {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: [...selectedIds] })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message);
+                clearSelection();
+                fetchRecords(currentPage);
+                fetchAllForFilterOptions();
+            } else {
+                toast.error(data.message || "Bulk delete failed");
+            }
+        } catch {
+            toast.error("Error during bulk delete");
+        }
+    };
+
+    const handleBulkUpdate = async () => {
+        const updates = {};
+        Object.entries(bulkFields).forEach(([field, { enabled, value }]) => {
+            if (enabled) updates[field] = value;
+        });
+        if (Object.keys(updates).length === 0) {
+            toast.warn("Please enable and set at least one field to update.");
+            return;
+        }
+        setBulkUpdateLoading(true);
+        try {
+            const res = await fetch(`${BASE}/bulk-update`, {
+                method: "PUT",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: [...selectedIds], updates })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message);
+                setShowBulkUpdateModal(false);
+                setBulkFields(BULK_EMPTY);
+                clearSelection();
+                fetchRecords(currentPage);
+                fetchAllForFilterOptions();
+            } else {
+                toast.error(data.message || "Bulk update failed");
+            }
+        } catch {
+            toast.error("Error during bulk update");
+        } finally {
+            setBulkUpdateLoading(false);
         }
     };
 
@@ -296,8 +404,15 @@ const MasterDataSchoolData = () => {
             const res = await fetch(`${BASE}?limit=99999&page=1`, { headers });
             const data = await res.json();
             const exportData = (data.data || []).map(r => ({
-                "School Name": r.schoolName, "Student Name": r.studentName,
-                "Class": r.className, "Board": r.board, "Area": r.area || "",
+                "School Name": r.schoolName,
+                "Student Name": r.studentName,
+                "Class": r.className,
+                "Board": r.board,
+                "Phone Number": r.phoneNumber || "",
+                "Secondary Phone Number": r.secondaryPhoneNumber || "",
+                "Year": r.year || "",
+                "Area": r.area || "",
+                "Centre Name": r.centre?.centreName || "",
                 "Created At": new Date(r.createdAt).toLocaleDateString()
             }));
             const ws = XLSX.utils.json_to_sheet(exportData);
@@ -310,15 +425,29 @@ const MasterDataSchoolData = () => {
     };
 
     const downloadTemplate = () => {
-        const ws = XLSX.utils.json_to_sheet([{ "School Name": "", "Student Name": "", "Class": "", "Board": "", "Area": "" }]);
+        // Build list of active centre names as a hint in the second sample row
+        const centreHint = activeCentres.map(c => c.centreName).join(" / ") || "Centre Name Here";
+        const ws = XLSX.utils.json_to_sheet([
+            {
+                "School Name": "", "Student Name": "", "Class": "", "Board": "",
+                "Phone Number": "", "Secondary Phone Number": "", "Year": "",
+                "Area": "", "Centre Name": ""
+            },
+            {
+                "School Name": "-- Centre Name must exactly match one of the active centres --",
+                "Student Name": "", "Class": "", "Board": "",
+                "Phone Number": "e.g. 9876543210", "Secondary Phone Number": "e.g. 9876543211", "Year": "e.g. 2025",
+                "Area": "", "Centre Name": centreHint
+            }
+        ]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Template");
         const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "SchoolData_Template.xlsx");
     };
 
-    const resetFilters = () => { setFilterSearch(""); setFilterSchools([]); setFilterClasses([]); setFilterBoards([]); setFilterAreas([]); };
-    const activeCount = [filterSearch, filterSchools.length > 0, filterClasses.length > 0, filterBoards.length > 0, filterAreas.length > 0].filter(Boolean).length;
+    const resetFilters = () => { setFilterSearch(""); setFilterSchools([]); setFilterClasses([]); setFilterBoards([]); setFilterAreas([]); setFilterCentres([]); };
+    const activeCount = [filterSearch, filterSchools.length > 0, filterClasses.length > 0, filterBoards.length > 0, filterAreas.length > 0, filterCentres.length > 0].filter(Boolean).length;
 
     // Derived class/board name lists for filters (from master data)
     const classNames = masterClasses.map(c => c.name);
@@ -372,7 +501,7 @@ const MasterDataSchoolData = () => {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                         {/* Search */}
                         <div className="lg:col-span-1 relative">
                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs z-10" />
@@ -424,6 +553,22 @@ const MasterDataSchoolData = () => {
                                 placeholder="All Areas"
                             />
                         </div>
+
+                        {/* Centre multi-select */}
+                        <div>
+                            <MultiSelect
+                                options={activeCentres.map(c => c.centreName).filter(Boolean)}
+                                selected={filterCentres.map(id => activeCentres.find(c => c._id === id)?.centreName || id)}
+                                onChange={(names) => {
+                                    const ids = names.map(n => {
+                                        const found = activeCentres.find(c => c.centreName === n);
+                                        return found ? found._id : n;
+                                    });
+                                    setFilterCentres(ids);
+                                }}
+                                placeholder="All Centres"
+                            />
+                        </div>
                     </div>
 
                     {/* Active filter pills */}
@@ -459,9 +604,47 @@ const MasterDataSchoolData = () => {
                                     <button onClick={() => setFilterAreas(p => p.filter(v => v !== a))} className="hover:text-red-400 transition-colors">×</button>
                                 </span>
                             ))}
+                            {filterCentres.map(id => {
+                                const cName = activeCentres.find(c => c._id === id)?.centreName || id;
+                                return (
+                                    <span key={id} className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-600/10 text-sky-600 dark:text-sky-400 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-sky-200 dark:border-sky-500/20">
+                                        <FaBuilding className="text-[8px]" />{cName}
+                                        <button onClick={() => setFilterCentres(p => p.filter(v => v !== id))} className="hover:text-red-400 transition-colors">×</button>
+                                    </span>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
+
+                {/* ── Bulk Action Toolbar ── */}
+                {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-3 px-5 py-3 bg-blue-600/10 dark:bg-blue-900/20 border border-blue-500/30 rounded-xl">
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                            {selectedIds.size} record{selectedIds.size !== 1 ? "s" : ""} selected
+                        </span>
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button
+                                onClick={() => { setBulkFields(BULK_EMPTY); setShowBulkUpdateModal(true); }}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold shadow-md shadow-amber-500/20 transition-all"
+                            >
+                                <FaEdit className="text-xs" /> Bulk Update
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold shadow-md shadow-red-500/20 transition-all"
+                            >
+                                <FaTrash className="text-xs" /> Delete Selected
+                            </button>
+                            <button
+                                onClick={clearSelection}
+                                className="px-3 py-2 text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Table ── */}
                 <div className="bg-white dark:bg-[#1a1f24] rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
@@ -482,7 +665,16 @@ const MasterDataSchoolData = () => {
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                                     <tr>
-                                        {["#", "School Name", "Student Name", "Class", "Board", "Area", "Actions"].map((h, i) => (
+                                        {/* Checkbox — select all */}
+                                        <th className="pl-4 pr-2 py-3.5 w-10">
+                                            <input
+                                                type="checkbox"
+                                                checked={allPageSelected}
+                                                onChange={toggleSelectAll}
+                                                className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer accent-blue-600"
+                                            />
+                                        </th>
+                                        {["#", "School Name", "Student Name", "Class", "Board", "Phone", "Sec. Phone", "Year", "Area", "Centre", "Actions"].map((h, i) => (
                                             <th key={i} className="px-5 py-3.5 text-left text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
                                                 {h}
                                             </th>
@@ -490,8 +682,19 @@ const MasterDataSchoolData = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                    {records.map((rec, idx) => (
-                                        <tr key={rec._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                    {records.map((rec, idx) => {
+                                        const isSelected = selectedIds.has(rec._id);
+                                        return (
+                                        <tr key={rec._id} className={`transition-colors ${isSelected ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500" : "hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}>
+                                            {/* Row checkbox */}
+                                            <td className="pl-4 pr-2 py-3.5">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleSelectRow(rec._id)}
+                                                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer accent-blue-600"
+                                                />
+                                            </td>
                                             <td className="px-5 py-3.5 text-gray-400 dark:text-gray-600 text-xs font-bold">
                                                 {(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}
                                             </td>
@@ -507,10 +710,43 @@ const MasterDataSchoolData = () => {
                                                     {rec.board}
                                                 </span>
                                             </td>
+                                            {/* Phone Number */}
+                                            <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 whitespace-nowrap text-xs">
+                                                {rec.phoneNumber ? (
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <FaPhone className="text-[8px] text-blue-400" />{rec.phoneNumber}
+                                                    </span>
+                                                ) : <span className="text-gray-300 dark:text-gray-700">—</span>}
+                                            </td>
+                                            {/* Secondary Phone */}
+                                            <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 whitespace-nowrap text-xs">
+                                                {rec.secondaryPhoneNumber ? (
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <FaPhone className="text-[8px] text-indigo-400" />{rec.secondaryPhoneNumber}
+                                                    </span>
+                                                ) : <span className="text-gray-300 dark:text-gray-700">—</span>}
+                                            </td>
+                                            {/* Year */}
+                                            <td className="px-5 py-3.5 whitespace-nowrap">
+                                                {rec.year ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-700/40">
+                                                        <FaCalendarAlt className="text-[8px]" />{rec.year}
+                                                    </span>
+                                                ) : <span className="text-gray-300 dark:text-gray-700">—</span>}
+                                            </td>
                                             <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                                 {rec.area ? (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700/40">
                                                         <FaMapMarkerAlt className="text-[8px]" />{rec.area}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-300 dark:text-gray-700">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-3.5 whitespace-nowrap">
+                                                {rec.centre?.centreName ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-700/40">
+                                                        <FaBuilding className="text-[8px]" />{rec.centre.centreName}
                                                     </span>
                                                 ) : (
                                                     <span className="text-gray-300 dark:text-gray-700">—</span>
@@ -527,7 +763,8 @@ const MasterDataSchoolData = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -650,6 +887,48 @@ const MasterDataSchoolData = () => {
                                 </div>
                             </div>
 
+                            {/* Phone Numbers */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
+                                        <FaPhone className="inline mr-1.5 text-blue-500" /> Phone Number
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={formData.phoneNumber}
+                                        onChange={e => setFormData(p => ({ ...p, phoneNumber: e.target.value }))}
+                                        placeholder="e.g. 9876543210"
+                                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white outline-none transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
+                                        <FaPhone className="inline mr-1.5 text-indigo-500" /> Secondary Phone
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={formData.secondaryPhoneNumber}
+                                        onChange={e => setFormData(p => ({ ...p, secondaryPhoneNumber: e.target.value }))}
+                                        placeholder="e.g. 9876543211"
+                                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white outline-none transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Year */}
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
+                                    <FaCalendarAlt className="inline mr-1.5 text-teal-500" /> Year
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.year}
+                                    onChange={e => setFormData(p => ({ ...p, year: e.target.value }))}
+                                    placeholder="e.g. 2025"
+                                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white outline-none transition-all"
+                                />
+                            </div>
+
                             {/* Area */}
                             <div>
                                 <label className="block text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
@@ -662,6 +941,23 @@ const MasterDataSchoolData = () => {
                                     placeholder="e.g. South Delhi, Sector 12"
                                     className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white outline-none transition-all"
                                 />
+                            </div>
+
+                            {/* Centre — from active centres */}
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
+                                    <FaBuilding className="inline mr-1.5 text-sky-500" /> Centre
+                                </label>
+                                <select
+                                    value={formData.centre}
+                                    onChange={e => setFormData(p => ({ ...p, centre: e.target.value }))}
+                                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white outline-none transition-all appearance-none"
+                                >
+                                    <option value="">Select Centre (optional)</option>
+                                    {activeCentres.map(c => (
+                                        <option key={c._id} value={c._id}>{c.centreName}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* Actions */}
@@ -732,6 +1028,99 @@ const MasterDataSchoolData = () => {
                                 className="px-5 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-white text-sm font-bold rounded-xl transition-colors"
                             >
                                 Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Bulk Update Modal ── */}
+            {showBulkUpdateModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-[#1a1f24] rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-amber-500 to-orange-500">
+                            <div className="flex items-center gap-3">
+                                <FaEdit className="text-white text-xl" />
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">Bulk Update</h2>
+                                    <p className="text-white/80 text-xs mt-0.5">{selectedIds.size} record{selectedIds.size !== 1 ? "s" : ""} selected — only enabled fields will be updated</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setShowBulkUpdateModal(false); setBulkFields(BULK_EMPTY); }} className="text-white/70 hover:text-white transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 space-y-3 max-h-[65vh] overflow-y-auto">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Toggle the checkbox next to each field you want to update. Untoggled fields will not be changed.</p>
+
+                            {/* Helper to render each bulk field row */}
+                            {[
+                                { key: "className", label: "Class", icon: <FaChalkboard className="text-amber-500 text-xs" />, type: "select",
+                                    options: masterClasses.map(c => ({ value: c.name, label: c.name })) },
+                                { key: "board", label: "Board", icon: <FaBook className="text-purple-500 text-xs" />, type: "select",
+                                    options: masterBoards.map(b => ({ value: b.boardCourse, label: b.boardCourse })) },
+                                { key: "phoneNumber", label: "Phone Number", icon: <FaPhone className="text-blue-500 text-xs" />, type: "tel" },
+                                { key: "secondaryPhoneNumber", label: "Secondary Phone", icon: <FaPhone className="text-indigo-500 text-xs" />, type: "tel" },
+                                { key: "year", label: "Year", icon: <FaCalendarAlt className="text-teal-500 text-xs" />, type: "text" },
+                                { key: "area", label: "Area", icon: <FaMapMarkerAlt className="text-emerald-500 text-xs" />, type: "text" },
+                                { key: "centre", label: "Centre", icon: <FaBuilding className="text-sky-500 text-xs" />, type: "select",
+                                    options: [{value: "", label: "-- Clear Centre --"}, ...activeCentres.map(c => ({ value: c._id, label: c.centreName }))] },
+                            ].map(({ key, label, icon, type, options }) => (
+                                <div key={key} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${bulkFields[key].enabled ? "bg-blue-50 dark:bg-blue-900/20 border-blue-400/50" : "bg-gray-50 dark:bg-[#131619] border-gray-200 dark:border-gray-700"}`}>
+                                    {/* Enable toggle */}
+                                    <input
+                                        type="checkbox"
+                                        checked={bulkFields[key].enabled}
+                                        onChange={e => setBulkFields(p => ({ ...p, [key]: { ...p[key], enabled: e.target.checked } }))}
+                                        className="w-4 h-4 shrink-0 accent-blue-600 cursor-pointer"
+                                    />
+                                    <div className="flex items-center gap-1.5 w-36 shrink-0">
+                                        {icon}
+                                        <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide">{label}</span>
+                                    </div>
+                                    {/* Field input — only active when enabled */}
+                                    {type === "select" ? (
+                                        <select
+                                            disabled={!bulkFields[key].enabled}
+                                            value={bulkFields[key].value}
+                                            onChange={e => setBulkFields(p => ({ ...p, [key]: { ...p[key], value: e.target.value } }))}
+                                            className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#131619] text-gray-800 dark:text-white outline-none focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all appearance-none"
+                                        >
+                                            {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type={type}
+                                            disabled={!bulkFields[key].enabled}
+                                            value={bulkFields[key].value}
+                                            onChange={e => setBulkFields(p => ({ ...p, [key]: { ...p[key], value: e.target.value } }))}
+                                            placeholder={`Set ${label} for all selected`}
+                                            className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#131619] text-gray-800 dark:text-white outline-none focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                        />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex gap-3 px-6 py-4 bg-gray-50 dark:bg-[#131619] border-t border-gray-100 dark:border-gray-800">
+                            <button
+                                onClick={() => { setShowBulkUpdateModal(false); setBulkFields(BULK_EMPTY); }}
+                                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkUpdate}
+                                disabled={bulkUpdateLoading || !Object.values(bulkFields).some(f => f.enabled)}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                {bulkUpdateLoading ? <span className="animate-spin border-2 border-white/30 border-t-white rounded-full w-4 h-4 inline-block"></span> : <FaCheck />}
+                                {bulkUpdateLoading ? "Updating..." : `Update ${selectedIds.size} Record${selectedIds.size !== 1 ? "s" : ""}`}
                             </button>
                         </div>
                     </div>
