@@ -4,7 +4,7 @@ import CentreSchema from "../../models/Master_data/Centre.js";
 // CREATE
 export const createSchoolData = async (req, res) => {
     try {
-        const { schoolName, studentName, className, board, area, centre } = req.body;
+        const { schoolName, studentName, className, board, phoneNumber, secondaryPhoneNumber, year, area, centre } = req.body;
         if (!schoolName || !studentName || !className || !board) {
             return res.status(400).json({ message: "Required fields: schoolName, studentName, className, board" });
         }
@@ -13,6 +13,9 @@ export const createSchoolData = async (req, res) => {
             studentName,
             className,
             board,
+            phoneNumber: phoneNumber || "",
+            secondaryPhoneNumber: secondaryPhoneNumber || "",
+            year: year || "",
             area: area || "",
             centre: centre || null
         });
@@ -27,7 +30,7 @@ export const createSchoolData = async (req, res) => {
 // READ ALL (with search / multi-value filter / pagination)
 export const getSchoolData = async (req, res) => {
     try {
-        const { search, schoolName, className, board, area, centre, page = 1, limit = 50 } = req.query;
+        const { search, schoolName, className, board, area, centre, year, page = 1, limit = 50 } = req.query;
         const query = {};
 
         if (search) {
@@ -36,7 +39,9 @@ export const getSchoolData = async (req, res) => {
                 { studentName: { $regex: search, $options: "i" } },
                 { className:   { $regex: search, $options: "i" } },
                 { board:       { $regex: search, $options: "i" } },
-                { area:        { $regex: search, $options: "i" } }
+                { area:        { $regex: search, $options: "i" } },
+                { phoneNumber: { $regex: search, $options: "i" } },
+                { year:        { $regex: search, $options: "i" } }
             ];
         }
 
@@ -56,6 +61,10 @@ export const getSchoolData = async (req, res) => {
         if (area) {
             const vals = area.split(",").map(v => v.trim()).filter(Boolean);
             query.area = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
+        }
+        if (year) {
+            const vals = year.split(",").map(v => v.trim()).filter(Boolean);
+            query.year = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
         }
         if (centre) {
             const ids = centre.split(",").map(v => v.trim()).filter(Boolean);
@@ -85,10 +94,17 @@ export const getSchoolData = async (req, res) => {
 export const updateSchoolData = async (req, res) => {
     try {
         const { id } = req.params;
-        const { schoolName, studentName, className, board, area, centre } = req.body;
+        const { schoolName, studentName, className, board, phoneNumber, secondaryPhoneNumber, year, area, centre } = req.body;
         const record = await SchoolData.findByIdAndUpdate(
             id,
-            { schoolName, studentName, className, board, area: area || "", centre: centre || null },
+            {
+                schoolName, studentName, className, board,
+                phoneNumber: phoneNumber || "",
+                secondaryPhoneNumber: secondaryPhoneNumber || "",
+                year: year || "",
+                area: area || "",
+                centre: centre || null
+            },
             { new: true, runValidators: true }
         ).populate("centre", "centreName");
         if (!record) return res.status(404).json({ message: "Record not found" });
@@ -137,6 +153,9 @@ export const bulkImportSchoolData = async (req, res) => {
                 const studentName = cleanVal(row.studentName || row["Student Name"]);
                 const className = cleanVal(row.className || row["Class"]);
                 const board = cleanVal(row.board || row["Board"]);
+                const phoneNumber = cleanVal(row.phoneNumber || row["Phone Number"]);
+                const secondaryPhoneNumber = cleanVal(row.secondaryPhoneNumber || row["Secondary Phone Number"]);
+                const year = cleanVal(row.year || row["Year"]);
                 const area = cleanVal(row.area || row["Area"]);
                 const centreName = cleanVal(row.centreName || row["Centre Name"] || row["centre"]);
 
@@ -152,6 +171,9 @@ export const bulkImportSchoolData = async (req, res) => {
                     studentName,
                     className,
                     board,
+                    phoneNumber,
+                    secondaryPhoneNumber,
+                    year,
                     area,
                     centre: centreId
                 });
@@ -164,6 +186,58 @@ export const bulkImportSchoolData = async (req, res) => {
         res.status(200).json({
             message: `Bulk import complete. Inserted: ${results.inserted}, Failed: ${results.failed.length}`,
             ...results
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// BULK DELETE
+export const bulkDeleteSchoolData = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No IDs provided for deletion" });
+        }
+        const result = await SchoolData.deleteMany({ _id: { $in: ids } });
+        res.status(200).json({ message: `Deleted ${result.deletedCount} records`, deletedCount: result.deletedCount });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// BULK UPDATE — only applies fields that are explicitly set (non-empty string / truthy)
+export const bulkUpdateSchoolData = async (req, res) => {
+    try {
+        const { ids, updates } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No IDs provided for update" });
+        }
+        if (!updates || typeof updates !== "object") {
+            return res.status(400).json({ message: "No update fields provided" });
+        }
+
+        // Only include fields explicitly sent and non-empty (except centre which can be null to clear)
+        const allowedFields = ["schoolName", "studentName", "className", "board", "phoneNumber", "secondaryPhoneNumber", "year", "area", "centre"];
+        const updateDoc = {};
+        for (const field of allowedFields) {
+            if (updates[field] !== undefined) {
+                updateDoc[field] = updates[field] === "" ? (field === "centre" ? null : "") : updates[field];
+            }
+        }
+
+        if (Object.keys(updateDoc).length === 0) {
+            return res.status(400).json({ message: "No valid update fields provided" });
+        }
+
+        const result = await SchoolData.updateMany(
+            { _id: { $in: ids } },
+            { $set: updateDoc }
+        );
+
+        res.status(200).json({
+            message: `Updated ${result.modifiedCount} of ${ids.length} records`,
+            modifiedCount: result.modifiedCount
         });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });

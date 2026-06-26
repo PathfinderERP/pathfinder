@@ -21,6 +21,21 @@ const schoolDataSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    phoneNumber: {
+        type: String,
+        trim: true,
+        default: ""
+    },
+    secondaryPhoneNumber: {
+        type: String,
+        trim: true,
+        default: ""
+    },
+    year: {
+        type: String,
+        trim: true,
+        default: ""
+    },
     area: {
         type: String,
         trim: true,
