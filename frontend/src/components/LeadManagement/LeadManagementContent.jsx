@@ -930,7 +930,7 @@ const LeadManagementContent = () => {
                                 onClick={() => setShowBulkUpdateModal(true)}
                                 className="px-6 py-3 bg-teal-500 text-black hover:bg-teal-400 rounded-[2px] shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                             >
-                                <FaEdit /> Update Multiple Data ({selectedLeads.filter(id => leads.some(l => l._id === id)).length})
+                                <FaEdit /> Update Multiple Data ({isAllFilteredSelected ? totalLeads : selectedLeads.length})
                             </button>
                         )}
                         {canDelete && selectedLeads.length > 0 && (
@@ -1567,26 +1567,27 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Campaign From</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Next Follow Up</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[350px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <>
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={17} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
                                     </>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="17" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="20" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -1594,7 +1595,7 @@ const LeadManagementContent = () => {
                                     {/* Bulk Selection Banner */}
                                     {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
                                         <tr>
-                                            <td colSpan="17" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                            <td colSpan="20" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
                                                 {isAllFilteredSelected ? (
                                                     <div className="flex items-center justify-center gap-4">
                                                         <span>All {totalLeads} leads matching these filters are selected.</span>
@@ -1723,6 +1724,13 @@ const LeadManagementContent = () => {
                                                         {lead.followUps[lead.followUps.length - 1].remarks}
                                                     </div>
                                                 )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold ${lead.nextFollowUpDate ? 'text-amber-500' : (isDarkMode ? 'text-gray-600' : 'text-gray-400')}`}>
+                                                    {lead.nextFollowUpDate
+                                                        ? new Date(lead.nextFollowUpDate).toLocaleDateString('en-GB')
+                                                        : "—"}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 min-w-[350px]">
                                                 <div className="flex items-center gap-2.5 whitespace-nowrap min-w-max">
@@ -1907,7 +1915,17 @@ const LeadManagementContent = () => {
             {showAddModal && <AddLeadModal isDarkMode={isDarkMode} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchLeads(); }} />}
             {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
             {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
-            {showBulkUpdateModal && <BulkUpdateLeadModal selectedLeadIds={selectedLeads} isDarkMode={isDarkMode} onClose={() => setShowBulkUpdateModal(false)} onSuccess={() => { setShowBulkUpdateModal(false); fetchLeads(); }} />}
+            {showBulkUpdateModal && (
+                <BulkUpdateLeadModal 
+                    selectedLeadIds={selectedLeads} 
+                    isAllFilteredSelected={isAllFilteredSelected}
+                    filters={{ ...filters, search: searchTerm }}
+                    totalLeads={totalLeads}
+                    isDarkMode={isDarkMode} 
+                    onClose={() => setShowBulkUpdateModal(false)} 
+                    onSuccess={() => { setShowBulkUpdateModal(false); clearSelection(); fetchLeads(); }} 
+                />
+            )}
             {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead, startCall = false) => { setShowDetailModal(false); setSelectedLead(lead); setStartCallOnOpen(startCall); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} />}
             {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} startCall={startCallOnOpen} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); setStartCallOnOpen(false); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); setStartCallOnOpen(false); fetchLeads(); fetchFollowUpStats(); }} />}
             {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}

@@ -106,6 +106,44 @@ export const bulkUpdateAdmissions = async (req, res) => {
                         studentModified = true;
                     }
 
+                    // Sync Student status & shift installments if reactivating
+                    if (cleanUpdateData.admissionStatus !== undefined) {
+                        if (cleanUpdateData.admissionStatus === 'INACTIVE') {
+                            student.status = 'Deactivated';
+                            student.deactivationDate = new Date();
+                            student.deactivatedBy = req.user?.name || 'System';
+                            student.deactivatedByUserId = req.user?._id || req.user?.id || null;
+                            studentModified = true;
+                        } else if (cleanUpdateData.admissionStatus === 'ACTIVE') {
+                            if (student.status === 'Deactivated') {
+                                const deactivationDate = student.deactivationDate;
+                                const now = new Date();
+                                const daysDeactivated = deactivationDate 
+                                    ? Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24)) 
+                                    : 0;
+
+                                if (daysDeactivated > 0) {
+                                    admission.paymentBreakdown.forEach(inst => {
+                                        if (inst.status === 'PENDING' || inst.status === 'OVERDUE') {
+                                            const oldDueDate = new Date(inst.dueDate);
+                                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                                            inst.dueDate = oldDueDate;
+                                            if (inst.status === 'OVERDUE' && oldDueDate > now) {
+                                                inst.status = 'PENDING';
+                                            }
+                                        }
+                                    });
+                                    admission.markModified('paymentBreakdown');
+                                }
+                                student.status = 'Active';
+                                student.deactivationDate = null;
+                                student.deactivatedBy = null;
+                                student.deactivatedByUserId = null;
+                                studentModified = true;
+                            }
+                        }
+                    }
+
                     // Sync Academic Vector (examSchema & sessionExamCourse)
                     if (cleanUpdateData.academicSession !== undefined || cleanUpdateData.examTag !== undefined || cleanUpdateData.class !== undefined) {
                         if (!student.examSchema) student.examSchema = [];
@@ -149,7 +187,10 @@ export const bulkUpdateAdmissions = async (req, res) => {
 
             // Apply updates to the current admission record
             if (Object.keys(admissionUpdates).length > 0) {
-                await Admission.findByIdAndUpdate(admissionId, admissionUpdates, { runValidators: true });
+                Object.assign(admission, admissionUpdates);
+                await admission.save();
+            } else if (admission.isModified()) {
+                await admission.save();
             }
 
             // Delete cached student reports
