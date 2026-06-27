@@ -13,12 +13,14 @@ export const exportLeadsExcel = async (req, res) => {
         // Build base query
         const query = await buildLeadQuery(req.query, req.user);
 
+        const sortOption = query.nextFollowUpDate ? { nextFollowUpDate: 1 } : { createdAt: -1 };
+
         const leads = await LeadManagement.find(query)
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
             .populate('board', 'boardName boardCourse')
-            .sort({ createdAt: -1 });
+            .sort(sortOption);
 
         // Prepare data for Excel
         const data = leads.map((lead, index) => ({
@@ -32,6 +34,8 @@ export const exportLeadsExcel = async (req, res) => {
             "Board": lead.board?.boardName || lead.board?.boardCourse || "N/A",
             "Centre": lead.centre?.centreName || "N/A",
             "Course": lead.course?.courseName || lead.courseText || "N/A",
+            "Marks": lead.marks !== undefined && lead.marks !== null ? lead.marks : "N/A",
+            "Walk In Date": lead.walkInDate ? new Date(lead.walkInDate).toLocaleDateString('en-GB') : "N/A",
             "Lead Type": lead.leadType || "N/A",
             "Source": lead.source || "N/A",
             "Telecaller": lead.leadResponsibility || "N/A",

@@ -223,6 +223,8 @@ const LeadManagementContent = () => {
             params.append("page", currentPage);
             params.append("limit", limit);
             if (searchTerm) params.append("search", searchTerm);
+            if (dashboardFilters.fromDate) params.append("followUpFromDate", dashboardFilters.fromDate);
+            if (dashboardFilters.toDate) params.append("followUpToDate", dashboardFilters.toDate);
 
             Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
@@ -265,11 +267,11 @@ const LeadManagementContent = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, filters, limit, searchTerm]);
+    }, [currentPage, filters, limit, searchTerm, dashboardFilters.fromDate, dashboardFilters.toDate]);
 
     useEffect(() => {
         clearSelection();
-    }, [filters, searchTerm]);
+    }, [filters, searchTerm, dashboardFilters.fromDate, dashboardFilters.toDate]);
 
     const fetchAllowedCentres = useCallback(async () => {
         try {
@@ -475,7 +477,7 @@ const LeadManagementContent = () => {
             fetchLeads();
         }, 500);
         return () => clearTimeout(timeout);
-    }, [searchTerm, filters, currentPage, fetchLeads]);
+    }, [searchTerm, filters, currentPage, dashboardFilters.fromDate, dashboardFilters.toDate, fetchLeads]);
 
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
@@ -484,6 +486,9 @@ const LeadManagementContent = () => {
 
     const handleDashboardFilterChange = (name, value) => {
         setDashboardFilters(prev => ({ ...prev, [name]: value }));
+        if (name === 'fromDate' || name === 'toDate') {
+            setCurrentPage(1);
+        }
     };
 
     const handleFollowUpStatusCardClick = (statusValue) => {
@@ -524,6 +529,7 @@ const LeadManagementContent = () => {
             toDate: "",
             scheduledDate: new Date().toISOString().split('T')[0]
         });
+        setCurrentPage(1);
         toast.info("Analytics filters have been reset");
     };
 
@@ -731,6 +737,8 @@ const LeadManagementContent = () => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
             if (searchTerm) params.append("search", searchTerm);
+            if (dashboardFilters.fromDate) params.append("followUpFromDate", dashboardFilters.fromDate);
+            if (dashboardFilters.toDate) params.append("followUpToDate", dashboardFilters.toDate);
 
             Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
@@ -833,6 +841,7 @@ const LeadManagementContent = () => {
         const last7Days = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
         const lastMonth = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
+        setCurrentPage(1);
         switch (preset) {
             case 'today':
                 setDashboardFilters(prev => ({ ...prev, fromDate: today, toDate: today }));
@@ -1561,6 +1570,8 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Class</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Board</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>School</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marks</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Walk In Date</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Source</th>
@@ -1574,20 +1585,20 @@ const LeadManagementContent = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <>
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={20} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
                                     </>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="20" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="22" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -1595,7 +1606,7 @@ const LeadManagementContent = () => {
                                     {/* Bulk Selection Banner */}
                                     {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
                                         <tr>
-                                            <td colSpan="20" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                            <td colSpan="22" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
                                                 {isAllFilteredSelected ? (
                                                     <div className="flex items-center justify-center gap-4">
                                                         <span>All {totalLeads} leads matching these filters are selected.</span>
@@ -1687,6 +1698,14 @@ const LeadManagementContent = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className={`text-[10px] font-medium italic truncate max-w-[150px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{lead.schoolName || "N/A"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lead.marks !== undefined && lead.marks !== null ? lead.marks : "N/A"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold ${lead.walkInDate ? 'text-cyan-500' : (isDarkMode ? 'text-gray-600' : 'text-gray-400')}`}>
+                                                    {lead.walkInDate ? new Date(lead.walkInDate).toLocaleDateString('en-GB') : "N/A"}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest border ${getLeadTypeColor(lead.leadType)}`}>

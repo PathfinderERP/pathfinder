@@ -68,13 +68,15 @@ export const getLeads = async (req, res) => {
             ]
         });
 
+        const sortOption = query.nextFollowUpDate ? { nextFollowUpDate: 1 } : { isPriority: -1, createdAt: -1 };
+
         const leads = await LeadManagement.find(query)
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
             .populate('board', 'boardCourse')
             .populate('campaign', 'adName')
-            .sort({ isPriority: -1, createdAt: -1 })
+            .sort(sortOption)
             .skip(skip)
             .limit(limit);
 

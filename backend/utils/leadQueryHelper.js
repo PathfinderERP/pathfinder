@@ -141,7 +141,7 @@ export const buildLeadQuery = async (queryParams, user) => {
     const { 
         search, leadType, source, centre, course, leadResponsibility, 
         board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus,
-        schoolName
+        schoolName, followUpFromDate, followUpToDate
     } = queryParams;
 
     const query = {};
@@ -165,6 +165,17 @@ export const buildLeadQuery = async (queryParams, user) => {
             const end = new Date(toDate);
             end.setHours(23, 59, 59, 999);
             query.createdAt.$lte = end;
+        }
+    }
+
+    // Follow-up Date range filter (Next Follow Up)
+    if (followUpFromDate || followUpToDate) {
+        query.nextFollowUpDate = {};
+        if (followUpFromDate) query.nextFollowUpDate.$gte = new Date(followUpFromDate);
+        if (followUpToDate) {
+            const end = new Date(followUpToDate);
+            end.setHours(23, 59, 59, 999);
+            query.nextFollowUpDate.$lte = end;
         }
     }
 

@@ -86,6 +86,10 @@ const leadManagementSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    marks: {
+        type: Number,
+        required: false
+    },
     // New fields for easier querying
     lastFollowUpDate: {
         type: Date

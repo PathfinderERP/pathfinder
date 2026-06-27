@@ -70,11 +70,13 @@ export const createLead = async (req, res) => {
             schoolName,
             source,
             isWalkIn: source && /^walk[- ]?in$/i.test(source) ? true : false,
+            walkInDate: req.body.walkInDate ? new Date(req.body.walkInDate) : (source && /^walk[- ]?in$/i.test(source) ? new Date() : undefined),
             targetExam,
             leadType,
             leadResponsibility,
             createdBy: req.user.id,
-            assignedAt: leadResponsibility ? new Date() : null
+            assignedAt: leadResponsibility ? new Date() : null,
+            marks: req.body.marks !== undefined && req.body.marks !== "" ? parseFloat(req.body.marks) : undefined
         };
 
         if (className) leadData.className = className;

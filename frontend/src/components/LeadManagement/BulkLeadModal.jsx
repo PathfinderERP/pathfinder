@@ -125,7 +125,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             Course: "JEE Main",
             Source: "Facebook",
             LeadType: "WARM LEAD",
-            LeadResponse: "Telecaller Name"
+            LeadResponse: "Telecaller Name",
+            Marks: "95"
         }];
         const ws = XLSX.utils.json_to_sheet(templateData);
         const wb = XLSX.utils.book_new();
@@ -151,7 +152,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             LeadType: "WARM LEAD",
             LeadResponse: "Telecaller Name",
             Feedback: feedbackOptions[0] || "Interested",
-            Remarks: "Student is interested, will visit next week"
+            Remarks: "Student is interested, will visit next week",
+            Marks: "95"
         }];
 
         const ws = XLSX.utils.json_to_sheet(templateData);
@@ -185,7 +187,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 if (jsonData.length === 0) { setErrorMsg("The file is empty"); setValidating(false); return; }
 
                 // ── Extra-column guard ─────────────────────────────────────
-                const ALLOWED_FRESH_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "SchoolName", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse"];
+                const ALLOWED_FRESH_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "SchoolName", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Marks"];
                 const uploadedColumns = Object.keys(jsonData[0] || {});
                 const extraColumns = uploadedColumns.filter(col => !ALLOWED_FRESH_COLUMNS.includes(col));
                 if (extraColumns.length > 0) {
@@ -258,7 +260,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         board: boardId,
                         source: row.Source,
                         leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'].includes(row.LeadType?.toUpperCase()) ? row.LeadType.toUpperCase() : "COLD LEAD",
-                        leadResponsibility: row.LeadResponse
+                        leadResponsibility: row.LeadResponse,
+                        marks: row.Marks !== undefined && row.Marks !== null && String(row.Marks).trim() !== "" ? parseFloat(row.Marks) : undefined
                     });
                 }
 
@@ -334,7 +337,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 if (jsonData.length === 0) { setErrorMsg("The file is empty"); setValidating(false); return; }
 
                 // ── Extra-column guard ─────────────────────────────────────
-                const ALLOWED_CONTACTED_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "SchoolName", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Feedback", "Remarks"];
+                const ALLOWED_CONTACTED_COLUMNS = ["Name", "PhoneNum", "SecondPhoneNum", "SchoolName", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse", "Feedback", "Remarks", "Marks"];
                 const uploadedContactedColumns = Object.keys(jsonData[0] || {});
                 const extraContactedColumns = uploadedContactedColumns.filter(col => !ALLOWED_CONTACTED_COLUMNS.includes(col));
                 if (extraContactedColumns.length > 0) {
@@ -425,7 +428,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         leadType: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'].includes(row.LeadType?.toString().toUpperCase()) ? row.LeadType.toString().toUpperCase() : "COLD LEAD",
                         leadResponsibility: row.LeadResponse,
                         feedback: row.Feedback ? row.Feedback.toString().trim() : '',
-                        remarks: row.Remarks ? row.Remarks.toString().trim() : ''
+                        remarks: row.Remarks ? row.Remarks.toString().trim() : '',
+                        marks: row.Marks !== undefined && row.Marks !== null && String(row.Marks).trim() !== "" ? parseFloat(row.Marks) : undefined
                     });
                 }
 

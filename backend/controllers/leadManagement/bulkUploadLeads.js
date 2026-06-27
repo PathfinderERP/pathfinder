@@ -59,6 +59,7 @@ export const bulkUploadLeads = async (req, res) => {
                 createdBy:          uploaderId,
                 marketingBy:        uploaderName,
                 assignedAt:         new Date(),
+                marks:              row.marks !== undefined && row.marks !== "" ? parseFloat(row.marks) : undefined
             };
 
             // Link to campaign if valid

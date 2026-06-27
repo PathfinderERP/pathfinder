@@ -71,7 +71,8 @@ export const bulkContactedLeads = async (req, res) => {
                         leadType: leadType || "COLD LEAD",
                         leadResponsibility,
                         createdBy: req.user.id,
-                        assignedAt: leadResponsibility ? new Date() : null
+                        assignedAt: leadResponsibility ? new Date() : null,
+                        marks: item.marks !== undefined && item.marks !== null && item.marks !== "" ? parseFloat(item.marks) : undefined
                     };
 
                     if (className) leadData.className = className;
@@ -103,6 +104,9 @@ export const bulkContactedLeads = async (req, res) => {
                         if (!lead.assignedAt) lead.assignedAt = new Date();
                     }
                     if (leadType) lead.leadType = leadType.toUpperCase();
+                    if (item.marks !== undefined && item.marks !== null && item.marks !== "") {
+                        lead.marks = parseFloat(item.marks);
+                    }
                 }
 
                 // Build follow-up entry
