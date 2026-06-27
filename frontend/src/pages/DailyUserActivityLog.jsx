@@ -50,6 +50,10 @@ const DailyUserActivityLog = () => {
     const [callSearch, setCallSearch] = useState('');
     const [callTypeFilter, setCallTypeFilter] = useState('ALL'); // ALL | FRESH | FOLLOW-UP
     const [leadTypeFilter, setLeadTypeFilter] = useState('ALL'); // ALL | HOT | WARM | COLD
+    const [classFilter, setClassFilter] = useState('ALL');
+    const [boardFilter, setBoardFilter] = useState('ALL');
+    const [sourceFilter, setSourceFilter] = useState('ALL');
+    const [feedbackFilter, setFeedbackFilter] = useState('ALL');
     const [activeChartTab, setActiveChartTab] = useState('bar'); // bar | area | pie
     const [selectedSection, setSelectedSection] = useState('ALL'); // ALL | CALLS | COUNSELLED | ADMISSIONS | COLLECTION | HOT | WARM | COLD
     const [showJourneyModal, setShowJourneyModal] = useState(false);
@@ -134,6 +138,12 @@ const DailyUserActivityLog = () => {
         </Layout>
     );
 
+    // Extract unique options for filters dynamically from callDetails
+    const uniqueClasses = Array.from(new Set((data?.callDetails || []).map(c => c.className || '-'))).sort();
+    const uniqueBoards = Array.from(new Set((data?.callDetails || []).map(c => c.boardName || '-'))).sort();
+    const uniqueSources = Array.from(new Set((data?.callDetails || []).map(c => c.source || '-'))).sort();
+    const uniqueFeedbacks = Array.from(new Set((data?.callDetails || []).map(c => c.feedback || '-'))).sort();
+
     // Filtered call list
     const filteredCalls = (data.callDetails || []).filter(call => {
         const matchSearch = callSearch === '' ||
@@ -169,7 +179,12 @@ const DailyUserActivityLog = () => {
             matchSection = (call.leadType || '').toUpperCase().includes('INVALID');
         }
 
-        return matchSearch && matchType && matchLead && matchSection;
+        const matchClass = classFilter === 'ALL' || (call.className || '-') === classFilter;
+        const matchBoard = boardFilter === 'ALL' || (call.boardName || '-') === boardFilter;
+        const matchSource = sourceFilter === 'ALL' || (call.source || '-') === sourceFilter;
+        const matchFeedback = feedbackFilter === 'ALL' || (call.feedback || '-') === feedbackFilter;
+
+        return matchSearch && matchType && matchLead && matchSection && matchClass && matchBoard && matchSource && matchFeedback;
     });
 
     const totalCalls = data.leads.totalFollowUps;
@@ -520,14 +535,82 @@ const DailyUserActivityLog = () => {
                                     );
                                 })}
                             </div> */}
+                            {/* Class Filter */}
+                            <select
+                                value={classFilter}
+                                onChange={e => setClassFilter(e.target.value)}
+                                className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase outline-none cursor-pointer transition-all ${
+                                    isDark 
+                                        ? 'bg-black/20 border-gray-700 text-gray-300 hover:bg-gray-800/50' 
+                                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <option value="ALL" className={isDark ? 'bg-gray-900' : 'bg-white'}>All Classes</option>
+                                {uniqueClasses.map(c => (
+                                    <option key={c} value={c} className={isDark ? 'bg-gray-900' : 'bg-white'}>{c}</option>
+                                ))}
+                            </select>
+
+                            {/* Board Filter */}
+                            <select
+                                value={boardFilter}
+                                onChange={e => setBoardFilter(e.target.value)}
+                                className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase outline-none cursor-pointer transition-all ${
+                                    isDark 
+                                        ? 'bg-black/20 border-gray-700 text-gray-300 hover:bg-gray-800/50' 
+                                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <option value="ALL" className={isDark ? 'bg-gray-900' : 'bg-white'}>All Boards</option>
+                                {uniqueBoards.map(b => (
+                                    <option key={b} value={b} className={isDark ? 'bg-gray-900' : 'bg-white'}>{b}</option>
+                                ))}
+                            </select>
+
+                            {/* Source Filter */}
+                            <select
+                                value={sourceFilter}
+                                onChange={e => setSourceFilter(e.target.value)}
+                                className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase outline-none cursor-pointer transition-all ${
+                                    isDark 
+                                        ? 'bg-black/20 border-gray-700 text-gray-300 hover:bg-gray-800/50' 
+                                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <option value="ALL" className={isDark ? 'bg-gray-900' : 'bg-white'}>All Sources</option>
+                                {uniqueSources.map(s => (
+                                    <option key={s} value={s} className={isDark ? 'bg-gray-900' : 'bg-white'}>{s}</option>
+                                ))}
+                            </select>
+
+                            {/* Feedback Filter */}
+                            <select
+                                value={feedbackFilter}
+                                onChange={e => setFeedbackFilter(e.target.value)}
+                                className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase outline-none cursor-pointer transition-all ${
+                                    isDark 
+                                        ? 'bg-black/20 border-gray-700 text-gray-300 hover:bg-gray-800/50' 
+                                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <option value="ALL" className={isDark ? 'bg-gray-900' : 'bg-white'}>All Feedbacks</option>
+                                {uniqueFeedbacks.map(f => (
+                                    <option key={f} value={f} className={isDark ? 'bg-gray-900' : 'bg-white'}>{f}</option>
+                                ))}
+                            </select>
+
                             {/* Reset Filter Button */}
-                            {(callSearch !== '' || callTypeFilter !== 'ALL' || leadTypeFilter !== 'ALL' || selectedSection !== 'ALL') && (
+                            {(callSearch !== '' || callTypeFilter !== 'ALL' || leadTypeFilter !== 'ALL' || selectedSection !== 'ALL' || classFilter !== 'ALL' || boardFilter !== 'ALL' || sourceFilter !== 'ALL' || feedbackFilter !== 'ALL') && (
                                 <button
                                     onClick={() => {
                                         setCallSearch('');
                                         setCallTypeFilter('ALL');
                                         setLeadTypeFilter('ALL');
                                         setSelectedSection('ALL');
+                                        setClassFilter('ALL');
+                                        setBoardFilter('ALL');
+                                        setSourceFilter('ALL');
+                                        setFeedbackFilter('ALL');
                                     }}
                                     className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${isDark
                                         ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
@@ -557,6 +640,7 @@ const DailyUserActivityLog = () => {
                                     <th className="px-5 py-3 font-black">Class</th>
                                     <th className="px-5 py-3 font-black">Board</th>
                                     <th className="px-5 py-3 font-black">School</th>
+                                    <th className="px-5 py-3 font-black">Source</th>
                                     <th className="px-5 py-3 font-black">Course</th>
                                     <th className="px-5 py-3 font-black text-center">Call Type</th>
                                     <th className="px-5 py-3 font-black text-center">Lead Status</th>
@@ -574,7 +658,7 @@ const DailyUserActivityLog = () => {
                             <tbody className={`divide-y ${divider}`}>
                                 {filteredCalls.length === 0 ? (
                                     <tr>
-                                        <td colSpan="18" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
+                                        <td colSpan="19" className={`px-6 py-12 text-center text-sm italic ${subText}`}>
                                             No call records found for the selected filters.
                                         </td>
                                     </tr>
@@ -591,6 +675,7 @@ const DailyUserActivityLog = () => {
                                             <td className="px-5 py-3 text-xs font-bold text-gray-300">{call.className || '-'}</td>
                                             <td className="px-5 py-3 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
                                             <td className="px-5 py-3 text-xs text-gray-400">{call.schoolName || '-'}</td>
+                                            <td className="px-5 py-3 text-xs text-gray-400 font-medium">{call.source || '-'}</td>
                                             <td className={`px-5 py-3 text-xs font-bold ${isDark ? 'text-cyan-400' : 'text-cyan-700'} whitespace-nowrap`} title={call.courseName || ''}>
                                                 {call.courseName || '-'}
                                             </td>

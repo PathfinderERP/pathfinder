@@ -699,27 +699,19 @@ const InstallmentPayment = () => {
 
         if (isDetailedView) {
             const dataToExport = displayedList.map(inst => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const dueDate = new Date(inst.dueDate);
-                dueDate.setHours(0, 0, 0, 0);
-                const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
-                const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
-
                 return {
                     "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
                     "Installment #": `Installment ${inst.installmentNumber}`,
-                    "Amount Due (₹)": Math.max(0, parseFloat(inst.amount) || 0),
-                    "Amount Paid (₹)": Math.max(0, parseFloat(inst.paidAmount) || 0),
-                    "Inst. Status": inst.status,
-                    "Due Status": dueStatus,
                     "Student Name": inst.studentName,
                     "Admission Code": inst.admissionNumber,
                     "Course": inst.course,
                     "Department": inst.department,
                     "Centre": inst.centre,
                     "Mobile": inst.mobile,
-                    "Email": inst.email
+                    "Total Fees (₹)": inst.admissionTotalFees,
+                    "Total Paid (₹)": inst.admissionTotalPaid,
+                    "Remaining (₹)": inst.admissionRemaining,
+                    "Overall Status": inst.admissionPaymentStatus
                 };
             });
 
@@ -747,59 +739,41 @@ const InstallmentPayment = () => {
                 dataToExport.push({
                     "Admission Code": adm.admissionNumber,
                     "Student Name": adm.studentName,
-                    "Email": adm.email,
                     "Mobile": adm.mobile,
                     "Course": adm.course,
                     "Department": adm.department,
                     "Centre": adm.centre,
-                    "Admission Date": new Date(adm.admissionDate).toLocaleDateString(),
                     "Total Fees (₹)": adm.totalFees,
                     "Total Paid (₹)": adm.totalPaid,
                     "Remaining (₹)": Math.max(0, parseFloat(adm.remainingAmount) || 0),
                     "Overall Status": adm.paymentStatus,
                     "Installment #": "N/A",
-                    "Due Date": "N/A",
-                    "Amount Due": "N/A",
-                    "Amount Paid": "N/A",
-                    "Inst. Status": "N/A"
+                    "Due Date": "N/A"
                 });
             } else {
                 adm.paymentBreakdown.forEach((inst, idx) => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dueDate = new Date(inst.dueDate);
-                    dueDate.setHours(0, 0, 0, 0);
-                    const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
-                    const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
-
                     dataToExport.push({
                         "Admission Code": idx === 0 ? adm.admissionNumber : "", // Only show for first installment row
                         "Student Name": idx === 0 ? adm.studentName : "",
-                        "Email": idx === 0 ? adm.email : "",
                         "Mobile": idx === 0 ? adm.mobile : "",
                         "Course": idx === 0 ? adm.course : "",
                         "Department": idx === 0 ? adm.department : "",
                         "Centre": idx === 0 ? adm.centre : "",
-                        "Admission Date": idx === 0 ? new Date(adm.admissionDate).toLocaleDateString() : "",
                         "Total Fees (₹)": idx === 0 ? adm.totalFees : "",
                         "Total Paid (₹)": idx === 0 ? adm.totalPaid : "",
                         "Remaining (₹)": idx === 0 ? Math.max(0, parseFloat(adm.remainingAmount) || 0) : "",
                         "Overall Status": idx === 0 ? adm.paymentStatus : "",
                         "Installment #": `Installment ${inst.installmentNumber}`,
-                        "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
-                        "Amount Due": Math.max(0, parseFloat(inst.amount) || 0),
-                        "Amount Paid": Math.max(0, parseFloat(inst.paidAmount) || 0),
-                        "Inst. Status": inst.status,
-                        "Due Status": dueStatus
+                        "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB')
                     });
                 });
             }
             // Add a separator row for better readability
             dataToExport.push({
-                "Admission Code": "---", "Student Name": "---", "Email": "---", "Mobile": "---", "Course": "---",
-                "Department": "---", "Centre": "---", "Admission Date": "---", "Total Fees (₹)": "---",
+                "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Course": "---",
+                "Department": "---", "Centre": "---", "Total Fees (₹)": "---",
                 "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
-                "Installment #": "---", "Due Date": "---", "Amount Due": "---", "Amount Paid": "---", "Inst. Status": "---", "Due Status": "---"
+                "Installment #": "---", "Due Date": "---"
             });
         });
 
@@ -875,27 +849,19 @@ const InstallmentPayment = () => {
 
         if (isBoardDetailedView) {
             const dataToExport = displayedBoardList.map(inst => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const dueDate = new Date(inst.dueDate);
-                dueDate.setHours(0, 0, 0, 0);
-                const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
-                const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
-
                 return {
                     "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
                     "Installment #": `Month ${inst.monthNumber}`,
-                    "Amount Due (₹)": Math.max(0, parseFloat(inst.payableAmount || inst.amount) || 0),
-                    "Amount Paid (₹)": Math.max(0, parseFloat(inst.paidAmount) || 0),
-                    "Inst. Status": inst.status,
-                    "Due Status": dueStatus,
                     "Student Name": inst.studentName,
                     "Admission Code": inst.admissionNumber,
                     "Board Course": inst.course,
                     "Department/Programme": inst.department,
                     "Centre": inst.centre,
                     "Mobile": inst.mobile,
-                    "Email": inst.email
+                    "Total Fees (₹)": inst.admissionTotalFees,
+                    "Total Paid (₹)": inst.admissionTotalPaid,
+                    "Remaining (₹)": inst.admissionRemaining,
+                    "Overall Status": inst.admissionPaymentStatus
                 };
             });
 
@@ -920,7 +886,6 @@ const InstallmentPayment = () => {
         displayedBoardList.forEach(adm => {
             const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
             const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
-            const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
             const totalExpected = adm.totalExpectedAmount || 0;
             const totalPaid = adm.totalPaidAmount || 0;
             const totalDue = Math.max(0, totalExpected - totalPaid);
@@ -929,58 +894,40 @@ const InstallmentPayment = () => {
                 dataToExport.push({
                     "Admission Code": adm.admissionNumber,
                     "Student Name": studentName,
-                    "Email": email,
                     "Mobile": mobile,
                     "Board Course": adm.boardCourseName || '—',
                     "Department/Programme": adm.programme,
                     "Centre": adm.centre,
-                    "Admission Date": new Date(adm.admissionDate).toLocaleDateString(),
                     "Total Fees (₹)": totalExpected,
                     "Total Paid (₹)": totalPaid,
                     "Remaining (₹)": totalDue,
                     "Overall Status": totalDue < 1 ? "PAID" : "PENDING",
                     "Installment #": "N/A",
-                    "Due Date": "N/A",
-                    "Amount Due": "N/A",
-                    "Amount Paid": "N/A",
-                    "Inst. Status": "N/A"
+                    "Due Date": "N/A"
                 });
             } else {
                 adm.installments.forEach((inst, idx) => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dueDate = new Date(inst.dueDate);
-                    dueDate.setHours(0, 0, 0, 0);
-                    const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
-                    const dueStatus = inst.status === "PAID" ? "PAID" : (isOverdue ? "OVERDUE" : "UPCOMING");
-
                     dataToExport.push({
                         "Admission Code": idx === 0 ? adm.admissionNumber : "",
                         "Student Name": idx === 0 ? studentName : "",
-                        "Email": idx === 0 ? email : "",
                         "Mobile": idx === 0 ? mobile : "",
                         "Board Course": idx === 0 ? (adm.boardCourseName || '—') : "",
                         "Department/Programme": idx === 0 ? adm.programme : "",
                         "Centre": idx === 0 ? adm.centre : "",
-                        "Admission Date": idx === 0 ? new Date(adm.admissionDate).toLocaleDateString() : "",
                         "Total Fees (₹)": idx === 0 ? totalExpected : "",
                         "Total Paid (₹)": idx === 0 ? totalPaid : "",
                         "Remaining (₹)": idx === 0 ? totalDue : "",
                         "Overall Status": idx === 0 ? (totalDue < 1 ? "PAID" : "PENDING") : "",
                         "Installment #": `Month ${inst.monthNumber}`,
-                        "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB'),
-                        "Amount Due": Math.max(0, parseFloat(inst.payableAmount || inst.standardAmount) || 0),
-                        "Amount Paid": Math.max(0, parseFloat(inst.paidAmount) || 0),
-                        "Inst. Status": inst.status,
-                        "Due Status": dueStatus
+                        "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB')
                     });
                 });
             }
             dataToExport.push({
-                "Admission Code": "---", "Student Name": "---", "Email": "---", "Mobile": "---", "Board Course": "---",
-                "Department/Programme": "---", "Centre": "---", "Admission Date": "---", "Total Fees (₹)": "---",
+                "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Board Course": "---",
+                "Department/Programme": "---", "Centre": "---", "Total Fees (₹)": "---",
                 "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
-                "Installment #": "---", "Due Date": "---", "Amount Due": "---", "Amount Paid": "---", "Inst. Status": "---", "Due Status": "---"
+                "Installment #": "---", "Due Date": "---"
             });
         });
 
