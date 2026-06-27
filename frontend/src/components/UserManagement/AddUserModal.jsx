@@ -19,6 +19,7 @@ const AddUserModal = ({ onClose, onSuccess }) => {
         canDeleteUsers: false,
         assignedScript: ""
     });
+    ///testing 
     const [centres, setCentres] = useState([]);
     const [scripts, setScripts] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -270,15 +271,15 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                     <option key={role} value={role}>
                                         {role === "superAdmin" ? "SuperAdmin"
                                             : role === "hr" ? "HR"
-                                            : role === "HOD" ? "HOD"
-                                            : role === "Class_Coordinator" ? "Class Coordinator"
-                                            : role === "centerIncharge" ? "Center Incharge"
-                                            : role === "zonalManager" ? "Zonal Manager"
-                                            : role === "assistantZonalManager" ? "Assistant Zonal Manager"
-                                            : role === "assistantCenterIncharge" ? "Assistant Center Incharge"
-                                            : role === "supportStaff" ? "Support Staff"
-                                            : role === "admin" ? "Back Office"
-                                            : role.charAt(0).toUpperCase() + role.slice(1)}
+                                                : role === "HOD" ? "HOD"
+                                                    : role === "Class_Coordinator" ? "Class Coordinator"
+                                                        : role === "centerIncharge" ? "Center Incharge"
+                                                            : role === "zonalManager" ? "Zonal Manager"
+                                                                : role === "assistantZonalManager" ? "Assistant Zonal Manager"
+                                                                    : role === "assistantCenterIncharge" ? "Assistant Center Incharge"
+                                                                        : role === "supportStaff" ? "Support Staff"
+                                                                            : role === "admin" ? "Back Office"
+                                                                                : role.charAt(0).toUpperCase() + role.slice(1)}
                                     </option>
                                 ))}
                             </select>
