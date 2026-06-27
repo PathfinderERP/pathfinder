@@ -101,11 +101,16 @@ export const getDailyTracking = async (req, res) => {
             // --- Daily Walk-ins ---
             const walkInsQuery = {
                 centre: centerId,
-                source: { $regex: /^walk[- ]?in$/i },
-                createdAt: dateFilter
+                $or: [
+                    { isWalkIn: true, walkInDate: dateFilter },
+                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter }
+                ]
             };
             if (isRestricted) {
-                walkInsQuery.createdBy = req.user._id;
+                walkInsQuery.$or = [
+                    { isWalkIn: true, walkInDate: dateFilter, walkInBy: req.user._id },
+                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: req.user._id }
+                ];
             }
             if (leadType) {
                 walkInsQuery.leadType = leadType;
@@ -544,7 +549,7 @@ export const getDailyCenterDetails = async (req, res) => {
             });
 
             // 3.3 Daily Calls & 5-Day Call History (Optimized Bulk Query)
-            const historyStart = new Date(startDate);
+            const historyStart = new Date(endDate);
             historyStart.setDate(historyStart.getDate() - 4);
             historyStart.setHours(0, 0, 0, 0);
             
@@ -662,7 +667,7 @@ export const getDailyCenterDetails = async (req, res) => {
 
             let callHistory = [];
             for (let i = 4; i >= 0; i--) {
-                let dDate = new Date(startDate);
+                let dDate = new Date(endDate);
                 dDate.setDate(dDate.getDate() - i);
                 let dStart = new Date(dDate);
                 dStart.setHours(0,0,0,0);
@@ -794,7 +799,7 @@ export const getDailyUserActivity = async (req, res) => {
         if (centerId) {
             followUpLeadsQuery.centre = centerId;
         }
-        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName').populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
+        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName source').populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
 
         // 3. Counseling Analysis
         const normalCounsQuery = {
@@ -910,7 +915,7 @@ export const getDailyUserActivity = async (req, res) => {
 
         // 6. HOT / WARM / COLD Lead Breakdown + Detailed Call List
         // Fresh = created today with NO followUps (pure fresh section uploads, no feedback/remarks)
-        const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
+        const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName source').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
 
         let hotCount = 0, warmCount = 0, coldCount = 0, neutralCount = 0, invalidCount = 0;
         const callDetails = [];
@@ -940,7 +945,8 @@ export const getDailyUserActivity = async (req, res) => {
                 className: lead.className?.name || '-',
                 boardName: lead.board?.boardName || '-',
                 schoolName: lead.schoolName || '-',
-                followUpCount: lead.followUps?.length || 0
+                followUpCount: lead.followUps?.length || 0,
+                source: lead.source || '-'
             });
         });
 
@@ -981,7 +987,8 @@ export const getDailyUserActivity = async (req, res) => {
                     className: lead.className?.name || '-',
                     boardName: lead.board?.boardName || '-',
                     schoolName: lead.schoolName || '-',
-                    followUpCount: lead.followUps?.length || 0
+                    followUpCount: lead.followUps?.length || 0,
+                    source: lead.source || '-'
                 });
             });
         });
@@ -1054,7 +1061,8 @@ export const getDailyUserActivity = async (req, res) => {
                 className: adm.class?.name || adm.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
                 boardName: adm.board?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
                 schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
-                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
+                source: existingLead?.source || adm.student?.studentsDetails?.[0]?.source || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1093,7 +1101,8 @@ export const getDailyUserActivity = async (req, res) => {
                 className: adm.lastClass || adm.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
                 boardName: adm.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
                 schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
-                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
+                source: existingLead?.source || adm.studentId?.studentsDetails?.[0]?.source || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1135,7 +1144,8 @@ export const getDailyUserActivity = async (req, res) => {
                 className: couns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
                 boardName: couns.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
                 schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
-                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
+                source: existingLead?.source || couns.studentId?.studentsDetails?.[0]?.source || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1532,7 +1542,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 className: lead.className?.name || '-',
                 boardName: lead.board?.boardName || '-',
                 schoolName: lead.schoolName || '-',
-                followUpCount: lead.followUps?.length || 0
+                followUpCount: lead.followUps?.length || 0,
+                source: lead.source || '-'
             });
         });
 
@@ -1562,7 +1573,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                     className: lead.className?.name || '-',
                     boardName: lead.board?.boardName || '-',
                     schoolName: lead.schoolName || '-',
-                    followUpCount: lead.followUps?.length || 0
+                    followUpCount: lead.followUps?.length || 0,
+                    source: lead.source || '-'
                 });
             });
         });
@@ -1648,7 +1660,8 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 className,
                 boardName,
                 schoolName,
-                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0
+                followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
+                source: existingLead?.source || (admOrCouns.student?.studentsDetails?.[0]?.source || admOrCouns.studentId?.studentsDetails?.[0]?.source) || '-'
             });
             
             if (phone !== '-') existingPhones.add(phone);
@@ -1671,6 +1684,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
             "Class": call.className || '-',
             "Board": call.boardName || '-',
             "School": call.schoolName || '-',
+            "Source": call.source || '-',
             "Course Name": call.courseName || '-',
             "Call Type": call.callType,
             "Lead Status": call.leadType,
@@ -1730,25 +1744,30 @@ export const getDailyTrackingDetails = async (req, res) => {
         if (category === "walkins") {
             // Daily Walk-Ins
             const walkinsQuery = {
-                source: { $regex: /^walk[- ]?in$/i },
-                createdAt: dateFilter
+                $or: [
+                    { isWalkIn: true, walkInDate: dateFilter },
+                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter }
+                ]
             };
             if (isRestricted) {
-                walkinsQuery.createdBy = req.user._id;
+                walkinsQuery.$or = [
+                    { isWalkIn: true, walkInDate: dateFilter, walkInBy: req.user._id },
+                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: req.user._id }
+                ];
             }
             if (leadType) {
                 walkinsQuery.leadType = leadType;
             }
-            const walkins = await LeadManagement.find(walkinsQuery).populate('centre').populate('createdBy').lean();
+            const walkins = await LeadManagement.find(walkinsQuery).populate('centre').populate('createdBy').populate('walkInBy').lean();
 
             detailsList = walkins.map(lead => ({
                 id: lead._id,
                 name: lead.name,
                 phone: lead.phoneNumber || 'N/A',
                 email: lead.email || 'N/A',
-                handledBy: lead.createdBy?.name || 'System',
+                handledBy: lead.walkInBy?.name || lead.createdBy?.name || 'System',
                 centreName: lead.centre?.centreName || 'N/A',
-                dateTime: lead.createdAt,
+                dateTime: lead.walkInDate || lead.createdAt,
                 tag: lead.leadType || 'WALK-IN',
                 feedback: lead.remarks || 'No remarks recorded'
             }));

@@ -3,8 +3,8 @@ import LeadManagement from "../../models/LeadManagement.js";
 export const addFollowUp = async (req, res) => {
     try {
         const { id } = req.params;
-        const { date, feedback, remarks, nextFollowUpDate, updatedBy, callStartTime, callEndTime, callDuration, leadType } = req.body;
-        console.log(`[AddFollowUp] ID: ${id}, LeadType: ${leadType}, Feedback: ${feedback}`);
+        const { date, feedback, remarks, nextFollowUpDate, updatedBy, callStartTime, callEndTime, callDuration, leadType, walkInDate } = req.body;
+        console.log(`[AddFollowUp] ID: ${id}, LeadType: ${leadType}, Feedback: ${feedback}, WalkInDate: ${walkInDate}`);
 
         const lead = await LeadManagement.findById(id);
         if (!lead) {
@@ -46,6 +46,12 @@ export const addFollowUp = async (req, res) => {
         // Update lead root status if provided
         if (leadType) {
             lead.leadType = leadType;
+        }
+
+        if (walkInDate) {
+            lead.walkInDate = new Date(walkInDate);
+            lead.isWalkIn = true;
+            lead.walkInBy = req.user?._id || req.user?.id;
         }
 
         await lead.save();

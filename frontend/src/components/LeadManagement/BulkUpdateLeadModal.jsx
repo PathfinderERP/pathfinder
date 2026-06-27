@@ -3,7 +3,20 @@ import { FaTimes, FaUserEdit, FaSync, FaSave, FaFilter, FaSearch, FaCheckSquare,
 import { toast } from "react-toastify";
 import CustomSearchSelect from "../common/CustomSearchSelect";
 
-const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }) => {
+const FEEDBACK_OPTIONS = [
+    "Call back later",
+    "Interested",
+    "Not Interested",
+    "Wrong Number",
+    "Busy",
+    "Asked for details",
+    "Price Issue",
+    "Will visit centre",
+    "Enrolled elsewhere",
+    "Others"
+];
+
+const BulkUpdateLeadModal = ({ selectedLeadIds, isAllFilteredSelected, filters, totalLeads, onClose, onSuccess, isDarkMode }) => {
     const [enabledFields, setEnabledFields] = useState({
         schoolName: false,
         className: false,
@@ -14,7 +27,8 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
         targetExam: false,
         leadType: false,
         leadResponsibility: false,
-        isPriority: false
+        isPriority: false,
+        feedback: false
     });
 
     const [formData, setFormData] = useState({
@@ -27,7 +41,8 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
         targetExam: "",
         leadType: "",
         leadResponsibility: "",
-        isPriority: ""
+        isPriority: "",
+        feedback: ""
     });
 
     const [loading, setLoading] = useState(false);
@@ -191,16 +206,20 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
 
         try {
             const token = localStorage.getItem("token");
+            const body = { updateData };
+            if (isAllFilteredSelected) {
+                body.filters = filters;
+            } else {
+                body.ids = selectedLeadIds;
+            }
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/bulk-update`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    ids: selectedLeadIds,
-                    updateData
-                }),
+                body: JSON.stringify(body),
             });
 
             const data = await response.json();
@@ -242,7 +261,7 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
                     <div>
                         <h3 className={`text-xl font-black uppercase tracking-tighter italic flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             <FaUserEdit className="text-cyan-500" />
-                            Bulk Update Selected Leads ({selectedLeadIds.length})
+                            Bulk Update Selected Leads ({isAllFilteredSelected ? totalLeads : selectedLeadIds.length})
                         </h3>
                         <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] mt-0.5">Toggle the checkbox next to any field to include it in the bulk update</p>
                     </div>
@@ -407,6 +426,27 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, onClose, onSuccess, isDarkMode }
                                         <option value="">Select Priority Option</option>
                                         <option value="true">YES, MARK AS PRIORITY</option>
                                         <option value="false">NO, REMOVE PRIORITY</option>
+                                    </select>
+                                </div>
+
+                                {/* Feedback */}
+                                <div className={`p-3 rounded border transition-all ${enabledFields.feedback ? (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200') : (isDarkMode ? 'border-gray-800' : 'border-gray-200')}`}>
+                                    <div className="flex items-center gap-2 mb-2 cursor-pointer select-none" onClick={() => toggleField('feedback')}>
+                                        {enabledFields.feedback ? <FaCheckSquare className="text-cyan-500" /> : <FaSquare className="text-gray-500" />}
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-white">Enable Feedback</span>
+                                    </div>
+                                    <label className={labelClasses(enabledFields.feedback)}>Feedback / Call Status</label>
+                                    <select 
+                                        name="feedback" 
+                                        disabled={!enabledFields.feedback}
+                                        value={formData.feedback} 
+                                        onChange={handleChange} 
+                                        className={selectClasses(enabledFields.feedback)}
+                                    >
+                                        <option value="">Select Feedback</option>
+                                        {FEEDBACK_OPTIONS.map((opt, idx) => (
+                                            <option key={idx} value={opt}>{opt.toUpperCase()}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

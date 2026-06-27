@@ -360,7 +360,7 @@ const EnrolledStudentsContent = () => {
     // Reset selected IDs when any filter or view mode changes
     useEffect(() => {
         setSelectedAdmissionIds([]);
-    }, [viewMode, currentPage, searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, startDate, endDate, filterBatch]);
+    }, [viewMode, searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, startDate, endDate, filterBatch]);
 
     const toggleSelection = (admissionId) => {
         if (!admissionId) return;
@@ -372,8 +372,7 @@ const EnrolledStudentsContent = () => {
     };
 
     const handleSelectAll = (e) => {
-        const pageItems = filteredStudents
-            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+        const allItems = filteredStudents
             .map(studentItem => {
                 const relevantAdmissions = studentItem.admissions.filter(a => {
                     const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
@@ -392,11 +391,10 @@ const EnrolledStudentsContent = () => {
             .filter(Boolean);
 
         if (e.target.checked) {
-            const newIds = pageItems.map(a => a._id).filter(id => !selectedAdmissionIds.includes(id));
-            setSelectedAdmissionIds(prev => [...prev, ...newIds]);
+            const newIds = allItems.map(a => a._id);
+            setSelectedAdmissionIds(newIds);
         } else {
-            const pageIds = pageItems.map(a => a._id);
-            setSelectedAdmissionIds(prev => prev.filter(id => !pageIds.includes(id)));
+            setSelectedAdmissionIds([]);
         }
     };
 
@@ -1868,7 +1866,7 @@ const EnrolledStudentsContent = () => {
                                             onChange={handleSelectAll}
                                             checked={
                                                 filteredStudents.length > 0 &&
-                                                filteredStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).every(s => {
+                                                filteredStudents.every(s => {
                                                     const relevantAdmissions = s.admissions.filter(a => {
                                                         const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
                                                         if (!isTypeMatch) return false;

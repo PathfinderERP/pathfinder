@@ -25,7 +25,8 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
         callStartTime: null,
         callEndTime: null,
         callDuration: "",
-        leadType: ""
+        leadType: "",
+        walkInDate: ""
     });
 
     const [isCalling, setIsCalling] = useState(false);
@@ -262,6 +263,21 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
                                     required={!["COLD LEAD", "INVALID LEAD"].includes(formData.leadType)}
                                     value={formData.nextFollowUpDate}
                                     onChange={(e) => setFormData({ ...formData, nextFollowUpDate: e.target.value })}
+                                    className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest flex items-center gap-0.5">
+                                Walk In Date
+                            </label>
+                            <div className="relative group">
+                                <FaCalendarAlt className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
+                                <input
+                                    type="date"
+                                    value={formData.walkInDate}
+                                    onChange={(e) => setFormData({ ...formData, walkInDate: e.target.value })}
                                     className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                 />
                             </div>
