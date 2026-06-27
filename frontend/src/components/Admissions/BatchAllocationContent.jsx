@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { FaSearch, FaFilter, FaSync, FaCheckSquare, FaSquare, FaUsers, FaPlus, FaTimes, FaUserGraduate, FaFileExcel } from "react-icons/fa";
+import { FaSearch, FaFilter, FaSync, FaCheckSquare, FaSquare, FaUsers, FaPlus, FaTimes, FaUserGraduate, FaFileExcel, FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -38,7 +38,11 @@ const BatchAllocationContent = () => {
     // Master Data for filters
     const [allowedCentres, setAllowedCentres] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Sort state
+    const [sortField, setSortField] = useState("name");
+    const [sortDirection, setSortDirection] = useState("asc");
     
     // Master data for filters
     const [masterClasses, setMasterClasses] = useState([]);
@@ -175,9 +179,8 @@ const BatchAllocationContent = () => {
         fetchStudents();
     }, [fetchAllowedCentres, fetchMasterData, fetchBatches, fetchStudents]);
 
-    // Filtering logic
     const filteredStudents = useMemo(() => {
-        return students.filter(student => {
+        const filtered = students.filter(student => {
             const details = student.studentsDetails?.[0] || {};
             const centre = details.centre || "";
             // Use latestAdmission course if available
@@ -210,12 +213,61 @@ const BatchAllocationContent = () => {
 
             return matchesSearch && matchesCentre && matchesCourse && matchesClass && matchesProgramme && matchesSession && matchesBatch && matchesExamTag;
         });
-    }, [students, searchQuery, filterCentre, filterCourse, filterClass, filterProgramme, filterSession, filterBatch, filterExamTag, allowedCentres, isSuperAdmin]);
+
+        // Apply sort
+        filtered.sort((a, b) => {
+            const aDetails = a.studentsDetails?.[0] || {};
+            const bDetails = b.studentsDetails?.[0] || {};
+            let aVal = "";
+            let bVal = "";
+            switch (sortField) {
+                case "name":
+                    aVal = aDetails.studentName || "";
+                    bVal = bDetails.studentName || "";
+                    break;
+                case "admissionNo":
+                    aVal = a.latestAdmission?.admissionNumber || "";
+                    bVal = b.latestAdmission?.admissionNumber || "";
+                    break;
+                case "class":
+                    aVal = a.latestAdmission?.class?.name || a.latestAdmission?.class?.className || a.latestAdmission?.lastClass || "";
+                    bVal = b.latestAdmission?.class?.name || b.latestAdmission?.class?.className || b.latestAdmission?.lastClass || "";
+                    break;
+                case "centre":
+                    aVal = aDetails.centre || "";
+                    bVal = bDetails.centre || "";
+                    break;
+                default:
+                    return 0;
+            }
+            const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" });
+            return sortDirection === "asc" ? cmp : -cmp;
+        });
+
+        return filtered;
+    }, [students, searchQuery, filterCentre, filterCourse, filterClass, filterProgramme, filterSession, filterBatch, filterExamTag, allowedCentres, isSuperAdmin, sortField, sortDirection]);
 
     const paginatedStudents = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredStudents.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredStudents, currentPage]);
+    }, [filteredStudents, currentPage, itemsPerPage]);
+
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            setSortDirection("asc");
+        }
+        setCurrentPage(1);
+    };
+
+    const SortIcon = ({ field }) => {
+        if (sortField !== field) return <FaSort className="inline ml-1 opacity-30" />;
+        return sortDirection === "asc"
+            ? <FaSortUp className="inline ml-1 text-cyan-400" />
+            : <FaSortDown className="inline ml-1 text-cyan-400" />;
+    };
 
     const uniqueValues = useMemo(() => {
         const centres = new Set();
@@ -533,9 +585,23 @@ const BatchAllocationContent = () => {
 
             {/* Students Table */}
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden`}>
-                <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                <div className={`p-6 border-b flex flex-wrap justify-between items-center gap-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                     <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Enrolled Students</h3>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
+                        {/* Items per page selector */}
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Show</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className={`px-2 py-1 rounded-[4px] border text-[10px] font-black uppercase outline-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-cyan-400 focus:border-cyan-500' : 'bg-white border-gray-200 text-cyan-600 focus:border-cyan-500'}`}
+                            >
+                                {[10, 25, 50, 100, 200, 500].map(n => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </select>
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>per page</span>
+                        </div>
                         <span className={`text-[10px] font-black px-3 py-1 rounded-[4px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-100 text-cyan-600'}`}>
                             {selectedStudentIds.length} Selected
                         </span>
@@ -555,10 +621,18 @@ const BatchAllocationContent = () => {
                                             <FaCheckSquare className="text-cyan-500" /> : <FaSquare className="text-gray-700 hover:text-gray-500" />}
                                     </button>
                                 </th>
-                                <th className="p-4">Student Name</th>
-                                <th className="p-4">Admission No</th>
-                                <th className="p-4">Class</th>
-                                <th className="p-4">Centre/Course</th>
+                                <th className="p-4 cursor-pointer select-none hover:text-cyan-400 transition-colors" onClick={() => handleSort("name")}>
+                                    Student Name <SortIcon field="name" />
+                                </th>
+                                <th className="p-4 cursor-pointer select-none hover:text-cyan-400 transition-colors" onClick={() => handleSort("admissionNo")}>
+                                    Admission No <SortIcon field="admissionNo" />
+                                </th>
+                                <th className="p-4 cursor-pointer select-none hover:text-cyan-400 transition-colors" onClick={() => handleSort("class")}>
+                                    Class <SortIcon field="class" />
+                                </th>
+                                <th className="p-4 cursor-pointer select-none hover:text-cyan-400 transition-colors" onClick={() => handleSort("centre")}>
+                                    Centre/Course <SortIcon field="centre" />
+                                </th>
                                 <th className="p-4">Current Batches</th>
                                 <th className="p-4 text-right">Assign</th>
                             </tr>
@@ -655,7 +729,10 @@ const BatchAllocationContent = () => {
                     </table>
                 </div>
 
-                <div className="p-4">
+                <div className="p-4 flex items-center justify-between flex-wrap gap-2">
+                    <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        Showing {filteredStudents.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} results
+                    </p>
                     <Pagination
                         currentPage={currentPage}
                         totalItems={filteredStudents.length}
