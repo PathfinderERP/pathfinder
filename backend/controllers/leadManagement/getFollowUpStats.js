@@ -77,7 +77,14 @@ export const getFollowUpStats = async (req, res) => {
         const timeMatch = buildTimeMatch();
 
         const scheduledDateFilter = {};
-        if (scheduledDate) {
+        if (fromDate || toDate) {
+            if (fromDate) scheduledDateFilter.$gte = new Date(fromDate);
+            if (toDate) {
+                const end = new Date(toDate);
+                end.setHours(23, 59, 59, 999);
+                scheduledDateFilter.$lte = end;
+            }
+        } else if (scheduledDate) {
             const start = new Date(scheduledDate);
             start.setHours(0, 0, 0, 0);
             const end = new Date(scheduledDate);
