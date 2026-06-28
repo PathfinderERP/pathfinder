@@ -2,17 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
-import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign } from 'react-icons/fa';
+import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign, FaFileExcel } from 'react-icons/fa';
 import { toast } from "react-toastify";
 import DailyTrackingDetailsModal from '../components/Dashboard/DailyTrackingDetailsModal';
 import ActiveCentresCallsReportModal from '../components/Dashboard/ActiveCentresCallsReportModal';
 import { hasPermission } from '../config/permissions';
 import CustomMultiSelect from '../components/common/CustomMultiSelect';
+import { downloadExcel } from '../utils/exportUtils';
+
 
 const DailyCenterTracking = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
-    
+
     const [centers, setCenters] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -184,8 +186,8 @@ const DailyCenterTracking = () => {
             });
             const data = await response.json();
             if (response.ok) {
-                const filteredData = Array.isArray(data) 
-                    ? data.filter(c => 
+                const filteredData = Array.isArray(data)
+                    ? data.filter(c =>
                         user.role === 'superAdmin' || user.role === 'superadmin' ||
                         (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name))
                     )
@@ -215,6 +217,44 @@ const DailyCenterTracking = () => {
         return matchesSearch && matchesCenter;
     });
 
+    const handleExportExcel = () => {
+        if (!filteredCenters || filteredCenters.length === 0) {
+            toast.warn("No data available to export");
+            return;
+        }
+
+        const headers = [
+            { key: "name", label: "Center Name" },
+
+            { key: "walkIns", label: "Walk-Ins" },
+            { key: "dailyCalls", label: "Daily Calls" },
+            { key: "counselledNormal", label: "Counselled (Normal)" },
+            { key: "counselledBoard", label: "Counselled (Board)" },
+            { key: "counselledTotal", label: "Counselled (Total)" },
+            { key: "admissionNormal", label: "Admission (Normal)" },
+            { key: "admissionBoard", label: "Admission (Board)" },
+            { key: "admissionTotal", label: "Admission (Total)" },
+            { key: "collectionsAdmissionVal", label: "Collection (Admission) [Excl. GST]" },
+            { key: "collectionsInstallmentVal", label: "Collection (Installment) [Excl. GST]" },
+            { key: "collectionsVal", label: "Collection (Total) [Excl. GST]" }
+        ];
+
+        const exportData = filteredCenters.map(center => ({
+            ...center,
+            counselledTotal: (center.counselledNormal || 0) + (center.counselledBoard || 0),
+            admissionTotal: (center.admissionNormal || 0) + (center.admissionBoard || 0),
+        }));
+
+        const cleanDateRange = dateRange === "Custom Range"
+            ? `${customStartDate}_to_${customEndDate}`
+            : dateRange.replace(/\s+/g, '_');
+
+        const filename = `Daily_Center_Tracking_${cleanDateRange}`;
+        downloadExcel(exportData, headers, filename);
+        toast.success("Excel exported successfully!");
+    };
+
+
     if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') {
         return null;
     }
@@ -222,7 +262,7 @@ const DailyCenterTracking = () => {
     return (
         <Layout activePage="Tracking & Flagging">
             <div className={`p-4 md:p-6 min-h-screen ${isDarkMode ? 'bg-[#0f1214] text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
-                
+
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
@@ -242,16 +282,15 @@ const DailyCenterTracking = () => {
                     <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                         <div className="relative flex-1 md:w-64">
                             <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            <input 
-                                type="text" 
-                                placeholder="Search centers..." 
+                            <input
+                                type="text"
+                                placeholder="Search centers..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-10 pr-4 py-2 rounded border focus:ring-2 focus:ring-cyan-500 outline-none transition-all ${
-                                    isDarkMode 
-                                        ? 'bg-[#1a1f24] border-gray-700 text-white placeholder-gray-500' 
+                                className={`w-full pl-10 pr-4 py-2 rounded border focus:ring-2 focus:ring-cyan-500 outline-none transition-all ${isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-white placeholder-gray-500'
                                         : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'
-                                }`}
+                                    }`}
                             />
                         </div>
 
@@ -278,19 +317,17 @@ const DailyCenterTracking = () => {
                                         setCustomEndDate("");
                                     }
                                 }}
-                                className={`w-full px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer appearance-none transition-all ${
-                                    isDarkMode
+                                className={`w-full px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer appearance-none transition-all ${isDarkMode
                                         ? 'bg-[#1a1f24] border-gray-700 text-white'
                                         : 'bg-white border-gray-200 text-gray-900'
-                                }`}
+                                    }`}
                             >
                                 {["Today", "Yesterday", "Last 7 Days", "This Month", "This Year", "Last Year", "Custom Range"].map(d => (
                                     <option key={d} value={d} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{d}</option>
                                 ))}
                             </select>
-                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
-                                isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
-                            }`}>Date Range</span>
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                                }`}>Date Range</span>
                         </div>
 
                         {/* Lead Intensity Dropdown */}
@@ -298,20 +335,18 @@ const DailyCenterTracking = () => {
                             <select
                                 value={leadTypeFilter}
                                 onChange={e => setLeadTypeFilter(e.target.value)}
-                                className={`w-full px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer appearance-none transition-all ${
-                                    isDarkMode
+                                className={`w-full px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer appearance-none transition-all ${isDarkMode
                                         ? 'bg-[#1a1f24] border-gray-700 text-white'
                                         : 'bg-white border-gray-200 text-gray-900'
-                                }`}
+                                    }`}
                             >
                                 <option value="" className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>All Lead Intensity</option>
                                 {["HOT LEAD", "WARM LEAD", "COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"].map(t => (
                                     <option key={t} value={t} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{t}</option>
                                 ))}
                             </select>
-                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
-                                isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
-                            }`}>Lead Intensity</span>
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                                }`}>Lead Intensity</span>
                         </div>
 
                         {/* Custom Start/End Dates */}
@@ -322,30 +357,26 @@ const DailyCenterTracking = () => {
                                         type="date"
                                         value={customStartDate}
                                         onChange={e => setCustomStartDate(e.target.value)}
-                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${
-                                            isDarkMode
+                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${isDarkMode
                                                 ? 'bg-[#1a1f24] border-gray-700 text-white'
                                                 : 'bg-white border-gray-200 text-[#05080c]'
-                                        }`}
+                                            }`}
                                     />
-                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
-                                        isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
-                                    }`}>From</span>
+                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                                        }`}>From</span>
                                 </div>
                                 <div className="relative">
                                     <input
                                         type="date"
                                         value={customEndDate}
                                         onChange={e => setCustomEndDate(e.target.value)}
-                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${
-                                            isDarkMode
+                                        className={`px-3 py-2 rounded border focus:ring-2 focus:ring-cyan-500 text-sm font-semibold outline-none cursor-pointer transition-all ${isDarkMode
                                                 ? 'bg-[#1a1f24] border-gray-700 text-white'
                                                 : 'bg-white border-gray-200 text-[#05080c]'
-                                        }`}
+                                            }`}
                                     />
-                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${
-                                        isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
-                                    }`}>To</span>
+                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-white text-gray-400'
+                                        }`}>To</span>
                                 </div>
                             </>
                         )}
@@ -356,6 +387,13 @@ const DailyCenterTracking = () => {
                         >
                             <FaPhoneAlt /> Calls Report
                         </button>
+
+                        <button
+                            onClick={handleExportExcel}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] cursor-pointer"
+                        >
+                            <FaFileExcel /> Export Excel
+                        </button>
                     </div>
                 </div>
 
@@ -363,41 +401,40 @@ const DailyCenterTracking = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                     {[
                         { title: getCardLabel("Walk-Ins"), category: "walkins", value: filteredCenters.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
-                        { 
-                            title: getCardLabel("Counselling"), 
-                            category: "counselling", 
-                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(), 
+                        {
+                            title: getCardLabel("Counselling"),
+                            category: "counselling",
+                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(),
                             subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
-                            icon: <FaComments />, 
-                            color: "text-green-500", 
-                            bg: "bg-green-500/10" 
+                            icon: <FaComments />,
+                            color: "text-green-500",
+                            bg: "bg-green-500/10"
                         },
-                        { 
-                            title: getCardLabel("Admission"), 
+                        {
+                            title: getCardLabel("Admission"),
                             category: "admission",
-                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(), 
+                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(),
                             subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
-                            icon: <FaUserPlus />, 
-                            color: "text-purple-500", 
-                            bg: "bg-purple-500/10" 
+                            icon: <FaUserPlus />,
+                            color: "text-purple-500",
+                            bg: "bg-purple-500/10"
                         },
                         { title: getCardLabel("Calls"), category: "calls", value: filteredCenters.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
-                        { 
-                            title: getCardLabel("Collection"), 
+                        {
+                            title: getCardLabel("Collection"),
                             category: "collection",
-                            value: `₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`, 
+                            value: `₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`,
                             subtext: `Admission: ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment: ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
-                            icon: <FaRupeeSign />, 
-                            color: "text-cyan-500", 
-                            bg: "bg-cyan-500/10" 
+                            icon: <FaRupeeSign />,
+                            color: "text-cyan-500",
+                            bg: "bg-cyan-500/10"
                         }
                     ].map((kpi, index) => (
-                        <div 
-                            key={index} 
+                        <div
+                            key={index}
                             onClick={() => handleCardClick(kpi.category, kpi.title)}
-                            className={`p-5 rounded transition-all hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none hover:border-cyan-500/40 ${
-                            isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'
-                        }`}>
+                            className={`p-5 rounded transition-all hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none hover:border-cyan-500/40 ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'
+                                }`}>
                             <div className="flex items-start gap-3">
                                 <div className={`p-3 rounded ${kpi.bg} ${kpi.color} shrink-0`}>
                                     {React.cloneElement(kpi.icon, { className: "text-xl" })}
@@ -427,32 +464,30 @@ const DailyCenterTracking = () => {
                                 </span>
                             )}
                         </h2>
-                        
+
                         {/* View Mode Toggle */}
                         <div className={`flex rounded p-1 border ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
-                            <button 
+                            <button
                                 onClick={() => setViewMode('card')}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded transition-all text-sm font-medium ${
-                                    viewMode === 'card' 
-                                        ? (isDarkMode ? 'bg-cyan-600 text-white' : 'bg-cyan-500 text-white') 
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded transition-all text-sm font-medium ${viewMode === 'card'
+                                        ? (isDarkMode ? 'bg-cyan-600 text-white' : 'bg-cyan-500 text-white')
                                         : (isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700')
-                                }`}
+                                    }`}
                             >
                                 <FaThLarge /> Cards
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setViewMode('table')}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded transition-all text-sm font-medium ${
-                                    viewMode === 'table' 
-                                        ? (isDarkMode ? 'bg-cyan-600 text-white' : 'bg-cyan-500 text-white') 
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded transition-all text-sm font-medium ${viewMode === 'table'
+                                        ? (isDarkMode ? 'bg-cyan-600 text-white' : 'bg-cyan-500 text-white')
                                         : (isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700')
-                                }`}
+                                    }`}
                             >
                                 <FaList /> Table
                             </button>
                         </div>
                     </div>
-                    
+
                     {loading ? (
                         <div className="p-8 text-center text-gray-500">Loading centers...</div>
                     ) : filteredCenters.length === 0 ? (
@@ -473,9 +508,8 @@ const DailyCenterTracking = () => {
                                     </thead>
                                     <tbody className="text-sm">
                                         {filteredCenters.map((center) => (
-                                            <tr key={center.id} className={`border-b last:border-b-0 transition-colors ${
-                                                isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-50 hover:bg-gray-50'
-                                            }`}>
+                                            <tr key={center.id} className={`border-b last:border-b-0 transition-colors ${isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-50 hover:bg-gray-50'
+                                                }`}>
                                                 <td className="p-4 font-medium flex items-center gap-2">
                                                     <div className={`w-2 h-2 rounded-full ${center.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                                     {center.name}
@@ -489,7 +523,7 @@ const DailyCenterTracking = () => {
                                                 </td>
                                                 <td className="p-4 font-semibold text-cyan-600 dark:text-cyan-400">{center.collections}</td>
                                                 <td className="p-4 text-center">
-                                                    <button 
+                                                    <button
                                                         onClick={() => {
                                                             let start = "", end = "";
                                                             if (dateRange === "Custom Range") {
@@ -502,11 +536,10 @@ const DailyCenterTracking = () => {
                                                             }
                                                             navigate(`/daily-center-tracking/${center.id}?fromDate=${start}&toDate=${end}`);
                                                         }}
-                                                        className={`px-4 py-1.5 rounded text-xs font-medium transition-colors ${
-                                                        isDarkMode 
-                                                            ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
-                                                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                                                    }`}>
+                                                        className={`px-4 py-1.5 rounded text-xs font-medium transition-colors ${isDarkMode
+                                                                ? 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                                                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                                            }`}>
                                                         View Details
                                                     </button>
                                                 </td>
@@ -518,14 +551,12 @@ const DailyCenterTracking = () => {
                         ) : (
                             <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {filteredCenters.map((center) => (
-                                    <div key={center.id} className={`rounded p-5 border transition-all hover:shadow-lg ${
-                                        isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-white border-gray-200 hover:border-gray-300'
-                                    }`}>
+                                    <div key={center.id} className={`rounded p-5 border transition-all hover:shadow-lg ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-white border-gray-200 hover:border-gray-300'
+                                        }`}>
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded flex items-center justify-center font-bold text-lg ${
-                                                    isDarkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'
-                                                }`}>
+                                                <div className={`w-10 h-10 rounded flex items-center justify-center font-bold text-lg ${isDarkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'
+                                                    }`}>
                                                     {center.name.charAt(0)}
                                                 </div>
                                                 <div>
@@ -537,11 +568,10 @@ const DailyCenterTracking = () => {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <span className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 ${
-                                                center.status === 'Active' 
+                                            <span className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 ${center.status === 'Active'
                                                     ? (isDarkMode ? 'bg-green-500/10 text-green-400' : 'bg-green-100 text-green-700')
                                                     : (isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-700')
-                                            }`}>
+                                                }`}>
                                                 {center.status === 'Active' ? <FaCheckCircle /> : <FaTimesCircle />}
                                                 {center.status}
                                             </span>
@@ -566,7 +596,7 @@ const DailyCenterTracking = () => {
                                             </div>
                                         </div>
 
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 let start = "", end = "";
                                                 if (dateRange === "Custom Range") {
@@ -579,11 +609,10 @@ const DailyCenterTracking = () => {
                                                 }
                                                 navigate(`/daily-center-tracking/${center.id}?fromDate=${start}&toDate=${end}`);
                                             }}
-                                            className={`w-full py-2 rounded text-sm font-medium transition-colors ${
-                                            isDarkMode 
-                                                ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' 
-                                                : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
-                                        }`}>
+                                            className={`w-full py-2 rounded text-sm font-medium transition-colors ${isDarkMode
+                                                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700'
+                                                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
+                                                }`}>
                                             View Details
                                         </button>
                                     </div>
@@ -593,7 +622,7 @@ const DailyCenterTracking = () => {
                     )}
                 </div>
             </div>
-            
+
             <DailyTrackingDetailsModal
                 isOpen={showDetailsModal}
                 onClose={() => setShowDetailsModal(false)}
