@@ -147,42 +147,59 @@ export const bulkImportSchoolData = async (req, res) => {
         }
 
         const results = { inserted: 0, failed: [], total: rows.length };
+        const validRecords = [];
+
         for (const row of rows) {
+            const schoolName = cleanVal(row.schoolName || row["School Name"]);
+            const studentName = cleanVal(row.studentName || row["Student Name"]);
+            const className = cleanVal(row.className || row["Class"]);
+            const board = cleanVal(row.board || row["Board"]);
+            const phoneNumber = cleanVal(row.phoneNumber || row["Phone Number"]);
+            const secondaryPhoneNumber = cleanVal(row.secondaryPhoneNumber || row["Secondary Phone Number"]);
+            const year = cleanVal(row.year || row["Year"]);
+            const area = cleanVal(row.area || row["Area"]);
+            const centreName = cleanVal(row.centreName || row["Centre Name"] || row["centre"]);
+
+            if (!schoolName || !studentName || !className || !board) {
+                results.failed.push({ row, reason: "Missing required fields: School Name, Student Name, Class, Board" });
+                continue;
+            }
+
+            // Resolve centre name to ObjectId (case-insensitive)
+            const centreId = centreName ? (centreNameMap[centreName.toLowerCase()] || null) : null;
+
+            validRecords.push({
+                schoolName,
+                studentName,
+                className,
+                board,
+                phoneNumber,
+                secondaryPhoneNumber,
+                year,
+                area,
+                centre: centreId
+            });
+        }
+
+        if (validRecords.length > 0) {
             try {
-                const schoolName = cleanVal(row.schoolName || row["School Name"]);
-                const studentName = cleanVal(row.studentName || row["Student Name"]);
-                const className = cleanVal(row.className || row["Class"]);
-                const board = cleanVal(row.board || row["Board"]);
-                const phoneNumber = cleanVal(row.phoneNumber || row["Phone Number"]);
-                const secondaryPhoneNumber = cleanVal(row.secondaryPhoneNumber || row["Secondary Phone Number"]);
-                const year = cleanVal(row.year || row["Year"]);
-                const area = cleanVal(row.area || row["Area"]);
-                const centreName = cleanVal(row.centreName || row["Centre Name"] || row["centre"]);
-
-                if (!schoolName || !studentName || !className || !board) {
-                    throw new Error("Missing required fields: School Name, Student Name, Class, Board");
+                const insertedDocs = await SchoolData.insertMany(validRecords, { ordered: false });
+                results.inserted = insertedDocs.length;
+            } catch (error) {
+                if (error.insertedDocs) {
+                    results.inserted = error.insertedDocs.length;
                 }
-
-                // Resolve centre name to ObjectId (case-insensitive)
-                const centreId = centreName ? (centreNameMap[centreName.toLowerCase()] || null) : null;
-
-                const record = new SchoolData({
-                    schoolName,
-                    studentName,
-                    className,
-                    board,
-                    phoneNumber,
-                    secondaryPhoneNumber,
-                    year,
-                    area,
-                    centre: centreId
-                });
-                await record.save();
-                results.inserted++;
-            } catch (e) {
-                results.failed.push({ row, reason: e.message });
+                if (error.writeErrors) {
+                    for (const we of error.writeErrors) {
+                        const failedRow = validRecords[we.index];
+                        results.failed.push({ row: failedRow, reason: we.errmsg });
+                    }
+                } else {
+                    return res.status(500).json({ message: "Server error during bulk insert", error: error.message });
+                }
             }
         }
+
         res.status(200).json({
             message: `Bulk import complete. Inserted: ${results.inserted}, Failed: ${results.failed.length}`,
             ...results

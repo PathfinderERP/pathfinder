@@ -386,63 +386,29 @@ const MasterDataSchoolData = () => {
                 return;
             }
 
-            const chunkSize = 2000;
-            const totalRows = rows.length;
-            let totalInserted = 0;
-            let combinedFailed = [];
-            let hadServerError = false;
-            let serverErrorMessage = "";
-
-            for (let i = 0; i < totalRows; i += chunkSize) {
-                const chunk = rows.slice(i, i + chunkSize);
-                const currentBatch = Math.floor(i / chunkSize) + 1;
-                const totalBatches = Math.ceil(totalRows / chunkSize);
-                
-                setImportStatusMessage(`Importing batch ${currentBatch} of ${totalBatches}...`);
-
-                try {
-                    const res = await fetch(`${BASE}/bulk-import`, {
-                        method: "POST",
-                        headers: { ...headers, "Content-Type": "application/json" },
-                        body: JSON.stringify(chunk)
-                    });
-                    const data = await res.json();
-                    
-                    if (res.ok) {
-                        totalInserted += (data.inserted || 0);
-                        if (Array.isArray(data.failed)) {
-                            combinedFailed.push(...data.failed);
-                        }
-                    } else {
-                        hadServerError = true;
-                        serverErrorMessage = data.message || `Server error during batch ${currentBatch}`;
-                        break;
-                    }
-                } catch (batchErr) {
-                    hadServerError = true;
-                    serverErrorMessage = batchErr.message || `Network error during batch ${currentBatch}`;
-                    break;
-                }
-            }
-
-            if (hadServerError) {
-                toast.error(`Import interrupted! ${serverErrorMessage}`);
-                if (totalInserted > 0) {
-                    toast.info(`Successfully imported ${totalInserted} records before failure.`);
-                }
-            } else {
-                const failedCount = combinedFailed.length;
-                if (totalInserted > 0 && failedCount === 0) {
-                    toast.success(`Successfully imported all ${totalInserted} records!`);
-                } else if (totalInserted > 0 && failedCount > 0) {
-                    toast.warn(`Imported ${totalInserted} records. ${failedCount} records failed validation.`);
-                    setImportErrors(combinedFailed);
+            setImportStatusMessage("Saving to database...");
+            const res = await fetch(`${BASE}/bulk-import`, {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify(rows)
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                const failedCount = data.failed?.length || 0;
+                if (data.inserted > 0 && failedCount === 0) {
+                    toast.success(`Successfully imported all ${data.inserted} records!`);
+                } else if (data.inserted > 0 && failedCount > 0) {
+                    toast.warn(`Imported ${data.inserted} records. ${failedCount} records failed validation.`);
+                    setImportErrors(data.failed || []);
                     setShowImportErrorsModal(true);
                 } else {
                     toast.error(`Import failed completely! All ${failedCount} records failed validation.`);
-                    setImportErrors(combinedFailed);
+                    setImportErrors(data.failed || []);
                     setShowImportErrorsModal(true);
                 }
+            } else {
+                toast.error(data.message || "Import failed");
             }
 
             fetchRecords(1);
