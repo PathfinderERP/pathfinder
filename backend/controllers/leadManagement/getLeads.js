@@ -149,3 +149,22 @@ export const getDistinctSchools = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+/**
+ * Returns all distinct non-empty source values present in the LeadManagement collection.
+ * Used by the frontend to enrich the Source filter with values beyond the master Sources list.
+ */
+export const getDistinctSources = async (req, res) => {
+    try {
+        const sources = await LeadManagement.distinct("source");
+        const clean = sources
+            .filter(s => s && typeof s === "string" && s.trim() !== "")
+            .map(s => s.trim())
+            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+        res.status(200).json({ success: true, sources: clean });
+    } catch (err) {
+        console.error("Error fetching distinct lead sources:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+

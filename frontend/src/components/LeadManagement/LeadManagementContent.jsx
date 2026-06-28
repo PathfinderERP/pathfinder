@@ -313,12 +313,28 @@ const LeadManagementContent = () => {
             const token = localStorage.getItem("token");
             const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
-            // Fetch sources
-            const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            // Fetch sources: master list + distinct values from actual leads (merged & deduplicated)
+            const [sourceResponse, distinctSourceResponse] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/source`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                }),
+                fetch(`${import.meta.env.VITE_API_URL}/lead-management/distinct-sources`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                }),
+            ]);
             const sourceData = await sourceResponse.json();
-            if (sourceResponse.ok) setSources(sourceData.sources || []);
+            const distinctSourceData = distinctSourceResponse.ok ? await distinctSourceResponse.json() : { sources: [] };
+
+            // Master sources come as objects with { sourceName, ... }; lead sources are plain strings
+            const masterSources = sourceData.sources || [];
+            const masterSourceNames = new Set(masterSources.map(s => s.sourceName?.toLowerCase()));
+
+            // Build extra entries from leads that aren't already in master
+            const extraSources = (distinctSourceData.sources || [])
+                .filter(s => !masterSourceNames.has(s.toLowerCase()))
+                .map(s => ({ sourceName: s, _fromLeads: true }));
+
+            setSources([...masterSources, ...extraSources]);
 
             // Fetch courses
             const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
@@ -1024,177 +1040,177 @@ const LeadManagementContent = () => {
 
                 {/* Activity Analysis */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-                        {statsLoading ? (
-                            <>
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                                <CardSkeleton isDarkMode={isDarkMode} />
-                            </>
-                        ) : (
-                            <>
-                                {/* Centre Analysis Card */}
+                    {statsLoading ? (
+                        <>
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                            <CardSkeleton isDarkMode={isDarkMode} />
+                        </>
+                    ) : (
+                        <>
+                            {/* Centre Analysis Card */}
 
-                                {/* Scheduled Follow-ups Card (New Target Section) */}
-                                <div
-                                    onClick={() => handleCardClick('scheduled')}
-                                    className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Followups</p>
-                                            {/* <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            {/* Scheduled Follow-ups Card (New Target Section) */}
+                            <div
+                                onClick={() => handleCardClick('scheduled')}
+                                className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Followups</p>
+                                        {/* <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 {followUpStats.totalFollowUps} / {followUpStats.totalScheduled + followUpStats.totalFollowUps}
                                             </h3> */}
-                                            <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalScheduled}</h3>
-                                        </div>
-                                        <div className={`p-2.5 rounded-[20px] transition-all bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]`}>
-                                            <FaCalendarAlt size={16} />
-                                        </div>
+                                        <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalScheduled}</h3>
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-cyan-500">
-                                        <FaCalendarAlt size={100} />
+                                    <div className={`p-2.5 rounded-[20px] transition-all bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]`}>
+                                        <FaCalendarAlt size={16} />
                                     </div>
                                 </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-cyan-500">
+                                    <FaCalendarAlt size={100} />
+                                </div>
+                            </div>
 
-                                {/* Total Follow-ups Card */}
-                                <div
-                                    onClick={() => handleCardClick('total')}
-                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Filtered Follow Up" : "Followed Up Till Date"}
-                                            </p>
-                                            <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
-                                            {/* <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p> */}
-                                        </div>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); fetchFollowUpStats(); }}
-                                            className={`p-3 rounded-[2px] transition-all hover:rotate-180 duration-500 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-50 text-cyan-600'}`}
-                                        >
-                                            <FaHistory size={20} />
-                                        </button>
+                            {/* Total Follow-ups Card */}
+                            <div
+                                onClick={() => handleCardClick('total')}
+                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            {filters.fromDate || filters.toDate ? "Filtered Follow Up" : "Followed Up Till Date"}
+                                        </p>
+                                        <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
+                                        {/* <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p> */}
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                        <FaHistory size={100} />
-                                    </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); fetchFollowUpStats(); }}
+                                        className={`p-3 rounded-[2px] transition-all hover:rotate-180 duration-500 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-50 text-cyan-600'}`}
+                                    >
+                                        <FaHistory size={20} />
+                                    </button>
                                 </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                    <FaHistory size={100} />
+                                </div>
+                            </div>
 
-                                {/* Hot Leads Card */}
-                                <div
-                                    onClick={() => handleCardClick('hot')}
-                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-red-500/10 hover:border-red-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Hot Leads" : "Hot Leads"}
-                                            </p>
-                                            <h3 className="text-3xl font-black italic tracking-tighter text-red-500">{followUpStats.hotLeads}</h3>
-                                            {/* <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p> */}
-                                        </div>
-                                        <div className="p-3 bg-red-500/10 text-red-500 rounded-[2px]">
-                                            <FaChartLine size={20} />
-                                        </div>
+                            {/* Hot Leads Card */}
+                            <div
+                                onClick={() => handleCardClick('hot')}
+                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-red-500/10 hover:border-red-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            {filters.fromDate || filters.toDate ? "Hot Leads" : "Hot Leads"}
+                                        </p>
+                                        <h3 className="text-3xl font-black italic tracking-tighter text-red-500">{followUpStats.hotLeads}</h3>
+                                        {/* <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p> */}
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                        <FaChartLine size={100} />
+                                    <div className="p-3 bg-red-500/10 text-red-500 rounded-[2px]">
+                                        <FaChartLine size={20} />
                                     </div>
                                 </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                    <FaChartLine size={100} />
+                                </div>
+                            </div>
 
-                                {/* Warm Leads Card */}
-                                <div
-                                    onClick={() => handleCardClick('warm')}
-                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-orange-500/10 hover:border-orange-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                Warm Leads
-                                            </p>
-                                            <h3 className="text-3xl font-black italic tracking-tighter text-orange-500">{followUpStats.warmLeads}</h3>
-                                            {/* <p className="text-[9px] font-bold text-orange-500/80 mt-1 uppercase tracking-widest">Growing Interest</p> */}
-                                        </div>
-                                        <div className="p-3 bg-orange-500/10 text-orange-500 rounded-[2px]">
-                                            <FaStar size={20} />
-                                        </div>
+                            {/* Warm Leads Card */}
+                            <div
+                                onClick={() => handleCardClick('warm')}
+                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-orange-500/10 hover:border-orange-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            Warm Leads
+                                        </p>
+                                        <h3 className="text-3xl font-black italic tracking-tighter text-orange-500">{followUpStats.warmLeads}</h3>
+                                        {/* <p className="text-[9px] font-bold text-orange-500/80 mt-1 uppercase tracking-widest">Growing Interest</p> */}
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-orange-500">
-                                        <FaStar size={100} />
+                                    <div className="p-3 bg-orange-500/10 text-orange-500 rounded-[2px]">
+                                        <FaStar size={20} />
                                     </div>
                                 </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-orange-500">
+                                    <FaStar size={100} />
+                                </div>
+                            </div>
 
-                                {/* Cold Leads Card */}
-                                <div
-                                    onClick={() => handleCardClick('cold')}
-                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-blue-500/10 hover:border-blue-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                {filters.fromDate || filters.toDate ? "Cold Leads" : "Cold Leads"}
-                                            </p>
-                                            <h3 className="text-3xl font-black italic tracking-tighter text-blue-500">{followUpStats.coldLeads}</h3>
-                                            {/* <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Cold Leads</p> */}
-                                        </div>
-                                        <div className="p-3 bg-blue-500/10 text-blue-500 rounded-[2px]">
-                                            <FaSearch size={20} />
-                                        </div>
+                            {/* Cold Leads Card */}
+                            <div
+                                onClick={() => handleCardClick('cold')}
+                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-blue-500/10 hover:border-blue-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            {filters.fromDate || filters.toDate ? "Cold Leads" : "Cold Leads"}
+                                        </p>
+                                        <h3 className="text-3xl font-black italic tracking-tighter text-blue-500">{followUpStats.coldLeads}</h3>
+                                        {/* <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Cold Leads</p> */}
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                        <FaSearch size={100} />
+                                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-[2px]">
+                                        <FaSearch size={20} />
                                     </div>
                                 </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
+                                    <FaSearch size={100} />
+                                </div>
+                            </div>
 
-                                {/* Neutral Leads Card */}
-                                <div
-                                    onClick={() => handleCardClick('neutral')}
-                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-purple-500/10 hover:border-purple-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                Neutral Leads
-                                            </p>
-                                            <h3 className="text-3xl font-black italic tracking-tighter text-purple-500">{followUpStats.neutralLeads || 0}</h3>
-                                        </div>
-                                        <div className="p-3 bg-purple-500/10 text-purple-500 rounded-[2px]">
-                                            <FaSearch size={20} />
-                                        </div>
+                            {/* Neutral Leads Card */}
+                            <div
+                                onClick={() => handleCardClick('neutral')}
+                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-purple-500/10 hover:border-purple-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            Neutral Leads
+                                        </p>
+                                        <h3 className="text-3xl font-black italic tracking-tighter text-purple-500">{followUpStats.neutralLeads || 0}</h3>
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-purple-500">
-                                        <FaSearch size={100} />
+                                    <div className="p-3 bg-purple-500/10 text-purple-500 rounded-[2px]">
+                                        <FaSearch size={20} />
                                     </div>
                                 </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-purple-500">
+                                    <FaSearch size={100} />
+                                </div>
+                            </div>
 
-                                {/* Invalid Leads Card */}
-                                <div
-                                    onClick={() => handleCardClick('invalid')}
-                                    className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                                >
-                                    <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                        <div>
-                                            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                Invalid Leads
-                                            </p>
-                                            <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.invalidLeads || 0}</h3>
-                                        </div>
-                                        <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
-                                            <FaTimes size={20} />
-                                        </div>
+                            {/* Invalid Leads Card */}
+                            <div
+                                onClick={() => handleCardClick('invalid')}
+                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            Invalid Leads
+                                        </p>
+                                        <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.invalidLeads || 0}</h3>
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-gray-500">
-                                        <FaTimes size={100} />
+                                    <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
+                                        <FaTimes size={20} />
                                     </div>
                                 </div>
-                            </>
-                        )}
+                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-gray-500">
+                                    <FaTimes size={100} />
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Daily Goal Progress Bars – Telecaller only */}
@@ -1935,14 +1951,14 @@ const LeadManagementContent = () => {
             {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
             {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
             {showBulkUpdateModal && (
-                <BulkUpdateLeadModal 
-                    selectedLeadIds={selectedLeads} 
+                <BulkUpdateLeadModal
+                    selectedLeadIds={selectedLeads}
                     isAllFilteredSelected={isAllFilteredSelected}
                     filters={{ ...filters, search: searchTerm }}
                     totalLeads={totalLeads}
-                    isDarkMode={isDarkMode} 
-                    onClose={() => setShowBulkUpdateModal(false)} 
-                    onSuccess={() => { setShowBulkUpdateModal(false); clearSelection(); fetchLeads(); }} 
+                    isDarkMode={isDarkMode}
+                    onClose={() => setShowBulkUpdateModal(false)}
+                    onSuccess={() => { setShowBulkUpdateModal(false); clearSelection(); fetchLeads(); }}
                 />
             )}
             {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead, startCall = false) => { setShowDetailModal(false); setSelectedLead(lead); setStartCallOnOpen(startCall); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} />}
