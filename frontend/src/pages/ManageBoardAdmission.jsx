@@ -162,6 +162,7 @@ const ManageBoardAdmission = () => {
                 transactionId: "",
                 bankName: "",
                 accountHolderName: "",
+                bankAccount: "",
                 chequeDate: new Date().toISOString().split('T')[0],
                 receivedDate: new Date().toISOString().split('T')[0]
             });
@@ -783,6 +784,22 @@ const ManageBoardAdmission = () => {
                                             required
                                         />
                                     </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Account *</label>
+                                        <select
+                                            value={paymentForm.bankAccount}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, bankAccount: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(acc => (
+                                                <option key={acc._id} value={acc._id}>
+                                                    {acc.accname} (A/C: {acc.accno})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             )}
 
@@ -889,8 +906,9 @@ const ManageBoardAdmission = () => {
                                 setNcrpPaymentForm({
                                     paidExamFee: Math.max(0, admission.examFee - (admission.examFeePaid || 0)),
                                     paidAdditionalThings: Math.max(0, admission.additionalThingsAmount - (admission.additionalThingsPaid || 0)),
-                                    paymentMethod: 'CASH', transactionId: '', bankName: '', accountHolderName: '',
-                                    chequeDate: new Date().toISOString().split('T')[0]
+                                    paymentMethod: 'CASH', transactionId: '', bankName: '', bankAccount: '', accountHolderName: '',
+                                    chequeDate: new Date().toISOString().split('T')[0],
+                                    receivedDate: new Date().toISOString().split('T')[0]
                                 });
                                 setNcrpPaymentModal(true);
                             }}
@@ -1061,6 +1079,22 @@ const ManageBoardAdmission = () => {
                                             className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
                                             required
                                         />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-black uppercase text-cyan-500 mb-2">Bank Account *</label>
+                                        <select
+                                            value={paymentForm.bankAccount}
+                                            onChange={(e) => setPaymentForm({ ...paymentForm, bankAccount: e.target.value })}
+                                            className={`w-full p-3 rounded border outline-none font-bold ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                            required
+                                        >
+                                            <option value="">Select Bank Account</option>
+                                            {masterAccounts.map(acc => (
+                                                <option key={acc._id} value={acc._id}>
+                                                    {acc.accname} (A/C: {acc.accno})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}

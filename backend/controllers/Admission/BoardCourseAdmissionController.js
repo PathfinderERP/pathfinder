@@ -653,7 +653,7 @@ export const updateBoardSubjects = async (req, res) => {
 export const collectBoardExamFee = async (req, res) => {
     try {
         const { id } = req.params;
-        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, receivedDate } = req.body;
+        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, bankAccount, receivedDate } = req.body;
 
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
@@ -720,6 +720,7 @@ export const collectBoardExamFee = async (req, res) => {
                 bankName: bankName,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
+                bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                 billingMonth: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                 recordedBy: req.user?._id || req.user?._id,
                 billId: billId,
@@ -759,6 +760,7 @@ export const collectBoardInstallment = async (req, res) => {
             bankName,
             accountHolderName,
             chequeDate,
+            bankAccount,
             receivedDate
         } = req.body;
         // Normalize payment method to match Payment schema enum
@@ -805,6 +807,7 @@ export const collectBoardInstallment = async (req, res) => {
             bankName,
             accountHolderName,
             chequeDate,
+            bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
             receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
             receivedBy: req.user?._id
         });
@@ -939,6 +942,7 @@ export const collectBoardInstallment = async (req, res) => {
                 bankName: bankName,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
+                bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                 billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                 recordedBy: req.user?._id,
                 billId: billId,
@@ -966,7 +970,7 @@ export const collectBoardInstallment = async (req, res) => {
 export const collectBoardAdditionalFee = async (req, res) => {
     try {
         const { id } = req.params;
-        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, receivedDate } = req.body;
+        const { amount, paymentMethod: rawPaymentMethod, transactionId, bankName, accountHolderName, chequeDate, bankAccount, receivedDate } = req.body;
 
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
@@ -1033,6 +1037,7 @@ export const collectBoardAdditionalFee = async (req, res) => {
                 bankName: bankName,
                 accountHolderName: accountHolderName,
                 chequeDate: chequeDate,
+                bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                 billingMonth: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                 recordedBy: req.user?._id,
                 billId: billId,
@@ -1070,6 +1075,7 @@ export const collectNcrpFees = async (req, res) => {
             bankName,
             accountHolderName,
             chequeDate,
+            bankAccount,
             receivedDate
         } = req.body;
 
@@ -1155,6 +1161,7 @@ export const collectNcrpFees = async (req, res) => {
                 bankName,
                 accountHolderName,
                 chequeDate,
+                bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                 billingMonth: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                 recordedBy: req.user?._id,
                 billId,
