@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import Department from "../models/Master_data/Department.js";
 import Designation from "../models/Master_data/Designation.js";
 import Centre from "../models/Master_data/Centre.js";
+import Sources from "../models/Master_data/Sources.js";
 import mongoose from "mongoose";
 
 /**
@@ -570,3 +571,427 @@ export const searchEmployees = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error" });
     }
 };
+
+/**
+ * Get Comprehensive Lead Analytics for CEO Dashboard
+ */
+export const getCEOLeadAnalytics = async (req, res) => {
+    try {
+        const { startDate, endDate, centre, leadType, source, createdBy, leadResponsibility } = req.query;
+
+        let match = {};
+
+        // Date range (createdAt)
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            match.createdAt = { $gte: start, $lte: end };
+        }
+
+        // Centre filtering (multi-select)
+        if (centre && centre !== 'ALL') {
+            const centresList = centre.split(',').filter(Boolean).map(c => {
+                try {
+                    return new mongoose.Types.ObjectId(c.trim());
+                } catch (e) {
+                    return null;
+                }
+            }).filter(Boolean);
+            if (centresList.length > 0) {
+                match.centre = { $in: centresList };
+            }
+        }
+
+        // Lead Type (Status) filtering (multi-select)
+        if (leadType && leadType !== 'ALL') {
+            const typesList = leadType.split(',').filter(Boolean).map(t => t.trim());
+            if (typesList.length > 0) {
+                match.leadType = { $in: typesList };
+            }
+        }
+
+        // Source filtering (multi-select)
+        if (source && source !== 'ALL') {
+            const sourcesList = source.split(',').filter(Boolean).map(s => s.trim());
+            if (sourcesList.length > 0) {
+                match.source = { $in: sourcesList };
+            }
+        }
+
+        // Created By filtering (multi-select)
+        if (createdBy && createdBy !== 'ALL') {
+            const creatorsList = createdBy.split(',').filter(Boolean).map(c => {
+                try {
+                    return new mongoose.Types.ObjectId(c.trim());
+                } catch (e) {
+                    return null;
+                }
+            }).filter(Boolean);
+            if (creatorsList.length > 0) {
+                match.createdBy = { $in: creatorsList };
+            }
+        }
+
+        // Lead Responsibility filtering (multi-select)
+        if (leadResponsibility && leadResponsibility !== 'ALL') {
+            const respList = leadResponsibility.split(',').filter(Boolean).map(r => r.trim());
+            if (respList.length > 0) {
+                match.leadResponsibility = { $in: respList };
+            }
+        }
+
+        // Fetch filter metadata in parallel
+        const [allCentres, allSources, allUsers, distinctResponsibilities] = await Promise.all([
+            Centre.find({}).select("centreName").lean(),
+            Sources.find({}).select("sourceName").lean(),
+            User.find({}).select("name email").lean(),
+            LeadManagement.distinct("leadResponsibility")
+        ]);
+
+        // Aggregate 1: Overall Lead counts & status counts
+        const [totalLeads, statusStats] = await Promise.all([
+            LeadManagement.countDocuments(match),
+            LeadManagement.aggregate([
+                { $match: match },
+                { $group: { _id: "$leadType", count: { $sum: 1 } } }
+            ])
+        ]);
+
+        // Normalize status counts
+        const leadStatuses = ["HOT LEAD", "WARM LEAD", "COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"];
+        const statusMap = leadStatuses.reduce((acc, status) => {
+            acc[status] = 0;
+            return acc;
+        }, {});
+        statusStats.forEach(item => {
+            const statusKey = item._id || "NEUTRAL LEAD";
+            statusMap[statusKey] = item.count;
+        });
+
+        // Aggregate 2: Who uploaded most data
+        const uploadRank = await LeadManagement.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: "$createdBy",
+                    count: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $or: [
+                                        { $gt: ["$campaign", null] },
+                                        { $eq: ["$source", "Campaign"] },
+                                        { $eq: ["$source", "Excel"] },
+                                        { $eq: ["$source", "Bulk Upload"] }
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }
+            },
+            { $match: { count: { $gt: 0 } } },
+            { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "userInfo" } },
+            { $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    name: { $ifNull: ["$userInfo.name", "Unknown"] },
+                    email: { $ifNull: ["$userInfo.email", "N/A"] },
+                    count: 1
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        // Aggregate 3: Who added most data (manually)
+        const addedRank = await LeadManagement.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: "$createdBy",
+                    count: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $eq: [{ $ifNull: ["$campaign", null] }, null] },
+                                        { $ne: ["$source", "Campaign"] },
+                                        { $ne: ["$source", "Excel"] },
+                                        { $ne: ["$source", "Bulk Upload"] }
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }
+            },
+            { $match: { count: { $gt: 0 } } },
+            { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "userInfo" } },
+            { $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    name: { $ifNull: ["$userInfo.name", "Unknown"] },
+                    email: { $ifNull: ["$userInfo.email", "N/A"] },
+                    count: 1
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        // Aggregate 4: Telecaller status breakdown (who has more hot, cold, warm, invalid, neutral)
+        const typeLeaderboard = await LeadManagement.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: "$leadResponsibility",
+                    hotCount: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
+                    warmCount: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
+                    coldCount: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
+                    neutralCount: { $sum: { $cond: [{ $eq: ["$leadType", "NEUTRAL LEAD"] }, 1, 0] } },
+                    invalidCount: { $sum: { $cond: [{ $eq: ["$leadType", "INVALID LEAD"] }, 1, 0] } },
+                    totalCount: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    name: { $ifNull: ["$_id", "Unassigned"] },
+                    hotCount: 1,
+                    warmCount: 1,
+                    coldCount: 1,
+                    neutralCount: 1,
+                    invalidCount: 1,
+                    totalCount: 1
+                }
+            },
+            { $sort: { totalCount: -1 } }
+        ]);
+
+        // Aggregate 5: Who added most follow-ups
+        let followupMatch = {};
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            followupMatch["followUps.date"] = { $gte: start, $lte: end };
+        }
+        if (centre && centre !== 'ALL') {
+            const centresList = centre.split(',').filter(Boolean).map(c => {
+                try {
+                    return new mongoose.Types.ObjectId(c.trim());
+                } catch (e) {
+                    return null;
+                }
+            }).filter(Boolean);
+            if (centresList.length > 0) {
+                followupMatch.centre = { $in: centresList };
+            }
+        }
+
+        // Build the post-unwind match for followUp date filtering
+        const followupPostUnwindMatch = {};
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            followupPostUnwindMatch["followUps.date"] = { $gte: start, $lte: end };
+        }
+
+        const followupDocMatch = {};
+        if (followupMatch.centre) followupDocMatch.centre = followupMatch.centre;
+
+        const followupRank = await LeadManagement.aggregate([
+            { $match: followupDocMatch },
+            { $unwind: "$followUps" },
+            ...(Object.keys(followupPostUnwindMatch).length > 0 ? [{ $match: followupPostUnwindMatch }] : []),
+            {
+                $group: {
+                    _id: "$followUps.updatedBy",
+                    count: { $sum: 1 }
+                }
+            },
+            { $match: { _id: { $nin: [null, ""] } } },
+            {
+                $project: {
+                    name: { $ifNull: ["$_id", "Unknown"] },
+                    count: 1
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        // Aggregate 6: Who is adding students in the next follow up dates
+        const nextFollowUpRank = await LeadManagement.aggregate([
+            {
+                $match: {
+                    ...match,
+                    nextFollowUpDate: { $exists: true, $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: "$leadResponsibility",
+                    count: { $sum: 1 },
+                    leads: {
+                        $push: {
+                            name: "$name",
+                            phoneNumber: "$phoneNumber",
+                            nextFollowUpDate: "$nextFollowUpDate",
+                            leadType: "$leadType"
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    name: { $ifNull: ["$_id", "Unassigned"] },
+                    count: 1,
+                    leads: 1
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+
+        // Upcoming day-by-day follow-up schedules
+        const nextFollowUpSchedule = await LeadManagement.aggregate([
+            {
+                $match: {
+                    ...match,
+                    nextFollowUpDate: { $exists: true, $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        date: { $dateToString: { format: "%Y-%m-%d", date: "$nextFollowUpDate" } },
+                        responsible: "$leadResponsibility"
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    date: "$_id.date",
+                    responsible: { $ifNull: ["$_id.responsible", "Unassigned"] },
+                    count: 1,
+                    _id: 0
+                }
+            },
+            { $sort: { date: 1, count: -1 } }
+        ]);
+
+        // Unify performance: Overall combined leaderboard ranking
+        const combinedMap = {};
+        const normalizeName = (name) => (name || "").trim().toLowerCase();
+
+        const getUser = (name, email = "N/A", userId = null) => {
+            const key = normalizeName(name);
+            if (!key) return null;
+            if (!combinedMap[key]) {
+                combinedMap[key] = {
+                    name: name || "Unknown",
+                    email: email,
+                    userId: userId,
+                    uploads: 0,
+                    added: 0,
+                    hotCount: 0,
+                    warmCount: 0,
+                    coldCount: 0,
+                    neutralCount: 0,
+                    invalidCount: 0,
+                    followUps: 0,
+                    nextFollowUps: 0,
+                    score: 0
+                };
+            }
+            return combinedMap[key];
+        };
+
+        // Populate uploads
+        uploadRank.forEach(item => {
+            const u = getUser(item.name, item.email, item._id);
+            if (u) u.uploads = item.count;
+        });
+
+        // Populate manual creations
+        addedRank.forEach(item => {
+            const u = getUser(item.name, item.email, item._id);
+            if (u) u.added = item.count;
+        });
+
+        // Populate status totals
+        typeLeaderboard.forEach(item => {
+            const u = getUser(item.name);
+            if (u) {
+                u.hotCount = item.hotCount;
+                u.warmCount = item.warmCount;
+                u.coldCount = item.coldCount;
+                u.neutralCount = item.neutralCount;
+                u.invalidCount = item.invalidCount;
+            }
+        });
+
+        // Populate follow-ups added
+        followupRank.forEach(item => {
+            const u = getUser(item.name);
+            if (u) u.followUps = item.count;
+        });
+
+        // Populate next follow-ups scheduled
+        nextFollowUpRank.forEach(item => {
+            const u = getUser(item.name);
+            if (u) u.nextFollowUps = item.count;
+        });
+
+        // Calculate combined score
+        Object.values(combinedMap).forEach(user => {
+            // Formula: uploads*1 + added*2 + hot*5 + warm*3 + neutral*1 - invalid*2 + followUps*2 + nextFollowUps*2
+            user.score = (user.uploads * 1) + 
+                         (user.added * 2) + 
+                         (user.hotCount * 5) + 
+                         (user.warmCount * 3) + 
+                         (user.neutralCount * 1) + 
+                         (user.invalidCount * -2) + 
+                         (user.followUps * 2) + 
+                         (user.nextFollowUps * 2);
+        });
+
+        // Exclude unassigned/unknown and sort by score
+        const overallLeaderboard = Object.values(combinedMap)
+            .filter(u => u.name.toLowerCase() !== "unassigned" && u.name.toLowerCase() !== "unknown")
+            .sort((a, b) => b.score - a.score)
+            .map((u, idx) => ({
+                rank: idx + 1,
+                ...u
+            }));
+
+        res.status(200).json({
+            success: true,
+            filters: {
+                centres: allCentres,
+                sources: allSources,
+                users: allUsers,
+                responsibilities: distinctResponsibilities.filter(Boolean)
+            },
+            data: {
+                totalLeads,
+                statusBreakdown: statusMap,
+                uploadRank,
+                addedRank,
+                typeLeaderboard,
+                followupRank,
+                nextFollowUpRank,
+                nextFollowUpSchedule,
+                overallLeaderboard
+            }
+        });
+
+    } catch (error) {
+        console.error("CEO Lead Analytics Controller Error:", error);
+        res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+};

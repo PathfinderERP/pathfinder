@@ -172,6 +172,8 @@ import PayEmployeeDetails from "./pages/Finance/PayEmployeeDetails";
 import CreateExpense from "./pages/expense/CreateExpense";
 import GetAllExpense from "./pages/expense/GetAllExpense";
 import CEOControlTower from "./pages/CEOControlTower";
+import CEOLeadAnalytics from "./pages/CEOLeadAnalytics";
+
 import Store from "./pages/Operations/Store";
 import MarketingOperations from "./pages/Operations/Marketing";
 import AcademicsOperations from "./pages/Operations/Academics";
@@ -202,6 +204,8 @@ function App() {
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
         <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
+        <Route path="/ceo-control-tower/lead-analytics" element={<ProtectedRoute><CEOLeadAnalytics /></ProtectedRoute>} />
+
         <Route path="/red-flag-desk" element={<ProtectedRoute><RedFlagDesk /></ProtectedRoute>} />
         <Route path="/daily-tracking-log" element={<ProtectedRoute><DailyTrackingLog /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />

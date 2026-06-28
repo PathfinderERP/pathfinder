@@ -23,7 +23,7 @@ const CEOControlTowerContent = () => {
             shadowColor: "hover:shadow-rose-500/5",
             description: "Oversee sales pipelines, lead distributions, telecaller console efficiency, and conversion logs.",
             features: ["All Leads Pipeline", "Teacher Schedule", "Campaign Analysis"],
-            path: "/lead-management"
+            path: "/ceo-control-tower/lead-analytics"
         }
         ,
         {
