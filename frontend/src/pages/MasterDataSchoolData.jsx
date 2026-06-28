@@ -116,6 +116,7 @@ const MasterDataSchoolData = () => {
 
     const importRef = useRef(null);
     const [importing, setImporting] = useState(false);
+    const [importStatusMessage, setImportStatusMessage] = useState("");
     const [importErrors, setImportErrors] = useState([]);
     const [showImportErrorsModal, setShowImportErrorsModal] = useState(false);
 
@@ -359,41 +360,100 @@ const MasterDataSchoolData = () => {
         const file = e.target.files[0];
         if (!file) return;
         setImporting(true);
+        setImportStatusMessage("Reading file...");
+        setImportErrors([]);
+
+        // Set up tab close/refresh warning
+        const handleBeforeUnload = (event) => {
+            event.preventDefault();
+            event.returnValue = "An import is in progress. Are you sure you want to leave?";
+            return event.returnValue;
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
         try {
             const ab = await file.arrayBuffer();
             const wb = XLSX.read(ab, { type: "array" });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-            if (!rows.length) { toast.warn("No rows found in the file"); setImporting(false); return; }
+            
+            if (!rows.length) {
+                toast.warn("No rows found in the file");
+                setImporting(false);
+                setImportStatusMessage("");
+                window.removeEventListener("beforeunload", handleBeforeUnload);
+                return;
+            }
 
-            const res = await fetch(`${BASE}/bulk-import`, {
-                method: "POST",
-                headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify(rows)
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const failedCount = data.failed?.length || 0;
-                if (data.inserted > 0 && failedCount === 0) {
-                    toast.success(`Successfully imported all ${data.inserted} records!`);
-                } else if (data.inserted > 0 && failedCount > 0) {
-                    toast.warn(`Imported ${data.inserted} records. ${failedCount} records failed validation.`);
-                    setImportErrors(data.failed || []);
+            const chunkSize = 500;
+            const totalRows = rows.length;
+            let totalInserted = 0;
+            let combinedFailed = [];
+            let hadServerError = false;
+            let serverErrorMessage = "";
+
+            for (let i = 0; i < totalRows; i += chunkSize) {
+                const chunk = rows.slice(i, i + chunkSize);
+                const currentBatch = Math.floor(i / chunkSize) + 1;
+                const totalBatches = Math.ceil(totalRows / chunkSize);
+                
+                setImportStatusMessage(`Importing batch ${currentBatch} of ${totalBatches}...`);
+
+                try {
+                    const res = await fetch(`${BASE}/bulk-import`, {
+                        method: "POST",
+                        headers: { ...headers, "Content-Type": "application/json" },
+                        body: JSON.stringify(chunk)
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        totalInserted += (data.inserted || 0);
+                        if (Array.isArray(data.failed)) {
+                            combinedFailed.push(...data.failed);
+                        }
+                    } else {
+                        hadServerError = true;
+                        serverErrorMessage = data.message || `Server error during batch ${currentBatch}`;
+                        break;
+                    }
+                } catch (batchErr) {
+                    hadServerError = true;
+                    serverErrorMessage = batchErr.message || `Network error during batch ${currentBatch}`;
+                    break;
+                }
+            }
+
+            if (hadServerError) {
+                toast.error(`Import interrupted! ${serverErrorMessage}`);
+                if (totalInserted > 0) {
+                    toast.info(`Successfully imported ${totalInserted} records before failure.`);
+                }
+            } else {
+                const failedCount = combinedFailed.length;
+                if (totalInserted > 0 && failedCount === 0) {
+                    toast.success(`Successfully imported all ${totalInserted} records!`);
+                } else if (totalInserted > 0 && failedCount > 0) {
+                    toast.warn(`Imported ${totalInserted} records. ${failedCount} records failed validation.`);
+                    setImportErrors(combinedFailed);
                     setShowImportErrorsModal(true);
                 } else {
                     toast.error(`Import failed completely! All ${failedCount} records failed validation.`);
-                    setImportErrors(data.failed || []);
+                    setImportErrors(combinedFailed);
                     setShowImportErrorsModal(true);
                 }
-                fetchRecords(1);
-                fetchAllForFilterOptions();
-            } else {
-                toast.error(data.message || "Import failed");
             }
+
+            fetchRecords(1);
+            fetchAllForFilterOptions();
+
         } catch (err) {
             toast.error("Error processing file: " + err.message);
         } finally {
             setImporting(false);
+            setImportStatusMessage("");
+            window.removeEventListener("beforeunload", handleBeforeUnload);
             if (importRef.current) importRef.current.value = "";
         }
     };
@@ -473,7 +533,7 @@ const MasterDataSchoolData = () => {
                         </button>
                         <label className="flex items-center gap-2 px-4 py-2 bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-lg font-medium text-sm hover:bg-emerald-600 hover:text-white transition-all cursor-pointer">
                             <FaFileImport className="text-xs" />
-                            {importing ? "Importing..." : "Bulk Import"}
+                            {importing ? (importStatusMessage || "Importing...") : "Bulk Import"}
                             <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFile} className="hidden" disabled={importing} />
                         </label>
                         <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-lg font-medium text-sm hover:bg-blue-600 hover:text-white transition-all">
