@@ -386,7 +386,7 @@ const MasterDataSchoolData = () => {
                 return;
             }
 
-            const chunkSize = 500;
+            const chunkSize = 2000;
             const totalRows = rows.length;
             let totalInserted = 0;
             let combinedFailed = [];
