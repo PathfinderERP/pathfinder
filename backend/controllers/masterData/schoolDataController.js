@@ -28,48 +28,64 @@ export const createSchoolData = async (req, res) => {
 };
 
 // READ ALL (with search / multi-value filter / pagination)
+const buildFilterQuery = async (filters) => {
+    const { search, schoolName, className, board, area, centre, year, onlyDuplicates } = filters;
+    const query = {};
+
+    if (onlyDuplicates === "true" || onlyDuplicates === true) {
+        const duplicatePhones = await SchoolData.aggregate([
+            { $match: { phoneNumber: { $ne: "", $exists: true } } },
+            { $group: { _id: "$phoneNumber", count: { $sum: 1 } } },
+            { $match: { count: { $gt: 1 } } }
+        ]);
+        const phoneList = duplicatePhones.map(item => item._id);
+        query.phoneNumber = { $in: phoneList };
+    }
+
+    if (search) {
+        query.$or = [
+            { schoolName:  { $regex: search, $options: "i" } },
+            { studentName: { $regex: search, $options: "i" } },
+            { className:   { $regex: search, $options: "i" } },
+            { board:       { $regex: search, $options: "i" } },
+            { area:        { $regex: search, $options: "i" } },
+            { phoneNumber: { $regex: search, $options: "i" } },
+            { year:        { $regex: search, $options: "i" } }
+        ];
+    }
+
+    if (schoolName) {
+        const vals = schoolName.split(",").map(v => v.trim()).filter(Boolean);
+        query.schoolName = vals.length === 1 ? { $regex: vals[0], $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
+    }
+    if (className) {
+        const vals = className.split(",").map(v => v.trim()).filter(Boolean);
+        query.className = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
+    }
+    if (board) {
+        const vals = board.split(",").map(v => v.trim()).filter(Boolean);
+        query.board = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
+    }
+    if (area) {
+        const vals = area.split(",").map(v => v.trim()).filter(Boolean);
+        query.area = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
+    }
+    if (year) {
+        const vals = year.split(",").map(v => v.trim()).filter(Boolean);
+        query.year = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
+    }
+    if (centre) {
+        const ids = centre.split(",").map(v => v.trim()).filter(Boolean);
+        query.centre = ids.length === 1 ? ids[0] : { $in: ids };
+    }
+    return query;
+};
+
+// READ ALL (with search / multi-value filter / pagination)
 export const getSchoolData = async (req, res) => {
     try {
-        const { search, schoolName, className, board, area, centre, year, page = 1, limit = 50 } = req.query;
-        const query = {};
-
-        if (search) {
-            query.$or = [
-                { schoolName:  { $regex: search, $options: "i" } },
-                { studentName: { $regex: search, $options: "i" } },
-                { className:   { $regex: search, $options: "i" } },
-                { board:       { $regex: search, $options: "i" } },
-                { area:        { $regex: search, $options: "i" } },
-                { phoneNumber: { $regex: search, $options: "i" } },
-                { year:        { $regex: search, $options: "i" } }
-            ];
-        }
-
-        // Support comma-separated multi-values from frontend multi-select dropdowns
-        if (schoolName) {
-            const vals = schoolName.split(",").map(v => v.trim()).filter(Boolean);
-            query.schoolName = vals.length === 1 ? { $regex: vals[0], $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
-        }
-        if (className) {
-            const vals = className.split(",").map(v => v.trim()).filter(Boolean);
-            query.className = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
-        }
-        if (board) {
-            const vals = board.split(",").map(v => v.trim()).filter(Boolean);
-            query.board = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
-        }
-        if (area) {
-            const vals = area.split(",").map(v => v.trim()).filter(Boolean);
-            query.area = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
-        }
-        if (year) {
-            const vals = year.split(",").map(v => v.trim()).filter(Boolean);
-            query.year = vals.length === 1 ? { $regex: `^${vals[0]}$`, $options: "i" } : { $in: vals.map(v => new RegExp(`^${v}$`, "i")) };
-        }
-        if (centre) {
-            const ids = centre.split(",").map(v => v.trim()).filter(Boolean);
-            query.centre = ids.length === 1 ? ids[0] : { $in: ids };
-        }
+        const { page = 1, limit = 50 } = req.query;
+        const query = await buildFilterQuery(req.query);
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const total = await SchoolData.countDocuments(query);
@@ -212,11 +228,19 @@ export const bulkImportSchoolData = async (req, res) => {
 // BULK DELETE
 export const bulkDeleteSchoolData = async (req, res) => {
     try {
-        const { ids } = req.body;
-        if (!Array.isArray(ids) || ids.length === 0) {
-            return res.status(400).json({ message: "No IDs provided for deletion" });
+        const { ids, selectAllMatching, filters } = req.body;
+        let query = {};
+        
+        if (selectAllMatching) {
+            query = await buildFilterQuery(filters || {});
+        } else {
+            if (!Array.isArray(ids) || ids.length === 0) {
+                return res.status(400).json({ message: "No IDs provided for deletion" });
+            }
+            query = { _id: { $in: ids } };
         }
-        const result = await SchoolData.deleteMany({ _id: { $in: ids } });
+
+        const result = await SchoolData.deleteMany(query);
         res.status(200).json({ message: `Deleted ${result.deletedCount} records`, deletedCount: result.deletedCount });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
@@ -226,10 +250,7 @@ export const bulkDeleteSchoolData = async (req, res) => {
 // BULK UPDATE — only applies fields that are explicitly set (non-empty string / truthy)
 export const bulkUpdateSchoolData = async (req, res) => {
     try {
-        const { ids, updates } = req.body;
-        if (!Array.isArray(ids) || ids.length === 0) {
-            return res.status(400).json({ message: "No IDs provided for update" });
-        }
+        const { ids, selectAllMatching, filters, updates } = req.body;
         if (!updates || typeof updates !== "object") {
             return res.status(400).json({ message: "No update fields provided" });
         }
@@ -247,16 +268,42 @@ export const bulkUpdateSchoolData = async (req, res) => {
             return res.status(400).json({ message: "No valid update fields provided" });
         }
 
+        let query = {};
+        if (selectAllMatching) {
+            query = await buildFilterQuery(filters || {});
+        } else {
+            if (!Array.isArray(ids) || ids.length === 0) {
+                return res.status(400).json({ message: "No IDs provided for update" });
+            }
+            query = { _id: { $in: ids } };
+        }
+
         const result = await SchoolData.updateMany(
-            { _id: { $in: ids } },
+            query,
             { $set: updateDoc }
         );
 
         res.status(200).json({
-            message: `Updated ${result.modifiedCount} of ${ids.length} records`,
+            message: `Updated ${result.modifiedCount} records`,
             modifiedCount: result.modifiedCount
         });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+// GET DISTINCT FIELDS (Schools & Areas)
+export const getSchoolDataDistinctFields = async (req, res) => {
+    try {
+        const schools = await SchoolData.distinct("schoolName");
+        const areas = await SchoolData.distinct("area");
+        res.status(200).json({
+            schools: schools.filter(Boolean).sort(),
+            areas: areas.filter(Boolean).sort()
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+

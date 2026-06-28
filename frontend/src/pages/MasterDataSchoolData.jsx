@@ -103,6 +103,7 @@ const MasterDataSchoolData = () => {
     const [filterBoards, setFilterBoards] = useState([]);
     const [filterAreas, setFilterAreas] = useState([]);
     const [filterCentres, setFilterCentres] = useState([]);   // array of centre _id strings
+    const [filterDuplicates, setFilterDuplicates] = useState(false);
 
     // Derived unique values for filter dropdowns
     const [allSchools, setAllSchools] = useState([]);
@@ -122,6 +123,7 @@ const MasterDataSchoolData = () => {
 
     // ── Bulk Selection ────────────────────────────────────────────────────────
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectAllMatching, setSelectAllMatching] = useState(false);
     const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
     const [bulkUpdateLoading, setBulkUpdateLoading] = useState(false);
     // Fields enabled for bulk update: key = fieldName, value = { enabled, value }
@@ -138,16 +140,29 @@ const MasterDataSchoolData = () => {
 
     const allPageSelected = records.length > 0 && records.every(r => selectedIds.has(r._id));
     const toggleSelectAll = () => {
-        if (allPageSelected) {
-            setSelectedIds(prev => { const n = new Set(prev); records.forEach(r => n.delete(r._id)); return n; });
+        if (allPageSelected || selectAllMatching) {
+            setSelectedIds(new Set());
+            setSelectAllMatching(false);
         } else {
             setSelectedIds(prev => { const n = new Set(prev); records.forEach(r => n.add(r._id)); return n; });
         }
     };
     const toggleSelectRow = (id) => {
-        setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+        if (selectAllMatching) {
+            const n = new Set();
+            records.forEach(r => {
+                if (r._id !== id) n.add(r._id);
+            });
+            setSelectedIds(n);
+            setSelectAllMatching(false);
+        } else {
+            setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+        }
     };
-    const clearSelection = () => setSelectedIds(new Set());
+    const clearSelection = () => {
+        setSelectedIds(new Set());
+        setSelectAllMatching(false);
+    };
 
     const token = localStorage.getItem("token");
     const headers = { Authorization: `Bearer ${token}` };
@@ -191,6 +206,7 @@ const MasterDataSchoolData = () => {
             if (filterBoards.length > 0) params.append("board", filterBoards.join(","));
             if (filterAreas.length > 0) params.append("area", filterAreas.join(","));
             if (filterCentres.length > 0) params.append("centre", filterCentres.join(","));
+            if (filterDuplicates) params.append("onlyDuplicates", "true");
             params.append("page", page);
             params.append("limit", ITEMS_PER_PAGE);
 
@@ -211,15 +227,14 @@ const MasterDataSchoolData = () => {
         }
     };
 
-    // Fetch all records (no limit) to build filter option lists
+    // Fetch distinct schools & areas from backend to build filter option lists
     const fetchAllForFilterOptions = async () => {
         try {
-            const res = await fetch(`${BASE}?limit=9999&page=1`, { headers });
+            const res = await fetch(`${BASE}/distinct-fields`, { headers });
             const data = await res.json();
             if (res.ok) {
-                const all = data.data || [];
-                setAllSchools([...new Set(all.map(r => r.schoolName).filter(Boolean))].sort());
-                setAllAreas([...new Set(all.map(r => r.area).filter(Boolean))].sort());
+                setAllSchools(data.schools || []);
+                setAllAreas(data.areas || []);
             }
         } catch { /* silent */ }
     };
@@ -230,8 +245,9 @@ const MasterDataSchoolData = () => {
     }, []);
 
     useEffect(() => {
+        clearSelection();
         fetchRecords(1);
-    }, [filterSearch, filterSchools, filterClasses, filterBoards, filterAreas, filterCentres]);
+    }, [filterSearch, filterSchools, filterClasses, filterBoards, filterAreas, filterCentres, filterDuplicates]);
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
@@ -299,19 +315,37 @@ const MasterDataSchoolData = () => {
 
     // ── Bulk Operations ───────────────────────────────────────────────────────
     const handleBulkDelete = async () => {
-        if (selectedIds.size === 0) return;
-        if (!window.confirm(`Delete ${selectedIds.size} selected record(s)? This cannot be undone.`)) return;
+        if (selectedIds.size === 0 && !selectAllMatching) return;
+        const confirmMsg = selectAllMatching
+            ? `Delete all ${totalItems.toLocaleString()} records matching active filters? This cannot be undone.`
+            : `Delete ${selectedIds.size} selected record(s)? This cannot be undone.`;
+        if (!window.confirm(confirmMsg)) return;
+
+        const activeFilters = {
+            search: filterSearch,
+            schoolName: filterSchools.join(","),
+            className: filterClasses.join(","),
+            board: filterBoards.join(","),
+            area: filterAreas.join(","),
+            centre: filterCentres.join(","),
+            onlyDuplicates: filterDuplicates ? "true" : "false"
+        };
+
         try {
             const res = await fetch(`${BASE}/bulk-delete`, {
                 method: "POST",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: [...selectedIds] })
+                body: JSON.stringify({
+                    ids: [...selectedIds],
+                    selectAllMatching,
+                    filters: activeFilters
+                })
             });
             const data = await res.json();
             if (res.ok) {
                 toast.success(data.message);
                 clearSelection();
-                fetchRecords(currentPage);
+                fetchRecords(1);
                 fetchAllForFilterOptions();
             } else {
                 toast.error(data.message || "Bulk delete failed");
@@ -330,12 +364,34 @@ const MasterDataSchoolData = () => {
             toast.warn("Please enable and set at least one field to update.");
             return;
         }
+
+        const confirmMsg = selectAllMatching
+            ? `Update all ${totalItems.toLocaleString()} records matching active filters?`
+            : `Update ${selectedIds.size} selected record(s)?`;
+        if (!window.confirm(confirmMsg)) return;
+
         setBulkUpdateLoading(true);
+
+        const activeFilters = {
+            search: filterSearch,
+            schoolName: filterSchools.join(","),
+            className: filterClasses.join(","),
+            board: filterBoards.join(","),
+            area: filterAreas.join(","),
+            centre: filterCentres.join(","),
+            onlyDuplicates: filterDuplicates ? "true" : "false"
+        };
+
         try {
             const res = await fetch(`${BASE}/bulk-update`, {
                 method: "PUT",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: [...selectedIds], updates })
+                body: JSON.stringify({
+                    ids: [...selectedIds],
+                    selectAllMatching,
+                    filters: activeFilters,
+                    updates
+                })
             });
             const data = await res.json();
             if (res.ok) {
@@ -472,8 +528,8 @@ const MasterDataSchoolData = () => {
         saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "SchoolData_Template.xlsx");
     };
 
-    const resetFilters = () => { setFilterSearch(""); setFilterSchools([]); setFilterClasses([]); setFilterBoards([]); setFilterAreas([]); setFilterCentres([]); };
-    const activeCount = [filterSearch, filterSchools.length > 0, filterClasses.length > 0, filterBoards.length > 0, filterAreas.length > 0, filterCentres.length > 0].filter(Boolean).length;
+    const resetFilters = () => { setFilterSearch(""); setFilterSchools([]); setFilterClasses([]); setFilterBoards([]); setFilterAreas([]); setFilterCentres([]); setFilterDuplicates(false); };
+    const activeCount = [filterSearch, filterSchools.length > 0, filterClasses.length > 0, filterBoards.length > 0, filterAreas.length > 0, filterCentres.length > 0, filterDuplicates].filter(Boolean).length;
 
     // Derived class/board name lists for filters (from master data)
     const classNames = masterClasses.map(c => c.name);
@@ -516,7 +572,7 @@ const MasterDataSchoolData = () => {
 
                 {/* ── Multi-Select Filters ── */}
                 <div className="bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm">
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-3 mb-4 flex-wrap">
                         <FaFilter className="text-blue-500 text-xs" />
                         <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Filters</span>
                         {activeCount > 0 && (
@@ -525,6 +581,15 @@ const MasterDataSchoolData = () => {
                                 <button onClick={resetFilters} className="text-[10px] text-red-400 hover:text-red-600 font-bold transition-colors ml-1">Reset All</button>
                             </>
                         )}
+                        <label className="ml-auto flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-300 cursor-pointer bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg hover:border-red-500/50 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={filterDuplicates}
+                                onChange={(e) => setFilterDuplicates(e.target.checked)}
+                                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                            />
+                            <span>Duplicates Only (Phone)</span>
+                        </label>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
@@ -639,16 +704,38 @@ const MasterDataSchoolData = () => {
                                     </span>
                                 );
                             })}
+                            {filterDuplicates && (
+                                <span className="flex items-center gap-1.5 bg-red-50 dark:bg-red-600/10 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-red-200 dark:border-red-500/20">
+                                    Duplicates Only
+                                    <button onClick={() => setFilterDuplicates(false)} className="hover:text-red-400 transition-colors">×</button>
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
 
                 {/* ── Bulk Action Toolbar ── */}
                 {selectedIds.size > 0 && (
-                    <div className="flex items-center gap-3 px-5 py-3 bg-blue-600/10 dark:bg-blue-900/20 border border-blue-500/30 rounded-xl">
-                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                            {selectedIds.size} record{selectedIds.size !== 1 ? "s" : ""} selected
-                        </span>
+                    <div className="space-y-2">
+                        {totalItems > records.length && allPageSelected && (
+                            <div className="bg-blue-500/10 dark:bg-blue-500/5 text-sm py-2.5 px-5 rounded-xl border border-blue-500/20 text-center flex items-center justify-center gap-2">
+                                {selectAllMatching ? (
+                                    <>
+                                        <span className="text-gray-600 dark:text-gray-300 font-medium">All {totalItems.toLocaleString()} records matching this filter are selected.</span>
+                                        <button onClick={() => setSelectAllMatching(false)} className="text-blue-500 hover:underline font-bold">Clear selection</button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-gray-600 dark:text-gray-300 font-medium">All {records.length} records on this page are selected.</span>
+                                        <button onClick={() => setSelectAllMatching(true)} className="text-blue-500 hover:underline font-bold">Select all {totalItems.toLocaleString()} records matching this filter</button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                        <div className="flex items-center gap-3 px-5 py-3 bg-blue-600/10 dark:bg-blue-900/20 border border-blue-500/30 rounded-xl">
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                {selectAllMatching ? `All ${totalItems.toLocaleString()}` : selectedIds.size} record{selectAllMatching || selectedIds.size !== 1 ? "s" : ""} selected
+                            </span>
                         <div className="flex items-center gap-2 ml-auto">
                             <button
                                 onClick={() => { setBulkFields(BULK_EMPTY); setShowBulkUpdateModal(true); }}
@@ -669,6 +756,7 @@ const MasterDataSchoolData = () => {
                                 Clear
                             </button>
                         </div>
+                    </div>
                     </div>
                 )}
 
@@ -695,7 +783,7 @@ const MasterDataSchoolData = () => {
                                         <th className="pl-4 pr-2 py-3.5 w-10">
                                             <input
                                                 type="checkbox"
-                                                checked={allPageSelected}
+                                                checked={allPageSelected || selectAllMatching}
                                                 onChange={toggleSelectAll}
                                                 className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer accent-blue-600"
                                             />
@@ -709,7 +797,7 @@ const MasterDataSchoolData = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {records.map((rec, idx) => {
-                                        const isSelected = selectedIds.has(rec._id);
+                                        const isSelected = selectedIds.has(rec._id) || selectAllMatching;
                                         return (
                                         <tr key={rec._id} className={`transition-colors ${isSelected ? "bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500" : "hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}>
                                             {/* Row checkbox */}

@@ -16,7 +16,7 @@ import {
 } from "../../controllers/masterData/followUpFeedbackController.js";
 import {
     createSchoolData, getSchoolData, updateSchoolData, deleteSchoolData, bulkImportSchoolData,
-    bulkDeleteSchoolData, bulkUpdateSchoolData
+    bulkDeleteSchoolData, bulkUpdateSchoolData, getSchoolDataDistinctFields
 } from "../../controllers/masterData/schoolDataController.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 import { bulkImport } from "../../controllers/common/bulkController.js";
@@ -65,6 +65,7 @@ router.delete("/follow-up-feedback/:id", requireGranularPermission("masterData",
 
 // School Data
 router.get("/school-data", requireAuth, getSchoolData);
+router.get("/school-data/distinct-fields", requireAuth, getSchoolDataDistinctFields);
 router.post("/school-data", requireAuth, createSchoolData);
 router.post("/school-data/bulk-import", requireAuth, bulkImportSchoolData);
 router.post("/school-data/bulk-delete", requireAuth, bulkDeleteSchoolData);

@@ -2,6 +2,80 @@ import MarketingPlanner from "../../models/MarketingPlanner.js";
 import User from "../../models/User.js";
 import mongoose from "mongoose";
 import DraftPlanner from "../../models/DraftPlanner.js";
+import { uploadToR2 } from "../../utils/r2Upload.js";
+
+const isBase64 = (str) => {
+    if (!str || typeof str !== "string") return false;
+    return str.startsWith("data:image/") && str.includes(";base64,");
+};
+
+const uploadBase64ToR2 = async (base64Str, folder = "marketing_planner") => {
+    try {
+        const matches = base64Str.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            return null;
+        }
+        
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        let extension = "jpg";
+        if (mimeType.includes("png")) extension = "png";
+        else if (mimeType.includes("gif")) extension = "gif";
+        else if (mimeType.includes("webp")) extension = "webp";
+        
+        const file = {
+            buffer,
+            originalname: `activity_${Date.now()}.${extension}`,
+            mimetype: mimeType
+        };
+        
+        const url = await uploadToR2(file, folder);
+        return url;
+    } catch (error) {
+        console.error("Error uploading base64 to R2:", error);
+        return null;
+    }
+};
+
+const processActivitiesImages = async (activities) => {
+    if (!activities || !Array.isArray(activities)) return activities;
+    
+    const processed = [];
+    for (const act of activities) {
+        const uploadedPhotos = [];
+        if (act.photos && Array.isArray(act.photos)) {
+            for (const ph of act.photos) {
+                if (isBase64(ph)) {
+                    const url = await uploadBase64ToR2(ph);
+                    if (url) uploadedPhotos.push(url);
+                } else if (ph) {
+                    uploadedPhotos.push(ph);
+                }
+            }
+        }
+        
+        let primaryPhoto = act.photo;
+        if (isBase64(primaryPhoto)) {
+            if (act.photos && act.photos[0] === primaryPhoto && uploadedPhotos[0]) {
+                primaryPhoto = uploadedPhotos[0];
+            } else {
+                const url = await uploadBase64ToR2(primaryPhoto);
+                if (url) primaryPhoto = url;
+            }
+        } else if (!primaryPhoto && uploadedPhotos.length > 0) {
+            primaryPhoto = uploadedPhotos[0];
+        }
+        
+        processed.push({
+            ...act,
+            photos: uploadedPhotos,
+            photo: primaryPhoto
+        });
+    }
+    return processed;
+};
 
 // Create Planner activities
 export const createPlanner = async (req, res) => {
@@ -12,7 +86,8 @@ export const createPlanner = async (req, res) => {
         }
 
         const createdRecords = [];
-        for (const act of activities) {
+        const processedActivities = await processActivitiesImages(activities);
+        for (const act of processedActivities) {
             const newRecord = new MarketingPlanner({
                 user: req.user._id || req.user.id,
                 date,
@@ -379,6 +454,7 @@ export const saveDraftPlanner = async (req, res) => {
         }
 
         const userId = req.user._id || req.user.id;
+        const processedActivities = await processActivitiesImages(activities);
         
         const draft = await DraftPlanner.findOneAndUpdate(
             { user: userId },
@@ -386,7 +462,7 @@ export const saveDraftPlanner = async (req, res) => {
                 date, 
                 expectedLeadTarget: Number(expectedLeadTarget || 0), 
                 expectedHotLeads: Number(expectedHotLeads || 0), 
-                activities 
+                activities: processedActivities 
             },
             { new: true, upsert: true }
         );
