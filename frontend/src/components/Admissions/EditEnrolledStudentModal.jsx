@@ -38,6 +38,8 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         academicSession: admission.academicSession || '',
         examTag: admission.examTag?._id || '',
         batches: (admission.student?.batches || []).map(b => typeof b === 'object' ? b._id : b) || [],
+        admissionNumber: admission.admissionNumber || '',
+        uid: admission.student?.uid || admission.student?._id || '',
     });
 
     const [loading, setLoading] = useState(false);
@@ -272,7 +274,8 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                             ...(admission.student?.sessionExamCourse?.[0] || {}),
                             session: dataToSave.academicSession,
                             examTag: masterExamTags.find(t => t._id === dataToSave.examTag)?.name || admission.student?.sessionExamCourse?.[0]?.examTag
-                        }]
+                        }],
+                        uid: dataToSave.uid
                     })
                 }
             );
@@ -431,6 +434,26 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>UID NUMBER</label>
+                                    <input
+                                        type="text"
+                                        name="uid"
+                                        value={formData.uid}
+                                        onChange={(e) => setFormData({ ...formData, uid: e.target.value })}
+                                        className={inputClass}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>ENROLLMENT NUMBER</label>
+                                    <input
+                                        type="text"
+                                        name="admissionNumber"
+                                        value={formData.admissionNumber}
+                                        onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
+                                        className={inputClass}
+                                    />
                                 </div>
                             </div>
                         </div>

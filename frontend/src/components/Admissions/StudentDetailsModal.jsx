@@ -29,7 +29,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                     Student Profile
                                 </h2>
                                 <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2">
-                                    CORE DATA INTELLIGENCE <span className="mx-2 text-cyan-500">|</span> <span className="text-cyan-500">ID: {student._id?.slice(-8).toUpperCase()}</span>
+                                    CORE DATA INTELLIGENCE <span className="mx-2 text-cyan-500">|</span> <span className="text-cyan-500">ID: {student.uid || student._id?.slice(-8).toUpperCase()}</span>
                                 </p>
                             </div>
                         </div>

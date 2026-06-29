@@ -79,7 +79,8 @@ const StudentSchema = new mongoose.Schema({
   }],
   createdBy: { type: String },
   updatedBy: { type: String },
-  updatedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  updatedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  uid: { type: String }
 }, { timestamps: true });
 
 const Student = mongoose.model("Student", StudentSchema);

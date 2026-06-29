@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaUser, FaPhoneAlt, FaSchool, FaBook, FaEdit } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
-const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
+const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, isDarkMode }) => {
     const [formData, setFormData] = useState({
         studentName: student.studentsDetails?.[0]?.studentName || '',
         studentEmail: student.studentsDetails?.[0]?.studentEmail || '',
@@ -23,6 +23,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
         examTag: student.sessionExamCourse?.[0]?.examTag || '',
         targetExams: student.sessionExamCourse?.[0]?.targetExams || '',
         session: student.sessionExamCourse?.[0]?.session || '',
+        uid: student.uid || student._id || '',
+        admissionNumber: admission?.admissionNumber || '',
         guardianName: student.guardians?.[0]?.guardianName || '',
         guardianEmail: student.guardians?.[0]?.guardianEmail || '',
         guardianMobile: student.guardians?.[0]?.guardianMobile || '',
@@ -235,6 +237,7 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
 
             // Construct the update payload matching the Student schema structure
             const updatePayload = {
+                uid: formData.uid || null,
                 studentsDetails: [{
                     studentName: formData.studentName || null,
                     studentEmail: formData.studentEmail || null,
@@ -294,6 +297,30 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
             if (response.ok) {
                 toast.success('Student updated successfully!');
                 success = true;
+
+                if (admission?._id && formData.admissionNumber !== (admission.admissionNumber || '')) {
+                    try {
+                        const admissionResponse = await fetch(
+                            `${apiUrl}/admission/${admission._id}`,
+                            {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                    admissionNumber: formData.admissionNumber
+                                })
+                            }
+                        );
+                        if (!admissionResponse.ok) {
+                            const errData = await admissionResponse.json();
+                            toast.error(errData.message || 'Failed to update admission number');
+                        }
+                    } catch (admissionErr) {
+                        console.error('Error updating admission number:', admissionErr);
+                    }
+                }
             } else {
                 toast.error(data.message || 'Failed to update student');
             }
@@ -303,7 +330,8 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
         } finally {
             setLoading(false);
             if (success) {
-                onUpdate();
+                const handleCallback = onUpdate || onSuccess;
+                if (handleCallback) handleCallback();
             }
         }
     };
@@ -418,6 +446,28 @@ const EditStudentModal = ({ student, onClose, onUpdate, isDarkMode }) => {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                <label className={labelClass}>UID NUMBER</label>
+                                <input
+                                    type="text"
+                                    name="uid"
+                                    value={formData.uid}
+                                    onChange={handleChange}
+                                    className={inputClass}
+                                />
+                            </div>
+                            {admission && (
+                                <div>
+                                    <label className={labelClass}>ADMISSION NUMBER</label>
+                                    <input
+                                        type="text"
+                                        name="admissionNumber"
+                                        value={formData.admissionNumber}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 

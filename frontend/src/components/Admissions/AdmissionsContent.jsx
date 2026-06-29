@@ -808,7 +808,7 @@ const AdmissionsContent = () => {
                                                         <span className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
                                                             {details.studentName}
                                                         </span>
-                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">UID: {student._id.slice(-8)}</span>
+                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">UID: {student.uid || student._id.slice(-8)}</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">

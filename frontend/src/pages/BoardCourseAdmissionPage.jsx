@@ -422,7 +422,7 @@ const BoardCourseAdmissionPage = () => {
                                 <div>
                                     <h3 className="text-xl font-black uppercase">{counselData?.studentName || student?.studentsDetails?.[0]?.studentName}</h3>
                                     <div className="flex flex-wrap gap-4 mt-2">
-                                        <span className="text-[10px] font-black text-white px-2 py-0.5 rounded bg-cyan-600 tracking-wider">UID: {(student._id || "").toString().slice(-8).toUpperCase()}</span>
+                                        <span className="text-[10px] font-black text-white px-2 py-0.5 rounded bg-cyan-600 tracking-wider">UID: {student.uid || (student._id || "").toString().slice(-8).toUpperCase()}</span>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Centre: {counselData?.centre || student.studentsDetails?.[0]?.centre}</span>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile: {counselData?.mobileNum || student.studentsDetails?.[0]?.mobileNum}</span>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email: {student.studentsDetails?.[0]?.studentEmail || "N/A"}</span>

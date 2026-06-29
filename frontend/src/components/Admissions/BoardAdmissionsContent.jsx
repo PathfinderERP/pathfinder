@@ -36,6 +36,7 @@ const BoardAdmissionsContent = () => {
     const [departments, setDepartments] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]); // Store allowed centres for the user
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const [selectedAdmission, setSelectedAdmission] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -361,7 +362,7 @@ const BoardAdmissionsContent = () => {
                 "Admission No": adm.admissionNumber,
                 "Admission Date": new Date(adm.admissionDate || adm.createdAt).toLocaleDateString('en-GB'),
                 "Student Name": adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName,
-                "UID": adm.studentId?._id || "N/A",
+                "UID": adm.studentId?.uid || adm.studentId?._id || "N/A",
                 "Mobile": adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum,
                 "Email": adm.studentId?.studentsDetails?.[0]?.studentEmail || adm.studentEmail,
                 "Centre": adm.centre,
@@ -917,14 +918,16 @@ const BoardAdmissionsContent = () => {
         setShowDetailsModal(true);
     };
 
-    const handleEditProfile = (student) => {
+    const handleEditProfile = (student, admission = null) => {
         setSelectedStudent(student);
+        setSelectedAdmission(admission);
         setShowEditModal(true);
     };
 
     const handleUpdateSuccess = () => {
         setShowEditModal(false);
         setSelectedStudent(null);
+        setSelectedAdmission(null);
         fetchStudents();
         fetchBoardAdmissions();
         fetchCounselledStudents();
@@ -1323,7 +1326,7 @@ const BoardAdmissionsContent = () => {
                                                          )}
                                                     </span>
                                                     <div className="flex flex-col gap-0.5 mt-0.5">
-                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {(student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
+                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {student?.uid || (student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
                                                         {(item.studentEmail || details.studentEmail) && (
                                                             <span className="text-[9px] text-cyan-500/70 font-bold lowercase tracking-tight truncate max-w-[150px]">
                                                                 {item.studentEmail || details.studentEmail}
@@ -1483,12 +1486,12 @@ const BoardAdmissionsContent = () => {
                                                                 <FaEye size={12} />
                                                             </button>
                                                             <button
-                                                                onClick={() => handleEditProfile(item.studentId)}
-                                                                title="Edit Profile"
-                                                                className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-amber-500 text-gray-400 hover:text-amber-500 transition-all"
-                                                            >
-                                                                <FaEdit size={12} />
-                                                            </button>
+                                                                 onClick={() => handleEditProfile(item.studentId, item)}
+                                                                 title="Edit Profile"
+                                                                 className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-amber-500 text-gray-400 hover:text-amber-500 transition-all"
+                                                             >
+                                                                 <FaEdit size={12} />
+                                                             </button>
                                                             <button
                                                                 onClick={() => navigate(`/manage-board-admission/${item._id}`)}
                                                                 className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
@@ -1543,9 +1546,10 @@ const BoardAdmissionsContent = () => {
             {showEditModal && selectedStudent && (
                 <EditStudentModal
                     student={selectedStudent}
+                    admission={selectedAdmission}
                     isOpen={showEditModal}
-                    onClose={() => { setShowEditModal(false); setSelectedStudent(null); }}
-                    onSuccess={handleUpdateSuccess}
+                    onClose={() => { setShowEditModal(false); setSelectedStudent(null); setSelectedAdmission(null); }}
+                    onUpdate={handleUpdateSuccess}
                     isDarkMode={isDarkMode}
                 />
             )}
