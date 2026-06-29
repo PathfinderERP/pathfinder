@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
+import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 import { useTheme } from "../../context/ThemeContext";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -127,15 +128,62 @@ const UploadLeads = () => {
 
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
+    /* ── Filters ── */
+    const [masterClasses, setMasterClasses] = useState([]);
+    const [masterCourses, setMasterCourses] = useState([]);
+    const [masterCentres, setMasterCentres] = useState([]);
+    const [filterClass, setFilterClass] = useState([]);
+    const [filterLeadType, setFilterLeadType] = useState([]);
+    const [filterCentre, setFilterCentre] = useState([]);
+    const [filterCourse, setFilterCourse] = useState([]);
+
+    const fetchMasterData = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const headers = { Authorization: `Bearer ${token}` };
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            const [classRes, courseRes, centreRes] = await Promise.all([
+                fetch(`${apiUrl}/class`, { headers }),
+                fetch(`${apiUrl}/course`, { headers }),
+                fetch(`${apiUrl}/centre`, { headers })
+            ]);
+
+            if (classRes.ok) setMasterClasses(await classRes.json());
+            if (courseRes.ok) setMasterCourses(await courseRes.json());
+            if (centreRes.ok) setMasterCentres(await centreRes.json());
+        } catch (err) {
+            console.error("fetchMasterData error:", err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchMasterData();
+    }, [fetchMasterData]);
+
     /* ── Fetch uploaded leads ── */
-    const fetchMyUploads = useCallback(async (page = 1) => {
+    const fetchMyUploads = useCallback(async (page = 1, currentFilters = {}) => {
         setMyLeadsLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(
-                `${import.meta.env.VITE_API_URL}/lead-management/my-uploads?page=${page}&limit=${LEADS_PER_PAGE}`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const apiUrl = import.meta.env.VITE_API_URL;
+            let url = `${apiUrl}/lead-management/my-uploads?page=${page}&limit=${LEADS_PER_PAGE}`;
+
+            const { classes, leadTypes, centres, courses } = currentFilters;
+            if (classes && classes.length > 0) {
+                url += `&className=${encodeURIComponent(classes.join(","))}`;
+            }
+            if (leadTypes && leadTypes.length > 0) {
+                url += `&leadType=${encodeURIComponent(leadTypes.join(","))}`;
+            }
+            if (centres && centres.length > 0) {
+                url += `&centre=${encodeURIComponent(centres.join(","))}`;
+            }
+            if (courses && courses.length > 0) {
+                url += `&course=${encodeURIComponent(courses.join(","))}`;
+            }
+
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
             const data = await res.json();
             if (res.ok) {
                 setMyLeads(data.leads || []);
@@ -150,7 +198,14 @@ const UploadLeads = () => {
         }
     }, []);
 
-    useEffect(() => { fetchMyUploads(1); }, [fetchMyUploads]);
+    useEffect(() => {
+        fetchMyUploads(1, {
+            classes: filterClass,
+            leadTypes: filterLeadType,
+            centres: filterCentre,
+            courses: filterCourse
+        });
+    }, [filterClass, filterLeadType, filterCentre, filterCourse, fetchMyUploads]);
 
     /* ── Parse file ── */
     const processFile = useCallback((file) => {
@@ -565,18 +620,59 @@ const UploadLeads = () => {
                             <div>
                                 <p className={`text-sm font-black uppercase tracking-tight ${txt}`}>My Uploaded Leads</p>
                                 <p className={`text-[10px] font-bold ${sub}`}>
-                                    {myLeadsLoading ? "Loadingâ€¦" : `${myLeadsTotal.toLocaleString()} lead${myLeadsTotal !== 1 ? "s" : ""} uploaded by you`}
+                                    {myLeadsLoading ? "Loadingâ€¦" : currentUser.role === 'superAdmin' ? `${myLeadsTotal.toLocaleString()} lead${myLeadsTotal !== 1 ? "s" : ""} uploaded in system` : `${myLeadsTotal.toLocaleString()} lead${myLeadsTotal !== 1 ? "s" : ""} uploaded by you`}
                                 </p>
                             </div>
                         </div>
                         <button
-                            onClick={() => fetchMyUploads(myLeadsPage)}
+                            onClick={() => fetchMyUploads(myLeadsPage, {
+                                classes: filterClass,
+                                leadTypes: filterLeadType,
+                                centres: filterCentre,
+                                courses: filterCourse
+                            })}
                             disabled={myLeadsLoading}
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all hover:scale-105 active:scale-95 disabled:opacity-50
                                 ${isDark ? "bg-gray-800 border-gray-700 text-gray-400 hover:text-white" : "bg-gray-100 border-gray-200 text-gray-500"}`}
                         >
                             {myLeadsLoading ? <FaSpinner className="animate-spin inline" size={11} /> : "â†» Refresh"}
                         </button>
+                    </div>
+
+                    {/* Filters UI */}
+                    <div className={`px-6 py-4 border-b grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ${isDark ? "bg-[#161a1f] border-gray-800" : "bg-gray-50/50 border-gray-100"}`}>
+                        <MultiSelectFilter
+                            label="Filter by Class"
+                            placeholder="ALL CLASSES"
+                            options={masterClasses.map(c => ({ value: c._id, label: (c.name || c.className || "").toUpperCase() }))}
+                            selectedValues={filterClass}
+                            onChange={setFilterClass}
+                            theme={isDark ? 'dark' : 'light'}
+                        />
+                        <MultiSelectFilter
+                            label="Filter by Lead Type"
+                            placeholder="ALL LEAD TYPES"
+                            options={LEAD_TYPE_OPTIONS.map(lt => ({ value: lt, label: lt }))}
+                            selectedValues={filterLeadType}
+                            onChange={setFilterLeadType}
+                            theme={isDark ? 'dark' : 'light'}
+                        />
+                        <MultiSelectFilter
+                            label="Filter by Centre"
+                            placeholder="ALL CENTRES"
+                            options={masterCentres.map(c => ({ value: c._id, label: (c.centreName || c.centerName || c.name || "").toUpperCase() }))}
+                            selectedValues={filterCentre}
+                            onChange={setFilterCentre}
+                            theme={isDark ? 'dark' : 'light'}
+                        />
+                        <MultiSelectFilter
+                            label="Filter by Course"
+                            placeholder="ALL COURSES"
+                            options={masterCourses.map(c => ({ value: c._id, label: (c.courseName || c.name || "").toUpperCase() }))}
+                            selectedValues={filterCourse}
+                            onChange={setFilterCourse}
+                            theme={isDark ? 'dark' : 'light'}
+                        />
                     </div>
 
                     {/* Table */}
@@ -608,6 +704,7 @@ const UploadLeads = () => {
                                                 { label: "Centre" },
                                                 { label: "Class" },
                                                 { label: "Course" },
+                                                { label: "Uploaded By", icon: <FaUsers size={9} /> },
                                                 { label: "Uploaded On", icon: <FaCalendarAlt size={9} /> },
                                             ].map(({ label, icon }) => (
                                                 <th key={label} className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 whitespace-nowrap">
@@ -647,6 +744,9 @@ const UploadLeads = () => {
                                                     <td className={`px-4 py-3 text-xs font-semibold ${sub}`}>
                                                         {lead.course?.name || lead.course?.courseName || lead.courseText || "—"}
                                                     </td>
+                                                    <td className={`px-4 py-3 text-xs font-bold ${txt} whitespace-nowrap`}>
+                                                        {lead.createdBy?.name || "—"}
+                                                    </td>
                                                     <td className={`px-4 py-3 text-[10px] font-bold ${sub} whitespace-nowrap`}>
                                                         {formatDate(lead.createdAt)}
                                                     </td>
@@ -666,7 +766,16 @@ const UploadLeads = () => {
                                     <div className="flex items-center gap-2">
                                         <button
                                             disabled={myLeadsPage <= 1 || myLeadsLoading}
-                                            onClick={() => { const p = myLeadsPage - 1; setMyLeadsPage(p); fetchMyUploads(p); }}
+                                            onClick={() => {
+                                                const p = myLeadsPage - 1;
+                                                setMyLeadsPage(p);
+                                                fetchMyUploads(p, {
+                                                    classes: filterClass,
+                                                    leadTypes: filterLeadType,
+                                                    centres: filterCentre,
+                                                    courses: filterCourse
+                                                });
+                                            }}
                                             className={`p-2 rounded-lg border text-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed
                                                 ${isDark ? "bg-gray-800 border-gray-700 text-gray-300" : "bg-gray-100 border-gray-200 text-gray-600"}`}
                                         >
@@ -677,7 +786,16 @@ const UploadLeads = () => {
                                         </span>
                                         <button
                                             disabled={myLeadsPage >= myLeadsPages || myLeadsLoading}
-                                            onClick={() => { const p = myLeadsPage + 1; setMyLeadsPage(p); fetchMyUploads(p); }}
+                                            onClick={() => {
+                                                const p = myLeadsPage + 1;
+                                                setMyLeadsPage(p);
+                                                fetchMyUploads(p, {
+                                                    classes: filterClass,
+                                                    leadTypes: filterLeadType,
+                                                    centres: filterCentre,
+                                                    courses: filterCourse
+                                                });
+                                            }}
                                             className={`p-2 rounded-lg border text-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed
                                                 ${isDark ? "bg-gray-800 border-gray-700 text-gray-300" : "bg-gray-100 border-gray-200 text-gray-600"}`}
                                         >

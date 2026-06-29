@@ -2,7 +2,9 @@ import LeadManagement from "../../models/LeadManagement.js";
 
 /**
  * GET /lead-management/my-uploads
- * Returns all leads uploaded (bulk or otherwise) by the logged-in user.
+ * Returns leads uploaded (bulk or otherwise).
+ * Super Admins can see all, other users see their own.
+ * Supports multi-select filtering on className, leadType, centre, course.
  * Sorted by newest first. Supports ?page=1&limit=50
  */
 export const getMyUploads = async (req, res) => {
@@ -14,8 +16,27 @@ export const getMyUploads = async (req, res) => {
         const limit = Math.min(200, parseInt(req.query.limit) || 50);
         const skip  = (page - 1) * limit;
 
+        const query = { isBulkUpload: true };
+        if (req.user?.role !== 'superAdmin') {
+            query.createdBy = userId;
+        }
+
+        // Multi-select query filters
+        if (req.query.className) {
+            query.className = { $in: req.query.className.split(",") };
+        }
+        if (req.query.leadType) {
+            query.leadType = { $in: req.query.leadType.split(",") };
+        }
+        if (req.query.centre) {
+            query.centre = { $in: req.query.centre.split(",") };
+        }
+        if (req.query.course) {
+            query.course = { $in: req.query.course.split(",") };
+        }
+
         const [leads, total] = await Promise.all([
-            LeadManagement.find({ createdBy: userId })
+            LeadManagement.find(query)
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -23,8 +44,9 @@ export const getMyUploads = async (req, res) => {
                 .populate("centre",     "centreName centerName name")
                 .populate("course",     "courseName name")
                 .populate("board",      "name boardName")
-                .select("name email phoneNumber secondPhoneNumber className centre course board source leadType leadResponsibility createdAt"),
-            LeadManagement.countDocuments({ createdBy: userId }),
+                .populate("createdBy",  "name")
+                .select("name email phoneNumber secondPhoneNumber className centre course board source leadType leadResponsibility createdBy createdAt"),
+            LeadManagement.countDocuments(query),
         ]);
 
         return res.status(200).json({
