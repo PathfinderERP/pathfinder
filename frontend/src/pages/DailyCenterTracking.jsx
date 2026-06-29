@@ -19,6 +19,8 @@ const DailyCenterTracking = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCenters, setSelectedCenters] = useState([]);
+    const [agents, setAgents] = useState([]);
+    const [selectedAgents, setSelectedAgents] = useState([]);
     const [dateRange, setDateRange] = useState("Today");
     const [customStartDate, setCustomStartDate] = useState("");
     const [customEndDate, setCustomEndDate] = useState("");
@@ -124,6 +126,10 @@ const DailyCenterTracking = () => {
                 params.append("leadType", leadTypeFilter);
             }
 
+            if (selectedAgents && selectedAgents.length > 0) {
+                params.append("agentIds", selectedAgents.map(sa => sa.value).join(","));
+            }
+
             const response = await fetch(`${apiUrl}/operations/daily-tracking/details?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -155,6 +161,35 @@ const DailyCenterTracking = () => {
         }
     }, [canView, user.role, navigate]);
 
+    const fetchAgents = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const response = await fetch(`${apiUrl}/superAdmin/getAllUsers`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const allUsers = data.users || [];
+                const operationalRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'assistantcenterincharge', 'assistantzonalmanager'];
+                const filteredAgents = allUsers.filter(u => {
+                    const roleClean = (u.role || '').toLowerCase().replace(/\s+/g, '');
+                    return u.isActive !== false && operationalRoles.includes(roleClean);
+                });
+                filteredAgents.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setAgents(filteredAgents);
+            }
+        } catch (error) {
+            console.error("Error fetching agents:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (canView || user.role === 'superAdmin' || user.role === 'superadmin') {
+            fetchAgents();
+        }
+    }, [canView]);
+
     const fetchCenters = async () => {
         try {
             setLoading(true);
@@ -177,6 +212,10 @@ const DailyCenterTracking = () => {
 
             if (leadTypeFilter) {
                 params.append("leadType", leadTypeFilter);
+            }
+
+            if (selectedAgents && selectedAgents.length > 0) {
+                params.append("agentIds", selectedAgents.map(sa => sa.value).join(","));
             }
 
             const response = await fetch(`${apiUrl}/operations/daily-tracking?${params.toString()}`, {
@@ -209,11 +248,28 @@ const DailyCenterTracking = () => {
         if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
         if (dateRange === "Custom Range" && (!customStartDate || !customEndDate)) return;
         fetchCenters();
-    }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter]);
+    }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter, selectedAgents]);
 
     const filteredCenters = centers.filter(center => {
         const matchesSearch = center.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => sc.label === center.name);
+        
+        const isAgentFiltered = selectedAgents && selectedAgents.length > 0;
+        const isLeadTypeFiltered = leadTypeFilter !== "";
+        
+        if (isAgentFiltered || isLeadTypeFiltered) {
+            const hasActivity = (
+                (center.dailyCalls || 0) > 0 ||
+                (center.walkIns || 0) > 0 ||
+                (center.counselledNormal || 0) > 0 ||
+                (center.counselledBoard || 0) > 0 ||
+                (center.admissionNormal || 0) > 0 ||
+                (center.admissionBoard || 0) > 0 ||
+                (center.collectionsVal || 0) > 0
+            );
+            return matchesSearch && matchesCenter && hasActivity;
+        }
+        
         return matchesSearch && matchesCenter;
     });
 
@@ -304,6 +360,18 @@ const DailyCenterTracking = () => {
                                 isDarkMode={isDarkMode}
                             />
                             <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-white text-gray-400'}`}>Centre</span>
+                        </div>
+
+                        {/* Agent Filter (Multi Select) */}
+                        <div className="relative min-w-[200px] z-20">
+                            <CustomMultiSelect
+                                options={agents.map(a => ({ value: a._id, label: a.displayName || a.name }))}
+                                value={selectedAgents}
+                                onChange={setSelectedAgents}
+                                placeholder="All Agents"
+                                isDarkMode={isDarkMode}
+                            />
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-white text-gray-400'}`}>Agent</span>
                         </div>
 
                         {/* Date Range Dropdown */}
