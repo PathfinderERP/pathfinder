@@ -10,7 +10,9 @@ import {
     exportDailyCallsReportSummaryExcel,
     exportDailyCallsReportBulkExcel,
     getDailyUserWalkIns,
-    getDailyUserAdmissions
+    getDailyUserAdmissions,
+    getDailyUserTodaysFollowUps,
+    getDailyUserPreviousFollowUps
 } from "../../controllers/Operations/dailyTrackingController.js";
 import protect from "../../middleware/authMiddleware.js";
 import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -30,5 +32,7 @@ router.get("/:centerId", protect, requireGranularPermission("trackingFlagging", 
 router.get("/user/:userId", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserActivity);
 router.get("/user/:userId/walk-ins", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserWalkIns);
 router.get("/user/:userId/admissions", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserAdmissions);
+router.get("/user/:userId/todays-followups", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserTodaysFollowUps);
+router.get("/user/:userId/previous-followups", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserPreviousFollowUps);
 
 export default router;

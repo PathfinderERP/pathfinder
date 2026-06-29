@@ -104,6 +104,19 @@ export const getFollowUpStats = async (req, res) => {
             leadOwnerMatch.$and.push(leadResponsibilityQuery);
         }
 
+        let backlogStartDate = new Date();
+        if (fromDate) {
+            backlogStartDate = new Date(fromDate);
+        } else if (scheduledDate) {
+            backlogStartDate = new Date(scheduledDate);
+        }
+        backlogStartDate.setHours(0, 0, 0, 0);
+
+        const previousPendingMatch = { 
+            ...leadOwnerMatch, 
+            nextFollowUpDate: { $lt: backlogStartDate } 
+        };
+
         // Strip spaces for consistent comparison
         const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
         const isSuperAdmin = curUserRoleStr === 'superadmin';
@@ -252,6 +265,32 @@ export const getFollowUpStats = async (req, res) => {
                             }
                         }
                     ],
+                    "previousPendingCounts": [
+                        { $match: previousPendingMatch },
+                        {
+                            $group: {
+                                _id: null,
+                                totalPreviousPending: { $sum: 1 }
+                            }
+                        }
+                    ],
+                    "previousPendingList": [
+                        { $match: previousPendingMatch },
+                        { $sort: { nextFollowUpDate: 1 } },
+                        { $limit: 500 },
+                        {
+                            $project: {
+                                leadId: "$_id",
+                                leadName: "$name",
+                                phoneNumber: "$phoneNumber",
+                                email: "$email",
+                                status: "$leadType",
+                                time: "$nextFollowUpDate",
+                                updatedBy: "$leadResponsibility",
+                                history: "$followUps"
+                            }
+                        }
+                    ],
                     "leadPopulation": [
                         { $match: leadOwnerMatch },
                         {
@@ -274,6 +313,8 @@ export const getFollowUpStats = async (req, res) => {
         const recentActivity = stats[0].recentActivity || [];
         const sC = stats[0].scheduledCounts[0] || {};
         const scheduledList = stats[0].scheduledList || [];
+        const pC = stats[0].previousPendingCounts[0] || {};
+        const previousPendingList = stats[0].previousPendingList || [];
         const lP = stats[0].leadPopulation[0] || {};
 
         // Count walk-ins tagged by the logged-in user today
@@ -299,6 +340,8 @@ export const getFollowUpStats = async (req, res) => {
             recentActivity,
             totalScheduled: sC.totalScheduled || 0,
             scheduledList,
+            totalPreviousPending: pC.totalPreviousPending || 0,
+            previousPendingList,
             leadPopulation: lP,
             walkInsCountToday
         });

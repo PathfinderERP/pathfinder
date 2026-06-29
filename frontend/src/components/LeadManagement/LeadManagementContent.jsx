@@ -840,6 +840,10 @@ const LeadManagementContent = () => {
                 title = `Scheduled Follow-ups (${dashboardFilters.scheduledDate})`;
                 filteredData = followUpStats.scheduledList;
                 break;
+            case 'previous_pending':
+                title = "Previous Follow Ups Not Done";
+                filteredData = followUpStats.previousPendingList || [];
+                break;
             default:
                 return;
         }
@@ -1039,7 +1043,7 @@ const LeadManagementContent = () => {
                 </div>
 
                 {/* Activity Analysis */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
                     {statsLoading ? (
                         <>
                             <CardSkeleton isDarkMode={isDarkMode} />
@@ -1054,6 +1058,25 @@ const LeadManagementContent = () => {
                     ) : (
                         <>
                             {/* Centre Analysis Card */}
+
+                            {/* Previous Follow Ups Not Done Card */}
+                            <div
+                                onClick={() => handleCardClick('previous_pending')}
+                                className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-amber-500/10 hover:border-amber-500/30 ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-100 shadow-sm'}`}
+                            >
+                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
+                                    <div>
+                                        <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Previous Follow Ups Not Done</p>
+                                        <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalPreviousPending || 0}</h3>
+                                    </div>
+                                    <div className={`p-2.5 rounded-[20px] transition-all bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]`}>
+                                        <FaExclamationTriangle size={16} />
+                                    </div>
+                                </div>
+                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-amber-500">
+                                    <FaExclamationTriangle size={100} />
+                                </div>
+                            </div>
 
                             {/* Scheduled Follow-ups Card (New Target Section) */}
                             <div

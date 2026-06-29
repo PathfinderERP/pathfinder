@@ -55,18 +55,26 @@ export const getLeads = async (req, res) => {
         // Build Filter
         const query = await buildLeadQuery(req.query, req.user);
 
-
-
         const totalLeads = await LeadManagement.countDocuments(query);
         const contactedCount = await LeadManagement.countDocuments({ ...query, followUps: { $exists: true, $not: { $size: 0 } } });
         const remainingCount = await LeadManagement.countDocuments({ ...query, followUps: { $size: 0 } });
-        const walkInCount = await LeadManagement.countDocuments({
-            ...query,
-            $or: [
+
+        const walkInQuery = { ...query };
+        if (walkInQuery.$or) {
+            walkInQuery.$and = walkInQuery.$and || [];
+            walkInQuery.$and.push({
+                $or: [
+                    { isWalkIn: true },
+                    { source: { $regex: /^walk[- ]?in$/i } }
+                ]
+            });
+        } else {
+            walkInQuery.$or = [
                 { isWalkIn: true },
                 { source: { $regex: /^walk[- ]?in$/i } }
-            ]
-        });
+            ];
+        }
+        const walkInCount = await LeadManagement.countDocuments(walkInQuery);
 
         const sortOption = query.nextFollowUpDate ? { nextFollowUpDate: 1 } : { isPriority: -1, createdAt: -1 };
 

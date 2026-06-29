@@ -2440,6 +2440,62 @@ export const getDailyCallsReport = async (req, res) => {
         admissions.forEach(addAdmissionToMap);
         boardAdmissions.forEach(addAdmissionToMap);
 
+        // Fetch follow ups scheduled for the specific date range
+        const todaysFollowUps = await LeadManagement.aggregate([
+            {
+                $match: {
+                    centre: { $in: actualCenterIds },
+                    nextFollowUpDate: dateFilter,
+                    leadResponsibility: { $exists: true, $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        centre: "$centre",
+                        userName: { $toLower: "$leadResponsibility" }
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Fetch backlog follow ups (nextFollowUpDate < startDate)
+        const previousFollowUps = await LeadManagement.aggregate([
+            {
+                $match: {
+                    centre: { $in: actualCenterIds },
+                    nextFollowUpDate: { $lt: startDate },
+                    leadResponsibility: { $exists: true, $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        centre: "$centre",
+                        userName: { $toLower: "$leadResponsibility" }
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const todaysFollowUpMap = {};
+        todaysFollowUps.forEach(item => {
+            if (item._id && item._id.userName && item._id.centre) {
+                const key = `${item._id.userName}_${item._id.centre.toString()}`;
+                todaysFollowUpMap[key] = item.count;
+            }
+        });
+
+        const previousFollowUpMap = {};
+        previousFollowUps.forEach(item => {
+            if (item._id && item._id.userName && item._id.centre) {
+                const key = `${item._id.userName}_${item._id.centre.toString()}`;
+                previousFollowUpMap[key] = item.count;
+            }
+        });
+
         const reportData = aggregatedCalls.map(item => {
             const cId = item._id.centre?.toString();
             const cName = centreMap[cId] || "Unknown Centre";
@@ -2456,6 +2512,8 @@ export const getDailyCallsReport = async (req, res) => {
             const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
             const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;
             const admissionCount = lookupKey ? (admissionMap[lookupKey] || 0) : 0;
+            const todaysFollowUpCount = todaysFollowUpMap[`${uNameLower}_${cId}`] || 0;
+            const previousFollowUpCount = previousFollowUpMap[`${uNameLower}_${cId}`] || 0;
 
             return {
                 centreId: cId,
@@ -2470,6 +2528,8 @@ export const getDailyCallsReport = async (req, res) => {
                 cold: item.cold,
                 neutral: item.neutral,
                 invalid: item.invalid,
+                todaysFollowUp: todaysFollowUpCount,
+                previousFollowUp: previousFollowUpCount,
                 walkInCount,
                 admissionCount
             };
@@ -2646,6 +2706,62 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
         admissions.forEach(addAdmissionToMap);
         boardAdmissions.forEach(addAdmissionToMap);
 
+        // Fetch follow ups scheduled for the specific date range
+        const todaysFollowUps = await LeadManagement.aggregate([
+            {
+                $match: {
+                    centre: { $in: actualCenterIds },
+                    nextFollowUpDate: dateFilter,
+                    leadResponsibility: { $exists: true, $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        centre: "$centre",
+                        userName: { $toLower: "$leadResponsibility" }
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Fetch backlog follow ups (nextFollowUpDate < startDate)
+        const previousFollowUps = await LeadManagement.aggregate([
+            {
+                $match: {
+                    centre: { $in: actualCenterIds },
+                    nextFollowUpDate: { $lt: startDate },
+                    leadResponsibility: { $exists: true, $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        centre: "$centre",
+                        userName: { $toLower: "$leadResponsibility" }
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const todaysFollowUpMap = {};
+        todaysFollowUps.forEach(item => {
+            if (item._id && item._id.userName && item._id.centre) {
+                const key = `${item._id.userName}_${item._id.centre.toString()}`;
+                todaysFollowUpMap[key] = item.count;
+            }
+        });
+
+        const previousFollowUpMap = {};
+        previousFollowUps.forEach(item => {
+            if (item._id && item._id.userName && item._id.centre) {
+                const key = `${item._id.userName}_${item._id.centre.toString()}`;
+                previousFollowUpMap[key] = item.count;
+            }
+        });
+
         const sheetData = aggregatedCalls.map(item => {
             const cId = item._id.centre?.toString();
             const cName = centreMap[cId] || "Unknown Centre";
@@ -2661,6 +2777,8 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
             const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
             const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;
             const admissionCount = lookupKey ? (admissionMap[lookupKey] || 0) : 0;
+            const todaysFollowUpCount = todaysFollowUpMap[`${uNameLower}_${cId}`] || 0;
+            const previousFollowUpCount = previousFollowUpMap[`${uNameLower}_${cId}`] || 0;
 
             return {
                 "Centre": cName,
@@ -2672,6 +2790,8 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
                 "Cold Leads": item.cold,
                 "Neutral Leads": item.neutral,
                 "Inactive/Invalid Leads": item.invalid,
+                "Todays Follow Up": todaysFollowUpCount,
+                "Previous Follow Up": previousFollowUpCount,
                 "Walk Ins": walkInCount,
                 "Admissions": admissionCount,
                 "Total Calls": item.totalCalls
@@ -2975,6 +3095,115 @@ export const getDailyUserAdmissions = async (req, res) => {
     } catch (error) {
         console.error("GET_DAILY_USER_ADMISSIONS_ERROR:", error);
         res.status(500).json({ message: "Failed to fetch user admissions", error: error.message });
+    }
+};
+
+export const getDailyUserTodaysFollowUps = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { fromDate, toDate, centerId } = req.query;
+
+        let startDate = new Date();
+        let endDate = new Date();
+        if (fromDate && toDate) {
+            startDate = new Date(fromDate);
+            endDate = new Date(toDate);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        const user = await User.findById(userId).select('name').lean();
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const query = {
+            leadResponsibility: user.name,
+            nextFollowUpDate: dateFilter
+        };
+        if (centerId) {
+            query.centre = centerId;
+        }
+
+        const leads = await LeadManagement.find(query)
+            .populate('className', 'name')
+            .populate('board', 'boardName')
+            .populate('course', 'courseName')
+            .populate('centre')
+            .lean();
+
+        const data = leads.map(lead => ({
+            leadId: lead._id,
+            studentName: lead.name,
+            phoneNumber: lead.phoneNumber || '-',
+            className: lead.className?.name || '-',
+            boardName: lead.board?.boardName || '-',
+            schoolName: lead.schoolName || '-',
+            courseName: lead.course?.courseName || lead.courseText || '-',
+            leadType: lead.leadType || 'UNTAGGED',
+            remarks: lead.remarks || '',
+            date: lead.nextFollowUpDate || lead.createdAt
+        }));
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("GET_DAILY_USER_TODAYS_FOLLOWUPS_ERROR:", error);
+        res.status(500).json({ message: "Failed to fetch user todays follow ups", error: error.message });
+    }
+};
+
+export const getDailyUserPreviousFollowUps = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { fromDate, toDate, centerId } = req.query;
+
+        let startDate = new Date();
+        let endDate = new Date();
+        if (fromDate && toDate) {
+            startDate = new Date(fromDate);
+            endDate = new Date(toDate);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        const user = await User.findById(userId).select('name').lean();
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const query = {
+            leadResponsibility: user.name,
+            nextFollowUpDate: { $lt: startDate }
+        };
+        if (centerId) {
+            query.centre = centerId;
+        }
+
+        const leads = await LeadManagement.find(query)
+            .populate('className', 'name')
+            .populate('board', 'boardName')
+            .populate('course', 'courseName')
+            .populate('centre')
+            .lean();
+
+        const data = leads.map(lead => ({
+            leadId: lead._id,
+            studentName: lead.name,
+            phoneNumber: lead.phoneNumber || '-',
+            className: lead.className?.name || '-',
+            boardName: lead.board?.boardName || '-',
+            schoolName: lead.schoolName || '-',
+            courseName: lead.course?.courseName || lead.courseText || '-',
+            leadType: lead.leadType || 'UNTAGGED',
+            remarks: lead.remarks || '',
+            date: lead.nextFollowUpDate || lead.createdAt
+        }));
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("GET_DAILY_USER_PREVIOUS_FOLLOWUPS_ERROR:", error);
+        res.status(500).json({ message: "Failed to fetch user previous follow ups", error: error.message });
     }
 };
 

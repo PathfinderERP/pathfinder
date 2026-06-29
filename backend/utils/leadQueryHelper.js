@@ -256,11 +256,12 @@ export const buildLeadQuery = async (queryParams, user) => {
     }
 
     // Follow-up status
-    if (followUpStatus === 'contacted') {
+    const statusVal = Array.isArray(followUpStatus) ? followUpStatus[0] : (followUpStatus && typeof followUpStatus === 'object' && 'value' in followUpStatus ? followUpStatus.value : followUpStatus);
+    if (statusVal === 'contacted') {
         query.followUps = { $exists: true, $not: { $size: 0 } };
-    } else if (followUpStatus === 'remaining') {
+    } else if (statusVal === 'remaining') {
         query.followUps = { $size: 0 };
-    } else if (followUpStatus === 'walkin') {
+    } else if (statusVal === 'walkin') {
         query.$and = query.$and || [];
         query.$and.push({
             $or: [
