@@ -117,7 +117,7 @@ export const getSignedFileUrl = async (fileUrl) => {
         if (publicUrl && fileUrl.startsWith(publicUrl)) {
             key = fileUrl.replace(`${publicUrl}/`, "");
         } else {
-            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/", "petty_cash/"];
+            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/", "petty_cash/", "marketing_planner/"];
             for (const prefix of prefixes) {
                 const index = fileUrl.indexOf(prefix);
                 if (index !== -1) {

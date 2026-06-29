@@ -2,7 +2,7 @@ import MarketingPlanner from "../../models/MarketingPlanner.js";
 import User from "../../models/User.js";
 import mongoose from "mongoose";
 import DraftPlanner from "../../models/DraftPlanner.js";
-import { uploadToR2 } from "../../utils/r2Upload.js";
+import { uploadToR2, getSignedFileUrl } from "../../utils/r2Upload.js";
 
 const isBase64 = (str) => {
     if (!str || typeof str !== "string") return false;
@@ -119,8 +119,17 @@ export const createPlanner = async (req, res) => {
                 remarks: ""
             });
             await newRecord.save();
+            const recObj = newRecord.toObject();
+            if (recObj.photo) {
+                recObj.photo = await getSignedFileUrl(recObj.photo);
+            }
+            if (recObj.photos && Array.isArray(recObj.photos)) {
+                recObj.photos = await Promise.all(
+                    recObj.photos.map(p => getSignedFileUrl(p))
+                );
+            }
             createdRecords.push({
-                ...newRecord.toObject(),
+                ...recObj,
                 id: newRecord._id.toString()
             });
         }
@@ -315,9 +324,20 @@ export const getPlanners = async (req, res) => {
             }
         });
 
-        const records = rawRecords.map(r => ({
-            ...r,
-            id: r._id.toString()
+        const records = await Promise.all(rawRecords.map(async (r) => {
+            const recObj = {
+                ...r,
+                id: r._id.toString()
+            };
+            if (recObj.photo) {
+                recObj.photo = await getSignedFileUrl(recObj.photo);
+            }
+            if (recObj.photos && Array.isArray(recObj.photos)) {
+                recObj.photos = await Promise.all(
+                    recObj.photos.map(p => getSignedFileUrl(p))
+                );
+            }
+            return recObj;
         }));
 
         const totalPages = Math.ceil(totalRecords / limit);
@@ -438,7 +458,16 @@ export const updatePlannerApproval = async (req, res) => {
             { new: true }
         );
 
-        res.json({ success: true, data: { ...updated.toObject(), id: updated._id.toString() } });
+        const updatedObj = updated.toObject();
+        if (updatedObj.photo) {
+            updatedObj.photo = await getSignedFileUrl(updatedObj.photo);
+        }
+        if (updatedObj.photos && Array.isArray(updatedObj.photos)) {
+            updatedObj.photos = await Promise.all(
+                updatedObj.photos.map(p => getSignedFileUrl(p))
+            );
+        }
+        res.json({ success: true, data: { ...updatedObj, id: updated._id.toString() } });
     } catch (error) {
         console.error("Error updating planner approval:", error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -467,7 +496,27 @@ export const saveDraftPlanner = async (req, res) => {
             { new: true, upsert: true }
         );
 
-        res.status(200).json({ success: true, draft });
+        let signedDraft = null;
+        if (draft) {
+            signedDraft = draft.toObject();
+            if (signedDraft.activities && Array.isArray(signedDraft.activities)) {
+                signedDraft.activities = await Promise.all(
+                    signedDraft.activities.map(async (act) => {
+                        const signedAct = { ...act };
+                        if (signedAct.photo) {
+                            signedAct.photo = await getSignedFileUrl(signedAct.photo);
+                        }
+                        if (signedAct.photos && Array.isArray(signedAct.photos)) {
+                            signedAct.photos = await Promise.all(
+                                signedAct.photos.map(p => getSignedFileUrl(p))
+                            );
+                        }
+                        return signedAct;
+                    })
+                );
+            }
+        }
+        res.status(200).json({ success: true, draft: signedDraft });
     } catch (error) {
         console.error("Error saving draft planner:", error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -482,7 +531,27 @@ export const getDraftPlanner = async (req, res) => {
         
         const draft = await DraftPlanner.findOne({ user: userId, date: todayStr });
         
-        res.status(200).json({ success: true, draft });
+        let signedDraft = null;
+        if (draft) {
+            signedDraft = draft.toObject();
+            if (signedDraft.activities && Array.isArray(signedDraft.activities)) {
+                signedDraft.activities = await Promise.all(
+                    signedDraft.activities.map(async (act) => {
+                        const signedAct = { ...act };
+                        if (signedAct.photo) {
+                            signedAct.photo = await getSignedFileUrl(signedAct.photo);
+                        }
+                        if (signedAct.photos && Array.isArray(signedAct.photos)) {
+                            signedAct.photos = await Promise.all(
+                                signedAct.photos.map(p => getSignedFileUrl(p))
+                            );
+                        }
+                        return signedAct;
+                    })
+                );
+            }
+        }
+        res.status(200).json({ success: true, draft: signedDraft });
     } catch (error) {
         console.error("Error fetching draft planner:", error);
         res.status(500).json({ error: "Internal Server Error" });
