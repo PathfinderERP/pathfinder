@@ -1595,26 +1595,27 @@ const LeadManagementContent = () => {
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Next Follow Up</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Uploaded By</th>
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[350px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <>
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={22} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
                                     </>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="22" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="23" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -1622,7 +1623,7 @@ const LeadManagementContent = () => {
                                     {/* Bulk Selection Banner */}
                                     {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
                                         <tr>
-                                            <td colSpan="22" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                            <td colSpan="23" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
                                                 {isAllFilteredSelected ? (
                                                     <div className="flex items-center justify-center gap-4">
                                                         <span>All {totalLeads} leads matching these filters are selected.</span>
@@ -1765,6 +1766,11 @@ const LeadManagementContent = () => {
                                                     {lead.nextFollowUpDate
                                                         ? new Date(lead.nextFollowUpDate).toLocaleDateString('en-GB')
                                                         : "—"}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} whitespace-nowrap`}>
+                                                    {lead.createdBy?.name || "—"}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 min-w-[350px]">

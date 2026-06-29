@@ -79,6 +79,10 @@ const leadManagementSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
+    isBulkUpload: {
+        type: Boolean,
+        default: false
+    },
     marketingBy: {
         type: String,
     },
