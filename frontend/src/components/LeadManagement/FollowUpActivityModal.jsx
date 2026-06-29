@@ -368,7 +368,7 @@ const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAdd
                                                     </div>
                                                 )}
 
-                                                {title?.includes('Scheduled') && item.leadId && onAddFollowUp && (
+                                                {(title?.includes('Scheduled') || title?.includes('Previous')) && item.leadId && onAddFollowUp && (
                                                     <button
                                                         onClick={() => onAddFollowUp({ _id: item.leadId })}
                                                         className={`mt-auto px-4 py-2 rounded-[2px] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105 shadow-lg ${isDarkMode ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-cyan-500/20' : 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-cyan-500/30'}`}

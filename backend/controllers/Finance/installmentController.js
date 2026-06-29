@@ -477,7 +477,7 @@ export const getFeeDueList = async (req, res) => {
 // Get all admissions with filters
 export const getAllAdmissions = async (req, res) => {
     try {
-        const { centre, course, department, startDate, endDate, searchTerm, minRemaining, maxRemaining } = req.query;
+        const { centre, course, department, examTag, startDate, endDate, searchTerm, minRemaining, maxRemaining } = req.query;
 
         const filter = { admissionStatus: "ACTIVE" };
 
@@ -539,6 +539,10 @@ export const getAllAdmissions = async (req, res) => {
             const departments = Array.isArray(department) ? department : [department];
             filter.department = { $in: departments };
         }
+        if (examTag) {
+            const examTags = Array.isArray(examTag) ? examTag : [examTag];
+            filter.examTag = { $in: examTags };
+        }
 
         if (startDate || endDate) {
             const dateFilter = {};
@@ -558,6 +562,7 @@ export const getAllAdmissions = async (req, res) => {
             .populate("student")
             .populate("course", "courseName")
             .populate("department", "departmentName")
+            .populate("examTag", "name")
             .sort({ createdAt: -1 });
 
         // Filter out admissions of deactivated students and cancelled admissions
@@ -595,6 +600,7 @@ export const getAllAdmissions = async (req, res) => {
                 email: student?.studentEmail || "N/A",
                 mobile: student?.mobileNum || "N/A",
                 course: adm.admissionType === "BOARD" ? (adm.boardCourseName || "Board Course") : (adm.course?.courseName || "N/A"),
+                examTag: adm.examTag ? adm.examTag.name : "N/A",
                 department: adm.admissionType === "BOARD" ? "BOARD" : (adm.department?.departmentName || "N/A"),
                 centre: adm.centre || student?.centre || "N/A",
                 admissionDate: adm.admissionDate,

@@ -197,6 +197,8 @@ const InstallmentPayment = () => {
         centre: [],
         course: [],
         department: [],
+        class: [],
+        examTag: [],
         startDate: "",
         endDate: "",
         installmentStatus: [],
@@ -216,6 +218,7 @@ const InstallmentPayment = () => {
         centre: [],
         course: [],
         department: [],
+        examTag: [],
         startDate: "",
         endDate: "",
         installmentStatus: [],
@@ -226,7 +229,9 @@ const InstallmentPayment = () => {
     const [metadata, setMetadata] = useState({
         centres: [],
         courses: [],
-        departments: []
+        departments: [],
+        examTags: [],
+        classes: []
     });
 
     // Pagination State
@@ -304,15 +309,19 @@ const InstallmentPayment = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centresRes, coursesRes, deptsRes] = await Promise.all([
+            const [centresRes, coursesRes, deptsRes, examTagsRes, classesRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/class`, { headers })
             ]);
 
             const centres = await centresRes.json();
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
+            const examTags = examTagsRes.ok ? await examTagsRes.json() : [];
+            const classes = classesRes.ok ? await classesRes.json() : [];
             const filteredDepts = Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : [];
 
             // Filter centres based on permissions with case-insensitive comparison
@@ -335,20 +344,23 @@ const InstallmentPayment = () => {
             setMetadata({
                 centres: filteredCentres,
                 courses: (Array.isArray(courses) ? courses : []).filter(c => c.department?.showInAdmission !== false),
-                departments: filteredDepts
+                departments: filteredDepts,
+                examTags: Array.isArray(examTags) ? examTags : [],
+                classes: Array.isArray(classes) ? classes : []
             });
         } catch (error) {
             console.error("Error fetching metadata:", error);
         }
     };
 
-    const fetchAdmissions = async (allowedOverride) => {
+    const fetchAdmissions = async (allowedOverride, customFilters) => {
         setLoading(true);
         setCurrentPage(1); // Reset to first page on new search
         try {
             const token = localStorage.getItem("token");
             const queryParams = new URLSearchParams();
-            Object.entries(filters).forEach(([key, value]) => {
+            const activeFilters = customFilters || filters;
+            Object.entries(activeFilters).forEach(([key, value]) => {
                 if (Array.isArray(value) && value.length > 0) {
                     value.forEach(v => queryParams.append(key, v));
                 } else if (value && !Array.isArray(value)) {
@@ -381,18 +393,20 @@ const InstallmentPayment = () => {
     };
 
     const resetFilters = () => {
-        setFilters({
+        const cleanFilters = {
             centre: [],
             course: [],
             department: [],
+            examTag: [],
             startDate: "",
             endDate: "",
             installmentStatus: [],
             minRemaining: "",
             maxRemaining: "",
             searchTerm: ""
-        });
-        fetchAdmissions();
+        };
+        setFilters(cleanFilters);
+        fetchAdmissions(undefined, cleanFilters);
     };
 
     const statusOptions = [
@@ -479,6 +493,7 @@ const InstallmentPayment = () => {
                             email: adm.email,
                             mobile: adm.mobile,
                             course: adm.course,
+                            examTag: adm.examTag,
                             department: adm.department,
                             centre: adm.centre,
                             admissionDate: adm.admissionDate,
@@ -493,7 +508,7 @@ const InstallmentPayment = () => {
         });
 
         return flatInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-    }, [admissionsList, isDetailedView, filters.startDate, filters.endDate, filters.installmentStatus]);
+    }, [admissionsList, isDetailedView, filters.startDate, filters.endDate, filters.installmentStatus, filters.examTag]);
 
     const displayedBoardList = React.useMemo(() => {
         let filtered = boardAdmissionsList;
@@ -508,6 +523,17 @@ const InstallmentPayment = () => {
 
         if (boardFilters.department && boardFilters.department.length > 0) {
             filtered = filtered.filter(adm => boardFilters.department.includes(adm.programme));
+        }
+
+        if (boardFilters.class && boardFilters.class.length > 0) {
+            filtered = filtered.filter(adm => boardFilters.class.includes(adm.lastClass));
+        }
+
+        if (boardFilters.examTag && boardFilters.examTag.length > 0) {
+            filtered = filtered.filter(adm => {
+                const studentTag = adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag;
+                return studentTag && boardFilters.examTag.includes(studentTag);
+            });
         }
 
         if (boardFilters.minRemaining !== "") {
@@ -590,6 +616,8 @@ const InstallmentPayment = () => {
                             email: email,
                             mobile: mobile,
                             course: adm.boardCourseName || adm.programme,
+                            examTag: adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || 'N/A',
+                            lastClass: adm.lastClass || 'N/A',
                             department: adm.programme,
                             centre: adm.centre,
                             admissionDate: adm.admissionDate,
@@ -705,6 +733,7 @@ const InstallmentPayment = () => {
                     "Student Name": inst.studentName,
                     "Admission Code": inst.admissionNumber,
                     "Course": inst.course,
+                    "Exam Tag": inst.examTag || "N/A",
                     "Department": inst.department,
                     "Centre": inst.centre,
                     "Mobile": inst.mobile,
@@ -741,6 +770,7 @@ const InstallmentPayment = () => {
                     "Student Name": adm.studentName,
                     "Mobile": adm.mobile,
                     "Course": adm.course,
+                    "Exam Tag": adm.examTag || "N/A",
                     "Department": adm.department,
                     "Centre": adm.centre,
                     "Total Fees (₹)": adm.totalFees,
@@ -757,6 +787,7 @@ const InstallmentPayment = () => {
                         "Student Name": idx === 0 ? adm.studentName : "",
                         "Mobile": idx === 0 ? adm.mobile : "",
                         "Course": idx === 0 ? adm.course : "",
+                        "Exam Tag": idx === 0 ? (adm.examTag || "N/A") : "",
                         "Department": idx === 0 ? adm.department : "",
                         "Centre": idx === 0 ? adm.centre : "",
                         "Total Fees (₹)": idx === 0 ? adm.totalFees : "",
@@ -771,7 +802,7 @@ const InstallmentPayment = () => {
             // Add a separator row for better readability
             dataToExport.push({
                 "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Course": "---",
-                "Department": "---", "Centre": "---", "Total Fees (₹)": "---",
+                "Exam Tag": "---", "Department": "---", "Centre": "---", "Total Fees (₹)": "---",
                 "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
                 "Installment #": "---", "Due Date": "---"
             });
@@ -831,6 +862,8 @@ const InstallmentPayment = () => {
             centre: [],
             course: [],
             department: [],
+            class: [],
+            examTag: [],
             startDate: "",
             endDate: "",
             installmentStatus: [],
@@ -855,6 +888,8 @@ const InstallmentPayment = () => {
                     "Student Name": inst.studentName,
                     "Admission Code": inst.admissionNumber,
                     "Board Course": inst.course,
+                    "Class": inst.lastClass || "N/A",
+                    "Exam Tag": inst.examTag || "N/A",
                     "Department/Programme": inst.department,
                     "Centre": inst.centre,
                     "Mobile": inst.mobile,
@@ -896,6 +931,8 @@ const InstallmentPayment = () => {
                     "Student Name": studentName,
                     "Mobile": mobile,
                     "Board Course": adm.boardCourseName || '—',
+                    "Class": adm.lastClass || '—',
+                    "Exam Tag": adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || '—',
                     "Department/Programme": adm.programme,
                     "Centre": adm.centre,
                     "Total Fees (₹)": totalExpected,
@@ -912,6 +949,8 @@ const InstallmentPayment = () => {
                         "Student Name": idx === 0 ? studentName : "",
                         "Mobile": idx === 0 ? mobile : "",
                         "Board Course": idx === 0 ? (adm.boardCourseName || '—') : "",
+                        "Class": idx === 0 ? (adm.lastClass || '—') : "",
+                        "Exam Tag": idx === 0 ? (adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || '—') : "",
                         "Department/Programme": idx === 0 ? adm.programme : "",
                         "Centre": idx === 0 ? adm.centre : "",
                         "Total Fees (₹)": idx === 0 ? totalExpected : "",
@@ -925,7 +964,7 @@ const InstallmentPayment = () => {
             }
             dataToExport.push({
                 "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Board Course": "---",
-                "Department/Programme": "---", "Centre": "---", "Total Fees (₹)": "---",
+                "Class": "---", "Exam Tag": "---", "Department/Programme": "---", "Centre": "---", "Total Fees (₹)": "---",
                 "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
                 "Installment #": "---", "Due Date": "---"
             });
@@ -1342,7 +1381,7 @@ const InstallmentPayment = () => {
                             <>
                                 {/* Board Centre Summary Filters */}
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm animate-fade-in`}>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-6 items-end">
                                         {/* Date Range */}
                                         <div className="lg:col-span-1">
                                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
@@ -1387,6 +1426,34 @@ const InstallmentPayment = () => {
                                                 onChange={(selected) => setBoardFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
                                                 styles={selectStyles}
                                                 placeholder="ALL COURSES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Class Filter */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Class</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.classes.map(c => ({ value: c.name, label: c.name }))}
+                                                value={boardFilters.class.map(name => ({ value: name, label: name }))}
+                                                onChange={(selected) => setBoardFilters(prev => ({ ...prev, class: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL CLASSES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Exam Tag Filter */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Exam Tag</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.examTags.map(t => ({ value: t.name, label: t.name }))}
+                                                value={boardFilters.examTag.map(name => ({ value: name, label: name }))}
+                                                onChange={(selected) => setBoardFilters(prev => ({ ...prev, examTag: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL EXAM TAGS"
                                                 isClearable
                                             />
                                         </div>
@@ -1554,7 +1621,7 @@ const InstallmentPayment = () => {
                             <>
                         {/* Board Admission Filters */}
                         <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-6 items-end">
                                 {/* Date Range */}
                                 <div className="lg:col-span-1">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
@@ -1599,6 +1666,34 @@ const InstallmentPayment = () => {
                                         onChange={(selected) => setBoardFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
                                         styles={selectStyles}
                                         placeholder="ALL COURSES"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Class Filter */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Class</label>
+                                    <Select
+                                        isMulti
+                                        options={metadata.classes.map(c => ({ value: c.name, label: c.name }))}
+                                        value={boardFilters.class.map(name => ({ value: name, label: name }))}
+                                        onChange={(selected) => setBoardFilters(prev => ({ ...prev, class: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL CLASSES"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Exam Tag Filter */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Exam Tag</label>
+                                    <Select
+                                        isMulti
+                                        options={metadata.examTags.map(t => ({ value: t.name, label: t.name }))}
+                                        value={boardFilters.examTag.map(name => ({ value: name, label: name }))}
+                                        onChange={(selected) => setBoardFilters(prev => ({ ...prev, examTag: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL EXAM TAGS"
                                         isClearable
                                     />
                                 </div>
@@ -1799,8 +1894,13 @@ const InstallmentPayment = () => {
                                                                     </div>
                                                                 </td>
                                                                 <td className="p-5">
-                                                                    <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.course}</div>
-                                                                    <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{item.department}</div>
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.course}</span>
+                                                                        {item.examTag && item.examTag !== "N/A" && (
+                                                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 uppercase tracking-wider">{item.examTag}</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{item.department} {item.lastClass && item.lastClass !== "N/A" && `· Class ${item.lastClass}`}</div>
                                                                 </td>
                                                                 <td className="p-5">
                                                                     <span className={`text-xs font-black uppercase px-2 py-1 rounded-lg ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>{item.centre || 'N/A'}</span>
@@ -1854,7 +1954,12 @@ const InstallmentPayment = () => {
                                                         >
                                                             <td className="p-5">
                                                                 <span className="px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 font-black text-xs uppercase">{adm.admissionNumber || '—'}</span>
-                                                                <div className="text-[10px] text-gray-500 mt-1 font-bold uppercase">{adm.programme || ''} · {adm.lastClass || ''}</div>
+                                                                <div className="text-[10px] text-gray-500 mt-1 font-bold uppercase flex items-center gap-1.5 flex-wrap">
+                                                                    <span>{adm.programme || ''} · {adm.lastClass ? `Class ${adm.lastClass}` : ''}</span>
+                                                                    {adm.studentId?.sessionExamCourse?.[0]?.examTag && (
+                                                                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 uppercase tracking-wider">{adm.studentId.sessionExamCourse[0].examTag}</span>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                             <td className="p-5">
                                                                 <div className={`font-black text-sm uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'} group-hover:text-cyan-500 transition-colors`}>{studentName}</div>
@@ -1990,7 +2095,7 @@ const InstallmentPayment = () => {
                             <>
                                 {/* Filters Section */}
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm animate-fade-in`}>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6 items-end">
                                         {/* Date Range */}
                                         <div className="lg:col-span-1">
                                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
@@ -2043,6 +2148,23 @@ const InstallmentPayment = () => {
                                                 onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
                                                 styles={selectStyles}
                                                 placeholder="ALL COURSES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Exam Tag Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Exam Tag</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.examTags.map(t => ({ value: t._id, label: t.name }))}
+                                                value={filters.examTag.map(id => {
+                                                    const tag = metadata.examTags.find(t => t._id === id);
+                                                    return tag ? { value: tag._id, label: tag.name } : null;
+                                                }).filter(Boolean)}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, examTag: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL EXAM TAGS"
                                                 isClearable
                                             />
                                         </div>
@@ -2211,7 +2333,7 @@ const InstallmentPayment = () => {
                             <>
                                 {/* Filters Section */}
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm`}>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 items-end">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6 items-end">
                                         {/* Date Range */}
                                         <div className="lg:col-span-1">
                                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
@@ -2264,6 +2386,23 @@ const InstallmentPayment = () => {
                                                 onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
                                                 styles={selectStyles}
                                                 placeholder="ALL COURSES"
+                                                isClearable
+                                            />
+                                        </div>
+
+                                        {/* Exam Tag Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Exam Tag</label>
+                                            <Select
+                                                isMulti
+                                                options={metadata.examTags.map(t => ({ value: t._id, label: t.name }))}
+                                                value={filters.examTag.map(id => {
+                                                    const tag = metadata.examTags.find(t => t._id === id);
+                                                    return tag ? { value: tag._id, label: tag.name } : null;
+                                                }).filter(Boolean)}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, examTag: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL EXAM TAGS"
                                                 isClearable
                                             />
                                         </div>
@@ -2436,7 +2575,12 @@ const InstallmentPayment = () => {
                                                                         </div>
                                                                     </td>
                                                                     <td className="p-6">
-                                                                        <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.course}</div>
+                                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                                            <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{item.course}</span>
+                                                                            {item.examTag && item.examTag !== "N/A" && (
+                                                                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 uppercase tracking-wider">{item.examTag}</span>
+                                                                            )}
+                                                                        </div>
                                                                         <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{item.department}</div>
                                                                     </td>
                                                                     <td className="p-6">
@@ -2495,8 +2639,13 @@ const InstallmentPayment = () => {
                                                                     </div>
                                                                 </td>
                                                                 <td className="p-6">
-                                                                    <div className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{adm.course}</div>
-                                                                    <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
+                                                                     <div className="flex items-center gap-1.5 flex-wrap">
+                                                                         <span className={`font-bold text-xs uppercase ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>{adm.course}</span>
+                                                                         {adm.examTag && adm.examTag !== "N/A" && (
+                                                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 uppercase tracking-wider">{adm.examTag}</span>
+                                                                         )}
+                                                                     </div>
+                                                                     <div className="text-[10px] text-gray-500 mt-0.5 uppercase tracking-tighter">{adm.department}</div>
                                                                 </td>
                                                                 <td className="p-6">
                                                                     <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-400' : 'bg-gray-100 border border-gray-200 text-gray-600'}`}>

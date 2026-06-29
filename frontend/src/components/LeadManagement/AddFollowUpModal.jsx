@@ -16,6 +16,14 @@ const FEEDBACK_OPTIONS = [
 ];
 
 const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = false }) => {
+    const todayStr = (() => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    })();
+
     const [loading, setLoading] = useState(false);
     const [dynamicOptions, setDynamicOptions] = useState([]);
     const [formData, setFormData] = useState({
@@ -263,6 +271,7 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
                                     required={!["COLD LEAD", "INVALID LEAD"].includes(formData.leadType)}
                                     value={formData.nextFollowUpDate}
                                     onChange={(e) => setFormData({ ...formData, nextFollowUpDate: e.target.value })}
+                                    min={todayStr}
                                     className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                 />
                             </div>
@@ -278,6 +287,7 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
                                     type="date"
                                     value={formData.walkInDate}
                                     onChange={(e) => setFormData({ ...formData, walkInDate: e.target.value })}
+                                    min={todayStr}
                                     className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                 />
                             </div>
