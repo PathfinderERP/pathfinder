@@ -37,6 +37,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         class: admission.class?._id || '',
         academicSession: admission.academicSession || '',
         examTag: admission.examTag?._id || '',
+        batches: (admission.student?.batches || []).map(b => typeof b === 'object' ? b._id : b) || [],
     });
 
     const [loading, setLoading] = useState(false);
@@ -47,6 +48,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
     const [masterSessions, setMasterSessions] = useState([]);
     const [masterExamTags, setMasterExamTags] = useState([]);
     const [masterBoards, setMasterBoards] = useState([]);
+    const [masterBatches, setMasterBatches] = useState([]);
     const [filteredCourses, setFilteredCourses] = useState([]);
     const [showCourseFilters, setShowCourseFilters] = useState(false);
     const [courseFilters, setCourseFilters] = useState({
@@ -100,13 +102,14 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
             const headers = { 'Authorization': `Bearer ${token}` };
             const apiUrl = import.meta.env.VITE_API_URL;
 
-            const [deptRes, courseRes, classRes, sessionRes, tagRes, boardRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, tagRes, boardRes, batchRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/session/list`, { headers }),
                 fetch(`${apiUrl}/examTag`, { headers }),
-                fetch(`${apiUrl}/board`, { headers })
+                fetch(`${apiUrl}/board`, { headers }),
+                fetch(`${apiUrl}/batch/list`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -124,6 +127,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
             }
             if (tagRes.ok) setMasterExamTags(await tagRes.json());
             if (boardRes.ok) setMasterBoards(await boardRes.json());
+            if (batchRes && batchRes.ok) setMasterBatches(await batchRes.json());
         } catch (error) {
             console.error('Error fetching master data:', error);
         }
@@ -231,6 +235,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
+                        batches: dataToSave.batches,
                         studentsDetails: [{
                             studentName: dataToSave.studentName,
                             studentEmail: dataToSave.studentEmail,
@@ -940,6 +945,93 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+                                <div className="md:col-span-2 lg:col-span-3">
+                                    <label className={labelClass}>BATCH ALLOCATION (TAGS)</label>
+                                    <Select
+                                        isMulti
+                                        options={masterBatches
+                                            .filter(b => {
+                                                if (!formData.centre || !b.centreId) return true;
+                                                return b.centreId?.centreName?.toUpperCase() === formData.centre.toUpperCase();
+                                            })
+                                            .sort((a, b) => (a.batchName || "").localeCompare(b.batchName || ""))
+                                            .map(b => ({ value: b._id, label: b.batchName?.toUpperCase() }))}
+                                        value={formData.batches ? masterBatches
+                                            .filter(b => formData.batches.includes(b._id))
+                                            .map(b => ({ value: b._id, label: b.batchName?.toUpperCase() })) : []}
+                                        onChange={(selectedOptions) => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                batches: selectedOptions ? selectedOptions.map(o => o.value) : []
+                                            }));
+                                        }}
+                                        isSearchable={true}
+                                        placeholder="SELECT OR SEARCH BATCHES..."
+                                        styles={{
+                                            control: (base, state) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#111418' : '#f9fafb',
+                                                borderColor: state.isFocused ? (isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4') : (isDarkMode ? '#1f2937' : '#e5e7eb'),
+                                                padding: '4px',
+                                                borderRadius: '4px',
+                                                fontSize: '13px',
+                                                fontWeight: 'bold',
+                                                color: isDarkMode ? 'white' : 'black',
+                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(6, 182, 212, 0.2)' : 'none',
+                                                '&:hover': {
+                                                    borderColor: isDarkMode ? 'rgba(6, 182, 212, 0.5)' : '#06b6d4'
+                                                }
+                                            }),
+                                            menu: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#1a1f24' : 'white',
+                                                border: isDarkMode ? '1px solid #1f2937' : '1px solid #e5e7eb',
+                                                zIndex: 100
+                                            }),
+                                            option: (base, state) => ({
+                                                ...base,
+                                                backgroundColor: state.isFocused
+                                                    ? (isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)')
+                                                    : 'transparent',
+                                                color: isDarkMode ? 'white' : 'black',
+                                                fontSize: '11px',
+                                                fontWeight: 'black',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.05em',
+                                                '&:active': {
+                                                    backgroundColor: 'rgba(6, 182, 212, 0.3)'
+                                                }
+                                            }),
+                                            multiValue: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.1)',
+                                                borderRadius: '4px'
+                                            }),
+                                            multiValueLabel: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? 'white' : 'black',
+                                                fontWeight: 'bold',
+                                                fontSize: '10px'
+                                            }),
+                                            multiValueRemove: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#ff4d4d' : '#ff0000',
+                                                '&:hover': {
+                                                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                                                    color: 'red'
+                                                }
+                                            }),
+                                            placeholder: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#374151' : '#9ca3af'
+                                            }),
+                                            input: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? 'white' : 'black'
+                                            })
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </div>

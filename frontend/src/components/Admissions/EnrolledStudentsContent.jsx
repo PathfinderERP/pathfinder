@@ -2460,6 +2460,22 @@ const EnrolledStudentsContent = () => {
                                                 <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Exam Tag</p>
                                                 <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.sessionExamCourse?.[0]?.examTag || "N/A"}</p>
                                             </div>
+                                            <div className="col-span-2 border-t border-gray-800/10 pt-4 mt-2">
+                                                <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <FaUsers size={10} className="text-cyan-500" /> Batch Tagged
+                                                </p>
+                                                <div className="flex flex-wrap gap-2 mt-1">
+                                                    {selectedStudent.batches && selectedStudent.batches.length > 0 ? (
+                                                        selectedStudent.batches.map(batch => (
+                                                            <span key={batch._id} className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase border underline decoration-yellow-500/30 underline-offset-2 ${isDarkMode ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' : 'bg-yellow-50 border-yellow-200 text-yellow-600 shadow-sm'}`}>
+                                                                {batch.batchName}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-gray-500 font-bold italic text-[10px] uppercase">UNALLOCATED INVENTORY</p>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {selectedStudent.examSchema && selectedStudent.examSchema.length > 0 && (
