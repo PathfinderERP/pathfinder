@@ -217,6 +217,16 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         continue;
                     }
 
+                    if (!row.Source || !row.Source.toString().trim()) {
+                        errors.push(`Row ${rowNum}: Missing Required Data (Source required)`);
+                        continue;
+                    }
+                    const matchedSource = sources.find(s => s.sourceName && s.sourceName.toLowerCase().trim() === row.Source.toString().toLowerCase().trim());
+                    if (!matchedSource) {
+                        errors.push(`Row ${rowNum}: Source '${row.Source}' not found in system master data`);
+                        continue;
+                    }
+
                     let classId = null;
                     if (row.Class) {
                         const cls = classes.find(c => c.name.toLowerCase() === row.Class.toString().toLowerCase());
@@ -368,6 +378,16 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                     if (!row.SchoolName || !row.SchoolName.toString().trim()) {
                         errors.push(`Row ${rowNum}: Missing Required Data (SchoolName required)`);
+                        continue;
+                    }
+
+                    if (!row.Source || !row.Source.toString().trim()) {
+                        errors.push(`Row ${rowNum}: Missing Required Data (Source required)`);
+                        continue;
+                    }
+                    const matchedSource = sources.find(s => s.sourceName && s.sourceName.toLowerCase().trim() === row.Source.toString().toLowerCase().trim());
+                    if (!matchedSource) {
+                        errors.push(`Row ${rowNum}: Source '${row.Source}' not found in system master data`);
                         continue;
                     }
 

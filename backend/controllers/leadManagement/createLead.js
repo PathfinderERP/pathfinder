@@ -1,5 +1,6 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import CampaignLead from "../../models/CampaignLead.js";
+import Sources from "../../models/Master_data/Sources.js";
 
 export const createLead = async (req, res) => {
     try {
@@ -22,6 +23,16 @@ export const createLead = async (req, res) => {
 
         if (!name) {
             return res.status(400).json({ message: "Required fields are missing." });
+        }
+
+        // Validate source against Master Data sources
+        if (!source || !source.trim()) {
+            return res.status(400).json({ message: "Source is required." });
+        }
+        const allMasterSources = await Sources.find().select('sourceName').lean();
+        const matchedSource = allMasterSources.find(s => s.sourceName && s.sourceName.toLowerCase().trim() === source.trim().toLowerCase());
+        if (!matchedSource) {
+            return res.status(400).json({ message: `Source '${source}' is invalid. It must match a source in the Master Data.` });
         }
 
         // Phone number duplication check

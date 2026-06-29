@@ -180,8 +180,17 @@ export default function CampaignUploadLeads() {
                 toast.success(`${data.total} lead(s) uploaded successfully and linked to campaign!`);
                 setRows([]);
                 setFileName("");
+                setValidationErrors([]);
             } else {
                 toast.error(data.message || "Upload failed");
+                if (data.invalidSources && Array.isArray(data.invalidSources)) {
+                    const formatted = data.invalidSources.map(err => 
+                        `Row ${err.row}: "${err.name}" - Invalid source: "${err.source || 'Blank'}" (${err.reason})`
+                    );
+                    setValidationErrors(formatted);
+                } else {
+                    setValidationErrors([data.message || "Upload failed"]);
+                }
             }
         } catch (err) {
             console.error(err);

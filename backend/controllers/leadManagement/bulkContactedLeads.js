@@ -1,5 +1,6 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import FollowUpFeedback from "../../models/Master_data/FollowUpFeedback.js";
+import Sources from "../../models/Master_data/Sources.js";
 
 export const bulkContactedLeads = async (req, res) => {
     try {
@@ -9,9 +10,13 @@ export const bulkContactedLeads = async (req, res) => {
             return res.status(400).json({ message: "No leads provided." });
         }
 
-        // Fetch all valid feedback options from master data
-        const feedbackMaster = await FollowUpFeedback.find({}).lean();
+        // Fetch all valid feedback options and sources from master data
+        const [feedbackMaster, allSources] = await Promise.all([
+            FollowUpFeedback.find({}).lean(),
+            Sources.find({}).lean()
+        ]);
         const validFeedbacks = feedbackMaster.map(f => f.name.toLowerCase().trim());
+        const validSources = allSources.map(s => s.sourceName?.toLowerCase().trim()).filter(Boolean);
 
         const results = {
             success: [],
@@ -45,6 +50,15 @@ export const bulkContactedLeads = async (req, res) => {
                     results.failed.push({
                         identifier: phoneNumber || email || name,
                         reason: `Feedback '${feedback}' does not match any master data feedback option`
+                    });
+                    continue;
+                }
+
+                // Validate source against master data (case-insensitive) if provided
+                if (source && !validSources.includes(source.toLowerCase().trim())) {
+                    results.failed.push({
+                        identifier: phoneNumber || email || name,
+                        reason: `Source '${source}' does not match any master data source`
                     });
                     continue;
                 }

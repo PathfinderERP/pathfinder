@@ -47,6 +47,44 @@ export const bulkUploadLeads = async (req, res) => {
             }
         }
 
+        // Validate sources against master data (case-insensitive, trimmed)
+        const masterSourcesSet = new Set(
+            allSources.map(s => s.sourceName?.trim().toLowerCase()).filter(Boolean)
+        );
+
+        const invalidSources = [];
+        for (let i = 0; i < leads.length; i++) {
+            const row = leads[i];
+            // Only validate rows that aren't skipped (i.e. must have name and schoolName)
+            if (!row.name || !row.schoolName) {
+                continue;
+            }
+            const sourceStr = (row.source || "").trim();
+            if (!sourceStr) {
+                invalidSources.push({
+                    row: i + 1,
+                    name: row.name || "Unknown Name",
+                    source: "",
+                    reason: "Source is missing"
+                });
+            } else if (!masterSourcesSet.has(sourceStr.toLowerCase())) {
+                invalidSources.push({
+                    row: i + 1,
+                    name: row.name || "Unknown Name",
+                    source: row.source,
+                    reason: `Source '${row.source}' is invalid`
+                });
+            }
+        }
+
+        if (invalidSources.length > 0) {
+            return res.status(400).json({
+                message: "Validation failed: Some leads contain sources that do not match the Master Data.",
+                invalidSources
+            });
+        }
+
+
         const prepared = leads.map((row) => {
             const doc = {
                 name:               (row.name || "").trim(),

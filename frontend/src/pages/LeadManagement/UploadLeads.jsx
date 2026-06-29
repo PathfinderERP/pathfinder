@@ -86,6 +86,7 @@ const UploadLeads = () => {
 
     const [aiFeedback, setAiFeedback] = useState("");
     const [analyzingAi, setAnalyzingAi] = useState(false);
+    const [validationErrors, setValidationErrors] = useState([]);
     
     const analyzeErrorWithAI = async (errorMsg) => {
         setAnalyzingAi(true);
@@ -213,9 +214,15 @@ const UploadLeads = () => {
                 toast.success(data.message);
                 fetchMyUploads(1); // refresh history
                 setAiFeedback("");
+                setValidationErrors([]);
             } else {
                 const msg = data.message || "Upload failed.";
                 toast.error(msg);
+                if (data.invalidSources) {
+                    setValidationErrors(data.invalidSources);
+                } else {
+                    setValidationErrors([]);
+                }
                 analyzeErrorWithAI(msg);
                 setStep("preview");
             }
@@ -234,6 +241,7 @@ const UploadLeads = () => {
         setUploadResult(null);
         setStep("idle");
         setAiFeedback("");
+        setValidationErrors([]);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -402,6 +410,29 @@ const UploadLeads = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Source Validation Errors */}
+                        {validationErrors.length > 0 && (
+                            <div className={`p-5 rounded-2xl border flex flex-col gap-3 ${isDark ? 'bg-red-500/10 border-red-500/20 text-red-300' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                                <div className="flex items-center gap-2">
+                                    <FaTimesCircle className="text-red-500" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Source Validation Errors</span>
+                                </div>
+                                <p className="text-xs font-semibold">
+                                    The following leads specify a <b>Source</b> that does not match any valid source in the Master Data. Please edit their sources in the table below and click "Upload" again:
+                                </p>
+                                <div className="max-h-[150px] overflow-y-auto space-y-1.5 custom-scrollbar pr-2">
+                                    {validationErrors.map((err, i) => (
+                                        <div key={i} className={`flex items-center justify-between text-xs py-1.5 px-3 rounded-lg ${isDark ? 'bg-red-950/20' : 'bg-red-100/50'} font-medium`}>
+                                            <span>Row <b>{err.row}</b>: <b>{err.name}</b></span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isDark ? 'bg-red-950 text-red-400' : 'bg-red-100 text-red-600'}`}>
+                                                Invalid Source: "{err.source || 'Blank'}"
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Table */}
                         <div className={`${card} overflow-hidden`}>
