@@ -7,7 +7,12 @@ export const getAdmissionById = async (req, res) => {
 
         // Try Normal Admission collection
         let admission = await Admission.findById(id)
-            .populate('student')
+            .populate({
+                path: 'student',
+                populate: [
+                    { path: 'batches' }
+                ]
+            })
             // .populate('course') // Handled manually below
             .populate({
                 path: 'board',
@@ -39,7 +44,12 @@ export const getAdmissionById = async (req, res) => {
 
         // Try Board Course Admission collection (Structured)
         let boardAdmission = await BoardCourseAdmission.findById(id)
-            .populate('studentId')
+            .populate({
+                path: 'studentId',
+                populate: [
+                    { path: 'batches' }
+                ]
+            })
             .populate('boardId')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId')

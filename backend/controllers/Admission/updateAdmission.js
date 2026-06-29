@@ -123,7 +123,13 @@ export const updateAdmission = async (req, res) => {
                 updates,
                 { new: true, runValidators: true }
             )
-                .populate('student')
+                .populate({
+                    path: 'student',
+                    populate: [
+                        { path: 'batches' },
+                        { path: 'allocatedItems.allocatedBy', select: 'name' }
+                    ]
+                })
                 .populate('course')
                 .populate('class')
                 .populate('examTag')
