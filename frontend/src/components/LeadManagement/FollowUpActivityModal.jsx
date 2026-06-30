@@ -3,7 +3,8 @@ import {
     FaStar, FaTimes, FaPhoneAlt, FaEnvelope, FaClock,
     FaHistory, FaTimesCircle, FaCheckCircle, FaExclamationCircle,
     FaCommentAlt, FaChevronDown, FaChevronUp, FaSearch,
-    FaUser, FaFilter, FaGraduationCap, FaTimes as FaClear
+    FaUser, FaFilter, FaGraduationCap, FaTimes as FaClear,
+    FaBook, FaAward, FaInfoCircle
 } from 'react-icons/fa';
 
 const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAddFollowUp }) => {
@@ -269,6 +270,24 @@ const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAdd
                                                         <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border
                                                             ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
                                                             <FaGraduationCap className="inline mr-1" size={8} />{itemClass}
+                                                        </span>
+                                                    )}
+                                                    {item.board && (
+                                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border
+                                                            ${isDarkMode ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-purple-50 border-purple-200 text-purple-600'}`}>
+                                                            <FaBook className="inline mr-1" size={8} />Board: {item.board}
+                                                        </span>
+                                                    )}
+                                                    {item.course && (
+                                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border
+                                                            ${isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600'}`}>
+                                                            <FaAward className="inline mr-1" size={8} />Course: {item.course}
+                                                        </span>
+                                                    )}
+                                                    {item.source && (
+                                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border
+                                                            ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-600'}`}>
+                                                            <FaInfoCircle className="inline mr-1" size={8} />Source: {item.source}
                                                         </span>
                                                     )}
                                                 </div>

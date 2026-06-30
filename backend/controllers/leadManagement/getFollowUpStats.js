@@ -226,7 +226,11 @@ export const getFollowUpStats = async (req, res) => {
                                 leadType: 1,
                                 leadResponsibility: 1,
                                 phoneNumber: 1,
-                                email: 1
+                                email: 1,
+                                className: 1,
+                                board: 1,
+                                course: 1,
+                                source: 1
                             }
                         },
                         { $unwind: "$followUp" },
@@ -239,6 +243,9 @@ export const getFollowUpStats = async (req, res) => {
                         },
                         { $sort: { "followUp.date": -1 } },
                         { $limit: 500 },
+                        { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
+                        { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
+                        { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
                         {
                             $project: {
                                 leadId: "$_id",
@@ -251,7 +258,11 @@ export const getFollowUpStats = async (req, res) => {
                                 feedback: "$followUp.feedback",
                                 remarks: "$followUp.remarks",
                                 callDuration: "$followUp.callDuration",
-                                history: "$followUpsHistory"
+                                history: "$followUpsHistory",
+                                className: { $arrayElemAt: ["$classInfo.name", 0] },
+                                board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
+                                course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                source: "$source"
                             }
                         }
                     ],
@@ -268,6 +279,9 @@ export const getFollowUpStats = async (req, res) => {
                         { $match: { ...leadOwnerMatch, ...(Object.keys(scheduledDateFilter).length > 0 ? { nextFollowUpDate: scheduledDateFilter } : {}) } },
                         { $sort: { nextFollowUpDate: 1 } },
                         { $limit: 500 },
+                        { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
+                        { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
+                        { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
                         {
                             $project: {
                                 leadId: "$_id",
@@ -277,7 +291,11 @@ export const getFollowUpStats = async (req, res) => {
                                 status: "$leadType",
                                 time: "$nextFollowUpDate",
                                 updatedBy: "$leadResponsibility",
-                                history: "$followUps"
+                                history: "$followUps",
+                                className: { $arrayElemAt: ["$classInfo.name", 0] },
+                                board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
+                                course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                source: "$source"
                             }
                         }
                     ],
@@ -294,6 +312,9 @@ export const getFollowUpStats = async (req, res) => {
                         { $match: previousPendingMatch },
                         { $sort: { nextFollowUpDate: 1 } },
                         { $limit: 500 },
+                        { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
+                        { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
+                        { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
                         {
                             $project: {
                                 leadId: "$_id",
@@ -303,7 +324,11 @@ export const getFollowUpStats = async (req, res) => {
                                 status: "$leadType",
                                 time: "$nextFollowUpDate",
                                 updatedBy: "$leadResponsibility",
-                                history: "$followUps"
+                                history: "$followUps",
+                                className: { $arrayElemAt: ["$classInfo.name", 0] },
+                                board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
+                                course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                source: "$source"
                             }
                         }
                     ],
