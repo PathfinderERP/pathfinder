@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaCalendarDay, FaEraser, FaSearch, FaChevronDown, FaFlag } from "react-icons/fa";
+import { FaFilter, FaDownload, FaCalendarDay, FaEraser, FaSearch, FaChevronDown, FaFlag, FaEdit, FaSave, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
 const DailyCollection = () => {
+    const storedUser = localStorage.getItem("user");
+    const currentUser = storedUser ? JSON.parse(storedUser) : null;
+    const isSuperAdmin = currentUser?.role?.toLowerCase()?.replace(/\s+/g, '') === 'superadmin';
+
     const [loading, setLoading] = useState(false);
     const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
     const [dailyDetails, setDailyDetails] = useState([]);
@@ -15,6 +19,8 @@ const DailyCollection = () => {
     const [transactionCount, setTransactionCount] = useState(0);
     const [activeTab, setActiveTab] = useState("centers"); // "centers" or "details"
     const [centreTargets, setCentreTargets] = useState({});
+    const [editingCentre, setEditingCentre] = useState(null);
+    const [editTargetValue, setEditTargetValue] = useState("");
 
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -101,7 +107,7 @@ const DailyCollection = () => {
             if (cRes.ok) {
                 const centreData = await cRes.json();
                 let centreList = Array.isArray(centreData) ? centreData : centreData.centres || [];
-                centreList = centreList.filter(c => c.status !== "deactive");
+                centreList = centreList.filter(c => c.status !== "deactive" && c.centreName && !/franchise/i.test(c.centreName) && !/phsps/i.test(c.centreName));
                 const storedUser = localStorage.getItem("user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);
@@ -177,6 +183,36 @@ const DailyCollection = () => {
             console.error("Error fetching daily collection", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveTarget = async (centreName) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/daily-collection/target`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    date: date,
+                    centreName: centreName,
+                    targetAmount: Number(editTargetValue)
+                })
+            });
+
+            if (response.ok) {
+                toast.success("Daily target updated successfully");
+                setEditingCentre(null);
+                fetchDailyCollection();
+            } else {
+                const errData = await response.json();
+                toast.error(errData.message || "Failed to update daily target");
+            }
+        } catch (error) {
+            console.error("Error saving daily target:", error);
+            toast.error("Error updating daily target");
         }
     };
 
@@ -814,7 +850,51 @@ const DailyCollection = () => {
                                                 </div>
                                             </td>
                                             <td className={`px-4 py-4 text-right font-semibold text-amber-500`}>
-                                                {formatAmount(centreTargets[centre] || 0)}
+                                                {isSuperAdmin ? (
+                                                    editingCentre === centre ? (
+                                                        <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                                                            <input
+                                                                type="number"
+                                                                value={editTargetValue}
+                                                                onChange={e => setEditTargetValue(e.target.value)}
+                                                                className={`w-24 px-2 py-1 text-xs text-right border rounded outline-none ${isDarkMode ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500" : "bg-white border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                                                                autoFocus
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') handleSaveTarget(centre);
+                                                                    if (e.key === 'Escape') setEditingCentre(null);
+                                                                }}
+                                                            />
+                                                            <button
+                                                                onClick={() => handleSaveTarget(centre)}
+                                                                className="p-1 text-green-500 hover:text-green-400 transition-colors"
+                                                                title="Save"
+                                                            >
+                                                                <FaSave size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setEditingCentre(null)}
+                                                                className="p-1 text-red-500 hover:text-red-400 transition-colors"
+                                                                title="Cancel"
+                                                            >
+                                                                <FaTimes size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div 
+                                                            className="flex items-center justify-end gap-2 group/target cursor-pointer select-none" 
+                                                            onClick={() => {
+                                                                setEditingCentre(centre);
+                                                                setEditTargetValue(centreTargets[centre] || 0);
+                                                            }}
+                                                            title="Click to edit daily target"
+                                                        >
+                                                            <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                            <FaEdit size={12} className="text-amber-500 opacity-0 group-hover/target:opacity-100 transition-opacity" />
+                                                        </div>
+                                                    )
+                                                ) : (
+                                                    <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                )}
                                             </td>
                                             {paymentMethodsList.map(method => (
                                                 <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>

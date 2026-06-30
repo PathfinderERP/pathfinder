@@ -118,6 +118,9 @@ export const getTransactionReport = async (req, res) => {
         if (!isSuperAdmin) {
             const userCentres = await Centre.find({ _id: { $in: req.user.centres || [] } }).select("centreName");
             allowedCentreNames = userCentres.map(c => c.centreName);
+        } else {
+            const allCentres = await Centre.find({}).select("centreName");
+            allowedCentreNames = allCentres.map(c => c.centreName);
         }
 
         if (centreIds) {
@@ -134,8 +137,10 @@ export const getTransactionReport = async (req, res) => {
                     admissionMatch["admissionInfo.centre"] = { $in: requestedNames };
                 }
             }
-        } else if (!isSuperAdmin) {
-            admissionMatch["admissionInfo.centre"] = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
+        } else {
+            // Default: Exclude franchise and PHSPS
+            const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name));
+            admissionMatch["admissionInfo.centre"] = { $in: defaultCentreNames.length > 0 ? defaultCentreNames : ["__NO_MATCH__"] };
         }
 
         if (courseIds) {
@@ -199,8 +204,8 @@ export const getTransactionReport = async (req, res) => {
         const aggregateMatchStage = aggregateFilters.length > 0 ? { $match: { $and: aggregateFilters } } : { $match: {} };
 
         // Check if we need Admission/Course lookups for the charts
-        // Non-superAdmin users ALWAYS need the admission lookup so their centre filter is enforced
-        const needsAdmissionLookup = !isSuperAdmin || session || centreIds || courseIds || examTagId || departmentIds;
+        // Always set to true to ensure default centre exclusions (franchise/PHSPS) are applied to charts and stats calculations
+        const needsAdmissionLookup = true;
 
         const chartPipeline = [
             { $match: baseAttributesMatch },

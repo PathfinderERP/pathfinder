@@ -90,6 +90,7 @@ const TransactionReport = () => {
             if (cRes.ok) {
                 const resData = await cRes.json();
                 let centerList = Array.isArray(resData) ? resData : resData.centres || [];
+                centerList = centerList.filter(c => c.centreName && !/franchise/i.test(c.centreName) && !/phsps/i.test(c.centreName));
 
                 // Filter by allocated centers
                 const storedUser = localStorage.getItem("user");

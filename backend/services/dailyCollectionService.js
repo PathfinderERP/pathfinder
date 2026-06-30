@@ -2,6 +2,8 @@ import Payment from "../models/Payment/Payment.js";
 import Centre from "../models/Master_data/Centre.js";
 import mongoose from "mongoose";
 import CentreTarget from "../models/Sales/CentreTarget.js";
+import DailyTarget from "../models/Sales/DailyTarget.js";
+
 
 export const getDailyCollectionReportData = async ({ query, user }) => {
     const {
@@ -97,10 +99,12 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         }
     } else {
+        const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name));
+        const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name));
         if (user.role !== 'superAdmin') {
-            admissionMatch["admissionInfo.centre"] = allowedCentreNames.length > 0 ? { $in: allowedCentreNames } : "__NO_MATCH__";
+            admissionMatch["admissionInfo.centre"] = defaultAllowedCentreNames.length > 0 ? { $in: defaultAllowedCentreNames } : "__NO_MATCH__";
         } else {
-            admissionMatch["admissionInfo.centre"] = allCentreNames.length > 0 ? { $in: allCentreNames } : "__NO_MATCH__";
+            admissionMatch["admissionInfo.centre"] = defaultAllCentreNames.length > 0 ? { $in: defaultAllCentreNames } : "__NO_MATCH__";
         }
     }
 
@@ -417,12 +421,37 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         month: monthName
     }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
 
+    // Fetch custom daily targets for this specific date
+    const startOfDate = new Date(selectedDate);
+    startOfDate.setHours(0, 0, 0, 0);
+    const endOfDate = new Date(selectedDate);
+    endOfDate.setHours(23, 59, 59, 999);
+
+    const customTargets = await DailyTarget.find({
+        date: { $gte: startOfDate, $lte: endOfDate }
+    }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
+
     const centreTargets = {};
+    
+    // Set default proportional targets first
     targets.forEach(t => {
         if (t.centre && t.centre.centreName) {
-            const monthlyTargetExclGST = t.targetAmount || 0;
-            const dailyTargetExclGST = daysInMonth > 0 ? (monthlyTargetExclGST / daysInMonth) : 0;
-            centreTargets[t.centre.centreName] = dailyTargetExclGST;
+            const name = t.centre.centreName;
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name))) {
+                const monthlyTargetExclGST = t.targetAmount || 0;
+                const dailyTargetExclGST = daysInMonth > 0 ? (monthlyTargetExclGST / daysInMonth) : 0;
+                centreTargets[name] = dailyTargetExclGST;
+            }
+        }
+    });
+
+    // Override with custom daily targets if set
+    customTargets.forEach(ct => {
+        if (ct.centre && ct.centre.centreName) {
+            const name = ct.centre.centreName;
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name))) {
+                centreTargets[name] = ct.targetAmount || 0;
+            }
         }
     });
 
