@@ -60,6 +60,13 @@ export const getLeads = async (req, res) => {
         const remainingCount = await LeadManagement.countDocuments({ ...query, followUps: { $size: 0 } });
 
         const walkInQuery = { ...query };
+        if (query.$and) {
+            walkInQuery.$and = [...query.$and];
+        }
+        if (query.$or) {
+            walkInQuery.$or = [...query.$or];
+        }
+
         if (walkInQuery.$or) {
             walkInQuery.$and = walkInQuery.$and || [];
             walkInQuery.$and.push({
