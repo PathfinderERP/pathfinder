@@ -36,7 +36,7 @@ const TransactionReport = () => {
     const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [displayMode, setDisplayMode] = useState("chart"); // chart, table, card
-    const [timePeriod, setTimePeriod] = useState("All Time"); // Default to All Time for broader view
+    const [timePeriod, setTimePeriod] = useState("Custom Range");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -68,9 +68,6 @@ const TransactionReport = () => {
     }, []);
 
     useEffect(() => {
-        if (timePeriod === "Custom" && (!startDate || !endDate)) {
-            return;
-        }
         fetchReportData();
     }, [selectedCentres, selectedCourses, selectedDepartments, selectedExamTag, timePeriod, startDate, endDate]);
 
@@ -133,32 +130,43 @@ const TransactionReport = () => {
             const currentYear = now.getFullYear();
             const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
 
-            if (timePeriod === "Custom") {
-                if (!startDate || !endDate) return;
-                params.append("startDate", startDate);
-                params.append("endDate", endDate);
-            } else if (timePeriod === "This Financial Year") {
-                start = new Date(fyStartYear, 3, 1); // April 1st
-                end = now; // Until Today
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
-            } else if (timePeriod === "Last Financial Year") {
-                start = new Date(fyStartYear - 1, 3, 1); // April 1st Previous FY
-                end = new Date(fyStartYear, 2, 31); // March 31st Current FY Start Year
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
-            } else if (timePeriod === "All Time") {
-                // No Date Filter
+            const formatLocalDate = (d) => {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            };
+
+            if (timePeriod === "Custom" || timePeriod === "Custom Range") {
+                if (startDate && endDate) {
+                    params.append("startDate", startDate);
+                    params.append("endDate", endDate);
+                }
+            } else if (timePeriod === "Today") {
+                const todayStr = formatLocalDate(now);
+                params.append("startDate", todayStr);
+                params.append("endDate", todayStr);
+            } else if (timePeriod === "Yesterday") {
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                const yesterdayStr = formatLocalDate(yesterday);
+                params.append("startDate", yesterdayStr);
+                params.append("endDate", yesterdayStr);
+            } else if (timePeriod === "Last 7 Days") {
+                const sevenDaysAgo = new Date(now);
+                sevenDaysAgo.setDate(now.getDate() - 6);
+                params.append("startDate", formatLocalDate(sevenDaysAgo));
+                params.append("endDate", formatLocalDate(now));
             } else if (timePeriod === "This Month") {
-                start = new Date(now.getFullYear(), now.getMonth(), 1);
-                end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                params.append("startDate", formatLocalDate(start));
+                params.append("endDate", formatLocalDate(end));
             } else if (timePeriod === "Last Month") {
-                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                end = new Date(now.getFullYear(), now.getMonth(), 0);
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
+                const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const end = new Date(now.getFullYear(), now.getMonth(), 0);
+                params.append("startDate", formatLocalDate(start));
+                params.append("endDate", formatLocalDate(end));
             }
 
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
@@ -199,7 +207,7 @@ const TransactionReport = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setTimePeriod("All Time");
+        setTimePeriod("Custom Range");
         setStartDate("");
         setEndDate("");
         toast.info("Filters reset");
@@ -215,22 +223,8 @@ const TransactionReport = () => {
         const dateStr = new Date().toLocaleString();
 
         let dateRangeStr = timePeriod;
-        if (timePeriod === "Custom" && startDate && endDate) {
+        if ((timePeriod === "Custom" || timePeriod === "Custom Range") && startDate && endDate) {
             dateRangeStr = `${startDate} to ${endDate}`;
-        } else if (timePeriod === "All Time") {
-            dateRangeStr = "All Time";
-        } else if (timePeriod === "This Financial Year") {
-            const now = new Date();
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
-            const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
-            dateRangeStr = `This Financial Year (01/04/${fyStartYear} - ${now.toLocaleDateString()})`;
-        } else if (timePeriod === "Last Financial Year") {
-            const now = new Date();
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
-            const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
-            dateRangeStr = `Last Financial Year (01/04/${fyStartYear - 1} - 31/03/${fyStartYear})`;
         } else if (timePeriod === "This Month") {
             dateRangeStr = `This Month (${new Date().toLocaleString('default', { month: 'long' })})`;
         } else if (timePeriod === "Last Month") {
@@ -563,14 +557,14 @@ const TransactionReport = () => {
                                 : 'bg-white border-gray-300 text-gray-700 shadow-sm'
                                 }`}
                         >
-                            <option value="All Time">All Time</option>
-                            <option value="This Financial Year">This Financial Year</option>
-                            <option value="Last Financial Year">Last Financial Year</option>
+                            <option value="Today">Today</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Last 7 Days">Last 7 Days</option>
                             <option value="This Month">This Month</option>
                             <option value="Last Month">Last Month</option>
-                            <option value="Custom">Custom</option>
+                            <option value="Custom Range">Custom Range</option>
                         </select>
-                        {timePeriod === "Custom" && (
+                        {(timePeriod === "Custom" || timePeriod === "Custom Range") && (
                             <div className="flex items-center gap-2">
                                 <input
                                     type="date"

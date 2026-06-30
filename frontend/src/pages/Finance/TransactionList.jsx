@@ -64,7 +64,7 @@ const TransactionList = () => {
     const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const [timePeriod, setTimePeriod] = useState("This Month");
+    const [timePeriod, setTimePeriod] = useState("Custom Range");
 
     // New Filters specific to list
     const [selectedPaymentMode, setSelectedPaymentMode] = useState([]);
@@ -125,10 +125,6 @@ const TransactionList = () => {
     }, []);
 
     useEffect(() => {
-        if (timePeriod === "Custom" && (!startDate || !endDate)) {
-            return;
-        }
-
         const debounce = setTimeout(() => {
             setCurrentPage(1);
             setPageInput("1");
@@ -185,30 +181,43 @@ const TransactionList = () => {
             const currentYear = now.getFullYear();
             const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
 
-            if (timePeriod === "Custom") {
-                if (!startDate || !endDate) return;
-                params.append("startDate", startDate);
-                params.append("endDate", endDate);
-            } else if (timePeriod === "This Financial Year") {
-                start = new Date(fyStartYear, 3, 1);
-                end = now;
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
-            } else if (timePeriod === "Last Financial Year") {
-                start = new Date(fyStartYear - 1, 3, 1);
-                end = new Date(fyStartYear, 2, 31);
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
+            const formatLocalDate = (d) => {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            };
+
+            if (timePeriod === "Custom" || timePeriod === "Custom Range") {
+                if (startDate && endDate) {
+                    params.append("startDate", startDate);
+                    params.append("endDate", endDate);
+                }
+            } else if (timePeriod === "Today") {
+                const todayStr = formatLocalDate(now);
+                params.append("startDate", todayStr);
+                params.append("endDate", todayStr);
+            } else if (timePeriod === "Yesterday") {
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                const yesterdayStr = formatLocalDate(yesterday);
+                params.append("startDate", yesterdayStr);
+                params.append("endDate", yesterdayStr);
+            } else if (timePeriod === "Last 7 Days") {
+                const sevenDaysAgo = new Date(now);
+                sevenDaysAgo.setDate(now.getDate() - 6);
+                params.append("startDate", formatLocalDate(sevenDaysAgo));
+                params.append("endDate", formatLocalDate(now));
             } else if (timePeriod === "This Month") {
-                start = new Date(now.getFullYear(), now.getMonth(), 1);
-                end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                params.append("startDate", formatLocalDate(start));
+                params.append("endDate", formatLocalDate(end));
             } else if (timePeriod === "Last Month") {
-                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                end = new Date(now.getFullYear(), now.getMonth(), 0);
-                params.append("startDate", start.toISOString().split('T')[0]);
-                params.append("endDate", end.toISOString().split('T')[0]);
+                const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const end = new Date(now.getFullYear(), now.getMonth(), 0);
+                params.append("startDate", formatLocalDate(start));
+                params.append("endDate", formatLocalDate(end));
             }
 
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
@@ -249,7 +258,7 @@ const TransactionList = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedExamTag("");
-        setTimePeriod("All Time");
+        setTimePeriod("Custom Range");
         setStartDate("");
         setEndDate("");
         setSelectedPaymentMode([]);
@@ -292,7 +301,7 @@ const TransactionList = () => {
         selectedStatus.length > 0 ||
         billFilter !== "all" ||
         selectedBilledBy.length > 0 ||
-        (timePeriod === "Custom" && startDate !== "" && endDate !== "");
+        ((timePeriod === "Custom" || timePeriod === "Custom Range") && startDate !== "" && endDate !== "");
 
     const dynamicSelectionTotalWithGst = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
     const dynamicSelectionTotalBase = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0) : 0;
@@ -795,21 +804,45 @@ const TransactionList = () => {
                     <div className="flex flex-wrap items-center gap-4">
                         <div className={`flex items-center gap-2 ${innerBox} p-2 rounded-lg flex-1 min-w-[300px]`}>
                             <span className={`text-[10px] font-black ${subText} uppercase tracking-widest px-2`}>Paid Date:</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => { setTimePeriod("Custom"); setStartDate(e.target.value); }}
-                                className={`outline-none text-sm w-full bg-transparent ${isDark ? 'text-gray-300' : 'text-gray-700'} `}
-                                style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                            />
-                            <span className="text-gray-400 font-bold">-to-</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => { setTimePeriod("Custom"); setEndDate(e.target.value); }}
-                                className={`outline-none text-sm w-full bg-transparent ${isDark ? 'text-gray-300' : 'text-gray-700'} `}
-                                style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                            />
+                            <select
+                                value={timePeriod}
+                                onChange={(e) => {
+                                    setTimePeriod(e.target.value);
+                                    if (e.target.value !== "Custom" && e.target.value !== "Custom Range") {
+                                        setStartDate("");
+                                        setEndDate("");
+                                    }
+                                }}
+                                className={`outline-none text-sm bg-transparent ${isDark ? 'text-gray-300 bg-[#131619]' : 'text-gray-700 bg-white'} font-semibold border-none cursor-pointer`}
+                            >
+                                <option value="Today" className={isDark ? 'bg-[#131619] text-gray-300' : 'bg-white text-gray-700'}>Today</option>
+                                <option value="Yesterday" className={isDark ? 'bg-[#131619] text-gray-300' : 'bg-white text-gray-700'}>Yesterday</option>
+                                <option value="Last 7 Days" className={isDark ? 'bg-[#131619] text-gray-300' : 'bg-white text-gray-700'}>Last 7 Days</option>
+                                <option value="This Month" className={isDark ? 'bg-[#131619] text-gray-300' : 'bg-white text-gray-700'}>This Month</option>
+                                <option value="Last Month" className={isDark ? 'bg-[#131619] text-gray-300' : 'bg-white text-gray-700'}>Last Month</option>
+                                <option value="Custom Range" className={isDark ? 'bg-[#131619] text-gray-300' : 'bg-white text-gray-700'}>Custom Range</option>
+                            </select>
+
+                            {(timePeriod === "Custom" || timePeriod === "Custom Range") && (
+                                <>
+                                    <span className="text-gray-400">|</span>
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className={`outline-none text-sm w-full bg-transparent ${isDark ? 'text-gray-300' : 'text-gray-700'} `}
+                                        style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                                    />
+                                    <span className="text-gray-400 font-bold">-to-</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className={`outline-none text-sm w-full bg-transparent ${isDark ? 'text-gray-300' : 'text-gray-700'} `}
+                                        style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                                    />
+                                </>
+                            )}
                         </div>
 
                         <div className={`flex items-center gap-2 ${innerBox} p-2 rounded-lg flex-1 min-w-[300px]`}>
