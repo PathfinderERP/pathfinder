@@ -260,6 +260,10 @@ const SalaryExpenseHub = () => {
     const [centerSearch, setCenterSearch] = useState("");
     const [expandedDept, setExpandedDept] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectedPayoutWeeks, setSelectedPayoutWeeks] = useState(["all"]);
+    const [selectedSalaryMonths, setSelectedSalaryMonths] = useState(["all"]);
+    const [minSalary, setMinSalary] = useState("");
+    const [maxSalary, setMaxSalary] = useState("");
 
     /* approval form */
     const [approvalData, setApprovalData] = useState({ salaryMonth: "", salaryPeriod: "", amount: "" });
@@ -308,6 +312,10 @@ const SalaryExpenseHub = () => {
                 setSelectedCenterIds([center._id]);
                 setSelectedDeptFilters(["all"]);
                 setSelectedStaffTypes(["all"]);
+                setSelectedPayoutWeeks(["all"]);
+                setSelectedSalaryMonths(["all"]);
+                setMinSalary("");
+                setMaxSalary("");
                 setExpandedDept(null);
                 setSelectedIds(new Set());
                 setShowBulkModal(false);
@@ -507,6 +515,29 @@ const SalaryExpenseHub = () => {
                 });
             }
 
+            // Salary Range Match
+            const sal = Number(e.currentSalary) || 0;
+            const minSalVal = minSalary ? Number(minSalary) : 0;
+            const maxSalVal = maxSalary ? Number(maxSalary) : Infinity;
+            const matchSalaryRange = sal >= minSalVal && sal <= maxSalVal;
+
+            // Week & Month Payout Match
+            const isAllWeeks = selectedPayoutWeeks.includes("all") || selectedPayoutWeeks.length === 0;
+            const isAllMonths = selectedSalaryMonths.includes("all") || selectedSalaryMonths.length === 0;
+
+            let matchPayout = true;
+            if (!isAllWeeks || !isAllMonths) {
+                if (!e.payouts || e.payouts.length === 0) {
+                    matchPayout = false;
+                } else {
+                    matchPayout = e.payouts.some(p => {
+                        const matchW = isAllWeeks || selectedPayoutWeeks.includes(p.week);
+                        const matchM = isAllMonths || selectedSalaryMonths.includes(p.month);
+                        return matchW && matchM;
+                    });
+                }
+            }
+
             const q = search.trim().toLowerCase();
             const matchSearch = !q ||
                 (e.name || "").toLowerCase().includes(q) ||
@@ -516,9 +547,9 @@ const SalaryExpenseHub = () => {
                 (e.departmentName || "").toLowerCase().includes(q) ||
                 (e.centreName || "").toLowerCase().includes(q);
 
-            return matchCenter && matchDept && matchStaffType && matchSearch;
+            return matchCenter && matchDept && matchStaffType && matchSalaryRange && matchPayout && matchSearch;
         });
-    }, [employees, search, selectedCenterIds, selectedDeptFilters, selectedStaffTypes]);
+    }, [employees, search, selectedCenterIds, selectedDeptFilters, selectedStaffTypes, minSalary, maxSalary, selectedPayoutWeeks, selectedSalaryMonths]);
 
     const grouped = useMemo(() => {
         const map = {};
@@ -667,6 +698,65 @@ const SalaryExpenseHub = () => {
                                 sub={sub}
                                 inputBg={inputBg}
                             />
+
+                            {/* Payout Weeks filter */}
+                            <MultiSelect
+                                label="Payout Weeks"
+                                placeholder="Payout Week"
+                                options={PAYOUT_WEEKS.map(w => ({ value: w, label: w }))}
+                                selectedValues={selectedPayoutWeeks}
+                                onChange={setSelectedPayoutWeeks}
+                                isDark={isDark}
+                                card={card}
+                                border={border}
+                                text={text}
+                                sub={sub}
+                                inputBg={inputBg}
+                            />
+
+                            {/* Salary Months filter */}
+                            <MultiSelect
+                                label="Salary Months"
+                                placeholder="Salary Month"
+                                options={SALARY_MONTHS.map(m => ({ value: m, label: m }))}
+                                selectedValues={selectedSalaryMonths}
+                                onChange={setSelectedSalaryMonths}
+                                isDark={isDark}
+                                card={card}
+                                border={border}
+                                text={text}
+                                sub={sub}
+                                inputBg={inputBg}
+                            />
+
+                            {/* Salary Range inputs */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+                                <input
+                                    type="number"
+                                    value={minSalary}
+                                    onChange={e => setMinSalary(e.target.value)}
+                                    placeholder="Min Salary"
+                                    style={{
+                                        width: 100, paddingTop: 9, paddingBottom: 9, paddingLeft: 10, paddingRight: 10,
+                                        background: inputBg, border: `1px solid ${border}`,
+                                        borderRadius: 8, color: text, fontSize: "0.87rem",
+                                        outline: "none", boxSizing: "border-box"
+                                    }}
+                                />
+                                <span style={{ color: sub, fontSize: "0.8rem", fontWeight: 700 }}>to</span>
+                                <input
+                                    type="number"
+                                    value={maxSalary}
+                                    onChange={e => setMaxSalary(e.target.value)}
+                                    placeholder="Max Salary"
+                                    style={{
+                                        width: 100, paddingTop: 9, paddingBottom: 9, paddingLeft: 10, paddingRight: 10,
+                                        background: inputBg, border: `1px solid ${border}`,
+                                        borderRadius: 8, color: text, fontSize: "0.87rem",
+                                        outline: "none", boxSizing: "border-box"
+                                    }}
+                                />
+                            </div>
 
                             {/* Select all + count */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto", flexWrap: "wrap" }}>

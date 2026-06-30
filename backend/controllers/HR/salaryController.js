@@ -98,8 +98,16 @@ export const getAllEmployeesByCenter = async (req, res) => {
         // Filter only active employees (where user account is active)
         const activeEmployees = employees.filter(emp => emp.user && emp.user.isActive);
 
+        // Fetch all salary payout expenses for these employees
+        const employeeIds = activeEmployees.map(emp => emp.user._id);
+        const salaryExpenses = await Expense.find({
+            expenseType: "Salary",
+            employeeId: { $in: employeeIds }
+        }).select("employeeId months salaryPeriod amount financeStatus");
+
         const enriched = activeEmployees.map(emp => {
             const userObj = emp.user.toObject();
+            const empExpenses = salaryExpenses.filter(exp => exp.employeeId.toString() === userObj._id.toString());
             return {
                 _id: userObj._id,
                 employeeId: emp.employeeId || userObj.employeeId || "—",
@@ -110,7 +118,13 @@ export const getAllEmployeesByCenter = async (req, res) => {
                 departmentName: emp.department?.departmentName || "Other Department",
                 currentSalary: emp.currentSalary || 0,
                 centreId: emp.primaryCentre?._id || null,
-                centreName: emp.primaryCentre?.centreName || "Other Centre"
+                centreName: emp.primaryCentre?.centreName || "Other Centre",
+                payouts: empExpenses.map(exp => ({
+                    month: exp.months,
+                    week: exp.salaryPeriod,
+                    amount: exp.amount,
+                    status: exp.financeStatus
+                }))
             };
         });
 
