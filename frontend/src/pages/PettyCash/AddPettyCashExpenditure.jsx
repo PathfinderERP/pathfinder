@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../../components/Layout';
-import { FaPlus, FaTimes, FaCamera, FaImages, FaEye } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaCamera, FaImages, FaEye, FaFilePdf } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import { hasPermission } from '../../config/permissions';
@@ -471,7 +471,7 @@ const AddPettyCashExpenditure = () => {
                                     <input
                                         ref={galleryInputRef}
                                         type="file"
-                                        accept="image/*"
+                                        accept="image/*,application/pdf"
                                         multiple
                                         className="hidden"
                                         onChange={handleFileChange}
@@ -510,11 +510,17 @@ const AddPettyCashExpenditure = () => {
                                                 const previewUrl = URL.createObjectURL(file);
                                                 return (
                                                     <div key={idx} className="relative border border-gray-800 rounded-xl p-2 flex flex-col items-center bg-[#1a1f24]">
-                                                        <img
-                                                            src={previewUrl}
-                                                            alt="preview"
-                                                            className="w-full h-24 object-cover rounded-lg mb-2"
-                                                        />
+                                                        {file.type === "application/pdf" ? (
+                                                            <div className="w-full h-24 flex flex-col items-center justify-center bg-[#241a1a] border border-[#402020] rounded-lg mb-2 text-red-500">
+                                                                <FaFilePdf size={36} />
+                                                            </div>
+                                                        ) : (
+                                                            <img
+                                                                src={previewUrl}
+                                                                alt="preview"
+                                                                className="w-full h-24 object-cover rounded-lg mb-2"
+                                                            />
+                                                        )}
                                                         <span className="text-[9px] font-bold text-gray-400 truncate max-w-full block" title={file.name}>
                                                             {file.name}
                                                         </span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +42,7 @@ const LeadManagementContent = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [dailyLeads, setDailyLeads] = useState([]); // Added state
     const [selectedLeads, setSelectedLeads] = useState([]);
+    const shouldSelectNewPageRef = useRef(false);
     const [showJourneyModal, setShowJourneyModal] = useState(false);
     const [journeyLeadId, setJourneyLeadId] = useState(null);
     const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
@@ -256,7 +257,14 @@ const LeadManagementContent = () => {
                 if (data.stats) {
                     setLeadStats(data.stats);
                 }
-                setSelectedLeads([]);
+                if (shouldSelectNewPageRef.current) {
+                    const pageLeadIds = data.leads.map(lead => lead._id);
+                    setSelectedLeads(pageLeadIds);
+                    setIsAllFilteredSelected(false);
+                    shouldSelectNewPageRef.current = false;
+                } else {
+                    setSelectedLeads([]);
+                }
             } else {
                 toast.error(data.message || "Failed to fetch leads");
                 console.error("Lead Management - Error response:", data);
@@ -1877,7 +1885,11 @@ const LeadManagementContent = () => {
                                 {[10, 20, 50, 100].map((n) => (
                                     <button
                                         key={n}
-                                        onClick={() => { setLimit(n); setCurrentPage(1); }}
+                                        onClick={() => {
+                                            shouldSelectNewPageRef.current = true;
+                                            setLimit(n);
+                                            setCurrentPage(1);
+                                        }}
                                         className={`px-2.5 py-1 rounded-[2px] text-[10px] font-black uppercase tracking-wider transition-all border ${limit === n
                                             ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
                                             : isDarkMode

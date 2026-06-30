@@ -336,17 +336,15 @@ export const buildLeadQuery = async (queryParams, user) => {
         query.$and = query.$and || [];
         query.$and.push({ $or: orConditions });
 
-        // Centre restriction (Already handled above for multi-select, but ensure intersection if superAdmin also passed centre)
-        if (query.centre && userCentreIds.length > 0) {
-            // Filter existing query.centre.$in to only include allowed centres
-            const currentIn = query.centre.$in || [];
-            const restrictedIn = currentIn.filter(id => 
-                userCentreIds.some(allowedId => allowedId.toString() === id.toString())
-            );
-            if (restrictedIn.length > 0) {
-                query.centre = { $in: restrictedIn };
+        // Centre restriction: if the user has assigned centres, they can ONLY see data for those centres.
+        if (userCentreIds.length > 0) {
+            if (query.centre) {
+                const currentIn = query.centre.$in || [];
+                const restrictedIn = currentIn.filter(id => 
+                    userCentreIds.some(allowedId => allowedId.toString() === id.toString())
+                );
+                query.centre = { $in: restrictedIn.length > 0 ? restrictedIn : userCentreIds };
             } else {
-                // If no requested centres are allowed, restrict to user's centres
                 query.centre = { $in: userCentreIds };
             }
         }
