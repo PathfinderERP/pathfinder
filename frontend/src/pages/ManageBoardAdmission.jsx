@@ -830,9 +830,10 @@ const ManageBoardAdmission = () => {
 
                             <button
                                 type="submit"
-                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg"
+                                disabled={loading}
+                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                CONFIRM PAYMENT
+                                {loading ? "PROCESSING..." : "CONFIRM PAYMENT"}
                             </button>
                         </form>
                     </div>
@@ -1115,9 +1116,10 @@ const ManageBoardAdmission = () => {
 
                             <button
                                 type="submit"
-                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg"
+                                disabled={loading}
+                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                CONFIRM PAYMENT
+                                {loading ? "PROCESSING..." : "CONFIRM PAYMENT"}
                             </button>
                         </form>
                     </div>
@@ -1327,9 +1329,10 @@ const ManageBoardAdmission = () => {
 
                             <button
                                 type="submit"
-                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg"
+                                disabled={loading}
+                                className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                CONFIRM PAYMENT
+                                {loading ? "PROCESSING..." : "CONFIRM PAYMENT"}
                             </button>
                         </form>
                     </div>
@@ -1479,10 +1482,10 @@ const ManageBoardAdmission = () => {
 
                             <button
                                 type="submit"
-                                disabled={Number(ncrpPaymentForm.paidExamFee || 0) + Number(ncrpPaymentForm.paidAdditionalThings || 0) <= 0}
+                                disabled={loading || (Number(ncrpPaymentForm.paidExamFee || 0) + Number(ncrpPaymentForm.paidAdditionalThings || 0) <= 0)}
                                 className="w-full py-4 bg-cyan-500 text-black font-black uppercase text-sm tracking-widest hover:bg-cyan-400 transition-all rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                CONFIRM &amp; GENERATE BILL
+                                {loading ? "PROCESSING..." : "CONFIRM & GENERATE BILL"}
                             </button>
                         </form>
                     </div>
