@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import {
     FaClock, FaStar, FaHistory, FaRunning,
@@ -521,6 +522,7 @@ const StatCard = ({ title, value, subValue, icon, color = "cyan", isDarkMode }) 
 );
 
 const EmployeesAttendance = () => {
+    const navigate = useNavigate();
     // Shared State
     const [centres, setCentres] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -978,7 +980,14 @@ const EmployeesAttendance = () => {
                             </button>
 
                             <button
-                                onClick={() => setShowManualMarkModal(true)}
+                                onClick={() => {
+                                    const userRole = (currentUser?.role || "").toLowerCase().replace(/\s+/g, "");
+                                    if (userRole === "superadmin" || userRole === "hr") {
+                                        setShowManualMarkModal(true);
+                                    } else {
+                                        navigate("/dashboard");
+                                    }
+                                }}
                                 className="px-6 py-3 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white rounded-[2px] border border-amber-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]"
                             >
                                 <FaUserClock /> Manual Attendance Override
