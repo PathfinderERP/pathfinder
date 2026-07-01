@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FaFileInvoice, FaDownload, FaPrint, FaSpinner } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
@@ -6,6 +6,7 @@ import logo from '../../assets/logo-1.svg';
 
 const BillGenerator = ({ admission, installment, onClose }) => {
     const [generating, setGenerating] = useState(false);
+    const generatingRef = useRef(false);
     const [billData, setBillData] = useState(null);
     const [logoBase64, setLogoBase64] = useState(null);
     const apiUrl = import.meta.env.VITE_API_URL;
@@ -38,6 +39,8 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             return;
         }
 
+        if (generatingRef.current) return;
+        generatingRef.current = true;
         setGenerating(true);
         try {
             const token = localStorage.getItem('token');
@@ -70,6 +73,7 @@ const BillGenerator = ({ admission, installment, onClose }) => {
             console.error('Error generating bill:', error);
             toast.error('Error generating bill');
         } finally {
+            generatingRef.current = false;
             setGenerating(false);
         }
     };

@@ -179,6 +179,7 @@ const InstallmentPayment = () => {
     const isDarkMode = theme === "dark";
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [recordingPayment, setRecordingPayment] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [financialData, setFinancialData] = useState(null);
     const [billModal, setBillModal] = useState({ show: false, admission: null, installment: null });
@@ -1077,7 +1078,7 @@ const InstallmentPayment = () => {
             return;
         }
 
-
+        setRecordingPayment(true);
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(
@@ -1128,6 +1129,8 @@ const InstallmentPayment = () => {
         } catch (error) {
             console.error("Payment Error:", error);
             toast.error("Error connecting to server");
+        } finally {
+            setRecordingPayment(false);
         }
     };
 
@@ -3228,9 +3231,10 @@ const InstallmentPayment = () => {
                                             handleRecordPayment();
                                         }
                                     }}
-                                    className="flex-1 py-4 bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-cyan-500/30"
+                                    disabled={recordingPayment}
+                                    className="flex-1 py-4 bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Confirm Payment
+                                    {recordingPayment ? "Processing..." : "Confirm Payment"}
                                 </button>
                             </div>
                         </div>

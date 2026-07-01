@@ -23,313 +23,341 @@ const generateGSTNumber = () => {
 };
 
 // Generate bill for a payment
+const activeGenerations = new Map();
+
 export const generateBill = async (req, res) => {
-    try {
-        const { admissionId, installmentNumber } = req.params;
-        const installmentNum = parseInt(installmentNumber);
+    const { admissionId, installmentNumber } = req.params;
+    const { billingMonth, billId: queryBillId } = req.query;
+    const lockKey = `${admissionId}:${installmentNumber}:${billingMonth || ''}`;
 
-        // Find the admission - Try standard first, then Board
-        let admission = await Admission.findById(admissionId)
-            .populate('student')
-            .populate('course')
-            .populate('board')
-            .populate('department')
-            .populate('examTag')
-            .populate('class');
-
-        let isBoardAdmission = false;
-
-        if (!admission) {
-            admission = await BoardCourseAdmission.findById(admissionId)
-                .populate('studentId')
-                .populate('boardId');
-            if (admission) {
-                isBoardAdmission = true;
-                // Normalize Board Admission fields to match logic below
-                admission.student = admission.studentId;
-                admission.centre = admission.centre || "General";
-                admission.boardCourseName = admission.boardCourseName || (admission.boardId?.boardCourse || "Board Course");
-                admission.academicSession = admission.academicSession || "N/A";
-                admission.admissionNumber = admission.admissionNumber || "PENDING";
-            }
+    if (activeGenerations.has(lockKey)) {
+        console.log(`🌀 Request Collapsing: Awaiting active bill generation for ${lockKey}`);
+        try {
+            const result = await activeGenerations.get(lockKey);
+            return res.status(result.status).json(result.data);
+        } catch (err) {
+            return res.status(500).json({ message: "Server error during concurrent bill generation", error: err.message });
         }
+    }
 
-        if (!admission) {
-            console.error(`❌ Admission not found: ${admissionId}`);
-            return res.status(404).json({ message: "Admission not found" });
-        }
+    const generatePromise = (async () => {
+        try {
+            const installmentNum = parseInt(installmentNumber);
 
-        // Fetch centre information (Try exact match first, then case-insensitive)
-        let centre = await CentreSchema.findOne({ centreName: admission.centre });
+            // Find the admission - Try standard first, then Board
+            let admission = await Admission.findById(admissionId)
+                .populate('student')
+                .populate('course')
+                .populate('board')
+                .populate('department')
+                .populate('examTag')
+                .populate('class');
 
-        if (!centre) {
-            // Try case-insensitive search
-            centre = await CentreSchema.findOne({
-                centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') }
-            });
-        }
+            let isBoardAdmission = false;
 
-        if (!centre) {
-            console.warn(`⚠️ Centre not found: ${admission.centre}. Using default centre info.`);
-            // Fallback to default centre info instead of failing
-            centre = {
-                centreName: admission.centre,
-                enterCode: 'GEN',
-                address: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
-                phoneNumber: '033 2455-1840 / 2454-4817 / 4668',
-                enterGstNo: 'N/A',
-                enterCorporateOfficeAddress: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
-                enterCorporateOfficePhoneNumber: '033 2455-1840 / 2454-4817 / 4668'
-            };
-        }
-
-        let installment;
-        let isDownPayment = false;
-
-        const isBoardType = isBoardAdmission || admission.admissionType === 'BOARD';
-
-        if (isBoardType) {
-            // Priority 1: Check for a direct match in installments (could be 0-indexed or 1-indexed)
-            installment = (admission.installments || []).find(i => i.monthNumber === installmentNum);
-            
-            // Priority 2: If not found, try the 0-indexed mapping (installment 0 -> month 1)
-            if (!installment) {
-                installment = (admission.installments || []).find(i => i.monthNumber === installmentNum + 1);
+            if (!admission) {
+                admission = await BoardCourseAdmission.findById(admissionId)
+                    .populate('studentId')
+                    .populate('boardId');
+                if (admission) {
+                    isBoardAdmission = true;
+                    // Normalize Board Admission fields to match logic below
+                    admission.student = admission.studentId;
+                    admission.centre = admission.centre || "General";
+                    admission.boardCourseName = admission.boardCourseName || (admission.boardId?.boardCourse || "Board Course");
+                    admission.academicSession = admission.academicSession || "N/A";
+                    admission.admissionNumber = admission.admissionNumber || "PENDING";
+                }
             }
 
-            // Fallback for standalone board exam fees (always 0)
-            if (!installment && installmentNum === 0) {
+            if (!admission) {
+                console.error(`❌ Admission not found: ${admissionId}`);
+                return { status: 404, data: { message: "Admission not found" } };
+            }
+
+            // Fetch centre information (Try exact match first, then case-insensitive)
+            let centre = await CentreSchema.findOne({ centreName: admission.centre });
+
+            if (!centre) {
+                // Try case-insensitive search
+                centre = await CentreSchema.findOne({
+                    centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') }
+                });
+            }
+
+            if (!centre) {
+                console.warn(`⚠️ Centre not found: ${admission.centre}. Using default centre info.`);
+                // Fallback to default centre info instead of failing
+                centre = {
+                    centreName: admission.centre,
+                    enterCode: 'GEN',
+                    address: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                    phoneNumber: '033 2455-1840 / 2454-4817 / 4668',
+                    enterGstNo: 'N/A',
+                    enterCorporateOfficeAddress: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                    enterCorporateOfficePhoneNumber: '033 2455-1840 / 2454-4817 / 4668'
+                };
+            }
+
+            let installment;
+            let isDownPayment = false;
+
+            const isBoardType = isBoardAdmission || admission.admissionType === 'BOARD';
+
+            if (isBoardType) {
+                // Priority 1: Check for a direct match in installments (could be 0-indexed or 1-indexed)
+                installment = (admission.installments || []).find(i => i.monthNumber === installmentNum);
+                
+                // Priority 2: If not found, try the 0-indexed mapping (installment 0 -> month 1)
+                if (!installment) {
+                    installment = (admission.installments || []).find(i => i.monthNumber === installmentNum + 1);
+                }
+
+                // Fallback for standalone board exam fees (always 0)
+                if (!installment && installmentNum === 0) {
+                    isDownPayment = true;
+                    installment = {
+                        installmentNumber: 0,
+                        amount: admission.examFee || 0,
+                        paidAmount: admission.examFeePaid || 0,
+                        dueDate: admission.admissionDate,
+                        paidDate: admission.admissionDate,
+                        status: (admission.examFeeStatus === "PAID" || admission.examFeePaid > 0) ? "PAID" : "PENDING",
+                        paymentMethod: "CASH",
+                        remarks: "Board Examination Fee"
+                    };
+                }
+            } else if (installmentNum === 0) {
+                // Standard Admission Down Payment
                 isDownPayment = true;
                 installment = {
                     installmentNumber: 0,
-                    amount: admission.examFee || 0,
-                    paidAmount: admission.examFeePaid || 0,
+                    amount: admission.downPayment,
+                    paidAmount: admission.downPayment,
                     dueDate: admission.admissionDate,
                     paidDate: admission.admissionDate,
-                    status: (admission.examFeeStatus === "PAID" || admission.examFeePaid > 0) ? "PAID" : "PENDING",
+                    status: (admission.downPaymentStatus === "PENDING_CLEARANCE") ? "PENDING_CLEARANCE" : "PAID",
                     paymentMethod: "CASH",
-                    remarks: "Board Examination Fee"
+                    remarks: "Down Payment at Admission"
                 };
+            } else {
+                installment = admission.paymentBreakdown.find(
+                    p => p.installmentNumber === installmentNum
+                );
             }
-        } else if (installmentNum === 0) {
-            // Standard Admission Down Payment
-            isDownPayment = true;
-            installment = {
-                installmentNumber: 0,
-                amount: admission.downPayment,
-                paidAmount: admission.downPayment,
-                dueDate: admission.admissionDate,
-                paidDate: admission.admissionDate,
-                status: (admission.downPaymentStatus === "PENDING_CLEARANCE") ? "PENDING_CLEARANCE" : "PAID",
-                paymentMethod: "CASH",
-                remarks: "Down Payment at Admission"
-            };
-        } else {
-            installment = admission.paymentBreakdown.find(
-                p => p.installmentNumber === installmentNum
-            );
-        }
 
-        if (!installment) {
-            console.error(`❌ Installment #${installmentNum} not found in admission ${admissionId}. Type: ${admission.admissionType}`);
-            return res.status(404).json({ message: "Installment not found" });
-        }
-
-        // --- STATUS VALIDATION RELAXATION ---
-        // RELAXATION: If a Payment record ALREADY EXISTS, we should allow printing 
-        // even if the Admission record's status hasn't synced (Self-healing).
-        // Since we are transitioning 1-indexed to 0-indexed for Board, we check both for the first month.
-        let paymentLookupNum = installmentNum;
-        if (isBoardType && installmentNum > 0 && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
-            paymentLookupNum = installmentNum - 1;
-        }
-
-        let existingPaymentRecord = await Payment.findOne({
-            admission: admissionId,
-            installmentNumber: paymentLookupNum,
-            status: { $nin: ["REJECTED", "CANCELLED"] }
-        }).sort({ createdAt: -1 });
-
-        if (!existingPaymentRecord && isBoardType && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
-            const alternateNum = paymentLookupNum === installmentNum - 1 ? installmentNum : installmentNum - 1;
-            existingPaymentRecord = await Payment.findOne({
-                admission: admissionId,
-                installmentNumber: alternateNum,
-                status: { $nin: ["REJECTED", "CANCELLED"] }
-            }).sort({ createdAt: -1 });
-            
-            if (existingPaymentRecord) {
-                paymentLookupNum = alternateNum;
+            if (!installment) {
+                console.error(`❌ Installment #${installmentNum} not found in admission ${admissionId}. Type: ${admission.admissionType}`);
+                return { status: 404, data: { message: "Installment not found" } };
             }
-        }
 
-        if (!existingPaymentRecord && installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && installment.status !== "PARTIAL") {
-            // Special check: If any amount is paid for installment 0/1, allow bill generation
-            if (!( (installmentNum === 0 || installmentNum === 1) && (installment.paidAmount > 0 || (isBoardType && (admission.examFeePaid > 0 || admission.totalPaidAmount > 0))))) {
-                console.error(`❌ Installment #${installmentNum} is not PAID. Status: ${installment.status}`);
-                return res.status(400).json({ message: "Cannot generate bill for unpaid installment" });
+            // --- STATUS VALIDATION RELAXATION ---
+            // RELAXATION: If a Payment record ALREADY EXISTS, we should allow printing 
+            // even if the Admission record's status hasn't synced (Self-healing).
+            // Since we are transitioning 1-indexed to 0-indexed for Board, we check both for the first month.
+            let paymentLookupNum = installmentNum;
+            if (isBoardType && installmentNum > 0 && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
+                paymentLookupNum = installmentNum - 1;
             }
-        }
 
-        // --- QUERY CONSTRUCTION ---
-        const { billingMonth, billId: queryBillId } = req.query;
-
-        let query;
-        if (queryBillId) {
-            query = { billId: queryBillId };
-        } else {
-            query = {
-                admission: admissionId,
-                installmentNumber: paymentLookupNum // Use the matched index (0 or 1)
-            };
-
-            if (isBoardType) {
-                if (installmentNum === 0 && !isBoardAdmission) {
-                    // Down payments
-                } else if (billingMonth) {
-                    query.billingMonth = billingMonth;
-                }
-            }
-        }
-
-        let payment = await Payment.findOne(query).sort({ createdAt: -1 });
-
-        // Determine the actual total amount paid for this bill from source of truth
-        // For installment 0 (standard), we trust admission.downPayment. 
-        // For others, we trust the specific payment record's amount if available, otherwise installment.paidAmount.
-        let actualPaidTotal = 0;
-        if (payment && payment.paidAmount > 0) {
-            actualPaidTotal = payment.paidAmount;
-            // SELF-HEALING: If Transaction ID is missing in Payment record, but present in Admission record, fix it!
-            if (!payment.transactionId && installment.transactionId) {
-                console.log(`🏥 Self-healing: Extracting missing Transaction ID from Admission: ${installment.transactionId}`);
-                payment.transactionId = installment.transactionId;
-                await payment.save();
-            }
-        } else if (installmentNum === 0 && !isBoardAdmission) {
-            actualPaidTotal = admission.downPayment;
-        } else if (installmentNum === 0 && isBoardAdmission) {
-            // If payment record wasn't found (unlikely due to self-healing above), 
-            // the installment.paidAmount is the only fall-back, though it might be the sum.
-            actualPaidTotal = installment.paidAmount || 0;
-        } else {
-            actualPaidTotal = installment.paidAmount || 0;
-        }
-
-        // If payment record is missing but installment is PAID, create it (Self-healing)
-        if (!payment) {
-            console.warn(`⚠️ Payment record missing for PAID installment. Creating one now...`);
-
-            // Calculate tax amounts
-            const totalAmount = parseFloat(Number(actualPaidTotal).toFixed(2));
-            const baseAmount = totalAmount / 1.18;
-            const courseFee = parseFloat(baseAmount.toFixed(2));
-            const remainingForGst = totalAmount - courseFee;
-            const cgst = parseFloat((remainingForGst / 2).toFixed(2));
-            const sgst = parseFloat((remainingForGst - cgst).toFixed(2));
-
-            payment = new Payment({
+            let existingPaymentRecord = await Payment.findOne({
                 admission: admissionId,
                 installmentNumber: paymentLookupNum,
-                amount: isBoardAdmission ? (installment.payableAmount || installment.standardAmount) : installment.amount,
-                paidAmount: totalAmount,
-                dueDate: installment.dueDate,
-                paidDate: isBoardAdmission ? new Date() : (installment.paidDate || new Date()),
-                receivedDate: isBoardAdmission 
-                    ? (installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date())
-                    : (installment.receivedDate || installment.paidDate || new Date()),
-                status: installment.status || "PAID",
-                paymentMethod: installment.paymentMethod || 
-                    (isBoardAdmission && installment.paymentTransactions?.length > 0 
-                        ? installment.paymentTransactions[installment.paymentTransactions.length - 1].paymentMethod 
-                        : "CASH"),
-                transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),
-                remarks: installment.remarks || (isBoardAdmission ? `Board Installment Month ${installment.monthNumber}` : ""),
-                recordedBy: req.user?.id || req.user?._id,
-                cgst,
-                sgst,
-                courseFee,
-                totalAmount,
-                accountHolderName: installment.accountHolderName,
-                chequeDate: installment.chequeDate,
-                billingMonth: billingMonth || (isBoardAdmission ? new Date(installment.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : undefined)
-            });
+                status: { $nin: ["REJECTED", "CANCELLED"] }
+            }).sort({ createdAt: -1 });
 
-            await payment.save();
-            console.log(`✅ Created missing payment record: ${payment._id}`);
-        }
-
-        // If payment exists but doesn't have a bill ID (or has an old MIG- ID), generate/fix it
-        if (!payment.billId || payment.billId.startsWith('MIG-')) {
-            payment.billId = await generateBillId(centre.enterCode || 'GEN', payment.receivedDate);
-            await payment.save();
-        }
-
-        // RE-CALCULATE amounts for the bill response to match UI source of truth
-        // This fixes legacy/corrupted records where totalAmount was set to baseAmount
-        const billTotal = Math.max(actualPaidTotal, payment.totalAmount || 0);
-        const billBase = billTotal / 1.18;
-        const finalCourseFee = parseFloat(billBase.toFixed(2));
-        const finalGstPool = billTotal - finalCourseFee;
-        const finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
-        const finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
-
-
-        // Prepare bill data
-        const billData = {
-            billId: payment.billId,
-            billDate: payment.paidDate || new Date(),
-            gstNumber: generateGSTNumber(),
-            centre: {
-                name: centre.centreName,
-                address: centre.address || 'N/A',
-                phoneNumber: centre.phoneNumber || 'N/A',
-                gstNumber: centre.enterGstNo || 'N/A',
-                corporateAddress: centre.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
-                corporatePhone: centre.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
-            },
-            student: {
-                id: (admission.student?._id || admission.studentId?._id || admission.studentId || 'N/A'),
-                name: (admission.student?.studentsDetails?.[0]?.studentName || admission.studentName || 'N/A'),
-                admissionNumber: admission.admissionNumber || 'N/A',
-                phoneNumber: (admission.student?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || 'N/A'),
-                email: (admission.student?.studentsDetails?.[0]?.studentEmail || 'N/A')
-            },
-            course: {
-                name: payment.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
-                department: admission.department?.departmentName || 'N/A',
-                examTag: admission.examTag?.name || 'N/A',
-                class: admission.class?.name || 'N/A',
-                session: admission.academicSession || 'N/A'
-            },
-            payment: {
-                installmentNumber: payment.installmentNumber,
-                paymentMethod: payment.paymentMethod,
-                // Fallback to Admission record's transactionId if not in Payment record
-                transactionId: payment.transactionId || (installment ? (installment.transactionId || 'N/A') : 'N/A'),
-                paidDate: payment.paidDate,
-                receivedDate: payment.receivedDate,
-                accountHolderName: payment.accountHolderName,
-                chequeDate: payment.chequeDate,
-                status: payment.status
-            },
-            amounts: {
-                courseFee: finalCourseFee,
-                cgst: finalCgst,
-                sgst: finalSgst,
-                totalAmount: billTotal
+            if (!existingPaymentRecord && isBoardType && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
+                const alternateNum = paymentLookupNum === installmentNum - 1 ? installmentNum : installmentNum - 1;
+                existingPaymentRecord = await Payment.findOne({
+                    admission: admissionId,
+                    installmentNumber: alternateNum,
+                    status: { $nin: ["REJECTED", "CANCELLED"] }
+                }).sort({ createdAt: -1 });
+                
+                if (existingPaymentRecord) {
+                    paymentLookupNum = alternateNum;
+                }
             }
-        };
 
-        res.status(200).json({
-            success: true,
-            message: "Bill generated successfully",
-            data: billData
-        });
+            if (!existingPaymentRecord && installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && installment.status !== "PARTIAL") {
+                // Special check: If any amount is paid for installment 0/1, allow bill generation
+                if (!( (installmentNum === 0 || installmentNum === 1) && (installment.paidAmount > 0 || (isBoardType && (admission.examFeePaid > 0 || admission.totalPaidAmount > 0))))) {
+                    console.error(`❌ Installment #${installmentNum} is not PAID. Status: ${installment.status}`);
+                    return { status: 400, data: { message: "Cannot generate bill for unpaid installment" } };
+                }
+            }
 
+            // --- QUERY CONSTRUCTION ---
+            let query;
+            if (queryBillId) {
+                query = { billId: queryBillId };
+            } else {
+                query = {
+                    admission: admissionId,
+                    installmentNumber: paymentLookupNum // Use the matched index (0 or 1)
+                };
+
+                if (isBoardType) {
+                    if (installmentNum === 0 && !isBoardAdmission) {
+                        // Down payments
+                    } else if (billingMonth) {
+                        query.billingMonth = billingMonth;
+                    }
+                }
+            }
+
+            let payment = await Payment.findOne(query).sort({ createdAt: -1 });
+
+            // Determine the actual total amount paid for this bill from source of truth
+            // For installment 0 (standard), we trust admission.downPayment. 
+            // For others, we trust the specific payment record's amount if available, otherwise installment.paidAmount.
+            let actualPaidTotal = 0;
+            if (payment && payment.paidAmount > 0) {
+                actualPaidTotal = payment.paidAmount;
+                // SELF-HEALING: If Transaction ID is missing in Payment record, but present in Admission record, fix it!
+                if (!payment.transactionId && installment.transactionId) {
+                    console.log(`🏥 Self-healing: Extracting missing Transaction ID from Admission: ${installment.transactionId}`);
+                    payment.transactionId = installment.transactionId;
+                    await payment.save();
+                }
+            } else if (installmentNum === 0 && !isBoardAdmission) {
+                actualPaidTotal = admission.downPayment;
+            } else if (installmentNum === 0 && isBoardAdmission) {
+                // If payment record wasn't found (unlikely due to self-healing above), 
+                // the installment.paidAmount is the only fall-back, though it might be the sum.
+                actualPaidTotal = installment.paidAmount || 0;
+            } else {
+                actualPaidTotal = installment.paidAmount || 0;
+            }
+
+            // If payment record is missing but installment is PAID, create it (Self-healing)
+            if (!payment) {
+                console.warn(`⚠️ Payment record missing for PAID installment. Creating one now...`);
+
+                // Calculate tax amounts
+                const totalAmount = parseFloat(Number(actualPaidTotal).toFixed(2));
+                const baseAmount = totalAmount / 1.18;
+                const courseFee = parseFloat(baseAmount.toFixed(2));
+                const remainingForGst = totalAmount - courseFee;
+                const cgst = parseFloat((remainingForGst / 2).toFixed(2));
+                const sgst = parseFloat((remainingForGst - cgst).toFixed(2));
+
+                payment = new Payment({
+                    admission: admissionId,
+                    installmentNumber: paymentLookupNum,
+                    amount: isBoardAdmission ? (installment.payableAmount || installment.standardAmount) : installment.amount,
+                    paidAmount: totalAmount,
+                    dueDate: installment.dueDate,
+                    paidDate: isBoardAdmission ? new Date() : (installment.paidDate || new Date()),
+                    receivedDate: isBoardAdmission 
+                        ? (installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date())
+                        : (installment.receivedDate || installment.paidDate || new Date()),
+                    status: installment.status || "PAID",
+                    paymentMethod: installment.paymentMethod || 
+                        (isBoardAdmission && installment.paymentTransactions?.length > 0 
+                            ? installment.paymentTransactions[installment.paymentTransactions.length - 1].paymentMethod 
+                            : "CASH"),
+                    transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),
+                    remarks: installment.remarks || (isBoardAdmission ? `Board Installment Month ${installment.monthNumber}` : ""),
+                    recordedBy: req.user?.id || req.user?._id,
+                    cgst,
+                    sgst,
+                    courseFee,
+                    totalAmount,
+                    accountHolderName: installment.accountHolderName,
+                    chequeDate: installment.chequeDate,
+                    billingMonth: billingMonth || (isBoardAdmission ? new Date(installment.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : undefined)
+                });
+
+                await payment.save();
+                console.log(`✅ Created missing payment record: ${payment._id}`);
+            }
+
+            // If payment exists but doesn't have a bill ID (or has an old MIG- ID), generate/fix it
+            if (!payment.billId || payment.billId.startsWith('MIG-')) {
+                payment.billId = await generateBillId(centre.enterCode || 'GEN', payment.receivedDate);
+                await payment.save();
+            }
+
+            // RE-CALCULATE amounts for the bill response to match UI source of truth
+            // This fixes legacy/corrupted records where totalAmount was set to baseAmount
+            const billTotal = Math.max(actualPaidTotal, payment.totalAmount || 0);
+            const billBase = billTotal / 1.18;
+            const finalCourseFee = parseFloat(billBase.toFixed(2));
+            const finalGstPool = billTotal - finalCourseFee;
+            const finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
+            const finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
+
+            // Prepare bill data
+            const billData = {
+                billId: payment.billId,
+                billDate: payment.paidDate || new Date(),
+                gstNumber: generateGSTNumber(),
+                centre: {
+                    name: centre.centreName,
+                    address: centre.address || 'N/A',
+                    phoneNumber: centre.phoneNumber || 'N/A',
+                    gstNumber: centre.enterGstNo || 'N/A',
+                    corporateAddress: centre.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                    corporatePhone: centre.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
+                },
+                student: {
+                    id: (admission.student?._id || admission.studentId?._id || admission.studentId || 'N/A'),
+                    name: (admission.student?.studentsDetails?.[0]?.studentName || admission.studentName || 'N/A'),
+                    admissionNumber: admission.admissionNumber || 'N/A',
+                    phoneNumber: (admission.student?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || 'N/A'),
+                    email: (admission.student?.studentsDetails?.[0]?.studentEmail || 'N/A')
+                },
+                course: {
+                    name: payment.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
+                    department: admission.department?.departmentName || 'N/A',
+                    examTag: admission.examTag?.name || 'N/A',
+                    class: admission.class?.name || 'N/A',
+                    session: admission.academicSession || 'N/A'
+                },
+                payment: {
+                    installmentNumber: payment.installmentNumber,
+                    paymentMethod: payment.paymentMethod,
+                    // Fallback to Admission record's transactionId if not in Payment record
+                    transactionId: payment.transactionId || (installment ? (installment.transactionId || 'N/A') : 'N/A'),
+                    paidDate: payment.paidDate,
+                    receivedDate: payment.receivedDate,
+                    accountHolderName: payment.accountHolderName,
+                    chequeDate: payment.chequeDate,
+                    status: payment.status
+                },
+                amounts: {
+                    courseFee: finalCourseFee,
+                    cgst: finalCgst,
+                    sgst: finalSgst,
+                    totalAmount: billTotal
+                }
+            };
+
+            return {
+                status: 200,
+                data: {
+                    success: true,
+                    message: "Bill generated successfully",
+                    data: billData
+                }
+            };
+        } catch (err) {
+            console.error("Error inside generateBillLogic:", err);
+            return { status: 500, data: { message: "Server error", error: err.message } };
+        }
+    })();
+
+    activeGenerations.set(lockKey, generatePromise);
+
+    try {
+        const result = await generatePromise;
+        activeGenerations.delete(lockKey);
+        return res.status(result.status).json(result.data);
     } catch (err) {
+        activeGenerations.delete(lockKey);
         console.error("Error generating bill:", err);
-        res.status(500).json({ message: "Server error", error: err.message });
+        return res.status(500).json({ message: "Server error", error: err.message });
     }
 };
 
