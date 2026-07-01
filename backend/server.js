@@ -1,4 +1,11 @@
-import "dotenv/config"; // Load env vars before anything else
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, ".env") }); // Load env vars explicitly from current directory
 import mongoose from "mongoose";
 import express from "express";
 // Force restart timestamp: 2025-12-29
@@ -90,12 +97,6 @@ import notificationRoutes from "./routes/notification.routes.js";
 
 import studentPortalRoutes from "./routes/studentPortal.routes.js";
 import taskWorkflowRoutes from "./routes/taskWorkflow/taskWorkflow.routes.js";
-
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 
