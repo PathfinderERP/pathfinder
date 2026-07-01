@@ -990,6 +990,11 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
 export const manualMarkAttendance = async (req, res) => {
     try {
+        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        if (userRole !== "superadmin" && userRole !== "hr") {
+            return res.status(403).json({ message: "Forbidden: Manual Attendance Override is restricted to Superadmin and HR roles only." });
+        }
+
         const { employeeId, date, checkIn, checkOut, status, remarks } = req.body;
 
         if (!employeeId || !date) {
