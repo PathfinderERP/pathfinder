@@ -256,6 +256,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },
                 { name: "Course Target", path: "/sales/course-target", permissionSection: "centreTarget" },
                 { name: "Centre Rank", path: "/sales/centre-rank", permissionSection: "centreRank" },
+                { name: "User Rank", path: "/sales/user-rank", permissionSection: "centreRank" },
                 //{ name: "Target Achievement Report", path: "/sales/target-achievement-report", permissionSection: "targetAchievementReport" },
                 //{ name: "Admission Report", path: "/sales/admission-report", permissionSection: "admissionReport" },
                 //{ name: "Course Report", path: "/sales/course-report", permissionSection: "courseReport" },

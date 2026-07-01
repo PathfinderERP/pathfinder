@@ -11,6 +11,7 @@ import Sales from "./pages/Sales";
 import CentreTarget from "./pages/Sales/CentreTarget";
 import ComparisonAnalysis from "./pages/Sales/ComparisonAnalysis";
 import CentreRank from "./pages/Sales/CentreRank";
+import UserRank from "./pages/Sales/UserRank";
 import TargetAchievementReport from "./pages/Sales/TargetAchievementReport";
 import AdmissionReport from "./pages/Sales/AdmissionReport";
 import CourseReport from "./pages/Sales/CourseReport";
@@ -248,6 +249,7 @@ function App() {
         <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
         <Route path="/sales/comparison-analysis" element={<ProtectedRoute><ComparisonAnalysis /></ProtectedRoute>} />
         <Route path="/sales/centre-rank" element={<ProtectedRoute><CentreRank /></ProtectedRoute>} />
+        <Route path="/sales/user-rank" element={<ProtectedRoute><UserRank /></ProtectedRoute>} />
         <Route path="/sales/target-achievement-report" element={<ProtectedRoute><TargetAchievementReport /></ProtectedRoute>} />
         <Route path="/sales/admission-report" element={<ProtectedRoute><AdmissionReport /></ProtectedRoute>} />
         <Route path="/sales/course-report" element={<ProtectedRoute><CourseReport /></ProtectedRoute>} />
