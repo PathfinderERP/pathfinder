@@ -624,7 +624,7 @@ const fetchHRData = async (user) => {
                     as: "dept"
                 }
             },
-            { $unwind: { path: "$dept", preserveNullAndEmpty: true } },
+            { $unwind: { path: "$dept", preserveNullAndEmptyArrays: true } },
             { $group: { _id: "$dept.name", count: { $sum: 1 } } },
             { $sort: { count: -1 } }
         ]);
@@ -856,7 +856,7 @@ Please analyse the above ERP data and answer the user's question accurately. For
 // ─────────────────────────────────────────────────────────────
 export const analyseERP = async (req, res) => {
     try {
-        const { question, module, startDate, endDate, centre } = req.body;
+        const { question, module, startDate, endDate, centre, contextData } = req.body;
 
         if (!question) {
             return res.status(400).json({ error: "Question is required" });
@@ -970,6 +970,10 @@ export const analyseERP = async (req, res) => {
         const prompt = `
 CURRENT DATE & TIME (IST): ${currentTime}
 APPLIED FILTERS: ${JSON.stringify(filters)}
+
+${contextData ? `--- CLIENT ON-SCREEN CONTEXT DATA ---
+${JSON.stringify(contextData, null, 2)}
+--- END OF CLIENT DATA ---` : ''}
 
 --- LIVE ERP ANALYSIS DATA ---
 ${JSON.stringify(data, null, 2)}

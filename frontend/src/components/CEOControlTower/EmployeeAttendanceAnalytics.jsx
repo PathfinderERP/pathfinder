@@ -5,7 +5,7 @@ import { FaDownload, FaSearch, FaUser, FaClock, FaCalendar, FaExclamationTriangl
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
+const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode, renderAIAnalyst }) => {
     const [loading, setLoading] = useState(false);
     const [analyticsData, setAnalyticsData] = useState([]);
 
@@ -283,6 +283,18 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
                 </ResponsiveContainer>
             </div>
 
+            {renderAIAnalyst && renderAIAnalyst(
+                "Workforce Attendance Trends",
+                "hr",
+                analyticsData,
+                "Analyze our workforce attendance trends. Identify day-wise patterns, peaks in late arrivals, absenteeism, and structural operational risks.",
+                [
+                    "Identify peaks in late arrivals",
+                    "Analyze day-wise attendance drops",
+                    "Suggest productivity improvement areas"
+                ]
+            )}
+
             {/* Single User Analysis Section */}
             <div className={`border-t pt-10 transition-colors ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`} id="single-user-analysis">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
@@ -480,6 +492,17 @@ const EmployeeAttendanceAnalytics = ({ masterData, isDarkMode }) => {
                                             </ResponsiveContainer>
                                         </div>
                                     </div>
+                                )}
+                                {renderAIAnalyst && renderAIAnalyst(
+                                    `Attendance Profile: ${selectedEmployee.name}`,
+                                    "hr",
+                                    employeeStats,
+                                    `Analyze attendance performance for employee ${selectedEmployee.name}. Highlight punctuality metrics, absences, late frequencies, and suggest specific actions or check-ins.`,
+                                    [
+                                        "Analyze overall sync rate",
+                                        "Detail delayed arrival frequencies",
+                                        "Suggest administrative follow-ups"
+                                    ]
                                 )}
                             </div>
                         )}

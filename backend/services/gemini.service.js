@@ -1,4 +1,3 @@
-
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 
@@ -11,27 +10,37 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
  * Compatible with @google/generative-ai v0.24.x
  */
 export const generateAIResponse = async (prompt, systemInstruction = "") => {
-    try {
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash-lite",
-            generationConfig: {
-                maxOutputTokens: 2048,
-                temperature: 0.4,
-            },
-        });
+    // Try gemini-2.5-flash first, fallback to gemini-1.5-flash if 503/404 or other errors occur
+    const modelsToTry = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    let lastError = null;
 
-        // Inject system instruction manually into the prompt for compatibility
-        const fullPrompt = systemInstruction
-            ? `${systemInstruction}\n\n---\n\n${prompt}`
-            : prompt;
+    for (const modelName of modelsToTry) {
+        try {
+            console.log(`Attempting Gemini generation using model: ${modelName}`);
+            const model = genAI.getGenerativeModel({
+                model: modelName,
+                generationConfig: {
+                    maxOutputTokens: 2048,
+                    temperature: 0.4,
+                },
+            });
 
-        const result = await model.generateContent(fullPrompt);
-        const response = await result.response;
-        return response.text();
-    } catch (error) {
-        console.error("Gemini AI Error:", error);
-        throw new Error("Failed to generate AI response");
+            // Inject system instruction manually into the prompt for compatibility
+            const fullPrompt = systemInstruction
+                ? `${systemInstruction}\n\n---\n\n${prompt}`
+                : prompt;
+
+            const result = await model.generateContent(fullPrompt);
+            const response = await result.response;
+            return response.text();
+        } catch (error) {
+            console.warn(`Gemini model ${modelName} failed. Error:`, error.message || error);
+            lastError = error;
+        }
     }
+
+    console.error("All Gemini models failed. Last error:", lastError);
+    throw new Error("Failed to generate AI response");
 };
 
 /**
@@ -39,7 +48,7 @@ export const generateAIResponse = async (prompt, systemInstruction = "") => {
  */
 export const startAIChat = async (history = [], systemInstruction = "") => {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         generationConfig: {
             maxOutputTokens: 2048,
             temperature: 0.4,
