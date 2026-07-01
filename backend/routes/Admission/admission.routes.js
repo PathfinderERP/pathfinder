@@ -4,7 +4,7 @@ import { getAdmissions, getActiveEmployees } from "../../controllers/Admission/g
 import { getAdmissionById } from "../../controllers/Admission/getAdmissionById.js";
 import { updateAdmission } from "../../controllers/Admission/updateAdmission.js";
 import { bulkUpdateAdmissions } from "../../controllers/Admission/bulkUpdateAdmissions.js";
-import { deleteAdmission } from "../../controllers/Admission/deleteAdmission.js";
+import { deleteAdmission, reactivateAdmission } from "../../controllers/Admission/deleteAdmission.js";
 import { updatePaymentInstallment } from "../../controllers/Admission/updatePaymentInstallment.js";
 import { toggleStudentStatus } from "../../controllers/Admission/toggleStudentStatus.js";
 import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -39,6 +39,7 @@ router.put("/bulk-section-allotment", requireGranularPermission("admissions", "s
 router.post("/transfer", requireGranularPermission("admissions", "enrolledStudents", "edit"), transferCourse); // New Transfer Route
 router.put("/:id", requireGranularPermission("admissions", "enrolledStudents", "edit"), updateAdmission);
 router.delete("/:id", requireGranularPermission("admissions", "enrolledStudents", "delete"), deleteAdmission);
+router.put("/:id/reactivate", requireGranularPermission("admissions", "enrolledStudents", "edit"), reactivateAdmission);
 router.put("/:admissionId/payment/:installmentNumber", requireAnyGranularPermission([
     { module: "admissions", section: "enrolledStudents", action: "edit" },
     { module: "financeFees", section: "installmentPayment", action: "create" },

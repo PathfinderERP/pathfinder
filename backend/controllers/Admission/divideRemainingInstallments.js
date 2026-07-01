@@ -27,6 +27,10 @@ export const divideRemainingInstallments = async (req, res) => {
             return res.status(400).json({ message: "This student is deactivated. Financial operations are restricted." });
         }
 
+        if (admission.admissionStatus === 'INACTIVE') {
+            return res.status(400).json({ message: "This course enrollment is deactivated. Financial operations are restricted." });
+        }
+
         // 1. Identify installments to KEEP (PAID or PENDING_CLEARANCE)
         const keptInstallments = admission.paymentBreakdown.filter(p =>
             p.status === "PAID" || p.status === "PENDING_CLEARANCE"

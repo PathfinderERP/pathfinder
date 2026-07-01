@@ -63,6 +63,12 @@ export const updatePaymentInstallment = async (req, res) => {
             });
         }
 
+        if (admission.admissionStatus === 'INACTIVE') {
+            return res.status(400).json({
+                message: "This course enrollment is deactivated. Payments cannot be accepted for it."
+            });
+        }
+
         // Validation: Cannot pay more than the absolute remaining balance for the entire admission
         const currentRemaining = (admission.totalFees || 0) - (admission.totalPaidAmount || 0);
         const paidAmountFloat = parseFloat(paidAmount) || 0;

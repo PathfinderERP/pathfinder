@@ -1014,6 +1014,8 @@ const EnrolledStudentsContent = () => {
                 return "bg-red-500/10 text-red-400";
             case "PENDING":
                 return "bg-yellow-500/10 text-yellow-400";
+            case "DEACTIVATED":
+                return "bg-gray-500/10 text-gray-500 line-through";
             default:
                 return "bg-gray-500/10 text-gray-400";
         }
@@ -1045,7 +1047,7 @@ const EnrolledStudentsContent = () => {
     };
 
     const handleDeleteAdmission = async (admissionId) => {
-        if (!window.confirm("CRITICAL: You are about to delete this specific course enrollment. This will permanently remove all associated financial records and history for THIS course only. Continue?")) {
+        if (!window.confirm("Are you sure you want to deactivate this course enrollment? This will deactivate the course and all its upcoming unpaid installments, removing them from active financial calculations and due lists. Already paid amounts will stay untouched.")) {
             return;
         }
 
@@ -1060,24 +1062,80 @@ const EnrolledStudentsContent = () => {
 
             const data = await response.json();
             if (response.ok) {
-                toast.success("Course enrollment purged successfully");
+                toast.success("Course enrollment deactivated successfully");
 
                 // Update local modal state
-                const updatedAdmissions = studentAdmissions.filter(ad => ad._id !== admissionId);
-                if (updatedAdmissions.length === 0) {
-                    // If no admissions left, close the modal
-                    closeStudentModal();
-                } else {
-                    setStudentAdmissions(updatedAdmissions);
-                }
+                setStudentAdmissions(prev => prev.map(ad => {
+                    if (ad._id === admissionId) {
+                        return {
+                            ...ad,
+                            admissionStatus: "INACTIVE",
+                            totalFees: ad.totalPaidAmount || 0,
+                            remainingAmount: 0,
+                            paymentBreakdown: ad.paymentBreakdown?.map(inst => {
+                                if (inst.status !== "PAID" && inst.status !== "COMPLETED" && inst.status !== "PENDING_CLEARANCE") {
+                                    return { ...inst, status: "DEACTIVATED" };
+                                }
+                                return inst;
+                            })
+                        };
+                    }
+                    return ad;
+                }));
 
                 // Refresh main list
                 fetchAdmissions();
             } else {
-                toast.error(data.message || "Failed to purge enrollment");
+                toast.error(data.message || "Failed to deactivate enrollment");
             }
         } catch (error) {
             console.error("Error purging admission:", error);
+            toast.error("Network synchronization error.");
+        }
+    };
+
+    const handleReactivateAdmission = async (admissionId) => {
+        if (!window.confirm("Are you sure you want to reactivate this course enrollment? This will restore the course to active status and change all voided/deactivated installments back to pending, restoring all original financial calculations.")) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/admission/${admissionId}/reactivate`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success("Course enrollment reactivated successfully");
+
+                // Update local modal state
+                setStudentAdmissions(prev => prev.map(ad => {
+                    if (ad._id === admissionId) {
+                        const restored = data.admission;
+                        return {
+                            ...ad,
+                            admissionStatus: restored.admissionStatus,
+                            totalFees: restored.totalFees,
+                            remainingAmount: restored.remainingAmount,
+                            paymentBreakdown: restored.paymentBreakdown,
+                            monthlySubjectHistory: restored.monthlySubjectHistory
+                        };
+                    }
+                    return ad;
+                }));
+
+                // Refresh main list
+                fetchAdmissions();
+            } else {
+                toast.error(data.message || "Failed to reactivate enrollment");
+            }
+        } catch (error) {
+            console.error("Error reactivating admission:", error);
             toast.error("Network synchronization error.");
         }
     };
@@ -2730,9 +2788,8 @@ const EnrolledStudentsContent = () => {
                                                             <FaTools size={14} />
                                                         </button>
                                                     )}
-                                                    {/* Control Cluster: Edit and Purge Actions */}
                                                     <div className="flex items-center gap-2">
-                                                        {admission.admissionType === 'BOARD' && (
+                                                        {admission.admissionType === 'BOARD' && admission.admissionStatus !== 'INACTIVE' && (
                                                             <button
                                                                 onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
                                                                 className="px-6 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 shadow-lg shadow-purple-500/20"
@@ -2741,29 +2798,42 @@ const EnrolledStudentsContent = () => {
                                                             </button>
                                                         )}
 
-                                                        {canEdit && (
+                                                        {canEdit && admission.admissionStatus !== 'INACTIVE' && (
                                                             <button
                                                                 onClick={() => handleEditAdmission(admission)}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
                                                                 className={`p-2 rounded-[4px] transition-all shadow-sm ${selectedStudent.status === 'Deactivated'
                                                                     ? (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-300')
-                                                                    : (isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-yellow-50 text-yellow-600 border border-yellow-200 hover:bg-yellow-500 hover:text-white')}`}
+                                                                    : (isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 hover:bg-yellow-50 hover:text-black' : 'bg-yellow-50 text-yellow-600 border border-yellow-200 hover:bg-yellow-500 hover:text-white')}`}
                                                                 title={selectedStudent.status === 'Deactivated' ? "LOCKED" : "Edit Enrollment"}
                                                             >
                                                                 <FaEdit size={14} />
                                                             </button>
                                                         )}
 
-                                                        {canDelete && (
+                                                        {canDelete && admission.admissionStatus !== 'INACTIVE' && (
                                                             <button
                                                                 onClick={() => handleDeleteAdmission(admission._id)}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
                                                                 className={`p-2 rounded-[4px] transition-all shadow-sm ${selectedStudent.status === 'Deactivated'
                                                                     ? (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-300')
                                                                     : (isDarkMode ? 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-500 hover:text-white')}`}
-                                                                title={selectedStudent.status === 'Deactivated' ? "LOCKED" : "Purge Enrollment"}
+                                                                title={selectedStudent.status === 'Deactivated' ? "LOCKED" : "Deactivate Enrollment"}
                                                             >
                                                                 <FaTrash size={14} />
+                                                            </button>
+                                                        )}
+
+                                                        {canDelete && admission.admissionStatus === 'INACTIVE' && (
+                                                            <button
+                                                                onClick={() => handleReactivateAdmission(admission._id)}
+                                                                disabled={selectedStudent.status === 'Deactivated'}
+                                                                className={`p-2 rounded-[4px] transition-all shadow-sm ${selectedStudent.status === 'Deactivated'
+                                                                    ? (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-300')
+                                                                    : (isDarkMode ? 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black' : 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-500 hover:text-white')}`}
+                                                                title={selectedStudent.status === 'Deactivated' ? "LOCKED" : "Reactivate Enrollment"}
+                                                            >
+                                                                <FaSync size={14} />
                                                             </button>
                                                         )}
                                                     </div>
@@ -2868,7 +2938,7 @@ const EnrolledStudentsContent = () => {
                                                     <div className="bg-yellow-500/10 p-3 rounded">
                                                         <p className="text-xs text-gray-400">Pending</p>
                                                         <p className="text-lg font-bold text-yellow-400">
-                                                            ₹{fmt(admission.totalFees - admission.totalPaidAmount)}
+                                                            ₹{fmt(admission.admissionStatus === 'INACTIVE' ? 0 : (admission.totalFees - admission.totalPaidAmount))}
                                                         </p>
                                                     </div>
                                                     <div className="bg-blue-500/10 p-3 rounded relative group">
@@ -2897,7 +2967,7 @@ const EnrolledStudentsContent = () => {
                                                 </div>
 
                                                 {/* Installment Division Tool */}
-                                                {!["COMPLETED"].includes(admission.paymentStatus) && admission.admissionType !== 'BOARD' && (
+                                                {!["COMPLETED"].includes(admission.paymentStatus) && admission.admissionType !== 'BOARD' && admission.admissionStatus !== 'INACTIVE' && (
                                                     <div className={`p-4 rounded-[4px] border border-dashed flex flex-col md:flex-row items-center justify-between gap-4 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200'}`}>
                                                         <div className="flex items-center gap-3">
                                                             <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded">
@@ -3083,7 +3153,7 @@ const EnrolledStudentsContent = () => {
                                                                                         <td className="p-4">
                                                                                             <div className="flex flex-col gap-1">
                                                                                                 <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-tighter border text-center ${getInstallmentStatusColor(payment.status)}`}>
-                                                                                                    {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status}
+                                                                                                    {payment.status === "PENDING_CLEARANCE" ? "IN PROCESS" : payment.status === "DEACTIVATED" ? "VOID" : payment.status}
                                                                                                 </span>
                                                                                                 {carryForwardMatch && (
                                                                                                     <span className="px-2 py-0.5 bg-yellow-500 text-white rounded-[4px] text-[8px] font-black uppercase tracking-tighter text-center">
@@ -3094,7 +3164,7 @@ const EnrolledStudentsContent = () => {
                                                                                         </td>
                                                                                         {canEdit && (
                                                                                             <td className="p-4 text-center">
-                                                                                                {(!isPaid && payment.status !== "PENDING_CLEARANCE") ? (
+                                                                                                {(!isPaid && payment.status !== "PENDING_CLEARANCE" && payment.status !== "DEACTIVATED" && admission.admissionStatus !== 'INACTIVE') ? (
                                                                                                     <button
                                                                                                         onClick={() => selectedStudent.status !== 'Deactivated' && openPaymentModal(admission, payment)}
                                                                                                         disabled={!previousPaid || selectedStudent.status === 'Deactivated'}

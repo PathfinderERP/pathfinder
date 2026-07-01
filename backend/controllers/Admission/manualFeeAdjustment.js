@@ -28,6 +28,10 @@ export const manualFeeAdjustment = async (req, res) => {
             return res.status(400).json({ message: "This student is deactivated. Adjustments are restricted." });
         }
 
+        if (admission.admissionStatus === 'INACTIVE') {
+            return res.status(400).json({ message: "This course enrollment is deactivated. Adjustments are restricted." });
+        }
+
         // 1. Update Core Financials
         const parsedTotalFees = parseFloat(totalFees);
         const parsedTotalPaid = parseFloat(totalPaidAmount);
