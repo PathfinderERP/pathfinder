@@ -301,6 +301,7 @@ const TransactionList = () => {
         selectedStatus.length > 0 ||
         billFilter !== "all" ||
         selectedBilledBy.length > 0 ||
+        (timePeriod !== "Custom" && timePeriod !== "Custom Range" && timePeriod !== "") ||
         ((timePeriod === "Custom" || timePeriod === "Custom Range") && startDate !== "" && endDate !== "");
 
     const dynamicSelectionTotalWithGst = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
