@@ -158,6 +158,8 @@ const CentreRank = () => {
             "Rank": r.rank,
             "Center": r.centreName,
             "Achievement %": `${r.achievementPercentage}%`,
+            "Achieved Amount (₹)": r.achieved ? Math.round(r.achieved).toLocaleString("en-IN") : 0,
+            "Target Amount (₹)": r.target ? Math.round(r.target).toLocaleString("en-IN") : 0,
             "Last Month %": `${r.lastMonthPercentage}%`,
             "Last Month Rank": r.lastMonthRank,
             "Best Achievement %": `${r.bestAchievementPercentage}%`
@@ -339,6 +341,7 @@ const CentreRank = () => {
                                     <th className="px-6 py-4 tracking-widest">Rank</th>
                                     <th className="px-6 py-4 tracking-widest">Center</th>
                                     <th className="px-6 py-4 tracking-widest text-center">Achievement %</th>
+                                    <th className="px-6 py-4 tracking-widest text-right">Achieved Amt</th>
                                     <th className="px-6 py-4 tracking-widest text-center">Last Month %</th>
                                     <th className="px-6 py-4 tracking-widest text-center">Last Month Rank</th>
                                     <th className="px-6 py-4 tracking-widest text-right">Best Achievement %</th>
@@ -347,11 +350,11 @@ const CentreRank = () => {
                             <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-12 text-center text-gray-400 font-medium">Calculating ranks...</td>
+                                        <td colSpan="7" className="px-6 py-12 text-center text-gray-400 font-medium">Calculating ranks...</td>
                                     </tr>
                                 ) : rankings.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-12 text-center text-gray-400 font-medium">No ranking data found for this period.</td>
+                                        <td colSpan="7" className="px-6 py-12 text-center text-gray-400 font-medium">No ranking data found for this period.</td>
                                     </tr>
                                 ) : (
                                     rankings.map((rank, index) => (
@@ -360,6 +363,16 @@ const CentreRank = () => {
                                             <td className={`px-6 py-5 font-black uppercase tracking-wide transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{rank.centreName}</td>
                                             <td className={`px-6 py-5 font-black text-lg text-center ${parseFloat(rank.achievementPercentage) > 50 ? "text-green-500" : "text-blue-500"}`}>
                                                 {rank.achievementPercentage}%
+                                            </td>
+                                            <td className="px-6 py-5 text-right">
+                                                <div className={`inline-flex flex-col items-end`}>
+                                                    <span className={`font-black text-sm ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+                                                        ₹{rank.achieved ? Math.round(rank.achieved).toLocaleString("en-IN") : 0}
+                                                    </span>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        of ₹{rank.target ? Math.round(rank.target).toLocaleString("en-IN") : 0}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className={`px-6 py-5 font-bold text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                 <span className={parseFloat(rank.lastMonthPercentage) > 50 ? "text-green-500" : ""}>

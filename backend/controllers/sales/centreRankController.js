@@ -87,50 +87,83 @@ export const getCentreRankings = async (req, res) => {
         }
 
         // --- Determine Date Range for Exact Payment Retrieval ---
+        // IMPORTANT: Check viewMode FIRST before financialYear so Monthly/Quarterly
+        // don't accidentally use the full financial year date range.
         let paymentStartDate, paymentEndDate;
         const now = new Date();
 
         if (startDate && endDate) {
+            // Custom date range
             paymentStartDate = new Date(startDate);
             paymentEndDate = new Date(endDate);
             paymentEndDate.setHours(23, 59, 59, 999);
-        } else if (financialYear || viewMode === "Yearly") {
-            const fy = financialYear || (year ? `${year}-${parseInt(year) + 1}` : `${now.getFullYear()}-${now.getFullYear() + 1}`);
+        } else if (viewMode === "Monthly") {
+            const targetYear = year ? parseInt(year) : now.getFullYear();
+            if (months) {
+                // Multiple months selected — find min/max month boundary
+                const monthList = months.split(',');
+                const monthIndices = monthList
+                    .map(m => monthNames.indexOf(m.trim()))
+                    .filter(i => i >= 0);
+                if (monthIndices.length > 0) {
+                    const minIdx = Math.min(...monthIndices);
+                    const maxIdx = Math.max(...monthIndices);
+                    paymentStartDate = new Date(targetYear, minIdx, 1);
+                    paymentEndDate = new Date(targetYear, maxIdx + 1, 0, 23, 59, 59, 999);
+                }
+            } else {
+                // Single month
+                const targetMonthName = month || monthNames[now.getMonth()];
+                const monthIndex = monthNames.indexOf(targetMonthName);
+                if (monthIndex >= 0) {
+                    paymentStartDate = new Date(targetYear, monthIndex, 1);
+                    paymentEndDate = new Date(targetYear, monthIndex + 1, 0, 23, 59, 59, 999);
+                }
+            }
+        } else if (viewMode === "Quarterly") {
+            // Quarterly uses financial year — CentreTarget query handles which quarter
+            const fy = financialYear || `${now.getFullYear()}-${now.getFullYear() + 1}`;
+            const [startYear] = fy.split('-').map(Number);
+            paymentStartDate = new Date(startYear, 3, 1);
+            paymentEndDate = new Date(startYear + 1, 2, 31, 23, 59, 59, 999);
+        } else if (viewMode === "Yearly" || financialYear) {
+            const fy = financialYear || `${now.getFullYear()}-${now.getFullYear() + 1}`;
             const [startYear] = fy.split('-').map(Number);
             paymentStartDate = new Date(startYear, 3, 1); // April 1st
             paymentEndDate = new Date(startYear + 1, 2, 31, 23, 59, 59, 999); // March 31st
-        } else if (viewMode === "Monthly") {
-            const targetYear = year ? parseInt(year) : now.getFullYear();
-            const targetMonthName = month || monthNames[now.getMonth()];
-            const monthIndex = monthNames.indexOf(targetMonthName);
-            paymentStartDate = new Date(targetYear, monthIndex, 1);
-            paymentEndDate = new Date(targetYear, monthIndex + 1, 0, 23, 59, 59, 999);
-        } else if (viewMode === "Quarterly" && month) {
-            const targetYear = year ? parseInt(year) : now.getFullYear();
-            const mArray = month.split(',');
-            const startMonthIdx = monthNames.indexOf(mArray[0]);
-            const endMonthIdx = monthNames.indexOf(mArray[mArray.length - 1]);
-            paymentStartDate = new Date(targetYear, startMonthIdx, 1);
-            paymentEndDate = new Date(targetYear, endMonthIdx + 1, 0, 23, 59, 59, 999);
         }
 
-        // --- Fetch Exact Achieved Amount from Payments ---
+        // --- Fetch Exact Achieved Amount from Payments (mirrors transaction list logic) ---
         const paymentMatch = {
+            billId: { $regex: /^PATH/i },
             paidAmount: { $gt: 0 },
-            status: { $in: ["PAID", "PARTIAL"] }
+            $or: [
+                { status: { $in: ["PAID", "PARTIAL"] } },
+                {
+                    paymentMethod: "CHEQUE",
+                    status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                }
+            ]
         };
 
+        // Build pipeline dynamically: add effectiveDate then filter by date range
+        const paymentPipeline = [
+            { $match: paymentMatch },
+            {
+                // Use same date priority as transaction list: paidDate → receivedDate → createdAt
+                $addFields: {
+                    effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
+                }
+            }
+        ];
+
         if (paymentStartDate && paymentEndDate) {
-            paymentMatch.$expr = {
-                $and: [
-                    { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, paymentStartDate] },
-                    { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, paymentEndDate] }
-                ]
-            };
+            paymentPipeline.push({
+                $match: { effectiveDate: { $gte: paymentStartDate, $lte: paymentEndDate } }
+            });
         }
 
-        const paymentStats = await Payment.aggregate([
-            { $match: paymentMatch },
+        paymentPipeline.push(
             {
                 $lookup: {
                     from: "admissions",
@@ -150,6 +183,7 @@ export const getCentreRankings = async (req, res) => {
             {
                 $project: {
                     paidAmount: 1,
+                    courseFee: 1,
                     centreName: {
                         $ifNull: [
                             { $arrayElemAt: ["$adm.centre", 0] },
@@ -158,12 +192,31 @@ export const getCentreRankings = async (req, res) => {
                     }
                 }
             },
-            { $group: { _id: "$centreName", totalPaid: { $sum: "$paidAmount" } } }
-        ]);
+            {
+                // revenueBase = courseFee (without GST if set) else paidAmount/1.18
+                $addFields: {
+                    revenueBase: {
+                        $cond: [
+                            { $gt: ["$courseFee", 0] },
+                            "$courseFee",
+                            { $divide: ["$paidAmount", 1.18] }
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: "$centreName",
+                    totalRevenue: { $sum: "$revenueBase" }   // without-GST amount matching transaction list
+                }
+            }
+        );
+
+        const paymentStats = await Payment.aggregate(paymentPipeline);
 
         const paymentMap = {};
         paymentStats.forEach(s => {
-            if (s._id) paymentMap[s._id.trim().toUpperCase()] = s.totalPaid;
+            if (s._id) paymentMap[s._id.trim().toUpperCase()] = s.totalRevenue;
         });
 
         // 1. Fetch performance for selected period
@@ -320,13 +373,16 @@ export const getCentreRankings = async (req, res) => {
         });
 
         // 4. Calculate achievement percentage and format data
+        // Both targetAmt and achievedAmt are WITHOUT GST so % = revenueBase / targetAmount × 100
+        // This matches the transaction list which shows without-GST amounts.
         let rankData = targets.map(t => {
             const centerObj = t.centre || {};
             const centerId = (centerObj._id || t._id).toString();
             const cName = (centerObj.centreName || "").trim().toUpperCase();
 
-            const targetAmt = (t.targetAmount || 0) * 1.18;
-            // Use exact payment data if available, otherwise fallback to target's achieved amount
+            // targetAmount in CentreTarget is stored without GST
+            const targetAmt = t.targetAmount || 0;
+            // Use exact payment revenueBase (without GST) if available, else fallback
             const achievedAmt = paymentMap[cName] !== undefined ? paymentMap[cName] : (t.achievedAmount || 0);
 
             const achievementPct = targetAmt > 0 ? (achievedAmt / targetAmt) * 100 : 0;
@@ -336,8 +392,8 @@ export const getCentreRankings = async (req, res) => {
             return {
                 centreId: centerId,
                 centreName: centerObj.centreName || "Unknown",
-                target: targetAmt,
-                achieved: achievedAmt,
+                target: targetAmt,     // without GST — matches transaction list
+                achieved: achievedAmt, // without GST — matches transaction list
                 achievementPercentage: parseFloat(achievementPct.toFixed(1)),
                 lastMonthPercentage: parseFloat(prev.achievementPct.toFixed(1)),
                 lastMonthRank: prev.rank || "-",
