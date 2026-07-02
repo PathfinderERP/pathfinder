@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import LeadManagement from './models/LeadManagement.js';
+import LeadManagement from '../backend/models/LeadManagement.js';
 
 dotenv.config();
 
@@ -12,7 +12,7 @@ async function checkLeads() {
         const totalLeads = await LeadManagement.countDocuments();
         console.log(`Total Leads in Database: ${totalLeads}`);
 
-        const sampleLeads = await LeadManagement.find().limit(2).lean();
+        const sampleLeads = await LeadManagement.find().limit(5).lean();
         console.log('\nSample Leads:');
         console.log(JSON.stringify(sampleLeads, null, 2));
 

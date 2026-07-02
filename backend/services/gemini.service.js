@@ -20,7 +20,7 @@ export const generateAIResponse = async (prompt, systemInstruction = "") => {
             const model = genAI.getGenerativeModel({
                 model: modelName,
                 generationConfig: {
-                    maxOutputTokens: 2048,
+                    maxOutputTokens: 8192,
                     temperature: 0.4,
                 },
             });
@@ -50,7 +50,7 @@ export const startAIChat = async (history = [], systemInstruction = "") => {
     const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash",
         generationConfig: {
-            maxOutputTokens: 2048,
+            maxOutputTokens: 8192,
             temperature: 0.4,
         },
     });
