@@ -99,6 +99,7 @@ export const getFollowUpStats = async (req, res) => {
         delete queryParams.toDate;
         delete queryParams.scheduledDate;
         delete queryParams.followUpStatus;
+        queryParams.includeInvalid = true;
         
         const baseMatch = await buildLeadQuery(queryParams, req.user);
 

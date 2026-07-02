@@ -141,7 +141,7 @@ export const buildLeadQuery = async (queryParams, user) => {
     const { 
         search, leadType, source, centre, course, leadResponsibility, 
         board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus,
-        schoolName, followUpFromDate, followUpToDate, showDuplicates
+        schoolName, followUpFromDate, followUpToDate, showDuplicates, includeInvalid
     } = queryParams;
 
     const query = {};
@@ -211,6 +211,8 @@ export const buildLeadQuery = async (queryParams, user) => {
     if (leadType && (!Array.isArray(leadType) || leadType.length > 0)) {
         const values = Array.isArray(leadType) ? normalizeValue(leadType) : [normalizeValue(leadType)];
         query.leadType = { $in: values };
+    } else if (includeInvalid === "true" || includeInvalid === true) {
+        // Do not exclude invalid leads
     } else {
         query.leadType = { $ne: "INVALID LEAD" };
     }
