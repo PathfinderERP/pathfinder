@@ -1988,9 +1988,9 @@ const LeadManagementContent = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#e5e7eb'}; border-radius: 2px; }
                                             `}</style>
 
-            {showAddModal && <AddLeadModal isDarkMode={isDarkMode} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchLeads(); }} />}
-            {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); }} />}
-            {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); }} />}
+            {showAddModal && <AddLeadModal isDarkMode={isDarkMode} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchLeads(); fetchFollowUpStats(); }} />}
+            {showEditModal && selectedLead && <EditLeadModal isDarkMode={isDarkMode} lead={selectedLead} onClose={() => { setShowEditModal(false); setSelectedLead(null); }} onSuccess={() => { setShowEditModal(false); setSelectedLead(null); fetchLeads(); fetchFollowUpStats(); }} />}
+            {showBulkModal && <BulkLeadModal isDarkMode={isDarkMode} onClose={() => setShowBulkModal(false)} onSuccess={() => { setShowBulkModal(false); fetchLeads(); fetchFollowUpStats(); }} />}
             {showBulkUpdateModal && (
                 <BulkUpdateLeadModal
                     selectedLeadIds={selectedLeads}
@@ -1999,7 +1999,7 @@ const LeadManagementContent = () => {
                     totalLeads={totalLeads}
                     isDarkMode={isDarkMode}
                     onClose={() => setShowBulkUpdateModal(false)}
-                    onSuccess={() => { setShowBulkUpdateModal(false); clearSelection(); fetchLeads(); }}
+                    onSuccess={() => { setShowBulkUpdateModal(false); clearSelection(); fetchLeads(); fetchFollowUpStats(); }}
                 />
             )}
             {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead, startCall = false) => { setShowDetailModal(false); setSelectedLead(lead); setStartCallOnOpen(startCall); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} />}
