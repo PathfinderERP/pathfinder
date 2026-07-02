@@ -251,8 +251,8 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                      <input type="text" name="name" required value={formData.name} onChange={handleChange} className={inputClasses} placeholder="Student Name..." />
                                 </div>
                                 <div>
-                                     <label className={labelClasses}>Primary Email *</label>
-                                     <input type="email" name="email" required value={formData.email} onChange={handleChange} className={inputClasses} placeholder="Email Address..." />
+                                     <label className={labelClasses}>Primary Email</label>
+                                     <input type="email" name="email" value={formData.email} onChange={handleChange} className={inputClasses} placeholder="Email Address..." />
                                 </div>
                                 <div>
                                      <label className={labelClasses}>Phone Number *</label>
@@ -272,8 +272,8 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
-                                    <label className={labelClasses}>Origin School *</label>
-                                    <input type="text" name="schoolName" required value={formData.schoolName} onChange={handleChange} className={inputClasses} placeholder="School/College Name..." />
+                                    <label className={labelClasses}>Origin School</label>
+                                    <input type="text" name="schoolName" value={formData.schoolName} onChange={handleChange} className={inputClasses} placeholder="School/College Name..." />
                                 </div>
                                 <div>
                                     <label className={labelClasses}>Target Class *</label>
@@ -361,7 +361,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className={labelClasses}>Select Course ({filteredCourses.length}) *</label>
+                            <label className={labelClasses}>Select Course ({filteredCourses.length})</label>
 
                             <div className="relative">
                                 <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} size={10} />
@@ -374,7 +374,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
                                 />
                             </div>
 
-                            <select name="course" required={!lead?.courseText} value={formData.course} onChange={handleChange} className={selectClasses}>
+                            <select name="course" value={formData.course} onChange={handleChange} className={selectClasses}>
                                 <option value="">Select Course</option>
                                 {lead?.courseText && !formData.course && (
                                     <option value="" disabled>{lead.courseText.toUpperCase()} (EXCEL IMPORT)</option>
