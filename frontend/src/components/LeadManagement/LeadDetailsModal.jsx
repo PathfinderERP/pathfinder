@@ -1,8 +1,8 @@
 import React from "react";
-import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash } from "react-icons/fa";
+import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash, FaRoute } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, canEdit, canDelete, isDarkMode }) => {
+const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, onViewJourney, onTogglePriority, canEdit, canDelete, isDarkMode }) => {
     const [recordings, setRecordings] = React.useState((lead?.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
     const [userProfile, setUserProfile] = React.useState(null);
 
@@ -271,14 +271,32 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                 <FaCommentAlt size={12} /> View History
                             </button>
                             <button
+                                onClick={() => onViewJourney(lead)}
+                                className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-purple-600 text-white hover:bg-purple-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-purple-500/20 active:scale-95"
+                            >
+                                <FaRoute size={12} /> Journey
+                            </button>
+                            <button
                                 onClick={() => onCounseling(lead)}
                                 className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-green-600 text-white hover:bg-green-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20 active:scale-95"
                             >
-                                <FaUser size={12} /> Counseling
+                            <FaUser size={12} /> Counseling
                             </button>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            {['superadmin', 'zonalmanager'].includes(userProfile?.role?.toLowerCase()?.replace(/\s+/g, '')) && (
+                                <button
+                                    onClick={() => onTogglePriority(lead._id)}
+                                    className={`px-5 py-3 sm:py-2.5 justify-center rounded-[4px] border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-95 ${
+                                        lead.isPriority
+                                            ? 'bg-red-500 hover:bg-red-400 text-white shadow-lg shadow-red-500/20'
+                                            : 'bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20'
+                                    }`}
+                                >
+                                    {lead.isPriority ? "★ Priority" : "☆ Priority"}
+                                </button>
+                            )}
                             {canDelete && (
                                 <button
                                     onClick={() => onDelete(lead._id)}

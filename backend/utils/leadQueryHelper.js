@@ -141,10 +141,29 @@ export const buildLeadQuery = async (queryParams, user) => {
     const { 
         search, leadType, source, centre, course, leadResponsibility, 
         board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus,
-        schoolName, followUpFromDate, followUpToDate
+        schoolName, followUpFromDate, followUpToDate, showDuplicates
     } = queryParams;
 
     const query = {};
+
+    // Duplicate Phone Numbers filter
+    if (showDuplicates === "true" || showDuplicates === true) {
+        const duplicatePhones = await mongoose.model("LeadManagement").aggregate([
+            { $match: { phoneNumber: { $exists: true, $ne: null, $not: { $regex: /^\s*$/ } } } },
+            { $group: { _id: "$phoneNumber", count: { $sum: 1 } } },
+            { $match: { count: { $gt: 1 } } }
+        ]);
+        const phoneNumbers = duplicatePhones.map(d => d._id);
+        query.phoneNumber = { $in: phoneNumbers };
+    } else if (showDuplicates === "false" || showDuplicates === false) {
+        const duplicatePhones = await mongoose.model("LeadManagement").aggregate([
+            { $match: { phoneNumber: { $exists: true, $ne: null, $not: { $regex: /^\s*$/ } } } },
+            { $group: { _id: "$phoneNumber", count: { $sum: 1 } } },
+            { $match: { count: { $gt: 1 } } }
+        ]);
+        const phoneNumbers = duplicatePhones.map(d => d._id);
+        query.phoneNumber = { $nin: phoneNumbers };
+    }
 
     // Feedback filter
     if (feedback && (!Array.isArray(feedback) || feedback.length > 0)) {
@@ -371,6 +390,13 @@ export const buildLeadQuery = async (queryParams, user) => {
         } else {
             query.$or = searchOr;
         }
+    }
+
+    if (query.$and && query.$and.length === 0) {
+        delete query.$and;
+    }
+    if (query.$or && query.$or.length === 0) {
+        delete query.$or;
     }
 
     return query;

@@ -1,5 +1,6 @@
 import express from "express";
 import { createLead } from "../../controllers/leadManagement/createLead.js";
+import { cleanDuplicates } from "../../controllers/leadManagement/cleanDuplicates.js";
 import { getLeads, getLeadById, getDistinctSchools, getDistinctSources } from "../../controllers/leadManagement/getLeads.js";
 import { getFollowUpLeads } from "../../controllers/leadManagement/getFollowUpLeads.js";
 import { updateLead, tagWalkIn, toggleLeadPriority } from "../../controllers/leadManagement/updateLead.js";
@@ -61,6 +62,7 @@ router.post("/bulk-delete", requireAuth, bulkDeleteLeads);
 router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);
 router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
 router.post("/bulk-update", requireAuth, bulkUpdateLeads);
+router.post("/clean-duplicates", requireAuth, cleanDuplicates);
 
 // Campaign / Ads routes
 router.get("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "view"), getCampaigns);

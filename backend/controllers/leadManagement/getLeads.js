@@ -108,7 +108,13 @@ export const getLeads = async (req, res) => {
         }
         const walkInCount = await LeadManagement.countDocuments(walkInQuery);
 
-        const sortOption = query.nextFollowUpDate ? { nextFollowUpDate: 1 } : { isPriority: -1, createdAt: -1 };
+        let sortOption = {};
+        if (req.query.sortBy) {
+            const order = req.query.sortOrder === 'desc' ? -1 : 1;
+            sortOption[req.query.sortBy] = order;
+        } else {
+            sortOption = query.nextFollowUpDate ? { nextFollowUpDate: 1 } : { isPriority: -1, createdAt: -1 };
+        }
 
         const leads = await LeadManagement.find(query)
             .populate('className', 'name')

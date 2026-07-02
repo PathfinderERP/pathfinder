@@ -1,6 +1,6 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
-import { resolveAgentIdentifier } from "../../utils/leadQueryHelper.js";
+import { resolveAgentIdentifier, buildLeadQuery } from "../../utils/leadQueryHelper.js";
 import mongoose from "mongoose";
 
 export const getFollowUpStats = async (req, res) => {
@@ -93,38 +93,19 @@ export const getFollowUpStats = async (req, res) => {
             scheduledDateFilter.$lte = end;
         }
 
-        // 4. Access Control & Base Matches
-        const baseMatch = { isCounseled: { $ne: true } };
-
-        // Strip spaces for consistent comparison
-        const curUserRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const isSuperAdmin = curUserRoleStr === 'superadmin';
-
-        let userDoc = null;
-        let userCentreIds = [];
-        if (!isSuperAdmin) {
-            userDoc = await User.findById(req.user.id).select('centres role name');
-            if (userDoc) {
-                userCentreIds = userDoc.centres || [];
-            }
-        }
-
-        // Apply centre restriction if non-superadmin user has assigned centres
-        if (userCentreIds.length > 0) {
-            const allowedObjectIds = userCentreIds.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id);
-            if (centreIds.length > 0) {
-                const restrictedIn = centreIds.filter(id => 
-                    allowedObjectIds.some(allowedId => allowedId.toString() === id.toString())
-                );
-                baseMatch.centre = { $in: restrictedIn.length > 0 ? restrictedIn : allowedObjectIds };
-            } else {
-                baseMatch.centre = { $in: allowedObjectIds };
-            }
-        } else if (centreIds.length > 0) {
-            baseMatch.centre = { $in: centreIds };
-        }
+        // Build Base query ignoring follow-up activity parameters
+        const queryParams = { ...req.query };
+        delete queryParams.fromDate;
+        delete queryParams.toDate;
+        delete queryParams.scheduledDate;
+        delete queryParams.followUpStatus;
+        
+        const baseMatch = await buildLeadQuery(queryParams, req.user);
 
         const leadOwnerMatch = { ...baseMatch };
+        if (baseMatch.$and) {
+            leadOwnerMatch.$and = [...baseMatch.$and];
+        }
         if (leadResponsibilityQuery.$or && leadResponsibilityQuery.$or.length > 0) {
             leadOwnerMatch.$and = leadOwnerMatch.$and || [];
             leadOwnerMatch.$and.push(leadResponsibilityQuery);
@@ -142,47 +123,8 @@ export const getFollowUpStats = async (req, res) => {
             ...leadOwnerMatch, 
             nextFollowUpDate: { $lt: backlogStartDate } 
         };
-
-        if (userDoc) {
-            const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-            const accessLimit = {
-                $or: [
-                    { createdBy: userDoc._id },
-                    { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
-                ]
-            };
-
-            // Any user with assigned centres gets centre-based visibility.
-            if (userCentreIds.length > 0) {
-                accessLimit.$or.push({
-                    centre: {
-                        $in: userCentreIds.map(id =>
-                            mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id
-                        )
-                    }
-                });
-            }
-
-            if (leadResponsibilityQuery.$or && leadResponsibilityQuery.$or.length > 0) {
-                const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-                const isFilteringSelf = filterNames.some(n =>
-                    n.toLowerCase().trim() === userDoc.name.toLowerCase().trim()
-                );
-                // Only override the query if the user is filtering for someone
-                // other than themselves (prevent non-admins from peeking at others)
-                if (!isFilteringSelf) {
-                    leadResponsibilityQuery.$or = [
-                        { leadResponsibility: { $regex: new RegExp(`^${escapedName}$`, "i") } }
-                    ];
-                }
-            }
-
-            leadOwnerMatch.$and = leadOwnerMatch.$and || [];
-            leadOwnerMatch.$and.push(accessLimit);
-
-            baseMatch.$and = baseMatch.$and || [];
-            baseMatch.$and.push(accessLimit);
+        if (leadOwnerMatch.$and) {
+            previousPendingMatch.$and = [...leadOwnerMatch.$and];
         }
 
         const stats = await LeadManagement.aggregate([

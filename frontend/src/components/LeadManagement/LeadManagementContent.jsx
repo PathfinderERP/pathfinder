@@ -88,6 +88,8 @@ const LeadManagementContent = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalLeads, setTotalLeads] = useState(0);
     const [limit, setLimit] = useState(10);
+    const [sortField, setSortField] = useState(null);
+    const [sortDirection, setSortDirection] = useState('asc');
 
     const [dashboardFilters, setDashboardFilters] = useState({
         fromDate: "",
@@ -109,7 +111,8 @@ const LeadManagementContent = () => {
         followUpStatus: [],
         marketingBy: [],
         isPriority: "",
-        schoolName: []
+        schoolName: [],
+        showDuplicates: ""
     });
 
     // Dropdown data for filters
@@ -226,6 +229,10 @@ const LeadManagementContent = () => {
             if (searchTerm) params.append("search", searchTerm);
             if (dashboardFilters.fromDate) params.append("followUpFromDate", dashboardFilters.fromDate);
             if (dashboardFilters.toDate) params.append("followUpToDate", dashboardFilters.toDate);
+            if (sortField) {
+                params.append("sortBy", sortField);
+                params.append("sortOrder", sortDirection);
+            }
 
             Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
@@ -275,11 +282,11 @@ const LeadManagementContent = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, filters, limit, searchTerm, dashboardFilters.fromDate, dashboardFilters.toDate]);
+    }, [currentPage, filters, limit, searchTerm, dashboardFilters.fromDate, dashboardFilters.toDate, sortField, sortDirection]);
 
     useEffect(() => {
         clearSelection();
-    }, [filters, searchTerm, dashboardFilters.fromDate, dashboardFilters.toDate]);
+    }, [filters, searchTerm, dashboardFilters.fromDate, dashboardFilters.toDate, sortField, sortDirection]);
 
     const fetchAllowedCentres = useCallback(async () => {
         try {
@@ -525,6 +532,68 @@ const LeadManagementContent = () => {
         }
     };
 
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+        setCurrentPage(1);
+    };
+
+    const renderSortableHeader = (label, field) => {
+        return (
+            <th 
+                onClick={() => handleSort(field)}
+                className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest cursor-pointer select-none hover:text-cyan-400 transition-colors ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}
+            >
+                <div className="flex items-center gap-1.5">
+                    <span>{label}</span>
+                    {sortField === field ? (
+                        sortDirection === 'asc' ? '▲' : '▼'
+                    ) : '↕'}
+                </div>
+            </th>
+        );
+    };
+
+    const handleCleanDuplicates = async () => {
+        const confirmClean = window.confirm(
+            "Are you sure you want to clean up duplicate mobile numbers? For every phone number that appears multiple times, the most recently created lead will be kept, and all other duplicate leads will be deleted."
+        );
+        if (!confirmClean) return;
+
+        try {
+            setLoading(true);
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/clean-duplicates`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ filters })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(
+                    `Cleaned ${data.checkedNumbers} duplicate phone number groups! Deleted ${data.deletedCount} duplicate leads.`
+                );
+                fetchLeads();
+                fetchFollowUpStats();
+            } else {
+                toast.error(data.message || "Failed to clean duplicates");
+            }
+        } catch (error) {
+            console.error("Error cleaning duplicates:", error);
+            toast.error("Error cleaning duplicates");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const resetFilters = () => {
         setFilters({
             leadType: [{ value: "HOT LEAD", label: "HOT LEAD" }],
@@ -540,8 +609,11 @@ const LeadManagementContent = () => {
             followUpStatus: [],
             marketingBy: [],
             isPriority: "",
-            schoolName: []
+            schoolName: [],
+            showDuplicates: ""
         });
+        setSortField(null);
+        setSortDirection('asc');
         setSearchTerm("");
         setCurrentPage(1);
         toast.info("Table filters have been reset");
@@ -736,6 +808,9 @@ const LeadManagementContent = () => {
             if (response.ok) {
                 toast.success(data.message || "Lead priority updated");
                 fetchLeads();
+                if (selectedDetailLead && selectedDetailLead._id === leadId) {
+                    setSelectedDetailLead(prev => ({ ...prev, isPriority: !prev.isPriority }));
+                }
             } else {
                 toast.error(data.message || "Failed to update priority");
             }
@@ -1520,6 +1595,18 @@ const LeadManagementContent = () => {
                                 <option value="false">NON-PRIORITY LEADS ONLY</option>
                             </select>
                         </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Duplicate Mobile Number</label>
+                            <select
+                                value={filters.showDuplicates || ""}
+                                onChange={(e) => handleFilterChange('showDuplicates', e.target.value)}
+                                className={`w-full px-4 py-2.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                            >
+                                <option value="">ALL LEADS</option>
+                                <option value="true">SHOW DUPLICATES ONLY</option>
+                                <option value="false">HIDE DUPLICATES</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* Follow Up Stats Summary */}
@@ -1579,7 +1666,19 @@ const LeadManagementContent = () => {
                         </div>
                     </div>
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex justify-end items-center gap-4 pt-2">
+                        {canDelete && (
+                            <button
+                                onClick={handleCleanDuplicates}
+                                className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors px-3 py-1.5 border rounded-[2px] ${
+                                    isDarkMode 
+                                        ? 'border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50' 
+                                        : 'border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'
+                                }`}
+                            >
+                                <FaTrash size={10} /> Clean Duplicates
+                            </button>
+                        )}
                         <button
                             onClick={resetFilters}
                             className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors ${isDarkMode ? 'text-gray-500 hover:text-cyan-400' : 'text-gray-400 hover:text-cyan-600'}`}
@@ -1606,27 +1705,27 @@ const LeadManagementContent = () => {
                                             <span>S/N</span>
                                         </div>
                                     </th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned At</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Follow Up</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Name</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Email</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Mobile No</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Second Mobile No</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Centers</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Course Name</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Class</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Board</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>School</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marks</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Walk In Date</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Owner</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Source</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Campaign From</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last Feedback</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Next Follow Up</th>
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Uploaded By</th>
+                                    {renderSortableHeader("Assigned At", "assignedAt")}
+                                    {renderSortableHeader("Follow Up", "followUps")}
+                                    {renderSortableHeader("Name", "name")}
+                                    {renderSortableHeader("Email", "email")}
+                                    {renderSortableHeader("Mobile No", "phoneNumber")}
+                                    {renderSortableHeader("Second Mobile No", "secondMobileNo")}
+                                    {renderSortableHeader("Centers", "centre")}
+                                    {renderSortableHeader("Course Name", "course")}
+                                    {renderSortableHeader("Class", "className")}
+                                    {renderSortableHeader("Board", "board")}
+                                    {renderSortableHeader("School", "schoolName")}
+                                    {renderSortableHeader("Marks", "marks")}
+                                    {renderSortableHeader("Walk In Date", "walkInDate")}
+                                    {renderSortableHeader("Status", "leadType")}
+                                    {renderSortableHeader("Owner", "leadResponsibility")}
+                                    {renderSortableHeader("Target Source", "source")}
+                                    {renderSortableHeader("Campaign From", "campaignFrom")}
+                                    {renderSortableHeader("Marketing By", "marketingBy")}
+                                    {renderSortableHeader("Last Feedback", "followUps.feedback")}
+                                    {renderSortableHeader("Next Follow Up", "nextFollowUpDate")}
+                                    {renderSortableHeader("Uploaded By", "createdBy")}
                                     <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[350px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
@@ -2002,7 +2101,7 @@ const LeadManagementContent = () => {
                     onSuccess={() => { setShowBulkUpdateModal(false); clearSelection(); fetchLeads(); fetchFollowUpStats(); }}
                 />
             )}
-            {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead, startCall = false) => { setShowDetailModal(false); setSelectedLead(lead); setStartCallOnOpen(startCall); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} />}
+            {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead, startCall = false) => { setShowDetailModal(false); setSelectedLead(lead); setStartCallOnOpen(startCall); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} onViewJourney={(lead) => { setShowDetailModal(false); handleViewJourney(lead); }} onTogglePriority={handleTogglePriority} />}
             {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} startCall={startCallOnOpen} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); setStartCallOnOpen(false); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); setStartCallOnOpen(false); fetchLeads(); fetchFollowUpStats(); }} />}
             {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}
             {showFollowUpListModal && <FollowUpListModal isDarkMode={isDarkMode} onClose={() => setShowFollowUpListModal(false)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}
