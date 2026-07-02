@@ -55,20 +55,45 @@ export const getLeads = async (req, res) => {
         // Build Filter
         const query = await buildLeadQuery(req.query, req.user);
 
-        const totalLeads = await LeadManagement.countDocuments(query);
-        const contactedCount = await LeadManagement.countDocuments({ ...query, followUps: { $exists: true, $not: { $size: 0 } } });
-        const remainingCount = await LeadManagement.countDocuments({ ...query, followUps: { $size: 0 } });
+        // Build Stats Filter (ignores followUpStatus card filtering to keep counters consistent)
+        const statsParams = { ...req.query };
+        delete statsParams.followUpStatus;
+        const statsQuery = await buildLeadQuery(statsParams, req.user);
 
-        const walkInQuery = { ...query };
-        if (query.$and) {
-            walkInQuery.$and = [...query.$and];
+        const totalLeads = await LeadManagement.countDocuments(query);
+
+        // Compute contacted count using $and to preserve feedback and other followUps constraints
+        const contactedQuery = { ...statsQuery };
+        if (statsQuery.$and) {
+            contactedQuery.$and = [...statsQuery.$and];
+        } else {
+            contactedQuery.$and = [];
         }
-        if (query.$or) {
-            walkInQuery.$or = [...query.$or];
+        contactedQuery.$and.push({ followUps: { $exists: true, $not: { $size: 0 } } });
+        const contactedCount = await LeadManagement.countDocuments(contactedQuery);
+
+        // Compute remaining count using $and
+        const remainingQuery = { ...statsQuery };
+        if (statsQuery.$and) {
+            remainingQuery.$and = [...statsQuery.$and];
+        } else {
+            remainingQuery.$and = [];
+        }
+        remainingQuery.$and.push({ followUps: { $size: 0 } });
+        const remainingCount = await LeadManagement.countDocuments(remainingQuery);
+
+        // Compute walk-in count based on statsQuery to avoid followUpStatus restriction
+        const walkInQuery = { ...statsQuery };
+        if (statsQuery.$and) {
+            walkInQuery.$and = [...statsQuery.$and];
+        } else {
+            walkInQuery.$and = [];
+        }
+        if (statsQuery.$or) {
+            walkInQuery.$or = [...statsQuery.$or];
         }
 
         if (walkInQuery.$or) {
-            walkInQuery.$and = walkInQuery.$and || [];
             walkInQuery.$and.push({
                 $or: [
                     { isWalkIn: true },

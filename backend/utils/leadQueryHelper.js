@@ -192,6 +192,8 @@ export const buildLeadQuery = async (queryParams, user) => {
     if (leadType && (!Array.isArray(leadType) || leadType.length > 0)) {
         const values = Array.isArray(leadType) ? normalizeValue(leadType) : [normalizeValue(leadType)];
         query.leadType = { $in: values };
+    } else {
+        query.leadType = { $ne: "INVALID LEAD" };
     }
     if (source && (!Array.isArray(source) || source.length > 0)) {
         const values = Array.isArray(source) ? normalizeValue(source) : [normalizeValue(source)];
@@ -258,9 +260,11 @@ export const buildLeadQuery = async (queryParams, user) => {
     // Follow-up status
     const statusVal = Array.isArray(followUpStatus) ? followUpStatus[0] : (followUpStatus && typeof followUpStatus === 'object' && 'value' in followUpStatus ? followUpStatus.value : followUpStatus);
     if (statusVal === 'contacted') {
-        query.followUps = { $exists: true, $not: { $size: 0 } };
+        query.$and = query.$and || [];
+        query.$and.push({ followUps: { $exists: true, $not: { $size: 0 } } });
     } else if (statusVal === 'remaining') {
-        query.followUps = { $size: 0 };
+        query.$and = query.$and || [];
+        query.$and.push({ followUps: { $size: 0 } });
     } else if (statusVal === 'walkin') {
         query.$and = query.$and || [];
         query.$and.push({

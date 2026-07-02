@@ -4,6 +4,23 @@ import { FaTimes, FaCalendarAlt, FaComment, FaClock, FaUser } from "react-icons/
 const FollowUpHistoryModal = ({ lead, onClose, isDarkMode }) => {
     if (!lead) return null;
 
+    const getLeadTypeColor = (type) => {
+        switch (type?.toUpperCase()) {
+            case "HOT LEAD":
+                return isDarkMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-100 text-red-600";
+            case "WARM LEAD":
+                return isDarkMode ? "bg-orange-500/10 border-orange-500/20 text-orange-400" : "bg-orange-50 border-orange-100 text-orange-600";
+            case "COLD LEAD":
+                return isDarkMode ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600";
+            case "NEUTRAL LEAD":
+                return isDarkMode ? "bg-purple-500/10 border-purple-500/20 text-purple-400" : "bg-purple-50 border-purple-100 text-purple-600";
+            case "INVALID LEAD":
+                return isDarkMode ? "bg-gray-500/10 border-gray-500/20 text-gray-400" : "bg-gray-50 border-gray-150 text-gray-500";
+            default:
+                return isDarkMode ? "bg-gray-800 border-gray-700 text-gray-400" : "bg-gray-50 border-gray-250 text-gray-500";
+        }
+    };
+
     // Sort follow-ups by date descending (newest first)
     const sortedFollowUps = [...(lead.followUps || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -67,8 +84,15 @@ const FollowUpHistoryModal = ({ lead, onClose, isDarkMode }) => {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className={`px-3 py-1 rounded-[4px] border text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 text-cyan-400 border-gray-700' : 'bg-gray-50 text-cyan-600 border-gray-200'}`}>
-                                        ASSIGNED AGENT: {followUp.updatedBy || "SYSTEM"}
+                                    <div className="flex flex-col items-end gap-1.5">
+                                        <div className={`px-3 py-1 rounded-[4px] border text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 text-cyan-400 border-gray-700' : 'bg-gray-50 text-cyan-600 border-gray-200'}`}>
+                                            ASSIGNED AGENT: {followUp.updatedBy || "SYSTEM"}
+                                        </div>
+                                        {followUp.status && (
+                                            <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest border leading-none ${getLeadTypeColor(followUp.status)}`}>
+                                                {followUp.status}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 

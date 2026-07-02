@@ -206,13 +206,19 @@ export const getFollowUpStats = async (req, res) => {
                         },
                         {
                             $group: {
+                                _id: "$_id",
+                                leadType: { $first: "$leadType" }
+                            }
+                        },
+                        {
+                            $group: {
                                 _id: null,
                                 totalFollowUps: { $sum: 1 },
-                                hotLeads: { $sum: { $cond: [{ $in: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, ["HOT LEAD", "ADMISSION TAKEN"]] }, 1, 0] } },
-                                warmLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "WARM LEAD"] }, 1, 0] } },
-                                coldLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "COLD LEAD"] }, 1, 0] } },
-                                neutralLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "NEUTRAL LEAD"] }, 1, 0] } },
-                                invalidLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: { $ifNull: ["$followUp.status", "$leadType"] } }, "INVALID LEAD"] }, 1, 0] } }
+                                hotLeads: { $sum: { $cond: [{ $in: [{ $toUpper: "$leadType" }, ["HOT LEAD", "ADMISSION TAKEN"]] }, 1, 0] } },
+                                warmLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: "$leadType" }, "WARM LEAD"] }, 1, 0] } },
+                                coldLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: "$leadType" }, "COLD LEAD"] }, 1, 0] } },
+                                neutralLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: "$leadType" }, "NEUTRAL LEAD"] }, 1, 0] } },
+                                invalidLeads: { $sum: { $cond: [{ $eq: [{ $toUpper: "$leadType" }, "INVALID LEAD"] }, 1, 0] } }
                             }
                         }
                     ],
