@@ -1,0 +1,724 @@
+
+CURRENT DATE & TIME (IST): 2/7/2026, 5:11:48 pm
+APPLIED FILTERS: {"module":"admissions"}
+
+
+
+--- LIVE ERP ANALYSIS DATA ---
+{
+  "admissions": {
+    "stats": {
+      "_id": null,
+      "count": 7842,
+      "totalRevenue": 388337892.28390133,
+      "collected": 163971155.44732216,
+      "pending": 226121370.36151093
+    },
+    "records": [
+      {
+        "_id": "69a972212bb6e43bfc4a92e0",
+        "student": {
+          "_id": "69a972202bb6e43bfc4a92dc",
+          "studentsDetails": [
+            {
+              "studentName": "AYUSH MAHATA",
+              "dateOfBirth": "2013-04-05",
+              "gender": "Male",
+              "centre": "MIDNAPORE",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "AYUSHMAHTA26@GMAIL.COM",
+              "mobileNum": "7001772050",
+              "whatsappNumber": "7001772050",
+              "schoolName": "NEW I. G. SCHOOL SALBONI",
+              "pincode": "721147",
+              "source": "Walk-in",
+              "address": null,
+              "programme": null,
+              "_id": "6a0d8053179d317c71d7157f",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "MIDNAPORE",
+        "admissionDate": "2028-03-31T18:30:00.000Z",
+        "admissionNumber": "PATH26000868",
+        "totalFees": 118799.96847456999,
+        "remainingAmount": 92099.96847456999,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 26700,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a972202bb6e43bfc4a92d4",
+        "student": {
+          "_id": "69a972202bb6e43bfc4a92d0",
+          "studentsDetails": [
+            {
+              "studentName": "ANKUSH MAHATA",
+              "dateOfBirth": "2013-04-05",
+              "gender": "Male",
+              "centre": "MIDNAPORE",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "ANKUSHMAHATA26@GMAIL.COM",
+              "mobileNum": "9064521046",
+              "whatsappNumber": "9064521046",
+              "schoolName": "NEW .I.G.S SALBONI",
+              "pincode": "721147",
+              "source": "Walk-in",
+              "address": null,
+              "programme": null,
+              "_id": "6a0d8069179d317c71d746ed",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "MIDNAPORE",
+        "admissionDate": "2028-03-31T18:30:00.000Z",
+        "admissionNumber": "PATH26000867",
+        "totalFees": 118799.96847456999,
+        "remainingAmount": 92099.96847456999,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 26700,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a972122bb6e43bfc4a90ee",
+        "student": {
+          "_id": "69a972122bb6e43bfc4a90ea",
+          "studentsDetails": [
+            {
+              "studentName": "ARINI BHOWMIK",
+              "dateOfBirth": "2014-01-07",
+              "gender": "Female",
+              "centre": "TAMLUK",
+              "board": "WB",
+              "state": "West Bengal",
+              "studentEmail": "bhowmikuday123@gmail.com",
+              "mobileNum": "6297378550",
+              "whatsappNumber": "6297378550",
+              "schoolName": "demari balika vidyalaya",
+              "pincode": "721172",
+              "source": "Walk-in",
+              "address": null,
+              "_id": "69e45f522cea83e69a6bb95a",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "TAMLUK",
+        "admissionDate": "2027-07-07T18:30:00.000Z",
+        "admissionNumber": "PATH25000053",
+        "totalFees": 118000,
+        "remainingAmount": 109000,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 9000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721f2bb6e43bfc4a929a",
+        "student": {
+          "_id": "69a9721e2bb6e43bfc4a9296",
+          "studentsDetails": [
+            {
+              "studentName": "SRIJA NANDI ",
+              "dateOfBirth": "2012-09-19",
+              "gender": "Female",
+              "centre": "BURDWAN",
+              "board": "WBBSE",
+              "state": "West Bengal",
+              "studentEmail": "nandi@gmail.com",
+              "mobileNum": "9932681420",
+              "whatsappNumber": "9932681420",
+              "schoolName": "AKUI NANIBALA GIRLS HIGH SCHOOL ",
+              "pincode": "722201",
+              "source": "Walk-in",
+              "address": "choto gobindapur, mandra, indas, bankura",
+              "programme": "CRP",
+              "_id": "69fb1d53548dfc5f49ac515d",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "BURDWAN",
+        "admissionDate": "2027-06-11T18:30:00.000Z",
+        "admissionNumber": "PATH25011727",
+        "totalFees": 115000,
+        "remainingAmount": 90000,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 25000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a972202bb6e43bfc4a92c4",
+        "student": {
+          "_id": "69a972202bb6e43bfc4a92c0",
+          "studentsDetails": [
+            {
+              "studentName": "SHREYAN DAS",
+              "dateOfBirth": "2014-02-25",
+              "gender": "Male",
+              "centre": "TAMLUK",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "guruila1982@gmail.com",
+              "mobileNum": "9564245601",
+              "whatsappNumber": "9564245601",
+              "schoolName": "ZILLA PUBLIC SCHOOL",
+              "pincode": "721643",
+              "source": "Walk-in",
+              "address": null,
+              "_id": "69e35cff4f7ae622cf596665",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "TAMLUK",
+        "admissionDate": "2027-05-31T18:30:00.000Z",
+        "admissionNumber": "PATH26000674",
+        "totalFees": 122000,
+        "remainingAmount": 110000,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 12000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721e2bb6e43bfc4a928e",
+        "student": {
+          "_id": "69a9721e2bb6e43bfc4a928a",
+          "studentsDetails": [
+            {
+              "studentName": "SOUMYA ASH",
+              "dateOfBirth": "2013-01-28",
+              "gender": "Male",
+              "centre": "MIDNAPORE",
+              "board": "CBSE",
+              "state": null,
+              "studentEmail": "ASHSOUMYA859@GMAIL.COM",
+              "mobileNum": "9531523418",
+              "whatsappNumber": "9531523418",
+              "schoolName": "ST NICHOLAS ",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "programme": null,
+              "_id": "6a0d80d5179d317c71d7d94c",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "MIDNAPORE",
+        "admissionDate": "2027-05-11T18:30:00.000Z",
+        "admissionNumber": "PATH25024766",
+        "totalFees": 115999.08847457,
+        "remainingAmount": 95999.08847457,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 20000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721f2bb6e43bfc4a92b8",
+        "student": {
+          "_id": "69a9721f2bb6e43bfc4a92b4",
+          "studentsDetails": [
+            {
+              "studentName": "ARYA SAMAI",
+              "dateOfBirth": "2013-06-29",
+              "gender": "Male",
+              "centre": "MIDNAPORE",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "SAMAIARYA85497@GMAIL.COM",
+              "mobileNum": "9800870798",
+              "whatsappNumber": "9800870798",
+              "schoolName": "MOUPAL DESHPRAN VIDYAPITH",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "programme": null,
+              "_id": "6a0d8085179d317c71d74ce9",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "MIDNAPORE",
+        "admissionDate": "2027-04-30T18:30:00.000Z",
+        "admissionNumber": "PATH26000609",
+        "totalFees": 123700.50847457,
+        "remainingAmount": 103700.50847457,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 20000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721e2bb6e43bfc4a927e",
+        "student": {
+          "_id": "69a9721d2bb6e43bfc4a927a",
+          "studentsDetails": [
+            {
+              "studentName": "KOUSHANI SAIN",
+              "dateOfBirth": "2013-09-01",
+              "gender": "Female",
+              "centre": "BURDWAN",
+              "board": "WBBSE",
+              "state": "West Bengal",
+              "studentEmail": "kapilsain2014@gmail.com",
+              "mobileNum": "9474041162",
+              "whatsappNumber": "9474041162",
+              "schoolName": "MONTESWAR SATI KRISHNAMONI ",
+              "pincode": "713145",
+              "source": "Walk-in",
+              "address": "monteswar, burdwan",
+              "programme": "CRP",
+              "_id": "69fb1b30548dfc5f49a87f31",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "BURDWAN",
+        "admissionDate": "2027-04-11T18:30:00.000Z",
+        "admissionNumber": "PATH25024657",
+        "totalFees": 111999.25813560002,
+        "remainingAmount": 35999.258135600016,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 22000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721f2bb6e43bfc4a92ac",
+        "student": {
+          "_id": "69a9721f2bb6e43bfc4a92a8",
+          "studentsDetails": [
+            {
+              "studentName": "RITAM MANDAL",
+              "dateOfBirth": "2013-05-13",
+              "gender": "Male",
+              "centre": "MIDNAPORE",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "RITAMMANDAL26@GMAIL.COM",
+              "mobileNum": "8116810678",
+              "whatsappNumber": "8116810678",
+              "schoolName": "HARIMARA KONARPUR SSC HS",
+              "pincode": "721121",
+              "source": "Walk-in",
+              "address": null,
+              "programme": null,
+              "_id": "6a0d80b9179d317c71d75f0d",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "MIDNAPORE",
+        "admissionDate": "2027-03-31T18:30:00.000Z",
+        "admissionNumber": "PATH26000566",
+        "totalFees": 115999.08847457,
+        "remainingAmount": 93332.08847457,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 22667,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721d2bb6e43bfc4a9262",
+        "student": {
+          "_id": "69a9721d2bb6e43bfc4a925e",
+          "studentsDetails": [
+            {
+              "studentName": "BISWADIP DAS",
+              "dateOfBirth": "2025-12-28",
+              "gender": "Male",
+              "centre": "MIDNAPORE",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "DASBISWADIP8579@GMAIL.COM",
+              "mobileNum": "8918998204",
+              "whatsappNumber": "8918998204",
+              "schoolName": "BHISDIPUR ITESWAR FIDAYATAN HS",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "programme": null,
+              "_id": "6a0d80ec179d317c71d7df09",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "MIDNAPORE",
+        "admissionDate": "2027-01-11T18:30:00.000Z",
+        "admissionNumber": "PATH25024533",
+        "totalFees": 115999.08847457,
+        "remainingAmount": 89999.08847457,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 26000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721d2bb6e43bfc4a926e",
+        "student": {
+          "_id": "69a9721d2bb6e43bfc4a926a",
+          "studentsDetails": [
+            {
+              "studentName": "UMUL MANDI",
+              "dateOfBirth": "2012-08-27",
+              "gender": "Female",
+              "centre": "TAMLUK",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "umul.mandi@gmail.com",
+              "mobileNum": "8145714417",
+              "whatsappNumber": "8145714417",
+              "schoolName": "VIVEKANANDA MISSION ASRAM SIKSHYATAN",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "_id": "69e35ddd4f7ae622cf59d4a0",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "TAMLUK",
+        "admissionDate": "2027-01-11T18:30:00.000Z",
+        "admissionNumber": "PATH25005288",
+        "totalFees": 120000,
+        "remainingAmount": 107000,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 13000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a972162bb6e43bfc4a917a",
+        "student": {
+          "_id": "69a972162bb6e43bfc4a9176",
+          "studentsDetails": [
+            {
+              "studentName": "SRIJAN SARKAR",
+              "dateOfBirth": "2013-06-27",
+              "gender": "Male",
+              "centre": "BURDWAN",
+              "board": "WBBSE",
+              "state": "West Bengal",
+              "studentEmail": "srijansarkar7-10@gmail.com",
+              "mobileNum": "8436384244",
+              "whatsappNumber": "8436384244",
+              "schoolName": "MUNICIPAL HIGH SCHOOL",
+              "pincode": "713104",
+              "source": "Walk-in",
+              "address": "pamra, jotram, burdwan",
+              "programme": "CRP",
+              "_id": "69fb165e548dfc5f49a3a21b",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "BURDWAN",
+        "admissionDate": "2027-01-10T18:30:00.000Z",
+        "admissionNumber": "PATH25022809",
+        "totalFees": 130000,
+        "remainingAmount": 102000,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 28000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "69a9721c2bb6e43bfc4a9252",
+        "student": {
+          "_id": "69a9721c2bb6e43bfc4a924e",
+          "studentsDetails": [
+            {
+              "studentName": "TINA MAHATA",
+              "dateOfBirth": "20009-06-01",
+              "gender": "Female",
+              "centre": "MIDNAPORE",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "MAHATATINA77@GMAIL.COM",
+              "mobileNum": "9002915196",
+              "whatsappNumber": "9002915196",
+              "schoolName": "SALBONI GIRLS",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "programme": null,
+              "_id": "6a0d8104179d317c71d7e580",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "MIDNAPORE",
+        "admissionDate": "2026-12-11T18:30:00.000Z",
+        "admissionNumber": "PATH25004388",
+        "totalFees": 116620.50847457,
+        "remainingAmount": 90620.50847457,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 26000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "6985e2933868c72bbc4365a9",
+        "student": {
+          "_id": "6985e2933868c72bbc4365a5",
+          "studentsDetails": [
+            {
+              "studentName": "KRISHAV MUKHERJEE",
+              "dateOfBirth": "2011-11-22",
+              "gender": "Male",
+              "centre": "HAZRA H.O",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "krishavmadh@gmail.com",
+              "mobileNum": "8910126859",
+              "whatsappNumber": "8910126859",
+              "schoolName": "NAVA NALANDA",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "_id": "699e9b66e4a94e97af9492c9",
+              "guardians": [],
+              "examSchema": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "HAZRA H.O",
+        "admissionDate": "2026-11-30T18:30:00.000Z",
+        "admissionNumber": "PATH26000430",
+        "totalFees": 4237.288136,
+        "remainingAmount": 0,
+        "paymentStatus": "COMPLETED",
+        "totalPaidAmount": 4237.291864,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "6985e2943868c72bbc4365d1",
+        "student": {
+          "_id": "6985e2943868c72bbc4365cd",
+          "studentsDetails": [
+            {
+              "studentName": "RIJU CHAKRABORTY BISWAS",
+              "dateOfBirth": "2011-10-05",
+              "gender": "Male",
+              "centre": "HAZRA H.O",
+              "board": "WBBSE",
+              "state": null,
+              "studentEmail": "sanjoy68mithu@gmail.com",
+              "mobileNum": "6290209751",
+              "whatsappNumber": "6290209751",
+              "schoolName": "PATHA BHABAN",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "programme": "CRP",
+              "_id": "6a071b0f5ab22ddf3e98a21d",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "HAZRA H.O",
+        "admissionDate": "2026-11-30T18:30:00.000Z",
+        "admissionNumber": "PATH25001764",
+        "totalFees": 24212,
+        "remainingAmount": 10737.42,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 13474.58,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "6985e2943868c72bbc4365e2",
+        "student": {
+          "_id": "6985e2943868c72bbc4365de",
+          "studentsDetails": [
+            {
+              "studentName": "SUDARSHAN MAITY",
+              "dateOfBirth": "2010-04-19",
+              "gender": "Male",
+              "centre": "HAZRA H.O",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "maitysangita244@gmail.com",
+              "mobileNum": "9330834281",
+              "whatsappNumber": "9330834281",
+              "schoolName": "MIRA ",
+              "pincode": "700020",
+              "source": "Walk-in",
+              "address": null,
+              "_id": "699ea306e4a94e97afc79436",
+              "guardians": [],
+              "examSchema": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "HAZRA H.O",
+        "admissionDate": "2026-11-30T18:30:00.000Z",
+        "admissionNumber": "PATH26000454",
+        "totalFees": 57600,
+        "remainingAmount": 25800,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 31800,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "6985e2953868c72bbc4365ee",
+        "student": {
+          "_id": "6985e2953868c72bbc4365ea",
+          "studentsDetails": [
+            {
+              "studentName": "SHREYAAN DAS",
+              "dateOfBirth": "2011-11-11",
+              "gender": "Male",
+              "centre": "HAZRA H.O",
+              "board": "ICSE",
+              "state": null,
+              "studentEmail": "swa_rup@hotmail.com",
+              "mobileNum": "9830062065",
+              "whatsappNumber": "9830062065",
+              "schoolName": "ST. JAMES SCHOOL",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "_id": "699bfb7a863910f655e2a1a1",
+              "guardians": [],
+              "examSchema": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "HAZRA H.O",
+        "admissionDate": "2026-11-30T18:30:00.000Z",
+        "admissionNumber": "PATH26000462",
+        "totalFees": 12881.355932203,
+        "remainingAmount": 12881.355932203,
+        "paymentStatus": "PENDING",
+        "totalPaidAmount": 0,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "6985e2933868c72bbc4365c4",
+        "student": {
+          "_id": "6985e2933868c72bbc4365c0",
+          "studentsDetails": [
+            {
+              "studentName": "SWAPNIL PATRA",
+              "dateOfBirth": "2009-02-22",
+              "gender": "Male",
+              "centre": "HAZRA H.O",
+              "board": "WB",
+              "state": null,
+              "studentEmail": "swapnilmadh@gmail.com",
+              "mobileNum": "8017710216",
+              "whatsappNumber": "8017710216",
+              "schoolName": "MITRA INSTITUTION",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "_id": "699e9b57e4a94e97af945d2c",
+              "guardians": [],
+              "examSchema": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "HAZRA H.O",
+        "admissionDate": "2026-11-30T18:30:00.000Z",
+        "admissionNumber": "PATH26000434",
+        "totalFees": 31000,
+        "remainingAmount": 15000,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 16000,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "6985e2933868c72bbc4365b8",
+        "student": {
+          "_id": "6985e2933868c72bbc4365b4",
+          "studentsDetails": [
+            {
+              "studentName": "RAJVEE PRAMANICK",
+              "dateOfBirth": "2011-10-08",
+              "gender": "Female",
+              "centre": "HAZRA H.O",
+              "board": "ICSE",
+              "state": null,
+              "studentEmail": "nargis.noskk@gmail.com",
+              "mobileNum": "8777434235",
+              "whatsappNumber": "8777434235",
+              "schoolName": "BHARAT ACADEMY & SCIENCES",
+              "pincode": "711310",
+              "source": "Walk-in",
+              "address": null,
+              "programme": "CRP",
+              "_id": "6a05cbf3d9009586d2a54f1a",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "HAZRA H.O",
+        "admissionDate": "2026-11-30T18:30:00.000Z",
+        "admissionNumber": "PATH25001051",
+        "totalFees": 32700,
+        "remainingAmount": 0,
+        "paymentStatus": "COMPLETED",
+        "totalPaidAmount": 32700,
+        "admissionStatus": "ACTIVE"
+      },
+      {
+        "_id": "6985e0b86bccdb515a05319e",
+        "student": {
+          "_id": "6985e0b86bccdb515a05319a",
+          "studentsDetails": [
+            {
+              "studentName": "ARKO MONDAL",
+              "dateOfBirth": "2012-12-31",
+              "gender": "Male",
+              "centre": "HAZRA H.O",
+              "board": "WBBSE",
+              "state": null,
+              "studentEmail": "arkofdn@gmail.com",
+              "mobileNum": "9382858556",
+              "whatsappNumber": "9382858556",
+              "schoolName": "PRANABANANDH FARAKKA",
+              "pincode": null,
+              "source": "Walk-in",
+              "address": null,
+              "programme": "CRP",
+              "_id": "6a05ac938a6960192f9bc03c",
+              "guardians": []
+            }
+          ]
+        },
+        "admissionType": "NORMAL",
+        "centre": "HAZRA H.O",
+        "admissionDate": "2026-11-30T18:30:00.000Z",
+        "admissionNumber": "PATH26000465",
+        "totalFees": 16000,
+        "remainingAmount": 5000,
+        "paymentStatus": "PARTIAL",
+        "totalPaidAmount": 11000,
+        "admissionStatus": "ACTIVE"
+      }
+    ],
+    "totalRecords": 100
+  }
+}
+--- END OF ERP DATA ---
+
+ANALYTICAL QUESTION: Analyze our course-wise enrollments and revenues. Which centers have the highest fee collections?
+
+Please provide a detailed analysis and insights based on the above ERP data. 
+Include trends, anomalies, recommendations, and key metrics in your response.

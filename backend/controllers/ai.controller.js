@@ -854,20 +854,46 @@ Please analyse the above ERP data and answer the user's question accurately. For
 // ANALYTICS QUERY — POST /api/ai/analyse
 // Deep analysis with custom date range and centre filter
 // ─────────────────────────────────────────────────────────────
+const parseDurationToSeconds = (durationStr) => {
+    if (!durationStr) return 0;
+    const parts = durationStr.split(':').map(Number);
+    if (parts.some(isNaN)) return 0;
+    if (parts.length === 2) {
+        return parts[0] * 60 + parts[1];
+    } else if (parts.length === 3) {
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    return 0;
+};
+
+// ─────────────────────────────────────────────────────────────
+// ANALYTICS QUERY — POST /api/ai/analyse
+// Deep analysis with custom date range and centre filter
+// ─────────────────────────────────────────────────────────────
 export const analyseERP = async (req, res) => {
     try {
-        const { question, module, startDate, endDate, centre, contextData } = req.body;
+        let { question, module, startDate, endDate, centre, contextData } = req.body;
 
         if (!question) {
             return res.status(400).json({ error: "Question is required" });
         }
 
-        const dateFilter = {};
+        let dateFilter = {};
         if (startDate) dateFilter.$gte = new Date(startDate);
         if (endDate) {
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
             dateFilter.$lte = end;
+        }
+
+        // If no explicit dates passed, try to parse date expression from question
+        if (Object.keys(dateFilter).length === 0) {
+            const parsedFilter = extractDateRange(question);
+            if (parsedFilter) {
+                dateFilter = parsedFilter;
+                if (parsedFilter.$gte) startDate = parsedFilter.$gte.toISOString();
+                if (parsedFilter.$lte) endDate = parsedFilter.$lte.toISOString();
+            }
         }
 
         let data = {};
@@ -907,32 +933,493 @@ export const analyseERP = async (req, res) => {
         }
 
         if (targetModule === "all" || targetModule === "leads") {
-            const leadQuery = {};
+            const userCentreFilter = await getCentreFilter(req.user, "centre");
+            const leadQuery = { ...userCentreFilter };
+            if (centre) {
+                try {
+                    leadQuery.centre = new mongoose.Types.ObjectId(centre);
+                } catch (e) {
+                    leadQuery.centre = centre;
+                }
+            }
             if (Object.keys(dateFilter).length > 0) leadQuery.createdAt = dateFilter;
 
-            const leadStats = await LeadManagement.aggregate([
-                { $match: leadQuery },
+            const followUpMatch = { ...userCentreFilter };
+            if (centre) {
+                try {
+                    followUpMatch.centre = new mongoose.Types.ObjectId(centre);
+                } catch (e) {
+                    followUpMatch.centre = centre;
+                }
+            }
+
+            const followUpPipeline = [
+                { $match: followUpMatch },
+                { $unwind: "$followUps" }
+            ];
+
+            if (Object.keys(dateFilter).length > 0) {
+                const followUpDateFilter = {};
+                if (dateFilter.$gte) followUpDateFilter.$gte = dateFilter.$gte;
+                if (dateFilter.$lte) followUpDateFilter.$lte = dateFilter.$lte;
+                followUpPipeline.push({ $match: { "followUps.date": followUpDateFilter } });
+            }
+
+            // Admission filters
+            const admissionMatch = {};
+            if (Object.keys(dateFilter).length > 0) {
+                admissionMatch.admissionDate = dateFilter;
+            }
+            if (centre) {
+                admissionMatch.centre = { $regex: centre, $options: "i" };
+            }
+
+            const [
+                basicCounts,
+                sourceLeads,
+                telecallerLeads,
+                followUpsAgg,
+                dailyTrend,
+                centerLeads,
+                classLeads,
+                recentFollowUps,
+                admissionsBySource,
+                admissionsByTelecaller,
+                admissionsByCentre,
+                admissionsByClass
+            ] = await Promise.all([
+                // 1. Basic Counts
+                LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    {
+                        $group: {
+                            _id: null,
+                            totalLeads: { $sum: 1 },
+                            hotLeads: { $sum: { $cond: [{ $eq: ["$leadType", "HOT LEAD"] }, 1, 0] } },
+                            warmLeads: { $sum: { $cond: [{ $eq: ["$leadType", "WARM LEAD"] }, 1, 0] } },
+                            coldLeads: { $sum: { $cond: [{ $eq: ["$leadType", "COLD LEAD"] }, 1, 0] } },
+                            neutralLeads: { $sum: { $cond: [{ $eq: ["$leadType", "NEUTRAL LEAD"] }, 1, 0] } },
+                            invalidLeads: { $sum: { $cond: [{ $eq: ["$leadType", "INVALID LEAD"] }, 1, 0] } },
+                            counselledLeads: { $sum: { $cond: ["$isCounseled", 1, 0] } },
+                            walkInLeads: { $sum: { $cond: ["$isWalkIn", 1, 0] } }
+                        }
+                    }
+                ]),
+
+                // 2. Source Breakdown (leads)
+                LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    {
+                        $group: {
+                            _id: "$source",
+                            leadsAdded: { $sum: 1 },
+                            counselled: { $sum: { $cond: ["$isCounseled", 1, 0] } }
+                        }
+                    }
+                ]),
+
+                // 3. Telecaller Assignment Metrics (leads assigned in timeframe)
+                LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    {
+                        $group: {
+                            _id: "$leadResponsibility",
+                            assigned: { $sum: 1 }
+                        }
+                    }
+                ]),
+
+                // 4. Calls Volume & Duration metrics
+                LeadManagement.aggregate([
+                    ...followUpPipeline,
+                    {
+                        $group: {
+                            _id: "$followUps.updatedBy",
+                            totalCalls: { $sum: 1 },
+                            callsWithDuration: { $sum: { $cond: [{ $ifNull: ["$followUps.callDuration", false] }, 1, 0] } },
+                            durations: { $push: "$followUps.callDuration" }
+                        }
+                    },
+                    { $sort: { totalCalls: -1 } },
+                    { $limit: 20 }
+                ]),
+
+                // 5. Daily Lead Trend
+                LeadManagement.aggregate([
+                    {
+                        $match: (() => {
+                            if (Object.keys(dateFilter).length > 0) return leadQuery;
+                            const thirtyDaysAgo = new Date();
+                            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                            return { ...leadQuery, createdAt: { $gte: thirtyDaysAgo } };
+                        })()
+                    },
+                    {
+                        $group: {
+                            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                            leadsAdded: { $sum: 1 },
+                            counselled: { $sum: { $cond: ["$isCounseled", 1, 0] } }
+                        }
+                    },
+                    { $sort: { _id: 1 } }
+                ]),
+
+                // 6. Centre Breakdown (leads)
+                LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    {
+                        $group: {
+                            _id: "$centre",
+                            total: { $sum: 1 },
+                            counselled: { $sum: { $cond: ["$isCounseled", 1, 0] } }
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: "centreschemas",
+                            localField: "_id",
+                            foreignField: "_id",
+                            as: "centreInfo"
+                        }
+                    },
+                    { $unwind: { path: "$centreInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $project: {
+                            centreName: { $ifNull: ["$centreInfo.centreName", "Unknown Center"] },
+                            total: 1,
+                            counselled: 1
+                        }
+                    }
+                ]),
+
+                // 7. Class Breakdown (leads)
+                LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    {
+                        $group: {
+                            _id: "$className",
+                            total: { $sum: 1 },
+                            counselled: { $sum: { $cond: ["$isCounseled", 1, 0] } }
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: "classes",
+                            localField: "_id",
+                            foreignField: "_id",
+                            as: "classInfo"
+                        }
+                    },
+                    { $unwind: { path: "$classInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $project: {
+                            className: { $ifNull: ["$classInfo.name", "Unknown Class"] },
+                            total: 1,
+                            counselled: 1
+                        }
+                    }
+                ]),
+
+                // 8. Recent Follow-Up Logs
+                LeadManagement.aggregate([
+                    ...followUpPipeline,
+                    { $sort: { "followUps.date": -1 } },
+                    { $limit: 5 },
+                    {
+                        $project: {
+                            leadName: "$name",
+                            date: "$followUps.date",
+                            feedback: "$followUps.feedback",
+                            remarks: "$followUps.remarks",
+                            telecaller: "$followUps.updatedBy"
+                        }
+                    }
+                ]),
+
+                // 9. Admissions grouped by Lead Source
+                Admission.aggregate([
+                    { $match: admissionMatch },
+                    {
+                        $lookup: {
+                            from: "students",
+                            localField: "student",
+                            foreignField: "_id",
+                            as: "studentInfo"
+                        }
+                    },
+                    { $unwind: "$studentInfo" },
+                    {
+                        $lookup: {
+                            from: "leadmanagements",
+                            localField: "studentInfo.studentsDetails.mobileNum",
+                            foreignField: "phoneNumber",
+                            as: "leadInfo"
+                        }
+                    },
+                    { $unwind: { path: "$leadInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $group: {
+                            _id: "$leadInfo.source",
+                            admissionsCount: { $sum: 1 },
+                            totalFees: { $sum: "$totalFees" },
+                            totalPaid: { $sum: "$totalPaidAmount" }
+                        }
+                    }
+                ]),
+
+                // 10. Admissions grouped by Lead Responsibility (Telecaller)
+                Admission.aggregate([
+                    { $match: admissionMatch },
+                    {
+                        $lookup: {
+                            from: "students",
+                            localField: "student",
+                            foreignField: "_id",
+                            as: "studentInfo"
+                        }
+                    },
+                    { $unwind: "$studentInfo" },
+                    {
+                        $lookup: {
+                            from: "leadmanagements",
+                            localField: "studentInfo.studentsDetails.mobileNum",
+                            foreignField: "phoneNumber",
+                            as: "leadInfo"
+                        }
+                    },
+                    { $unwind: { path: "$leadInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $group: {
+                            _id: "$leadInfo.leadResponsibility",
+                            admissionsCount: { $sum: 1 },
+                            totalFees: { $sum: "$totalFees" },
+                            totalPaid: { $sum: "$totalPaidAmount" }
+                        }
+                    }
+                ]),
+
+                // 11. Admissions grouped by Centre
+                Admission.aggregate([
+                    { $match: admissionMatch },
+                    {
+                        $group: {
+                            _id: "$centre",
+                            admissionsCount: { $sum: 1 },
+                            totalFees: { $sum: "$totalFees" },
+                            totalPaid: { $sum: "$totalPaidAmount" }
+                        }
+                    }
+                ]),
+
+                // 12. Admissions grouped by Class
+                Admission.aggregate([
+                    { $match: admissionMatch },
+                    {
+                        $group: {
+                            _id: "$class",
+                            admissionsCount: { $sum: 1 },
+                            totalFees: { $sum: "$totalFees" },
+                            totalPaid: { $sum: "$totalPaidAmount" }
+                        }
+                    },
+                    {
+                        $lookup: {
+                            from: "classes",
+                            localField: "_id",
+                            foreignField: "_id",
+                            as: "classInfo"
+                        }
+                    },
+                    { $unwind: { path: "$classInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $project: {
+                            className: { $ifNull: ["$classInfo.name", "Unknown Class"] },
+                            admissionsCount: 1,
+                            totalFees: 1,
+                            totalPaid: 1
+                        }
+                    }
+                ])
+            ]);
+
+            const processedCallsActivity = followUpsAgg.map(tc => {
+                let totalSecs = 0;
+                let count = 0;
+                tc.durations.forEach(d => {
+                    if (d) {
+                        totalSecs += parseDurationToSeconds(d);
+                        count++;
+                    }
+                });
+                const avgSecs = count > 0 ? totalSecs / count : 0;
+                return {
+                    telecaller: tc._id || "Unknown",
+                    totalCalls: tc.totalCalls,
+                    callsWithDuration: tc.callsWithDuration,
+                    totalCallDurationSeconds: totalSecs,
+                    avgCallDurationSeconds: Math.round(avgSecs)
+                };
+            });
+
+            // 1. Source Breakdown Merge
+            const sourceMap = {};
+            const getSource = (name) => {
+                const clean = name || "Unknown Source";
+                if (!sourceMap[clean]) sourceMap[clean] = { source: clean, leadsAdded: 0, counselled: 0, admissions: 0, totalAdmissionFees: 0, totalFeesCollected: 0 };
+                return sourceMap[clean];
+            };
+            sourceLeads.forEach(item => {
+                const entry = getSource(item._id);
+                entry.leadsAdded = item.leadsAdded;
+                entry.counselled = item.counselled;
+            });
+            admissionsBySource.forEach(item => {
+                const entry = getSource(item._id);
+                entry.admissions = item.admissionsCount;
+                entry.totalAdmissionFees = Math.round(item.totalFees);
+                entry.totalFeesCollected = Math.round(item.totalPaid);
+            });
+            const finalSourcePerformance = Object.values(sourceMap)
+                .sort((a, b) => b.leadsAdded - a.leadsAdded)
+                .slice(0, 20);
+
+            // 2. Telecaller Performance Merge
+            const telecallerMap = {};
+            const getTelecaller = (name) => {
+                const clean = name || "Unknown";
+                if (!telecallerMap[clean]) {
+                    telecallerMap[clean] = {
+                        telecaller: clean,
+                        leadsAssigned: 0,
+                        callsMade: 0,
+                        conversions: 0, // lead counselling conversions
+                        totalDurationSeconds: 0,
+                        avgDurationSeconds: 0,
+                        admissions: 0, // formally admitted
+                        totalAdmissionFees: 0,
+                        totalFeesCollected: 0
+                    };
+                }
+                return telecallerMap[clean];
+            };
+            telecallerLeads.forEach(item => {
+                const entry = getTelecaller(item._id);
+                entry.leadsAssigned = item.assigned;
+            });
+            processedCallsActivity.forEach(item => {
+                const entry = getTelecaller(item.telecaller);
+                entry.callsMade = item.totalCalls;
+                entry.totalDurationSeconds = item.totalCallDurationSeconds;
+                entry.avgDurationSeconds = item.avgCallDurationSeconds;
+            });
+            admissionsByTelecaller.forEach(item => {
+                const entry = getTelecaller(item._id);
+                entry.admissions = item.admissionsCount;
+                entry.totalAdmissionFees = Math.round(item.totalFees);
+                entry.totalFeesCollected = Math.round(item.totalPaid);
+            });
+            // Look up conversions using updatedAt: dateFilter
+            const conversionsMap = {};
+            // Let's run a separate query to fetch conversion counts by lead responsibility during date filter
+            const conversionsData = await LeadManagement.aggregate([
+                {
+                    $match: {
+                        ...userCentreFilter,
+                        isCounseled: true,
+                        ...(centre && { centre: typeof centre === 'string' && centre.length === 24 ? new mongoose.Types.ObjectId(centre) : centre }),
+                        ...(Object.keys(dateFilter).length > 0 && { updatedAt: dateFilter })
+                    }
+                },
                 {
                     $group: {
-                        _id: "$leadType",
-                        count: { $sum: 1 }
+                        _id: "$leadResponsibility",
+                        conversions: { $sum: 1 }
                     }
                 }
             ]);
+            conversionsData.forEach(item => {
+                const entry = getTelecaller(item._id);
+                entry.conversions = item.conversions;
+            });
+            const finalTelecallerPerformance = Object.values(telecallerMap)
+                .sort((a, b) => (b.conversions - a.conversions) || (b.callsMade - a.callsMade))
+                .slice(0, 20);
 
-            const sourceStats = await LeadManagement.aggregate([
-                { $match: leadQuery },
-                {
-                    $group: {
-                        _id: "$source",
-                        count: { $sum: 1 }
-                    }
+            // 3. Centre Breakdown Merge
+            const centreMap = {};
+            const getCentre = (name) => {
+                const clean = name || "Unknown Center";
+                if (!centreMap[clean]) centreMap[clean] = { centre: clean, totalLeads: 0, counselled: 0, admissions: 0, totalAdmissionFees: 0, totalFeesCollected: 0 };
+                return centreMap[clean];
+            };
+            centerLeads.forEach(item => {
+                const entry = getCentre(item.centreName);
+                entry.totalLeads = item.total;
+                entry.counselled = item.counselled;
+            });
+            admissionsByCentre.forEach(item => {
+                const entry = getCentre(item._id);
+                entry.admissions = item.admissionsCount;
+                entry.totalAdmissionFees = Math.round(item.totalFees);
+                entry.totalFeesCollected = Math.round(item.totalPaid);
+            });
+            const finalCentrePerformance = Object.values(centreMap)
+                .sort((a, b) => b.totalLeads - a.totalLeads);
+
+            // 4. Class Breakdown Merge
+            const classMap = {};
+            const getClass = (name) => {
+                const clean = name || "Unknown Class";
+                if (!classMap[clean]) classMap[clean] = { class: clean, totalLeads: 0, counselled: 0, admissions: 0, totalAdmissionFees: 0, totalFeesCollected: 0 };
+                return classMap[clean];
+            };
+            classLeads.forEach(item => {
+                const entry = getClass(item.className);
+                entry.totalLeads = item.total;
+                entry.counselled = item.counselled;
+            });
+            admissionsByClass.forEach(item => {
+                const entry = getClass(item.className);
+                entry.admissions = item.admissionsCount;
+                entry.totalAdmissionFees = Math.round(item.totalFees);
+                entry.totalFeesCollected = Math.round(item.totalPaid);
+            });
+            const finalClassPerformance = Object.values(classMap)
+                .sort((a, b) => b.totalLeads - a.totalLeads);
+
+            let overallCallsCount = 0;
+            let overallDurationSecs = 0;
+            let overallDurationCount = 0;
+            processedCallsActivity.forEach(tc => {
+                overallCallsCount += tc.totalCalls;
+                overallDurationSecs += tc.totalCallDurationSeconds;
+                overallDurationCount += tc.callsWithDuration;
+            });
+            const overallAvgDurationSecs = overallDurationCount > 0 ? overallDurationSecs / overallDurationCount : 0;
+
+            data.leads = {
+                summary: basicCounts[0] || {
+                    totalLeads: 0,
+                    hotLeads: 0,
+                    warmLeads: 0,
+                    coldLeads: 0,
+                    neutralLeads: 0,
+                    invalidLeads: 0,
+                    counselledLeads: 0,
+                    walkInLeads: 0
                 },
-                { $sort: { count: -1 } },
-                { $limit: 10 }
-            ]);
-
-            data.leads = { byType: leadStats, bySource: sourceStats };
+                sourcePerformance: finalSourcePerformance,
+                telecallerPerformance: finalTelecallerPerformance,
+                callsVolumeSummary: {
+                    totalCallsMade: overallCallsCount,
+                    totalDurationSeconds: overallDurationSecs,
+                    avgDurationSeconds: Math.round(overallAvgDurationSecs)
+                },
+                dailyTrend: dailyTrend,
+                centreBreakdown: finalCentrePerformance,
+                classBreakdown: finalClassPerformance,
+                recentFollowUpNotes: recentFollowUps
+            };
         }
 
         if (targetModule === "all" || targetModule === "hr") {

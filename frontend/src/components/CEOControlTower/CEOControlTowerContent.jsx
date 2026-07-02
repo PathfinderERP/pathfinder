@@ -22,11 +22,11 @@ const formatAIResponseInline = (text) => {
         if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
         const raw = match[0];
         if (raw.startsWith('**')) {
-            parts.push(<strong key={match.index} className="font-extrabold text-cyan-600 dark:text-cyan-400">{raw.slice(2, -2)}</strong>);
+            parts.push(<strong key={match.index} className="font-black text-cyan-600 dark:text-cyan-400">{raw.slice(2, -2)}</strong>);
         } else if (raw.startsWith('*')) {
-            parts.push(<em key={match.index} className="italic text-gray-400 dark:text-gray-305">{raw.slice(1, -1)}</em>);
+            parts.push(<em key={match.index} className="italic text-gray-400 dark:text-gray-300">{raw.slice(1, -1)}</em>);
         } else if (raw.startsWith('`')) {
-            parts.push(<code key={match.index} className="bg-gray-150 dark:bg-gray-800 rounded px-1.5 py-0.5 text-[9px] font-mono text-purple-500">{raw.slice(1, -1)}</code>);
+            parts.push(<code key={match.index} className="bg-gray-100 dark:bg-gray-800 rounded px-1.5 py-0.5 text-xs font-mono text-purple-500 dark:text-purple-400">{raw.slice(1, -1)}</code>);
         }
         lastIndex = match.index + raw.length;
     }
@@ -34,53 +34,131 @@ const formatAIResponseInline = (text) => {
     return parts;
 };
 
-const AIMarkdownText = ({ text }) => {
-    if (!text) return null;
+// Parser to group markdown blocks (including tables)
+const parseMarkdownBlocks = (text) => {
+    if (!text) return [];
     const lines = text.split('\n');
+    const blocks = [];
+    let currentTable = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('|')) {
+            let cells = line.split('|').map(c => c.trim());
+            if (cells[0] === '') cells.shift();
+            if (cells[cells.length - 1] === '') cells.pop();
+
+            const isSeparator = cells.every(cell => cell === '' || /^:?-+:?$/.test(cell));
+
+            if (isSeparator) {
+                continue;
+            }
+
+            if (!currentTable) {
+                currentTable = { type: 'table', headers: cells, rows: [] };
+            } else {
+                currentTable.rows.push(cells);
+            }
+        } else {
+            if (currentTable) {
+                blocks.push(currentTable);
+                currentTable = null;
+            }
+
+            if (trimmed.startsWith('### ')) {
+                blocks.push({ type: 'h5', text: line.slice(4) });
+            } else if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
+                const cleanLine = trimmed.startsWith('## ') ? line.slice(3) : line.slice(2);
+                blocks.push({ type: 'h4', text: cleanLine });
+            } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                blocks.push({ type: 'li', text: line.slice(2) });
+            } else if (/^\d+\.\s/.test(trimmed)) {
+                const match = trimmed.match(/^(\d+)\.\s(.*)$/);
+                if (match) {
+                    blocks.push({ type: 'ol', num: match[1], text: match[2] });
+                } else {
+                    blocks.push({ type: 'p', text: line });
+                }
+            } else if (trimmed === '---' || trimmed === '***') {
+                blocks.push({ type: 'hr' });
+            } else if (!trimmed) {
+                blocks.push({ type: 'empty' });
+            } else {
+                blocks.push({ type: 'p', text: line });
+            }
+        }
+    }
+
+    if (currentTable) {
+        blocks.push(currentTable);
+    }
+
+    return blocks;
+};
+
+const AIMarkdownText = ({ text }) => {
+    const blocks = parseMarkdownBlocks(text);
 
     return (
-        <div className="space-y-1 text-[10px] leading-relaxed font-bold text-gray-700 dark:text-gray-300 text-left">
-            {lines.map((line, i) => {
-                if (line.startsWith('### ')) {
-                    return <h5 key={i} className="font-black text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 mt-3 mb-1">{line.slice(4)}</h5>;
-                }
-                if (line.startsWith('## ') || line.startsWith('# ')) {
-                    const cleanLine = line.startsWith('## ') ? line.slice(3) : line.slice(2);
-                    return <h4 key={i} className="font-black text-[11px] uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mt-4 mb-2">{cleanLine}</h4>;
-                }
-                if (line.startsWith('- ') || line.startsWith('* ')) {
-                    return (
-                        <div key={i} className="flex gap-2 items-start pl-2 mt-1">
-                            <span className="text-cyan-500 mt-0.5 text-xs select-none">•</span>
-                            <span className="flex-1">{formatAIResponseInline(line.slice(2))}</span>
-                        </div>
-                    );
-                }
-                if (/^\d+\.\s/.test(line)) {
-                    const match = line.match(/^(\d+)\.\s(.*)$/);
-                    if (match) {
+        <div className="space-y-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-300 text-left font-normal">
+            {blocks.map((block, i) => {
+                switch (block.type) {
+                    case 'h5':
+                        return <h5 key={i} className="font-extrabold text-sm uppercase tracking-wider text-cyan-600 dark:text-cyan-400 mt-4 mb-1.5">{block.text}</h5>;
+                    case 'h4':
+                        return <h4 key={i} className="font-black text-base uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mt-5 mb-2">{block.text}</h4>;
+                    case 'li':
                         return (
-                            <div key={i} className="flex gap-2 items-start pl-2 mt-1">
-                                <span className="text-cyan-600 dark:text-cyan-400 font-black min-w-[14px]">{match[1]}.</span>
-                                <span className="flex-1">{formatAIResponseInline(match[2])}</span>
+                            <div key={i} className="flex gap-2.5 items-start pl-3 mt-1.5">
+                                <span className="text-cyan-500 mt-1 text-xs select-none">•</span>
+                                <span className="flex-1">{formatAIResponseInline(block.text)}</span>
                             </div>
                         );
-                    }
+                    case 'ol':
+                        return (
+                            <div key={i} className="flex gap-2.5 items-start pl-3 mt-1.5">
+                                <span className="text-cyan-600 dark:text-cyan-400 font-extrabold min-w-[16px] text-sm">{block.num}.</span>
+                                <span className="flex-1">{formatAIResponseInline(block.text)}</span>
+                            </div>
+                        );
+                    case 'hr':
+                        return <hr key={i} className="border-gray-250 dark:border-gray-800 my-4" />;
+                    case 'empty':
+                        return <div key={i} className="h-1.5" />;
+                    case 'table':
+                        return (
+                            <div key={i} className="overflow-x-auto my-4 rounded-[4px] border border-gray-250 dark:border-gray-800 shadow-md max-w-full">
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 text-[13px] border-collapse">
+                                    <thead className="bg-gray-50 dark:bg-gray-900/60 font-black text-cyan-600 dark:text-cyan-400 border-b border-gray-250 dark:border-gray-800">
+                                        <tr>
+                                            {block.headers.map((h, idx) => (
+                                                <th key={idx} className="px-4 py-3 text-left text-xs uppercase tracking-wider font-extrabold whitespace-nowrap">{formatAIResponseInline(h)}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-150 dark:divide-gray-800/80 bg-white dark:bg-black/10">
+                                        {block.rows.map((row, rowIdx) => (
+                                            <tr key={rowIdx} className="hover:bg-gray-50 dark:hover:bg-gray-800/10 transition-colors">
+                                                {row.map((cell, cellIdx) => (
+                                                    <td key={cellIdx} className="px-4 py-2.5 text-gray-850 dark:text-gray-250 font-normal whitespace-nowrap">{formatAIResponseInline(cell)}</td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        );
+                    case 'p':
+                    default:
+                        return <p key={i} className="mt-1">{formatAIResponseInline(block.text)}</p>;
                 }
-                if (line === '---' || line === '***') {
-                    return <hr key={i} className="border-gray-200 dark:border-gray-800 my-3" />;
-                }
-                if (!line.trim()) {
-                    return <div key={i} className="h-1.5" />;
-                }
-                return <p key={i} className="mt-1">{formatAIResponseInline(line)}</p>;
             })}
         </div>
     );
 };
-
-const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPrompts = [], isDarkMode, filters = {} }) => {
-    const [isOpen, setIsOpen] = useState(false);
+const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPrompts = [], isDarkMode, filters = {}, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
     const [question, setQuestion] = useState('');
@@ -115,19 +193,7 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
     };
 
     useEffect(() => {
-        if (isOpen && !hasAnalyzed) {
-            handleInitialAnalysis();
-        }
-    }, [isOpen]);
-
-    useEffect(() => {
-        setHasAnalyzed(false);
-        if (isOpen) {
-            setMessages([]);
-            handleInitialAnalysis();
-        } else {
-            setMessages([]);
-        }
+        handleInitialAnalysis();
     }, [contextData, filters?.startDate, filters?.endDate, filters?.centre]);
 
     const handleAskQuestion = async (e, customQ = null) => {
@@ -164,83 +230,95 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
     };
 
     return (
-        <div className="mt-4 border-t border-gray-800/10 dark:border-gray-700/30 pt-4">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[2px] transition-all duration-300 active:scale-95 ${
-                    isOpen 
-                        ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.4)]' 
-                        : (isDarkMode 
-                            ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20' 
-                            : 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100 border border-cyan-200')
+        <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div 
+                ref={panelRef}
+                className={`w-full max-w-4xl rounded-[8px] border p-6 transition-all duration-300 text-left shadow-2xl flex flex-col max-h-[85vh] ${
+                    isDarkMode 
+                        ? 'bg-[#0f1115] border-gray-800 shadow-black/60 text-white' 
+                        : 'bg-white border-gray-200 shadow-gray-200/50 text-black'
                 }`}
+                onClick={(e) => e.stopPropagation()}
             >
-                <MdAutoAwesome className={loading ? 'animate-spin' : 'animate-pulse'} />
-                {isOpen ? 'Close AI Insights' : 'Pathfinder AI Insights'}
-            </button>
-
-            {isOpen && (
-                <div 
-                    ref={panelRef}
-                    className={`mt-4 rounded-[2px] border p-4 transition-all duration-300 text-left ${
-                        isDarkMode 
-                            ? 'bg-[#0f1115] border-gray-800/80' 
-                            : 'bg-gray-50/50 border-gray-250 shadow-inner'
-                    }`}
-                >
-                    <div className="flex items-center justify-between pb-3 border-b border-gray-800/10 dark:border-gray-800/30 mb-3">
-                        <div className="flex items-center gap-2">
-                            <span className="p-1 rounded-[1px] bg-cyan-500/10 text-cyan-500"><FaRobot size={10} /></span>
-                            <span className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Pathfinder AI Analyst — {title}
-                            </span>
+                {/* Modal Header */}
+                <div className="flex items-center justify-between pb-3.5 border-b border-gray-200 dark:border-gray-800/55 mb-4">
+                    <div className="flex items-center gap-2.5">
+                        <span className="p-2 rounded-[4px] bg-cyan-500/10 text-cyan-500"><FaRobot size={18} /></span>
+                        <div>
+                            <h3 className={`text-sm font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                                Pathfinder AI Analyst
+                            </h3>
+                            <p className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                Section: {title}
+                            </p>
                         </div>
-                        <span className="text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-[1px] bg-cyan-500/15 text-cyan-400">VITE-GEMINI</span>
                     </div>
-
-                    <div className="space-y-4 max-h-72 overflow-y-auto pr-1 custom-scrollbar mb-4">
-                        {messages.map((msg, idx) => (
-                            <div 
-                                key={idx} 
-                                className={`flex flex-col gap-1 p-3 rounded-[2px] border ${
-                                    msg.role === 'user' 
-                                        ? (isDarkMode 
-                                            ? 'bg-cyan-500/5 border-cyan-500/10 align-self-end ml-12' 
-                                            : 'bg-cyan-50 border-cyan-100 align-self-end ml-12')
-                                        : (isDarkMode 
-                                            ? 'bg-black/20 border-gray-800/30' 
-                                            : 'bg-white border-gray-150 shadow-sm')
-                                }`}
-                            >
-                                <span className={`text-[7px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-cyan-500' : 'text-purple-500'}`}>
-                                    {msg.role === 'user' ? 'You' : 'Pathfinder AI'}
-                                </span>
-                                <AIMarkdownText text={msg.text} />
-                            </div>
-                        ))}
-
-                        {loading && messages.length === 0 && (
-                            <div className="flex flex-col gap-2 py-4 items-center justify-center text-gray-500 font-bold text-[10px]">
-                                <span className="animate-spin text-cyan-500"><FaSyncAlt size={16} /></span>
-                                <span className="tracking-widest uppercase text-[8px] animate-pulse">Analyzing section data with Pathfinder AI...</span>
-                            </div>
-                        )}
-
-                        {loading && messages.length > 0 && (
-                            <div className="flex items-center gap-2 pl-3 text-cyan-500 text-[9px] font-bold">
-                                <span className="animate-pulse">Pathfinder AI is thinking...</span>
-                            </div>
-                        )}
+                    <div className="flex items-center gap-3">
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[2px] bg-cyan-500/15 text-cyan-400">VITE-GEMINI</span>
+                        <button 
+                            onClick={onClose}
+                            className={`p-1.5 rounded-full transition-colors ${
+                                isDarkMode 
+                                    ? 'text-gray-400 hover:text-white hover:bg-gray-800/60' 
+                                    : 'text-gray-500 hover:text-black hover:bg-gray-100'
+                            }`}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                     </div>
+                </div>
 
+                {/* Chat Messages */}
+                <div className="flex-1 space-y-4 overflow-y-auto pr-1.5 custom-scrollbar mb-4 min-h-[300px]">
+                    {messages.map((msg, idx) => (
+                        <div 
+                            key={idx} 
+                            className={`flex flex-col gap-1.5 p-4 rounded-[4px] border ${
+                                msg.role === 'user' 
+                                    ? (isDarkMode 
+                                        ? 'bg-cyan-500/5 border-cyan-500/10 align-self-end ml-12' 
+                                        : 'bg-cyan-50/50 border-cyan-200/80 align-self-end ml-12')
+                                    : (isDarkMode 
+                                        ? 'bg-black/30 border-gray-850' 
+                                        : 'bg-gray-50/75 border-gray-200/80 shadow-sm')
+                            }`}
+                        >
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-cyan-500' : 'text-purple-500'}`}>
+                                {msg.role === 'user' ? 'You' : 'Pathfinder AI'}
+                            </span>
+                            <AIMarkdownText text={msg.text} />
+                        </div>
+                    ))}
+
+                    {loading && messages.length === 0 && (
+                        <div className="flex flex-col gap-3 py-16 items-center justify-center text-gray-500 font-bold text-sm">
+                            <span className="animate-spin text-cyan-500"><FaSyncAlt size={24} /></span>
+                            <span className="tracking-widest uppercase text-xs animate-pulse">Analyzing section data with Pathfinder AI...</span>
+                        </div>
+                    )}
+
+                    {loading && messages.length > 0 && (
+                        <div className="flex items-center gap-2 pl-3 text-cyan-500 text-xs font-bold">
+                            <span className="animate-pulse">Pathfinder AI is thinking...</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer input and prompts */}
+                <div className="pt-3.5 border-t border-gray-200 dark:border-gray-800/55">
                     {quickPrompts.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-3.5">
+                        <div className="flex flex-wrap gap-2 mb-4">
                             {quickPrompts.map((promptText, pIdx) => (
                                 <button
                                     key={pIdx}
                                     type="button"
                                     onClick={(e) => handleAskQuestion(e, promptText)}
-                                    className={`text-[8px] font-bold px-2.5 py-1 rounded-full border transition-all ${
+                                    className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
                                         isDarkMode 
                                             ? 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white hover:border-cyan-500/30' 
                                             : 'bg-white border-gray-250 text-gray-600 hover:text-cyan-600 hover:border-cyan-400 shadow-sm'
@@ -252,13 +330,13 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                         </div>
                     )}
 
-                    <form onSubmit={handleAskQuestion} className="flex gap-2 items-center">
+                    <form onSubmit={handleAskQuestion} className="flex gap-2.5 items-center">
                         <input
                             type="text"
                             value={question}
                             onChange={(e) => setQuestion(e.target.value)}
                             placeholder={`Ask AI about ${title} data...`}
-                            className={`flex-1 text-[10px] font-bold p-2.5 rounded-[2px] border outline-none transition-all ${
+                            className={`flex-1 text-sm font-medium p-3 rounded-[3px] border outline-none transition-all ${
                                 isDarkMode 
                                     ? 'bg-black border-gray-800 text-white focus:border-cyan-500' 
                                     : 'bg-white border-gray-200 text-black focus:border-cyan-500 shadow-sm'
@@ -267,15 +345,15 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                         <button
                             type="submit"
                             disabled={loading || !question.trim()}
-                            className={`p-2.5 rounded-[2px] bg-cyan-500 text-black hover:bg-cyan-600 active:scale-95 transition-all font-black flex items-center justify-center ${
+                            className={`p-3 rounded-[3px] bg-cyan-500 text-black hover:bg-cyan-600 active:scale-95 transition-all font-black flex items-center justify-center ${
                                 (loading || !question.trim()) ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                         >
-                            <FaPaperPlane size={10} />
+                            <FaPaperPlane size={14} />
                         </button>
                     </form>
                 </div>
-            )}
+            </div>
         </div>
     );
 };
@@ -284,6 +362,7 @@ const CEOControlTowerContent = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
+    const [activeAIModule, setActiveAIModule] = useState(null);
 
     const modules = [
         {
@@ -544,21 +623,41 @@ const CEOControlTowerContent = () => {
                                 View Analytics <FaArrowRight className="group-hover:translate-x-1 transition-transform duration-300" />
                             </div>
 
-                            <div onClick={(e) => e.stopPropagation()} className="relative z-20">
-                                <AISectionAnalyst
-                                    title={m.name}
-                                    module={m.moduleKey}
-                                    contextData={null}
-                                    defaultQuestion={m.aiQuestion}
-                                    quickPrompts={m.aiPrompts}
-                                    isDarkMode={isDarkMode}
-                                    filters={{}}
-                                />
+                            <div onClick={(e) => e.stopPropagation()} className="relative z-20 mt-2 border-t border-gray-800/10 dark:border-gray-700/30 pt-4">
+                                <button
+                                    onClick={() => setActiveAIModule({
+                                        title: m.name,
+                                        module: m.moduleKey,
+                                        defaultQuestion: m.aiQuestion,
+                                        quickPrompts: m.aiPrompts
+                                    })}
+                                    className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[2px] transition-all duration-300 active:scale-95 ${
+                                        isDarkMode 
+                                            ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20' 
+                                            : 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100 border border-cyan-200'
+                                    }`}
+                                >
+                                    <MdAutoAwesome className="animate-pulse" />
+                                    Pathfinder AI Insights
+                                </button>
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
+
+            {activeAIModule && (
+                <AISectionAnalyst
+                    title={activeAIModule.title}
+                    module={activeAIModule.module}
+                    contextData={null}
+                    defaultQuestion={activeAIModule.defaultQuestion}
+                    quickPrompts={activeAIModule.quickPrompts}
+                    isDarkMode={isDarkMode}
+                    filters={{}}
+                    onClose={() => setActiveAIModule(null)}
+                />
+            )}
 
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
