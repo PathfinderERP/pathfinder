@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 
 export const getUserRankings = async (req, res) => {
     try {
-        const { fromDate, toDate, metric = "admissions" } = req.query;
+        const { fromDate, toDate, metric = "admissions", roles } = req.query;
 
         const now = new Date();
         let startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
@@ -25,8 +25,16 @@ export const getUserRankings = async (req, res) => {
 
         const dateRange = { $gte: startDate, $lte: endDate };
 
-        // Fetch all active users
-        const users = await User.find({ isActive: true }).select("_id name role").lean();
+        // Fetch active users (optionally filtered by roles)
+        const userQuery = { isActive: true };
+        if (roles) {
+            const roleList = roles.split(",").map(r => r.trim()).filter(Boolean);
+            if (roleList.length > 0) {
+                userQuery.role = { $in: roleList };
+            }
+        }
+
+        const users = await User.find(userQuery).select("_id name role").lean();
         if (!users || users.length === 0) {
             return res.status(200).json({ rankings: [] });
         }

@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 
 const METRICS = [
     {
@@ -94,8 +95,41 @@ const ROLE_BADGES = {
     telecaller: { label: "Telecaller", style: "bg-pink-500/15 text-pink-400 border border-pink-500/20" },
     marketing: { label: "Marketing", style: "bg-green-500/15 text-green-400 border border-green-500/20" },
     hr: { label: "HR", style: "bg-amber-500/15 text-amber-400 border border-amber-500/20" },
+    teacher: { label: "Teacher", style: "bg-teal-500/15 text-teal-400 border border-teal-500/20" },
+    centralizedTelecaller: { label: "Central Telecaller", style: "bg-pink-500/15 text-pink-400 border border-pink-500/20" },
+    RM: { label: "RM", style: "bg-indigo-500/15 text-indigo-400 border border-indigo-500/20" },
+    Class_Coordinator: { label: "Class Coord", style: "bg-violet-500/15 text-violet-400 border border-violet-500/20" },
+    HOD: { label: "HOD", style: "bg-rose-500/15 text-rose-400 border border-rose-500/20" },
+    accounts: { label: "Accounts", style: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" },
+    coordinator: { label: "Coordinator", style: "bg-fuchsia-500/15 text-fuchsia-400 border border-fuchsia-500/20" },
+    digital: { label: "Digital", style: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/20" },
+    assistantZonalManager: { label: "AZM", style: "bg-blue-500/15 text-blue-400 border border-blue-500/20" },
+    assistantCenterIncharge: { label: "ACI", style: "bg-purple-500/15 text-purple-400 border border-purple-500/20" },
+    supportStaff: { label: "Support Staff", style: "bg-slate-500/15 text-slate-400 border border-slate-500/20" },
     default: { label: "Staff", style: "bg-gray-500/15 text-gray-400 border border-gray-500/20" }
 };
+
+const ROLE_OPTIONS = [
+    { value: "superAdmin", label: "Super Admin" },
+    { value: "admin", label: "Admin" },
+    { value: "centerIncharge", label: "Center Incharge" },
+    { value: "zonalManager", label: "Zonal Manager" },
+    { value: "counsellor", label: "Counsellor" },
+    { value: "telecaller", label: "Telecaller" },
+    { value: "marketing", label: "Marketing" },
+    { value: "hr", label: "HR" },
+    { value: "teacher", label: "Teacher" },
+    { value: "centralizedTelecaller", label: "Centralized Telecaller" },
+    { value: "RM", label: "RM" },
+    { value: "Class_Coordinator", label: "Class Coordinator" },
+    { value: "HOD", label: "HOD" },
+    { value: "accounts", label: "Accounts" },
+    { value: "coordinator", label: "Coordinator" },
+    { value: "digital", label: "Digital" },
+    { value: "assistantZonalManager", label: "Assistant Zonal Manager" },
+    { value: "assistantCenterIncharge", label: "Assistant Center Incharge" },
+    { value: "supportStaff", label: "Support Staff" }
+];
 
 const getRoleBadge = (role) => ROLE_BADGES[role] || { label: role || "Staff", style: ROLE_BADGES.default.style };
 
@@ -126,12 +160,16 @@ const UserRank = () => {
     const [fromDate, setFromDate] = useState(fmt(firstOfMonth));
     const [toDate, setToDate] = useState(fmt(today));
     const [search, setSearch] = useState("");
+    const [selectedRoles, setSelectedRoles] = useState([]);
 
     const fetchRankings = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({ metric: activeMetric, fromDate, toDate });
+            if (selectedRoles.length > 0) {
+                params.append("roles", selectedRoles.join(","));
+            }
             const res = await fetch(`${apiUrl}/sales/user-rank?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -146,7 +184,7 @@ const UserRank = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeMetric, fromDate, toDate, apiUrl]);
+    }, [activeMetric, fromDate, toDate, selectedRoles, apiUrl]);
 
     useEffect(() => {
         fetchRankings();
@@ -249,6 +287,18 @@ const UserRank = () => {
                             <FaCalendarAlt size={11} className={subText} />
                             <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={inputCls} />
                         </div>
+                    </div>
+                    <div>
+                        <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>Filter Roles</p>
+                        <MultiSelectFilter
+                            options={ROLE_OPTIONS}
+                            selectedValues={selectedRoles}
+                            onChange={setSelectedRoles}
+                            placeholder="All Roles"
+                            label="Roles"
+                            theme={isDark ? "dark" : "light"}
+                            useAbsolute={false}
+                        />
                     </div>
                     <div className="flex-1 min-w-[200px]">
                         <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>Search User</p>
