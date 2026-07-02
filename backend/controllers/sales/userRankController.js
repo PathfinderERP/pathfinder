@@ -103,22 +103,41 @@ export const getUserRankings = async (req, res) => {
                 { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
             ]),
 
-            // 8. Revenue generated — sum paidAmount by recordedBy
+            // 8. Revenue generated — mirrors exact transaction report logic
             Payment.aggregate([
                 {
                     $match: {
-                        status: { $in: ["PAID", "PARTIAL"] },
+                        billId: { $regex: /^PATH/i },
                         paidAmount: { $gt: 0 },
                         recordedBy: { $in: userIds },
-                        $expr: {
-                            $and: [
-                                { $gte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, startDate] },
-                                { $lte: [{ $ifNull: ["$receivedDate", "$paidDate"] }, endDate] }
+                        $or: [
+                            { status: { $in: ["PAID", "PARTIAL"] } },
+                            {
+                                paymentMethod: "CHEQUE",
+                                status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                            }
+                        ]
+                    }
+                },
+                {
+                    $addFields: {
+                        // Use same date priority as transaction report: paidDate → receivedDate → createdAt
+                        effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] },
+                        revenueBase: {
+                            $cond: [
+                                { $gt: ["$courseFee", 0] },
+                                "$courseFee",
+                                { $divide: ["$paidAmount", 1.18] }
                             ]
                         }
                     }
                 },
-                { $group: { _id: "$recordedBy", total: { $sum: "$paidAmount" } } }
+                {
+                    $match: {
+                        effectiveDate: { $gte: startDate, $lte: endDate }
+                    }
+                },
+                { $group: { _id: "$recordedBy", total: { $sum: "$revenueBase" } } }
             ])
         ]);
 
