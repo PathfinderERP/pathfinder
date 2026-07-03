@@ -741,6 +741,7 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": inst.admissionTotalFees,
                     "Total Paid (₹)": inst.admissionTotalPaid,
                     "Remaining (₹)": inst.admissionRemaining,
+                    "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount) || 0) - (parseFloat(inst.paidAmount) || 0)),
                     "Overall Status": inst.admissionPaymentStatus
                 };
             });
@@ -777,6 +778,7 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": adm.totalFees,
                     "Total Paid (₹)": adm.totalPaid,
                     "Remaining (₹)": Math.max(0, parseFloat(adm.remainingAmount) || 0),
+                    "Installment Due (₹)": "N/A",
                     "Overall Status": adm.paymentStatus,
                     "Installment #": "N/A",
                     "Due Date": "N/A"
@@ -794,6 +796,7 @@ const InstallmentPayment = () => {
                         "Total Fees (₹)": idx === 0 ? adm.totalFees : "",
                         "Total Paid (₹)": idx === 0 ? adm.totalPaid : "",
                         "Remaining (₹)": idx === 0 ? Math.max(0, parseFloat(adm.remainingAmount) || 0) : "",
+                        "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount) || 0) - (parseFloat(inst.paidAmount) || 0)),
                         "Overall Status": idx === 0 ? adm.paymentStatus : "",
                         "Installment #": `Installment ${inst.installmentNumber}`,
                         "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB')
@@ -804,7 +807,7 @@ const InstallmentPayment = () => {
             dataToExport.push({
                 "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Course": "---",
                 "Exam Tag": "---", "Department": "---", "Centre": "---", "Total Fees (₹)": "---",
-                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
+                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Installment Due (₹)": "---", "Overall Status": "---",
                 "Installment #": "---", "Due Date": "---"
             });
         });
@@ -897,6 +900,7 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": inst.admissionTotalFees,
                     "Total Paid (₹)": inst.admissionTotalPaid,
                     "Remaining (₹)": inst.admissionRemaining,
+                    "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount || inst.payableAmount || 0) - parseFloat(inst.paidAmount || 0))),
                     "Overall Status": inst.admissionPaymentStatus
                 };
             });
@@ -939,6 +943,7 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": totalExpected,
                     "Total Paid (₹)": totalPaid,
                     "Remaining (₹)": totalDue,
+                    "Installment Due (₹)": "N/A",
                     "Overall Status": totalDue < 1 ? "PAID" : "PENDING",
                     "Installment #": "N/A",
                     "Due Date": "N/A"
@@ -957,6 +962,7 @@ const InstallmentPayment = () => {
                         "Total Fees (₹)": idx === 0 ? totalExpected : "",
                         "Total Paid (₹)": idx === 0 ? totalPaid : "",
                         "Remaining (₹)": idx === 0 ? totalDue : "",
+                        "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount || inst.payableAmount || 0) - parseFloat(inst.paidAmount || 0))),
                         "Overall Status": idx === 0 ? (totalDue < 1 ? "PAID" : "PENDING") : "",
                         "Installment #": `Month ${inst.monthNumber}`,
                         "Due Date": new Date(inst.dueDate).toLocaleDateString('en-GB')
@@ -966,7 +972,7 @@ const InstallmentPayment = () => {
             dataToExport.push({
                 "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Board Course": "---",
                 "Class": "---", "Exam Tag": "---", "Department/Programme": "---", "Centre": "---", "Total Fees (₹)": "---",
-                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Overall Status": "---",
+                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Installment Due (₹)": "---", "Overall Status": "---",
                 "Installment #": "---", "Due Date": "---"
             });
         });
