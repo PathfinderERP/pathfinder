@@ -991,3 +991,114 @@ export const bulkImportEmployees = async (req, res) => {
         res.status(500).json({ message: "Internal server error during bulk import", error: error.message });
     }
 };
+
+// Bulk Update Employees
+export const bulkUpdateEmployees = async (req, res) => {
+    try {
+        const { ids, updateData } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No employee IDs provided for update." });
+        }
+        if (!updateData || Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: "No update fields provided." });
+        }
+
+        // Sanitization of fields
+        const forbiddenFields = ["currentSalary", "__v", "_id", "employeeId", "user", "createdAt", "updatedAt", "createdBy", "updatedBy", "deactivatedBy", "deactivatedAt"];
+        forbiddenFields.forEach(field => delete updateData[field]);
+
+        // Clean up empty strings or nulls for ObjectId fields
+        const objectIdFields = ["manager", "department", "designation", "primaryCentre"];
+        objectIdFields.forEach(field => {
+            if (updateData[field] === "" || updateData[field] === "null" || updateData[field] === null) {
+                delete updateData[field];
+            }
+        });
+
+        // Add auditor info
+        updateData.updatedBy = req.user.id;
+
+        // Perform updates on each employee
+        const results = {
+            total: ids.length,
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+
+        for (const id of ids) {
+            try {
+                const employee = await Employee.findById(id);
+                if (!employee) {
+                    results.failed++;
+                    results.errors.push(`Employee with ID ${id} not found.`);
+                    continue;
+                }
+
+                // If status is being updated, handle audit fields
+                if (updateData.status) {
+                    if (updateData.status === "Inactive" || updateData.status === "Resigned" || updateData.status === "Terminated") {
+                        employee.deactivatedBy = req.user.id;
+                        employee.deactivatedAt = new Date();
+                    } else if (updateData.status === "Active") {
+                        employee.deactivatedBy = null;
+                        employee.deactivatedAt = null;
+                    }
+                }
+
+                // Apply updates to employee
+                Object.assign(employee, updateData);
+                await employee.save();
+
+                // Sync with User status, roles, email, etc. if user exists
+                if (employee.user) {
+                    const userSyncData = {
+                        updatedBy: req.user.id
+                    };
+
+                    if (updateData.status) {
+                        userSyncData.isActive = (updateData.status === "Active");
+                        if (updateData.status === "Inactive" || updateData.status === "Resigned" || updateData.status === "Terminated") {
+                            userSyncData.deactivatedBy = req.user.id;
+                            userSyncData.deactivatedAt = new Date();
+                        } else if (updateData.status === "Active") {
+                            userSyncData.deactivatedBy = null;
+                            userSyncData.deactivatedAt = null;
+                        }
+                    }
+
+                    if (updateData.role) userSyncData.role = updateData.role;
+                    if (updateData.typeOfEmployment) userSyncData.teacherType = updateData.typeOfEmployment;
+                    if (updateData.subject) userSyncData.subject = updateData.subject;
+                    if (updateData.boardType) userSyncData.boardType = updateData.boardType;
+                    if (updateData.teacherDepartment) userSyncData.teacherDepartment = updateData.teacherDepartment;
+                    
+                    if (updateData.designation) {
+                        // Find designation name to update the string field in User model
+                        const designationDoc = await Designation.findById(updateData.designation);
+                        if (designationDoc) {
+                            userSyncData.designation = designationDoc.name;
+                        }
+                    }
+
+                    await User.findByIdAndUpdate(employee.user, userSyncData);
+                }
+
+                results.success++;
+            } catch (err) {
+                console.error(`Error updating employee ${id} during bulk update:`, err);
+                results.failed++;
+                results.errors.push(`Employee ID ${id} error: ${err.message}`);
+            }
+        }
+
+        res.status(200).json({
+            message: `Bulk update completed: ${results.success} succeeded, ${results.failed} failed.`,
+            results
+        });
+
+    } catch (error) {
+        console.error("Bulk update employees error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};

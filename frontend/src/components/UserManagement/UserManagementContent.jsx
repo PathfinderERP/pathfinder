@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaTable, FaTh, FaFileExcel, FaUndo } from "react-icons/fa";
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaTable, FaTh, FaFileExcel, FaUndo, FaCheckSquare, FaLayerGroup } from "react-icons/fa";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
 import PermissionsDetailModal from "./PermissionsDetailModal";
+import BulkUpdateUserModal from "./BulkUpdateUserModal";
 import "./UserCardWave.css";
 import { hasPermission, getAccessibleModules, PERMISSION_MODULES, hasModuleAccess } from "../../config/permissions";
 import ExcelImportExport from "../common/ExcelImportExport";
@@ -25,6 +26,22 @@ const UserManagementContent = () => {
     const [selectedPermUser, setSelectedPermUser] = useState(null);
     const [showPermModal, setShowPermModal] = useState(false);
     const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
+    const [selectedUserIds, setSelectedUserIds] = useState([]);
+    const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
+
+    const toggleUserSelection = (id) => {
+        setSelectedUserIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = (users) => {
+        if (selectedUserIds.length === users.length) {
+            setSelectedUserIds([]);
+        } else {
+            setSelectedUserIds(users.map(u => u._id));
+        }
+    };
     const [filterRole, setFilterRole] = useState([]);
     const [filterCentre, setFilterCentre] = useState([]);
     const [filterTeacherType, setFilterTeacherType] = useState([]);
@@ -465,6 +482,16 @@ const UserManagementContent = () => {
                         />
                     )}
 
+                    {/* Bulk Update Button */}
+                    {canEditUsers && selectedUserIds.length > 0 && (
+                        <button
+                            onClick={() => setShowBulkUpdateModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20 animate-pulse-once"
+                        >
+                            <FaLayerGroup /> Bulk Update ({selectedUserIds.length})
+                        </button>
+                    )}
+
                     {/* Add User Button - Only for users with canEditUsers permission */}
                     {canAddUsers && (
                         <button
@@ -681,7 +708,16 @@ const UserManagementContent = () => {
             ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredUsers.map((user) => (
-                        <div key={user._id} className={`user-card-wave-dramatic ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-xl border transition-all group relative overflow-hidden`}>
+                        <div key={user._id} className={`user-card-wave-dramatic ${selectedUserIds.includes(user._id) ? (isDarkMode ? 'border-cyan-500/50 ring-1 ring-cyan-500/30' : 'border-cyan-400 ring-1 ring-cyan-300') : (isDarkMode ? 'border-gray-800' : 'border-gray-200 shadow-sm')} ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'} p-6 rounded-xl border transition-all group relative overflow-hidden`}>
+                            {/* Selection Checkbox */}
+                            <div className="absolute top-3 left-3 z-10" onClick={e => e.stopPropagation()}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedUserIds.includes(user._id)}
+                                    onChange={() => toggleUserSelection(user._id)}
+                                    className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                                />
+                            </div>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-16 h-16 rounded-full ${user.isActive === false ? 'bg-red-900/20 border-red-500/30' : isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'} flex items-center justify-center overflow-hidden border-2 shadow-lg relative`}>
@@ -859,6 +895,15 @@ const UserManagementContent = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className={`${isDarkMode ? 'bg-gray-800/50 text-gray-400' : 'bg-gray-50 text-gray-500'} text-sm uppercase`}>
+                                    <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} w-10`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0}
+                                            onChange={() => toggleSelectAll(filteredUsers)}
+                                            className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                                            title="Select All"
+                                        />
+                                    </th>
                                     <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Structure</th>
                                     <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Role</th>
                                     <th className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} font-black tracking-widest text-[10px]`}>Employee ID</th>
@@ -870,7 +915,15 @@ const UserManagementContent = () => {
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {filteredUsers.map((user) => (
-                                    <tr key={user._id} className={`${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} transition-all group`}>
+                                    <tr key={user._id} className={`${selectedUserIds.includes(user._id) ? (isDarkMode ? 'bg-cyan-500/10' : 'bg-cyan-50') : ''} ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} transition-all group`}>
+                                        <td className="p-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedUserIds.includes(user._id)}
+                                                onChange={() => toggleUserSelection(user._id)}
+                                                className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                                            />
+                                        </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border ${isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'}`}>
@@ -982,6 +1035,21 @@ const UserManagementContent = () => {
                     onSuccess={() => {
                         setShowEditModal(false);
                         setSelectedUser(null);
+                        fetchUsers();
+                    }}
+                />
+            )}
+
+            {showBulkUpdateModal && (
+                <BulkUpdateUserModal
+                    selectedUserIds={selectedUserIds}
+                    allCentres={allCentres}
+                    allScripts={allScripts}
+                    isDarkMode={isDarkMode}
+                    onClose={() => setShowBulkUpdateModal(false)}
+                    onSuccess={() => {
+                        setShowBulkUpdateModal(false);
+                        setSelectedUserIds([]);
                         fetchUsers();
                     }}
                 />

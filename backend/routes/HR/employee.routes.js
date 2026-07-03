@@ -11,7 +11,8 @@ import {
     upload,
     getMyProfile,
     updateMyProfile,
-    bulkImportEmployees
+    bulkImportEmployees,
+    bulkUpdateEmployees
 } from "../../controllers/HR/employeeController.js";
 import { getEmployeeAnalytics } from "../../controllers/HR/employeeAnalyticsController.js";
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
@@ -62,6 +63,7 @@ router.put("/me", handleUpload, updateMyProfile);
 
 // Bulk operations
 router.post("/bulk/import", bulkImportEmployees);
+router.post("/bulk/update", bulkUpdateEmployees);
 
 // CRUD routes
 router.post("/", handleUpload, createEmployee);

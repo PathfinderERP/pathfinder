@@ -1,5 +1,6 @@
 import User from "../../../models/User.js";
 import Employee from "../../../models/HR/Employee.js";
+import Designation from "../../../models/Master_data/Designation.js";
 import bcrypt from "bcryptjs";
 
 // Helper for deep comparison of granularPermissions
@@ -276,5 +277,173 @@ export const deleteUserBySuperAdmin = async (req, res) => {
     } catch (error) {
         console.error("Error deleting user:", error);
         res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// Bulk Update Users
+export const bulkUpdateUsers = async (req, res) => {
+    try {
+        const { ids, updateData } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No user IDs provided for update." });
+        }
+        if (!updateData || Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: "No update fields provided." });
+        }
+
+        // Clean up and select allowed fields
+        const allowedFields = ["role", "centres", "isActive", "assignedScript", "canEditUsers", "canDeleteUsers", "teacherType", "onlineOfflineType", "teacherDepartment", "boardType", "subject", "designation"];
+        const finalUpdate = {};
+        allowedFields.forEach(field => {
+            if (updateData[field] !== undefined) {
+                finalUpdate[field] = updateData[field];
+            }
+        });
+
+        if (Object.keys(finalUpdate).length === 0) {
+            return res.status(400).json({ message: "No valid fields to update." });
+        }
+
+        const results = {
+            total: ids.length,
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+
+        for (const userId of ids) {
+            try {
+                const user = await User.findById(userId);
+                if (!user) {
+                    results.failed++;
+                    results.errors.push(`User ${userId} not found.`);
+                    continue;
+                }
+
+                // Apply changes
+                let hasChanges = false;
+                const employeeSyncData = {};
+
+                if (finalUpdate.role !== undefined && finalUpdate.role !== user.role) {
+                    user.role = finalUpdate.role;
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.centres !== undefined && !areArraysEqual(finalUpdate.centres, user.centres)) {
+                    user.centres = finalUpdate.centres || [];
+                    employeeSyncData.centres = finalUpdate.centres || [];
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.isActive !== undefined && finalUpdate.isActive !== user.isActive) {
+                    user.isActive = finalUpdate.isActive;
+                    hasChanges = true;
+                    if (finalUpdate.isActive === false) {
+                        user.deactivatedBy = req.user.id;
+                        user.deactivatedAt = new Date();
+                        employeeSyncData.deactivatedBy = req.user.id;
+                        employeeSyncData.deactivatedAt = new Date();
+                    } else {
+                        user.deactivatedBy = null;
+                        user.deactivatedAt = null;
+                        employeeSyncData.deactivatedBy = null;
+                        employeeSyncData.deactivatedAt = null;
+                    }
+                    employeeSyncData.status = finalUpdate.isActive ? "Active" : "Inactive";
+                }
+
+                if (finalUpdate.assignedScript !== undefined) {
+                    const newScript = finalUpdate.assignedScript === "" ? null : finalUpdate.assignedScript;
+                    if (String(newScript) !== String(user.assignedScript)) {
+                        user.assignedScript = newScript;
+                        hasChanges = true;
+                    }
+                }
+
+                if (finalUpdate.canEditUsers !== undefined && finalUpdate.canEditUsers !== user.canEditUsers) {
+                    user.canEditUsers = finalUpdate.canEditUsers;
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.canDeleteUsers !== undefined && finalUpdate.canDeleteUsers !== user.canDeleteUsers) {
+                    user.canDeleteUsers = finalUpdate.canDeleteUsers;
+                    hasChanges = true;
+                }
+
+                // Teacher/User Specific Fields
+                if (finalUpdate.teacherType !== undefined && finalUpdate.teacherType !== user.teacherType) {
+                    user.teacherType = finalUpdate.teacherType;
+                    employeeSyncData.typeOfEmployment = finalUpdate.teacherType;
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.onlineOfflineType !== undefined && finalUpdate.onlineOfflineType !== user.onlineOfflineType) {
+                    user.onlineOfflineType = finalUpdate.onlineOfflineType;
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.teacherDepartment !== undefined && !areArraysEqual(finalUpdate.teacherDepartment, user.teacherDepartment)) {
+                    user.teacherDepartment = finalUpdate.teacherDepartment;
+                    employeeSyncData.teacherDepartment = finalUpdate.teacherDepartment;
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.boardType !== undefined && finalUpdate.boardType !== user.boardType) {
+                    user.boardType = finalUpdate.boardType;
+                    employeeSyncData.boardType = finalUpdate.boardType;
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.subject !== undefined && finalUpdate.subject !== user.subject) {
+                    user.subject = finalUpdate.subject;
+                    employeeSyncData.subject = finalUpdate.subject;
+                    hasChanges = true;
+                }
+
+                if (finalUpdate.designation !== undefined && finalUpdate.designation !== user.designation) {
+                    user.designation = finalUpdate.designation;
+                    hasChanges = true;
+                    
+                    // Lookup the designation to get its Object ID for the Employee record
+                    const designationDoc = await Designation.findOne({
+                        $or: [
+                            { name: finalUpdate.designation },
+                            { name: new RegExp(`^${finalUpdate.designation}$`, 'i') }
+                        ]
+                    });
+                    if (designationDoc) {
+                        employeeSyncData.designation = designationDoc._id;
+                    }
+                }
+
+                if (hasChanges) {
+                    user.updatedBy = req.user.id;
+                    employeeSyncData.updatedBy = req.user.id;
+
+                    if (Object.keys(employeeSyncData).length > 0) {
+                        await Employee.findOneAndUpdate(
+                            { user: user._id },
+                            { $set: employeeSyncData }
+                        );
+                    }
+                    await user.save();
+                }
+
+                results.success++;
+            } catch (err) {
+                console.error(`Error updating user ${userId} during bulk update:`, err);
+                results.failed++;
+                results.errors.push(`User ID ${userId} error: ${err.message}`);
+            }
+        }
+
+        res.status(200).json({
+            message: `Bulk update completed: ${results.success} succeeded, ${results.failed} failed.`,
+            results
+        });
+
+    } catch (error) {
+        console.error("Bulk update users error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };

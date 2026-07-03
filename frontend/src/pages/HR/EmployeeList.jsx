@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie, FaSun, FaMoon } from "react-icons/fa";
+import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie, FaSun, FaMoon, FaLayerGroup } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import usePermission from "../../hooks/usePermission";
@@ -14,6 +14,7 @@ import ExcelImportExport from "../../components/common/ExcelImportExport";
 import { useTheme } from "../../context/ThemeContext";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { TableRowSkeleton, CardSkeleton } from "../../components/common/Skeleton";
+import BulkUpdateEmployeeModal from "../../components/HR/BulkUpdateEmployeeModal";
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -57,6 +58,24 @@ const EmployeeList = () => {
     const [analyticsLoading, setAnalyticsLoading] = useState(true);
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
+
+    // Bulk Selection State
+    const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
+    const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
+
+    const toggleEmployeeSelection = (id) => {
+        setSelectedEmployeeIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAllEmployees = () => {
+        if (selectedEmployeeIds.length === employees.length) {
+            setSelectedEmployeeIds([]);
+        } else {
+            setSelectedEmployeeIds(employees.map(e => e._id));
+        }
+    };
 
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
@@ -634,6 +653,14 @@ const EmployeeList = () => {
                                     <FaPlus /> Add {activeTab === 'staff' ? 'Staff' : activeTab === 'teacher' ? 'Teacher' : 'HOD'}
                                 </button>
                             )}
+                            {canEdit && selectedEmployeeIds.length > 0 && (
+                                <button
+                                    onClick={() => setShowBulkUpdateModal(true)}
+                                    className="px-6 py-3 bg-emerald-600 text-white hover:bg-emerald-500 rounded-[2px] shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
+                                >
+                                    <FaLayerGroup /> Bulk Update ({selectedEmployeeIds.length})
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -1086,6 +1113,15 @@ const EmployeeList = () => {
                                 <table className="w-full">
                                     <thead>
                                         <tr className={`${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                                            <th className={`px-4 py-5 w-10 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedEmployeeIds.length === employees.length && employees.length > 0}
+                                                    onChange={toggleSelectAllEmployees}
+                                                    className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                                                    title="Select All"
+                                                />
+                                            </th>
                                             <th className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest w-16 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
                                             {["Employee Structure", "Contact Vector", "Operational Unit", "Designation", "Centre Unit", "Status", "Manual Overrides"].map((head, i) => (
                                                 <th key={i} className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -1096,7 +1132,15 @@ const EmployeeList = () => {
                                     </thead>
                                     <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                         {employees.map((employee, index) => (
-                                            <tr key={employee._id} className={`${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} transition-all group cursor-pointer`}>
+                                            <tr key={employee._id} className={`${selectedEmployeeIds.includes(employee._id) ? (isDarkMode ? 'bg-cyan-500/10' : 'bg-cyan-50') : ''} ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} transition-all group cursor-pointer`}>
+                                                <td className="px-4 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedEmployeeIds.includes(employee._id)}
+                                                        onChange={(e) => { e.stopPropagation(); toggleEmployeeSelection(employee._id); }}
+                                                        className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                                                    />
+                                                </td>
                                                 <td className={`px-6 py-4 text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                     {(pagination.currentPage - 1) * 10 + index + 1}
                                                 </td>
@@ -1311,6 +1355,18 @@ const EmployeeList = () => {
                         </div>
                     )}
                     {showImportModal && <ImportOverviewModal />}
+                    {showBulkUpdateModal && (
+                        <BulkUpdateEmployeeModal
+                            selectedEmployeeIds={selectedEmployeeIds}
+                            isDarkMode={isDarkMode}
+                            onClose={() => setShowBulkUpdateModal(false)}
+                            onSuccess={() => {
+                                setShowBulkUpdateModal(false);
+                                setSelectedEmployeeIds([]);
+                                fetchEmployees();
+                            }}
+                        />
+                    )}
                 </div>
             </Layout>
         </div>
