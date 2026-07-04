@@ -259,9 +259,9 @@ const InstallmentPayment = () => {
         init();
     }, []);
 
-    // Fetch board admissions when board tab becomes active
+    // Fetch board admissions when board tab or allDetails tab becomes active
     useEffect(() => {
-        if (activeTab === 'boardCourse' && boardAdmissionsList.length === 0) {
+        if ((activeTab === 'boardCourse' || activeTab === 'allDetails') && boardAdmissionsList.length === 0) {
             fetchBoardAdmissions();
         }
     }, [activeTab]);
@@ -635,6 +635,133 @@ const InstallmentPayment = () => {
         return flatInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
     }, [boardAdmissionsList, isBoardDetailedView, boardFilters]);
 
+    const displayedBoardListAllDetails = React.useMemo(() => {
+        let filtered = boardAdmissionsList;
+
+        if (filters.centre && filters.centre.length > 0) {
+            filtered = filtered.filter(adm => filters.centre.includes(adm.centre));
+        }
+
+        if (filters.department && filters.department.length > 0) {
+            const selectedDeptNames = filters.department.map(id => metadata.departments.find(d => d._id === id)?.departmentName).filter(Boolean);
+            if (selectedDeptNames.length > 0) {
+                filtered = filtered.filter(adm => selectedDeptNames.includes(adm.programme));
+            }
+        }
+
+        if (filters.course && filters.course.length > 0) {
+            const selectedCourseNames = filters.course.map(id => metadata.courses.find(c => c._id === id)?.courseName).filter(Boolean);
+            if (selectedCourseNames.length > 0) {
+                filtered = filtered.filter(adm => selectedCourseNames.includes(adm.boardCourseName));
+            }
+        }
+
+        if (filters.examTag && filters.examTag.length > 0) {
+            const selectedTagNames = filters.examTag.map(id => metadata.examTags.find(t => t._id === id)?.name).filter(Boolean);
+            if (selectedTagNames.length > 0) {
+                filtered = filtered.filter(adm => {
+                    const studentTag = adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag;
+                    return studentTag && selectedTagNames.includes(studentTag);
+                });
+            }
+        }
+
+        if (filters.minRemaining !== "") {
+            filtered = filtered.filter(adm => {
+                const totalExpected = adm.totalExpectedAmount || 0;
+                const totalPaid = adm.totalPaidAmount || 0;
+                const totalDue = Math.max(0, totalExpected - totalPaid);
+                return totalDue >= parseFloat(filters.minRemaining);
+            });
+        }
+
+        if (filters.maxRemaining !== "") {
+            filtered = filtered.filter(adm => {
+                const totalExpected = adm.totalExpectedAmount || 0;
+                const totalPaid = adm.totalPaidAmount || 0;
+                const totalDue = Math.max(0, totalExpected - totalPaid);
+                return totalDue <= parseFloat(filters.maxRemaining);
+            });
+        }
+
+        if (filters.searchTerm) {
+            const sq = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(adm => {
+                const name = (adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || '').toLowerCase();
+                const admNo = (adm.admissionNumber || '').toLowerCase();
+                const mobile = (adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || '').toString();
+                return name.includes(sq) || admNo.includes(sq) || mobile.includes(sq);
+            });
+        }
+
+        if (!isDetailedView) {
+            return filtered;
+        }
+
+        // Flatten board installments if filtering by date/status
+        const start = filters.startDate ? new Date(filters.startDate) : new Date(0);
+        start.setHours(0, 0, 0, 0);
+        const end = filters.endDate ? new Date(filters.endDate) : new Date(8640000000000000);
+        end.setHours(23, 59, 59, 999);
+
+        const flatInstallments = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        filtered.forEach(adm => {
+            if (adm.installments && adm.installments.length > 0) {
+                adm.installments.forEach(inst => {
+                    let dateMatch = true;
+                    if (filters.startDate || filters.endDate) {
+                        if (inst.dueDate) {
+                            const d = new Date(inst.dueDate);
+                            dateMatch = d >= start && d <= end;
+                        } else {
+                            dateMatch = false;
+                        }
+                    }
+
+                    let statusMatch = true;
+                    if (filters.installmentStatus && filters.installmentStatus.length > 0) {
+                        const dueDate = new Date(inst.dueDate);
+                        dueDate.setHours(0, 0, 0, 0);
+                        const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                        const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
+                        statusMatch = filters.installmentStatus.includes(currentStatus);
+                    }
+
+                    if (dateMatch && statusMatch) {
+                        const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
+                        const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
+                        const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
+
+                        flatInstallments.push({
+                            ...inst,
+                            boardCourseAdmissionId: adm._id,
+                            admissionNumber: adm.admissionNumber,
+                            studentId: adm.studentId?._id || adm.studentId,
+                            studentName: studentName,
+                            email: email,
+                            mobile: mobile,
+                            course: adm.boardCourseName || adm.programme,
+                            examTag: adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || 'N/A',
+                            lastClass: adm.lastClass || 'N/A',
+                            department: adm.programme,
+                            centre: adm.centre,
+                            admissionDate: adm.admissionDate,
+                            admissionTotalFees: adm.totalExpectedAmount,
+                            admissionTotalPaid: adm.totalPaidAmount,
+                            admissionRemaining: Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)),
+                            admissionPaymentStatus: (Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)) < 1) ? 'PAID' : 'PENDING'
+                        });
+                    }
+                });
+            }
+        });
+
+        return flatInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    }, [boardAdmissionsList, isDetailedView, filters, metadata]);
+
     const stats = React.useMemo(() => {
         if (activeTab === 'boardCourse') {
             if (isBoardDetailedView) {
@@ -650,6 +777,36 @@ const InstallmentPayment = () => {
             }
         }
 
+        if (activeTab === 'allDetails') {
+            let regFees = 0, regPaid = 0, regDue = 0;
+            if (isDetailedView) {
+                regFees = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0), 0);
+                regPaid = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount) || 0), 0);
+                regDue = regFees - regPaid;
+            } else {
+                regFees = admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalFees) || 0), 0);
+                regPaid = admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0);
+                regDue = admissionsList.reduce((sum, a) => sum + (parseFloat(a.remainingAmount) || 0), 0);
+            }
+
+            let boardFees = 0, boardPaid = 0, boardDue = 0;
+            if (isDetailedView) {
+                boardFees = displayedBoardListAllDetails.reduce((sum, inst) => sum + (parseFloat(inst.amount || inst.payableAmount || 0)), 0);
+                boardPaid = displayedBoardListAllDetails.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount || 0)), 0);
+                boardDue = boardFees - boardPaid;
+            } else {
+                boardFees = displayedBoardListAllDetails.reduce((sum, adm) => sum + (parseFloat(adm.totalExpectedAmount || 0)), 0);
+                boardPaid = displayedBoardListAllDetails.reduce((sum, adm) => sum + (parseFloat(adm.totalPaidAmount || 0)), 0);
+                boardDue = boardFees - boardPaid;
+            }
+
+            return {
+                totalFees: regFees + boardFees,
+                totalPaid: regPaid + boardPaid,
+                totalDue: regDue + boardDue
+            };
+        }
+
         if (isDetailedView) {
             const totalFees = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0), 0);
             const totalPaid = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount) || 0), 0);
@@ -661,7 +818,7 @@ const InstallmentPayment = () => {
             const totalDue = admissionsList.reduce((sum, a) => sum + (parseFloat(a.remainingAmount) || 0), 0);
             return { totalFees, totalPaid, totalDue };
         }
-    }, [activeTab, admissionsList, displayedList, isDetailedView, boardAdmissionsList, displayedBoardList, isBoardDetailedView]);
+    }, [activeTab, admissionsList, displayedList, isDetailedView, boardAdmissionsList, displayedBoardList, isBoardDetailedView, displayedBoardListAllDetails]);
 
     const centreStats = React.useMemo(() => {
         const counts = {};
@@ -687,6 +844,92 @@ const InstallmentPayment = () => {
                     counts[c].totalFees += (parseFloat(a.totalExpectedAmount) || 0);
                     counts[c].totalPaid += (parseFloat(a.totalPaidAmount) || 0);
                     counts[c].totalDue += Math.max(0, (parseFloat(a.totalExpectedAmount) || 0) - (parseFloat(a.totalPaidAmount) || 0));
+                });
+            }
+        } else if (activeTab === 'allDetails') {
+            // regular stats:
+            if (isDetailedView) {
+                displayedList.forEach(inst => {
+                    const c = inst.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = {
+                            totalFees: 0, totalPaid: 0, totalDue: 0,
+                            regularFees: 0, regularPaid: 0, regularDue: 0,
+                            boardFees: 0, boardPaid: 0, boardDue: 0
+                        };
+                    }
+                    const amt = parseFloat(inst.amount) || 0;
+                    const paid = parseFloat(inst.paidAmount) || 0;
+                    const due = amt - paid;
+                    counts[c].totalFees += amt;
+                    counts[c].totalPaid += paid;
+                    counts[c].totalDue += due;
+                    counts[c].regularFees += amt;
+                    counts[c].regularPaid += paid;
+                    counts[c].regularDue += due;
+                });
+            } else {
+                admissionsList.forEach(a => {
+                    const c = a.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = {
+                            totalFees: 0, totalPaid: 0, totalDue: 0,
+                            regularFees: 0, regularPaid: 0, regularDue: 0,
+                            boardFees: 0, boardPaid: 0, boardDue: 0
+                        };
+                    }
+                    const amt = parseFloat(a.totalFees) || 0;
+                    const paid = parseFloat(a.totalPaid) || 0;
+                    const due = parseFloat(a.remainingAmount) || 0;
+                    counts[c].totalFees += amt;
+                    counts[c].totalPaid += paid;
+                    counts[c].totalDue += due;
+                    counts[c].regularFees += amt;
+                    counts[c].regularPaid += paid;
+                    counts[c].regularDue += due;
+                });
+            }
+
+            // board stats:
+            if (isDetailedView) {
+                displayedBoardListAllDetails.forEach(inst => {
+                    const c = inst.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = {
+                            totalFees: 0, totalPaid: 0, totalDue: 0,
+                            regularFees: 0, regularPaid: 0, regularDue: 0,
+                            boardFees: 0, boardPaid: 0, boardDue: 0
+                        };
+                    }
+                    const amt = parseFloat(inst.amount || inst.payableAmount) || 0;
+                    const paid = parseFloat(inst.paidAmount) || 0;
+                    const due = amt - paid;
+                    counts[c].totalFees += amt;
+                    counts[c].totalPaid += paid;
+                    counts[c].totalDue += due;
+                    counts[c].boardFees += amt;
+                    counts[c].boardPaid += paid;
+                    counts[c].boardDue += due;
+                });
+            } else {
+                displayedBoardListAllDetails.forEach(a => {
+                    const c = a.centre || "Unknown";
+                    if (!counts[c]) {
+                        counts[c] = {
+                            totalFees: 0, totalPaid: 0, totalDue: 0,
+                            regularFees: 0, regularPaid: 0, regularDue: 0,
+                            boardFees: 0, boardPaid: 0, boardDue: 0
+                        };
+                    }
+                    const amt = parseFloat(a.totalExpectedAmount) || 0;
+                    const paid = parseFloat(a.totalPaidAmount) || 0;
+                    const due = Math.max(0, amt - paid);
+                    counts[c].totalFees += amt;
+                    counts[c].totalPaid += paid;
+                    counts[c].totalDue += due;
+                    counts[c].boardFees += amt;
+                    counts[c].boardPaid += paid;
+                    counts[c].boardDue += due;
                 });
             }
         } else {
@@ -718,7 +961,7 @@ const InstallmentPayment = () => {
             name,
             ...data
         })).sort((a, b) => a.name.localeCompare(b.name));
-    }, [activeTab, admissionsList, displayedList, isDetailedView, boardAdmissionsList, displayedBoardList, isBoardDetailedView]);
+    }, [activeTab, admissionsList, displayedList, isDetailedView, boardAdmissionsList, displayedBoardList, isBoardDetailedView, displayedBoardListAllDetails]);
 
     const exportToExcel = () => {
         if (displayedList.length === 0) {
@@ -836,6 +1079,21 @@ const InstallmentPayment = () => {
 
         const dataToExport = centreStats.map(c => {
             const progress = c.totalFees > 0 ? (c.totalPaid / c.totalFees) * 100 : 0;
+            if (activeTab === 'allDetails') {
+                return {
+                    "Centre Name": c.name,
+                    "Total Amount (₹)": Math.round(c.totalFees || 0),
+                    "Paid Amount (₹)": Math.round(c.totalPaid || 0),
+                    "Remaining Amount (₹)": Math.round(c.totalDue || 0),
+                    "Normal Course: Total Amount (₹)": Math.round(c.regularFees || 0),
+                    "Normal Course: Paid Amount (₹)": Math.round(c.regularPaid || 0),
+                    "Normal Course: Remaining Amount (₹)": Math.round(c.regularDue || 0),
+                    "Board Course: Total Amount (₹)": Math.round(c.boardFees || 0),
+                    "Board Course: Paid Amount (₹)": Math.round(c.boardPaid || 0),
+                    "Board Course: Remaining Amount (₹)": Math.round(c.boardDue || 0),
+                    "Recovery Progress (%)": Math.round(progress) + "%"
+                };
+            }
             return {
                 "Centre Name": c.name,
                 "Total Installment Amount (₹)": Math.round(c.totalFees),
@@ -847,7 +1105,7 @@ const InstallmentPayment = () => {
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Centre-wise Summary Report");
+        XLSX.utils.book_append_sheet(workbook, worksheet, activeTab === 'allDetails' ? "All Details Summary Report" : "Centre-wise Summary Report");
 
         // Auto-size columns
         const columnWidths = Object.keys(dataToExport[0] || {}).map(key => ({
@@ -857,8 +1115,9 @@ const InstallmentPayment = () => {
 
         const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
         const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
-        saveAs(data, `Centre_wise_Installment_Summary_${new Date().toISOString().split('T')[0]}.xlsx`);
-        toast.success("Centre summary report exported successfully!");
+        const prefix = activeTab === 'allDetails' ? "All_Details_Installment_Summary" : "Centre_wise_Installment_Summary";
+        saveAs(data, `${prefix}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Summary report exported successfully!");
     };
 
     const resetBoardFilters = () => {
@@ -1350,6 +1609,15 @@ const InstallmentPayment = () => {
                                 }`}
                         >
                             🎓 Board Course Admission Installment
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('allDetails')}
+                            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${activeTab === 'allDetails'
+                                    ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                                    : isDarkMode ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-white'
+                                }`}
+                        >
+                            📊 All Details
                         </button>
                     </div>
                 )}
@@ -2070,7 +2338,7 @@ const InstallmentPayment = () => {
                     </div>
                 )}
 
-                {!selectedStudent && activeTab === 'regular' ? (
+                {!selectedStudent && activeTab === 'regular' && (
                     <>
                         {/* Tab Switcher */}
                         <div className="flex justify-start items-center mb-6 gap-2 border-b border-gray-800/40 pb-4">
@@ -2708,7 +2976,272 @@ const InstallmentPayment = () => {
                             </>
                         )}
                     </>
-                ) : (
+                )}
+
+                {!selectedStudent && activeTab === 'allDetails' && (
+                    <>
+                        {/* Filters Section */}
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl p-6 mb-8 shadow-sm animate-fade-in`}>
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6 items-end">
+                                {/* Date Range */}
+                                <div className="lg:col-span-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                    <input
+                                        type="date"
+                                        name="startDate"
+                                        value={filters.startDate}
+                                        onChange={handleFilterChange}
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    />
+                                </div>
+                                <div className="lg:col-span-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                    <input
+                                        type="date"
+                                        name="endDate"
+                                        value={filters.endDate}
+                                        onChange={handleFilterChange}
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    />
+                                </div>
+
+                                {/* Dept Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Department</label>
+                                    <Select
+                                        isMulti
+                                        options={metadata.departments.map(d => ({ value: d._id, label: d.departmentName }))}
+                                        value={filters.department.map(id => {
+                                            const dept = metadata.departments.find(d => d._id === id);
+                                            return dept ? { value: dept._id, label: dept.departmentName } : null;
+                                        }).filter(Boolean)}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, department: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL DEPARTMENTS"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Course Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Course</label>
+                                    <Select
+                                        isMulti
+                                        options={metadata.courses.map(c => ({ value: c._id, label: c.courseName }))}
+                                        value={filters.course.map(id => {
+                                            const course = metadata.courses.find(c => c._id === id);
+                                            return course ? { value: course._id, label: course.courseName } : null;
+                                        }).filter(Boolean)}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, course: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL COURSES"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Exam Tag Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Exam Tag</label>
+                                    <Select
+                                        isMulti
+                                        options={metadata.examTags.map(t => ({ value: t._id, label: t.name }))}
+                                        value={filters.examTag.map(id => {
+                                            const tag = metadata.examTags.find(t => t._id === id);
+                                            return tag ? { value: tag._id, label: tag.name } : null;
+                                        }).filter(Boolean)}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, examTag: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL EXAM TAGS"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Centre Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
+                                    <Select
+                                        isMulti
+                                        options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                        value={filters.centre.map(name => ({ value: name, label: name }))}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL CENTRES"
+                                        isClearable
+                                    />
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => fetchAdmissions()}
+                                        className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
+                                    >
+                                        Apply
+                                    </button>
+                                    <button
+                                        onClick={exportCentreSummaryToExcel}
+                                        className="p-3 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
+                                        title="Export Centre Summary Excel"
+                                    >
+                                        <FaDownload />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Additional Filters: Amount Range */}
+                            <div className={`mt-6 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-t pt-6 ${isDarkMode ? 'border-gray-800/50' : 'border-gray-200'}`}>
+                                <div className={`md:col-span-2 flex items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? 'bg-black/20 border-gray-800/50' : 'bg-gray-50 border-gray-200'}`}>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Min Remaining Fee</label>
+                                        <input
+                                            type="number"
+                                            name="minRemaining"
+                                            placeholder="₹ Min (e.g. 5000)"
+                                            value={filters.minRemaining}
+                                            onChange={handleFilterChange}
+                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        />
+                                    </div>
+                                    <div className="text-gray-700 mt-6">-</div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Max Remaining Fee</label>
+                                        <input
+                                            type="number"
+                                            name="maxRemaining"
+                                            placeholder="₹ Max (e.g. 50000)"
+                                            value={filters.maxRemaining}
+                                            onChange={handleFilterChange}
+                                            className={`w-full border rounded-xl py-2 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <div className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em] ml-1">Installment Status</div>
+                                    <Select
+                                        isMulti
+                                        options={statusOptions}
+                                        value={statusOptions.filter(opt => filters.installmentStatus.includes(opt.value))}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, installmentStatus: selected ? selected.map(s => s.value) : [] }))}
+                                        placeholder="FILTER STATUS..."
+                                        styles={selectStyles}
+                                    />
+                                </div>
+
+                                <div className="md:col-span-1 self-end">
+                                    <button
+                                        onClick={resetFilters}
+                                        className={`w-full py-4 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl transition-all border flex items-center justify-center gap-2 ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border-gray-300'}`}
+                                    >
+                                        <FaEraser /> Reset All Filters
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Combined Table */}
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-3xl overflow-hidden shadow-2xl animate-fade-in`}>
+                            <div className="p-6 border-b border-gray-800/40 flex justify-between items-center">
+                                <h3 className={`text-lg font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    All Details - Centre-wise Installment Summary
+                                </h3>
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-cyan-500/10 text-cyan-500 px-3 py-1 rounded-full">
+                                    Total Centres: {centreStats.length}
+                                </span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-[1300px]">
+                                    <thead>
+                                        <tr className={`border-b ${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre Name</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Amount</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Paid Amount</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Normal Course: Total</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Normal Course: Paid</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Normal Course: Remaining</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board Course: Total</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board Course: Paid</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board Course: Remaining</th>
+                                            <th className={`p-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Recovery Progress</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
+                                        {loading || boardLoading ? (
+                                            <tr>
+                                                <td colSpan="11" className="p-20 text-center">
+                                                    <div className="flex justify-center flex-col items-center gap-4">
+                                                        <div className="animate-spin h-10 w-10 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"></div>
+                                                        <span className="text-gray-500 font-black uppercase tracking-widest text-xs animate-pulse">Loading Data...</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : centreStats.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="11" className="p-20 text-center italic text-gray-600 font-bold uppercase tracking-widest">No centre summary data found</td>
+                                            </tr>
+                                        ) : (
+                                            centreStats.map((c, idx) => {
+                                                const progress = c.totalFees > 0 ? (c.totalPaid / c.totalFees) * 100 : 0;
+                                                return (
+                                                    <tr key={idx} className="hover:bg-cyan-500/5 transition-all">
+                                                        <td className="p-5">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest ${isDarkMode ? 'bg-gray-800/50 border border-gray-700/50 text-gray-200' : 'bg-gray-100 border border-gray-200 text-gray-700'}`}>
+                                                                    <FaMapMarkerAlt className="text-cyan-500" />
+                                                                    {c.name}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-5 font-black text-sm">
+                                                            <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>₹{Math.round(c.totalFees).toLocaleString('en-IN')}</span>
+                                                        </td>
+                                                        <td className="p-5 font-black text-sm text-emerald-500">
+                                                            ₹{Math.round(c.totalPaid).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5 font-black text-sm text-red-500">
+                                                            ₹{Math.round(c.totalDue).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5 font-bold text-xs text-gray-400">
+                                                            ₹{Math.round(c.regularFees || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5 font-bold text-xs text-emerald-500/80">
+                                                            ₹{Math.round(c.regularPaid || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5 font-bold text-xs text-red-500/80">
+                                                            ₹{Math.round(c.regularDue || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5 font-bold text-xs text-gray-400">
+                                                            ₹{Math.round(c.boardFees || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5 font-bold text-xs text-emerald-500/80">
+                                                            ₹{Math.round(c.boardPaid || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5 font-bold text-xs text-red-500/80">
+                                                            ₹{Math.round(c.boardDue || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className="p-5">
+                                                            <div className="flex items-center gap-3 min-w-[150px]">
+                                                                <div className={`flex-1 h-2 rounded-full overflow-hidden flex ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                                                                    <div 
+                                                                        className="h-full bg-emerald-500 rounded-full" 
+                                                                        style={{ width: `${progress}%` }} 
+                                                                    />
+                                                                </div>
+                                                                <span className="text-[10px] font-black text-emerald-500">{Math.round(progress)}%</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {selectedStudent && (
                     <>
                         {/* Financial Details View (Previously implemented) */}
                         {loading && (
