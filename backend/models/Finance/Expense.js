@@ -24,15 +24,19 @@ const expenseSchema = new mongoose.Schema(
                 "January", "February", "March", "April", "May", "June",
                 "July", "August", "September", "October", "November", "December",
             ],
+            required: function () { return this.expenseType === 'General'; }
+        },
+        week: {
+            type: String,
+            enum: ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
+            required: function () { return this.expenseType === 'General'; }
         },
         approvedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: function () { return this.expenseType === 'General'; },
         },
         approvedDate: {
             type: Date,
-            required: function () { return this.expenseType === 'General'; },
         },
         expenseDate: {
             type: Date,
@@ -60,7 +64,8 @@ const expenseSchema = new mongoose.Schema(
             type: String // e.g., "Week 1, May 2026"
         },
         amount: {
-            type: Number
+            type: Number,
+            required: function () { return this.expenseType === 'General'; }
         },
         hrApprovedBy: {
             type: mongoose.Schema.Types.ObjectId,

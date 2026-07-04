@@ -128,6 +128,12 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
             return;
         }
 
+        if (formData.leadType === "HOT LEAD" && !formData.walkInDate) {
+            toast.warning("Please select a walk in date");
+            setLoading(false);
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/${lead._id}/follow-up`, {
@@ -279,13 +285,14 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
 
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase text-gray-500 ml-1 tracking-widest flex items-center gap-0.5">
-                                Walk In Date
+                                Walk In Date {formData.leadType === "HOT LEAD" && <span className="text-red-500 font-bold">*</span>}
                             </label>
                             <div className="relative group">
                                 <FaCalendarAlt className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-500' : 'text-gray-400 group-focus-within:text-cyan-600'}`} />
                                 <input
                                     type="date"
-                                    value={formData.walkInDate}
+                                    required={formData.leadType === "HOT LEAD"}
+                                    value={formData.walkInDate || ""}
                                     onChange={(e) => setFormData({ ...formData, walkInDate: e.target.value })}
                                     min={todayStr}
                                     className={`w-full pl-10 pr-4 py-3 rounded-[4px] border text-[11px] font-black uppercase tracking-widest focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}

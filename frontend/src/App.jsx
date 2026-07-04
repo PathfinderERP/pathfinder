@@ -242,9 +242,9 @@ function App() {
         <Route path="/finance/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
         <Route path="/finance/budget/:centreId" element={<ProtectedRoute><BudgetDetails /></ProtectedRoute>} />
         <Route path="/finance/part-time-teachers" element={<ProtectedRoute><PartTimeTeachers /></ProtectedRoute>} />
-        <Route path="/finance/expenses" element={<ProtectedRoute><GetAllExpense /></ProtectedRoute>} />
-        <Route path="/finance/expense/create" element={<ProtectedRoute><CreateExpense /></ProtectedRoute>} />
-        <Route path="/expense/create" element={<ProtectedRoute><CreateExpense /></ProtectedRoute>} />
+        <Route path="/finance/expenses" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><GetAllExpense /></ProtectedRoute>} />
+        <Route path="/finance/expense/create" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><CreateExpense /></ProtectedRoute>} />
+        <Route path="/expense/create" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><CreateExpense /></ProtectedRoute>} />
         <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
         <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
         <Route path="/sales/comparison-analysis" element={<ProtectedRoute><ComparisonAnalysis /></ProtectedRoute>} />
@@ -265,7 +265,7 @@ function App() {
         <Route path="/sales/final-weekend-target" element={<ProtectedRoute><FinalWeekendTarget /></ProtectedRoute>} />
         <Route path="/sales/course-target" element={<ProtectedRoute><CourseTarget /></ProtectedRoute>} />
         <Route path="/hr" element={<ProtectedRoute><HR /></ProtectedRoute>} />
-        <Route path="/hr/salary-expense" element={<ProtectedRoute><SalaryExpenseHub /></ProtectedRoute>} />
+        <Route path="/hr/salary-expense" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><SalaryExpenseHub /></ProtectedRoute>} />
         <Route path="/hr/employee/list" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
         <Route path="/hr/employee/add" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
         <Route path="/hr/employee/edit/:id" element={<ProtectedRoute><AddEmployee /></ProtectedRoute>} />
@@ -351,7 +351,7 @@ function App() {
         <Route path="/master-data/session" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSession /></ProtectedRoute>} />
         <Route path="/master-data/script" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataScript /></ProtectedRoute>} />
         <Route path="/master-data/expense-category" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenseCategory /></ProtectedRoute>} />
-        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute allowedRoles={['superadmin']}><FinanceExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><FinanceExpenseCategory /></ProtectedRoute>} />
         <Route path="/master-data/expense-subcategory" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenseSubCategory /></ProtectedRoute>} />
         <Route path="/master-data/expenditure-type" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenditureType /></ProtectedRoute>} />
         <Route path="/master-data/account" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataAccount /></ProtectedRoute>} />

@@ -174,6 +174,60 @@ const EditScheduleModal = ({ admission, onClose, onSave }) => {
     );
 };
 
+const getDateRangeLimits = (range) => {
+    const today = new Date();
+    const formatDate = (d) => {
+        const tzOffset = d.getTimezoneOffset() * 60 * 1000;
+        const localTime = d.getTime() - tzOffset;
+        const localDate = new Date(localTime);
+        return localDate.toISOString().split('T')[0];
+    };
+
+    let start = "";
+    let end = "";
+    switch (range) {
+        case "Today":
+            start = formatDate(today);
+            end = formatDate(today);
+            break;
+        case "Tomorrow":
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            start = formatDate(tomorrow);
+            end = formatDate(tomorrow);
+            break;
+        case "Yesterday":
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            start = formatDate(yesterday);
+            end = formatDate(yesterday);
+            break;
+        case "Last 7 Days":
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 6);
+            start = formatDate(sevenDaysAgo);
+            end = formatDate(today);
+            break;
+        case "This Month":
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            start = formatDate(startOfMonth);
+            end = formatDate(endOfMonth);
+            break;
+        case "Last Month":
+            const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            start = formatDate(startOfLastMonth);
+            end = formatDate(endOfLastMonth);
+            break;
+        default:
+            break;
+    }
+    return { start, end };
+};
+
+const thisMonthLimits = getDateRangeLimits("This Month");
+
 const InstallmentPayment = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === "dark";
@@ -200,8 +254,11 @@ const InstallmentPayment = () => {
         department: [],
         class: [],
         examTag: [],
-        startDate: "",
-        endDate: "",
+        startDate: thisMonthLimits.start,
+        endDate: thisMonthLimits.end,
+        dateRange: "This Month",
+        customStartDate: "",
+        customEndDate: "",
         installmentStatus: [],
         minRemaining: "",
         maxRemaining: "",
@@ -220,8 +277,11 @@ const InstallmentPayment = () => {
         course: [],
         department: [],
         examTag: [],
-        startDate: "",
-        endDate: "",
+        startDate: thisMonthLimits.start,
+        endDate: thisMonthLimits.end,
+        dateRange: "This Month",
+        customStartDate: "",
+        customEndDate: "",
         installmentStatus: [],
         minRemaining: "",
         maxRemaining: "",
@@ -388,6 +448,76 @@ const InstallmentPayment = () => {
         }
     };
 
+    const handleDateRangeChange = (val) => {
+        setFilters(prev => {
+            if (val === "Custom Range") {
+                return {
+                    ...prev,
+                    dateRange: val,
+                    startDate: prev.customStartDate || "",
+                    endDate: prev.customEndDate || ""
+                };
+            } else {
+                const limits = getDateRangeLimits(val);
+                return {
+                    ...prev,
+                    dateRange: val,
+                    startDate: limits.start,
+                    endDate: limits.end
+                };
+            }
+        });
+    };
+
+    const handleCustomDateChange = (field, val) => {
+        setFilters(prev => {
+            const updated = {
+                ...prev,
+                [field]: val
+            };
+            return {
+                ...updated,
+                startDate: field === 'customStartDate' ? val : prev.startDate,
+                endDate: field === 'customEndDate' ? val : prev.endDate
+            };
+        });
+    };
+
+    const handleBoardDateRangeChange = (val) => {
+        setBoardFilters(prev => {
+            if (val === "Custom Range") {
+                return {
+                    ...prev,
+                    dateRange: val,
+                    startDate: prev.customStartDate || "",
+                    endDate: prev.customEndDate || ""
+                };
+            } else {
+                const limits = getDateRangeLimits(val);
+                return {
+                    ...prev,
+                    dateRange: val,
+                    startDate: limits.start,
+                    endDate: limits.end
+                };
+            }
+        });
+    };
+
+    const handleBoardCustomDateChange = (field, val) => {
+        setBoardFilters(prev => {
+            const updated = {
+                ...prev,
+                [field]: val
+            };
+            return {
+                ...updated,
+                startDate: field === 'customStartDate' ? val : prev.startDate,
+                endDate: field === 'customEndDate' ? val : prev.endDate
+            };
+        });
+    };
+
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
@@ -399,8 +529,11 @@ const InstallmentPayment = () => {
             course: [],
             department: [],
             examTag: [],
-            startDate: "",
-            endDate: "",
+            startDate: thisMonthLimits.start,
+            endDate: thisMonthLimits.end,
+            dateRange: "This Month",
+            customStartDate: "",
+            customEndDate: "",
             installmentStatus: [],
             minRemaining: "",
             maxRemaining: "",
@@ -1127,8 +1260,11 @@ const InstallmentPayment = () => {
             department: [],
             class: [],
             examTag: [],
-            startDate: "",
-            endDate: "",
+            startDate: thisMonthLimits.start,
+            endDate: thisMonthLimits.end,
+            dateRange: "This Month",
+            customStartDate: "",
+            customEndDate: "",
             installmentStatus: [],
             minRemaining: "",
             maxRemaining: "",
@@ -1661,23 +1797,39 @@ const InstallmentPayment = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-6 items-end">
                                         {/* Date Range */}
                                         <div className="lg:col-span-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
-                                            <input
-                                                type="date"
-                                                value={boardFilters.startDate}
-                                                onChange={(e) => setBoardFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                            />
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Date Range</label>
+                                            <select
+                                                value={boardFilters.dateRange || "This Month"}
+                                                onChange={(e) => handleBoardDateRangeChange(e.target.value)}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            >
+                                                {["Today", "Tomorrow", "Yesterday", "Last 7 Days", "This Month", "Last Month", "Custom Range"].map(preset => (
+                                                    <option key={preset} value={preset} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>{preset}</option>
+                                                ))}
+                                            </select>
                                         </div>
-                                        <div className="lg:col-span-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
-                                            <input
-                                                type="date"
-                                                value={boardFilters.endDate}
-                                                onChange={(e) => setBoardFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                            />
-                                        </div>
+                                        {boardFilters.dateRange === "Custom Range" && (
+                                            <>
+                                                <div className="lg:col-span-1">
+                                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                                    <input
+                                                        type="date"
+                                                        value={boardFilters.customStartDate || ""}
+                                                        onChange={(e) => handleBoardCustomDateChange('customStartDate', e.target.value)}
+                                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                                    />
+                                                </div>
+                                                <div className="lg:col-span-1">
+                                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                                    <input
+                                                        type="date"
+                                                        value={boardFilters.customEndDate || ""}
+                                                        onChange={(e) => handleBoardCustomDateChange('customEndDate', e.target.value)}
+                                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
 
                                         {/* Department Filter */}
                                         <div>
@@ -1901,23 +2053,39 @@ const InstallmentPayment = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-6 items-end">
                                 {/* Date Range */}
                                 <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
-                                    <input
-                                        type="date"
-                                        value={boardFilters.startDate}
-                                        onChange={(e) => setBoardFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                    />
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Date Range</label>
+                                    <select
+                                        value={boardFilters.dateRange || "This Month"}
+                                        onChange={(e) => handleBoardDateRangeChange(e.target.value)}
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    >
+                                        {["Today", "Tomorrow", "Yesterday", "Last 7 Days", "This Month", "Last Month", "Custom Range"].map(preset => (
+                                            <option key={preset} value={preset} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>{preset}</option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
-                                    <input
-                                        type="date"
-                                        value={boardFilters.endDate}
-                                        onChange={(e) => setBoardFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                    />
-                                </div>
+                                {boardFilters.dateRange === "Custom Range" && (
+                                    <>
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                            <input
+                                                type="date"
+                                                value={boardFilters.customStartDate || ""}
+                                                onChange={(e) => handleBoardCustomDateChange('customStartDate', e.target.value)}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                            <input
+                                                type="date"
+                                                value={boardFilters.customEndDate || ""}
+                                                onChange={(e) => handleBoardCustomDateChange('customEndDate', e.target.value)}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+                                    </>
+                                )}
 
                                 {/* Department Filter - Multi-select */}
                                 <div>
@@ -2375,25 +2543,39 @@ const InstallmentPayment = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6 items-end">
                                         {/* Date Range */}
                                         <div className="lg:col-span-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
-                                            <input
-                                                type="date"
-                                                name="startDate"
-                                                value={filters.startDate}
-                                                onChange={handleFilterChange}
-                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                            />
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Date Range</label>
+                                            <select
+                                                value={filters.dateRange || "This Month"}
+                                                onChange={(e) => handleDateRangeChange(e.target.value)}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            >
+                                                {["Today", "Tomorrow", "Yesterday", "Last 7 Days", "This Month", "Last Month", "Custom Range"].map(preset => (
+                                                    <option key={preset} value={preset} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>{preset}</option>
+                                                ))}
+                                            </select>
                                         </div>
-                                        <div className="lg:col-span-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
-                                            <input
-                                                type="date"
-                                                name="endDate"
-                                                value={filters.endDate}
-                                                onChange={handleFilterChange}
-                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                            />
-                                        </div>
+                                        {filters.dateRange === "Custom Range" && (
+                                            <>
+                                                <div className="lg:col-span-1">
+                                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                                    <input
+                                                        type="date"
+                                                        value={filters.customStartDate || ""}
+                                                        onChange={(e) => handleCustomDateChange('customStartDate', e.target.value)}
+                                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                                    />
+                                                </div>
+                                                <div className="lg:col-span-1">
+                                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                                    <input
+                                                        type="date"
+                                                        value={filters.customEndDate || ""}
+                                                        onChange={(e) => handleCustomDateChange('customEndDate', e.target.value)}
+                                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
 
                                         {/* Dept Filter - Multi-select */}
                                         <div>
@@ -2613,25 +2795,39 @@ const InstallmentPayment = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6 items-end">
                                         {/* Date Range */}
                                         <div className="lg:col-span-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
-                                            <input
-                                                type="date"
-                                                name="startDate"
-                                                value={filters.startDate}
-                                                onChange={handleFilterChange}
-                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                            />
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Date Range</label>
+                                            <select
+                                                value={filters.dateRange || "This Month"}
+                                                onChange={(e) => handleDateRangeChange(e.target.value)}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            >
+                                                {["Today", "Tomorrow", "Yesterday", "Last 7 Days", "This Month", "Last Month", "Custom Range"].map(preset => (
+                                                    <option key={preset} value={preset} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>{preset}</option>
+                                                ))}
+                                            </select>
                                         </div>
-                                        <div className="lg:col-span-1">
-                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
-                                            <input
-                                                type="date"
-                                                name="endDate"
-                                                value={filters.endDate}
-                                                onChange={handleFilterChange}
-                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                            />
-                                        </div>
+                                        {filters.dateRange === "Custom Range" && (
+                                            <>
+                                                <div className="lg:col-span-1">
+                                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                                    <input
+                                                        type="date"
+                                                        value={filters.customStartDate || ""}
+                                                        onChange={(e) => handleCustomDateChange('customStartDate', e.target.value)}
+                                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                                    />
+                                                </div>
+                                                <div className="lg:col-span-1">
+                                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                                    <input
+                                                        type="date"
+                                                        value={filters.customEndDate || ""}
+                                                        onChange={(e) => handleCustomDateChange('customEndDate', e.target.value)}
+                                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
 
                                         {/* Dept Filter - Multi-select */}
                                         <div>
@@ -2985,25 +3181,39 @@ const InstallmentPayment = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6 items-end">
                                 {/* Date Range */}
                                 <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
-                                    <input
-                                        type="date"
-                                        name="startDate"
-                                        value={filters.startDate}
-                                        onChange={handleFilterChange}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                    />
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Date Range</label>
+                                    <select
+                                        value={filters.dateRange || "This Month"}
+                                        onChange={(e) => handleDateRangeChange(e.target.value)}
+                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    >
+                                        {["Today", "Tomorrow", "Yesterday", "Last 7 Days", "This Month", "Last Month", "Custom Range"].map(preset => (
+                                            <option key={preset} value={preset} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>{preset}</option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <div className="lg:col-span-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
-                                    <input
-                                        type="date"
-                                        name="endDate"
-                                        value={filters.endDate}
-                                        onChange={handleFilterChange}
-                                        className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                                    />
-                                </div>
+                                {filters.dateRange === "Custom Range" && (
+                                    <>
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment From</label>
+                                            <input
+                                                type="date"
+                                                value={filters.customStartDate || ""}
+                                                onChange={(e) => handleCustomDateChange('customStartDate', e.target.value)}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+                                        <div className="lg:col-span-1">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Installment To</label>
+                                            <input
+                                                type="date"
+                                                value={filters.customEndDate || ""}
+                                                onChange={(e) => handleCustomDateChange('customEndDate', e.target.value)}
+                                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs outline-none focus:border-cyan-500/50 transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                            />
+                                        </div>
+                                    </>
+                                )}
 
                                 {/* Dept Filter - Multi-select */}
                                 <div>

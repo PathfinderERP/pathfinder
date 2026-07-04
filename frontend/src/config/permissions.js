@@ -211,7 +211,11 @@ export const PERMISSION_MODULES = {
             //     operations: ["create", "edit", "delete"]
             // },
             expense: {
-                label: "Expense Management",
+                label: "Expense",
+                operations: ["create", "edit", "delete"]
+            },
+            addExpense: {
+                label: "Add Expense",
                 operations: ["create", "edit", "delete"]
             },
             transactionReport: {
@@ -219,7 +223,7 @@ export const PERMISSION_MODULES = {
                 operations: ["view", "create", "edit", "delete"]
             },
             financeExpenseCategory: {
-                label: "Finance Expense Category",
+                label: "Expense Category",
                 operations: ["create", "edit", "delete"]
             }
         }
@@ -247,7 +251,8 @@ export const PERMISSION_MODULES = {
             resign: { label: "Resign Request", operations: ["create", "edit", "delete"] },
             birthday: { label: "Birthday Lists", operations: ["create", "edit", "delete"] },
             // overview: { label: "Overview", operations: ["create", "edit", "delete"] },
-            payroll: { label: "Payroll", operations: ["create", "edit", "delete"] }
+            payroll: { label: "Payroll", operations: ["create", "edit", "delete"] },
+            salaryExpense: { label: "Salary Expense", operations: ["create", "edit", "delete"] }
         }
     },
     employeeCenter: {

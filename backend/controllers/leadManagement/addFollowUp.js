@@ -20,6 +20,9 @@ export const addFollowUp = async (req, res) => {
         if (!["COLD LEAD", "INVALID LEAD"].includes(leadType) && !nextFollowUpDate) {
             return res.status(400).json({ message: "Next follow-up date is required" });
         }
+        if (leadType === "HOT LEAD" && !walkInDate) {
+            return res.status(400).json({ message: "Walk in date is required for hot leads" });
+        }
 
         const newFollowUp = {
             date: date || new Date(),

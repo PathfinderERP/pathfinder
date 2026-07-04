@@ -324,7 +324,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
 
     return (
         <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
-            <div className={`w-full max-w-6xl h-[85vh] flex flex-col rounded-[2px] border shadow-2xl scale-in ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+            <div className={`w-full max-w-6xl h-[85vh] flex flex-col rounded-[2px] border shadow-2xl scale-in ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}>
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                     <div>
@@ -429,7 +429,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                 placeholder="Search staff name or role..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`bg-transparent border-none outline-none text-xs w-full ${isDarkMode ? 'text-gray-200 placeholder-gray-650' : 'text-gray-750 placeholder-gray-450'}`}
+                                className={`bg-transparent border-none outline-none text-xs w-full ${isDarkMode ? 'text-gray-200 placeholder-gray-500' : 'text-gray-700 placeholder-gray-400'}`}
                             />
                         </div>
                     </div>
@@ -471,7 +471,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                         <div className={`overflow-x-auto border rounded-[2px] ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Centre</th>
                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Staff Name</th>
                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Role</th>
@@ -479,7 +479,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         <th className={`p-4 font-semibold text-center text-orange-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Warm</th>
                                         <th className={`p-4 font-semibold text-center text-blue-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Cold</th>
                                         <th className={`p-4 font-semibold text-center text-purple-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Neutral</th>
-                                        <th className={`p-4 font-semibold text-center text-gray-450 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Inactive</th>
+                                        <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'text-gray-400 border-gray-800' : 'text-gray-500 border-gray-200'}`}>Inactive</th>
                                         <th className={`p-4 font-semibold text-center text-teal-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Todays Follow Up</th>
                                         <th className={`p-4 font-semibold text-center text-amber-600 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Previous Follow Up</th>
                                         <th className={`p-4 font-semibold text-center text-emerald-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Walk In</th>
@@ -490,7 +490,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                 <tbody className="text-sm">
                                     {filteredData.map((row, index) => (
                                         <tr key={index} className={`border-b last:border-b-0 transition-colors ${
-                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
+                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b] text-gray-200' : 'border-gray-100 hover:bg-gray-50 text-gray-700'
                                         }`}>
                                             <td className="p-4 font-medium flex items-center gap-2">
                                                 <FaBuilding className="text-gray-500 text-xs shrink-0" />
@@ -502,89 +502,89 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                     {row.userName}
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">{row.role}</td>
+                                            <td className={`p-4 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{row.role}</td>
                                             
                                             {/* Clickable Lead counts */}
                                             <td className="p-4 text-center font-bold text-red-500">
                                                 {row.hot > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'HOT')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.hot}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.hot}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.hot}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-bold text-orange-500">
                                                 {row.warm > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'WARM')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.warm}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.warm}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.warm}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-bold text-blue-500">
                                                 {row.cold > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'COLD')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.cold}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.cold}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.cold}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-bold text-purple-500">
                                                 {row.neutral > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'NEUTRAL')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.neutral}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.neutral}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.neutral}</span>
                                                 )}
                                             </td>
-                                            <td className="p-4 text-center font-bold text-gray-450">
+                                            <td className={`p-4 text-center font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                 {row.invalid > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'INVALID')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.invalid}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.invalid}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.invalid}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-bold text-teal-500">
                                                 {row.todaysFollowUp > 0 ? (
                                                     <span className="inline-block">{row.todaysFollowUp}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.todaysFollowUp || 0}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.todaysFollowUp || 0}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-bold text-amber-600">
                                                 {row.previousFollowUp > 0 ? (
                                                     <span className="inline-block">{row.previousFollowUp}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.previousFollowUp || 0}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.previousFollowUp || 0}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-bold text-emerald-500">
                                                 {row.walkInCount > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'WALK_IN')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.walkInCount}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.walkInCount || 0}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.walkInCount || 0}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-bold text-indigo-500">
                                                 {row.admissionCount > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'ADMISSION')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.admissionCount}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.admissionCount || 0}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.admissionCount || 0}</span>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-extrabold text-cyan-400">
                                                 {row.totalCalls > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'ALL')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.totalCalls}</span>
                                                 ) : (
-                                                    <span className="text-gray-650 opacity-40">{row.totalCalls}</span>
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.totalCalls}</span>
                                                 )}
                                             </td>
                                         </tr>
                                     ))}
                                     {/* Totals Row */}
-                                    <tr className={`font-black uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] border-t border-gray-800' : 'bg-gray-100 border-t border-gray-350'}`}>
+                                    <tr className={`font-black uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] border-t border-gray-800 text-gray-200' : 'bg-gray-100 border-t border-gray-350 text-gray-700'}`}>
                                         <td className="p-4" colSpan="3">Total Summary</td>
                                         <td className="p-4 text-center text-red-500 font-extrabold">{totals.hot}</td>
                                         <td className="p-4 text-center text-orange-500 font-extrabold">{totals.warm}</td>
                                         <td className="p-4 text-center text-blue-500 font-extrabold">{totals.cold}</td>
                                         <td className="p-4 text-center text-purple-500 font-extrabold">{totals.neutral}</td>
-                                        <td className="p-4 text-center text-gray-450 font-extrabold">{totals.invalid}</td>
+                                        <td className={`p-4 text-center font-extrabold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{totals.invalid}</td>
                                         <td className="p-4 text-center text-teal-500 font-extrabold">{totals.todaysFollowUp}</td>
                                         <td className="p-4 text-center text-amber-600 font-extrabold">{totals.previousFollowUp}</td>
                                         <td className="p-4 text-center text-emerald-500 font-extrabold">{totals.walkInCount}</td>
@@ -599,7 +599,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
 
                 {/* Footer */}
                 <div className={`px-6 py-4 border-t flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Total Staff Count: {filteredData.length}
                     </p>
                     <button
@@ -614,7 +614,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
             {/* SECONDARY CALLS DETAIL POPUP */}
             {selectedUser && (
                 <div className={`fixed inset-0 z-[110] flex items-center justify-center p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/80' : 'bg-white/70'}`}>
-                    <div className={`w-full max-w-5xl h-[75vh] flex flex-col rounded-[2px] border shadow-2xl scale-in ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                    <div className={`w-full max-w-5xl h-[75vh] flex flex-col rounded-[2px] border shadow-2xl scale-in ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}>
                         {/* Header */}
                         <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                             <div>
@@ -643,7 +643,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                     placeholder={selectedLeadType === 'ADMISSION' ? "Search student, admission number or remarks..." : "Search student, phone, feedback or remarks..."}
                                     value={popupSearchQuery}
                                     onChange={(e) => setPopupSearchQuery(e.target.value)}
-                                    className={`bg-transparent border-none outline-none text-xs w-full ${isDarkMode ? 'text-gray-200 placeholder-gray-650' : 'text-gray-750 placeholder-gray-450'}`}
+                                    className={`bg-transparent border-none outline-none text-xs w-full ${isDarkMode ? 'text-gray-200 placeholder-gray-500' : 'text-gray-700 placeholder-gray-400'}`}
                                 />
                             </div>
 
@@ -689,7 +689,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         {['WALK_IN', 'TODAYS_FOLLOWUP', 'PREVIOUS_FOLLOWUP'].includes(selectedLeadType) ? (
                                             <>
                                                 <thead>
-                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Phone Number</th>
@@ -707,21 +707,21 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                 <tbody className="text-sm">
                                                     {filteredPopupCalls.map((call, index) => (
                                                         <tr key={index} className={`border-b last:border-b-0 transition-colors ${
-                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
+                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b] text-gray-200' : 'border-gray-100 hover:bg-gray-50 text-gray-700'
                                                         }`}>
-                                                            <td className="p-4 text-xs font-semibold text-gray-500">{index + 1}</td>
-                                                            <td className="p-4 font-medium uppercase tracking-wide text-cyan-400">{call.studentName}</td>
-                                                            <td className="p-4 font-mono text-xs text-gray-400">{call.phoneNumber}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.className || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
-                                                            <td className="p-4 text-xs text-gray-400">{call.schoolName || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.courseName || '-'}</td>
+                                                            <td className={`p-4 text-xs font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>{index + 1}</td>
+                                                            <td className={`p-4 font-medium uppercase tracking-wide ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{call.studentName}</td>
+                                                            <td className={`p-4 font-mono text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{call.phoneNumber}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.className || '-'}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.boardName || '-'}</td>
+                                                            <td className={`p-4 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{call.schoolName || '-'}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.courseName || '-'}</td>
                                                             <td className="p-4 text-center">
                                                                 <span className={`inline-block px-2.5 py-0.5 rounded-[2px] text-[9px] font-extrabold uppercase tracking-tight ${getLeadBadge(call.leadType)}`}>
                                                                     {call.leadType}
                                                                 </span>
                                                             </td>
-                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-450" title={call.remarks}>{call.remarks || '-'}</td>
+                                                            <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.remarks}>{call.remarks || '-'}</td>
                                                             <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
                                                                 {call.date ? (
                                                                     selectedLeadType === 'WALK_IN' 
@@ -736,7 +736,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         ) : selectedLeadType === 'ADMISSION' ? (
                                             <>
                                                 <thead>
-                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Admission No</th>
@@ -754,23 +754,25 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                 <tbody className="text-sm">
                                                     {filteredPopupCalls.map((call, index) => (
                                                         <tr key={index} className={`border-b last:border-b-0 transition-colors ${
-                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
+                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b] text-gray-200' : 'border-gray-100 hover:bg-gray-50 text-gray-700'
                                                         }`}>
-                                                            <td className="p-4 text-xs font-semibold text-gray-500">{index + 1}</td>
-                                                            <td className="p-4 font-medium uppercase tracking-wide text-cyan-400">{call.studentName}</td>
-                                                            <td className="p-4 font-mono text-xs text-gray-400">{call.admissionNumber}</td>
+                                                            <td className={`p-4 text-xs font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>{index + 1}</td>
+                                                            <td className={`p-4 font-medium uppercase tracking-wide ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{call.studentName}</td>
+                                                            <td className={`p-4 font-mono text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{call.admissionNumber}</td>
                                                             <td className="p-4 text-center text-xs">
-                                                                <span className="px-2 py-0.5 rounded-[2px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] font-black uppercase">
+                                                                <span className={`px-2 py-0.5 rounded-[2px] border text-[9px] font-black uppercase ${
+                                                                    isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'
+                                                                }`}>
                                                                     {call.admissionType}
                                                                 </span>
                                                             </td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.className || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.courseName || '-'}</td>
-                                                            <td className="p-4 text-right text-xs font-bold text-gray-400">₹{call.totalFees?.toLocaleString('en-IN') || 0}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.className || '-'}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.boardName || '-'}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.courseName || '-'}</td>
+                                                            <td className={`p-4 text-right text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>₹{call.totalFees?.toLocaleString('en-IN') || 0}</td>
                                                             <td className="p-4 text-right text-xs font-bold text-emerald-500">₹{call.downPayment?.toLocaleString('en-IN') || 0}</td>
                                                             <td className="p-4 text-right text-xs font-bold text-red-500">₹{call.remainingAmount?.toLocaleString('en-IN') || 0}</td>
-                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-450" title={call.remarks}>{call.remarks || '-'}</td>
+                                                            <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.remarks}>{call.remarks || '-'}</td>
                                                             <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
                                                                 {new Date(call.date).toLocaleString('en-GB')}
                                                             </td>
@@ -781,7 +783,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         ) : (
                                             <>
                                                 <thead>
-                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
                                                         <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Phone Number</th>
@@ -800,17 +802,19 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                 <tbody className="text-sm">
                                                     {filteredPopupCalls.map((call, index) => (
                                                         <tr key={index} className={`border-b last:border-b-0 transition-colors ${
-                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b]' : 'border-gray-100 hover:bg-gray-50'
+                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b] text-gray-200' : 'border-gray-100 hover:bg-gray-50 text-gray-700'
                                                         }`}>
-                                                            <td className="p-4 text-xs font-semibold text-gray-500">{index + 1}</td>
-                                                            <td className="p-4 font-medium uppercase tracking-wide text-cyan-400">{call.studentName}</td>
-                                                            <td className="p-4 font-mono text-xs text-gray-400">{call.phoneNumber}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.className || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
-                                                            <td className="p-4 text-xs text-gray-400">{call.schoolName || '-'}</td>
-                                                            <td className="p-4 text-xs font-bold text-gray-300">{call.courseName || '-'}</td>
+                                                            <td className={`p-4 text-xs font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>{index + 1}</td>
+                                                            <td className={`p-4 font-medium uppercase tracking-wide ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{call.studentName}</td>
+                                                            <td className={`p-4 font-mono text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{call.phoneNumber}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.className || '-'}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.boardName || '-'}</td>
+                                                            <td className={`p-4 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{call.schoolName || '-'}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.courseName || '-'}</td>
                                                             <td className="p-4 text-center text-xs">
-                                                                <span className="px-2 py-0.5 rounded-[2px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[9px] font-black uppercase">
+                                                                <span className={`px-2 py-0.5 rounded-[2px] border text-[9px] font-black uppercase ${
+                                                                    isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'
+                                                                }`}>
                                                                     {call.callType}
                                                                 </span>
                                                             </td>
@@ -819,8 +823,8 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                                     {call.leadType}
                                                                 </span>
                                                             </td>
-                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-400" title={call.feedback}>{call.feedback || '-'}</td>
-                                                            <td className="p-4 text-xs max-w-[150px] truncate text-gray-450" title={call.remarks}>{call.remarks || '-'}</td>
+                                                            <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.feedback}>{call.feedback || '-'}</td>
+                                                            <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.remarks}>{call.remarks || '-'}</td>
                                                             <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
                                                                 {call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : '-'}
                                                             </td>

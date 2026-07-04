@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaSearch, FaCheck, FaDownload, FaEraser, FaFilter } from "react-icons/fa";
+import { FaPlus, FaSearch, FaCheck, FaDownload, FaEraser, FaFilter, FaFileImport, FaFileExport, FaSpinner, FaTimes } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
@@ -24,7 +24,6 @@ const getSalaryFinanceStatusLabel = (expense) => {
 };
 
 const getExpenseStatusLabel = (expense) => {
-    if (expense.expenseType !== "Salary") return "N/A";
     return getSalaryFinanceStatusLabel(expense);
 };
 
@@ -103,10 +102,15 @@ const buildApprovedByLabel = (expense) => {
         const fin = expense.financeApprovedBy?.name;
         const parts = [`HR: ${hr}`];
         if (fin) parts.push(`Finance: ${fin}`);
-        if (expense.givenBy) parts.push(`Given: ${expense.givenBy}`);
+        if (expense.givenBy) parts.push(`Approved By: ${expense.givenBy}`);
         return parts.join(" | ");
     }
-    return expense.approvedBy?.name || expense.approvedBy?.email || "—";
+    const creator = expense.createdBy?.name || "—";
+    const fin = expense.financeApprovedBy?.name;
+    const parts = [`Creator: ${creator}`];
+    if (fin) parts.push(`Finance: ${fin}`);
+    if (expense.givenBy) parts.push(`Approved By: ${expense.givenBy}`);
+    return parts.join(" | ");
 };
 
 const buildDateLabel = (expense, formatDate) => {
@@ -115,7 +119,9 @@ const buildDateLabel = (expense, formatDate) => {
         const appr = expense.financeStatus === "Approved" ? formatDate(expense.financeApprovedDate) : null;
         return appr ? `Init: ${init}; Appr: ${appr}` : `Init: ${init}`;
     }
-    return formatDate(expense.expenseDate);
+    const init = formatDate(expense.expenseDate);
+    const appr = expense.financeStatus === "Approved" ? formatDate(expense.financeApprovedDate) : null;
+    return appr ? `Created: ${init}; Appr: ${appr}` : `Created: ${init}`;
 };
 
 const getTypeBadgeClass = (expenseType, isDarkMode) => {
@@ -159,8 +165,20 @@ const GetAllExpense = () => {
     const [nameFilter, setNameFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [categories, setCategories] = useState([]);
     const { theme } = useTheme();
     const isDarkMode = theme === "dark";
+
+    const getCategoryName = (expense) => {
+        if (!expense) return "—";
+        if (expense.category?.name) return expense.category.name;
+        const catId = expense.category?._id || expense.category;
+        if (catId) {
+            const matched = categories.find(c => c._id === catId);
+            if (matched) return matched.name;
+        }
+        return "—";
+    };
 
     // Approval Modal State
     const [showApproveModal, setShowApproveModal] = useState(false);
@@ -175,13 +193,20 @@ const GetAllExpense = () => {
     const [givenBySearch, setGivenBySearch] = useState("");
     const [showGivenByDropdown, setShowGivenByDropdown] = useState(false);
 
+    // Bulk upload states
+    const [importing, setImporting] = useState(false);
+    const [importErrors, setImportErrors] = useState([]);
+    const [showErrorsModal, setShowErrorsModal] = useState(false);
+    const fileInputRef = useRef(null);
+
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canCreate = hasPermission(user, "financeFees", "expense", "create");
+    const canCreate = hasPermission(user, "financeFees", "expense", "create") || hasPermission(user, "financeFees", "addExpense", "create");
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
         fetchExpenses();
         fetchUsers();
+        fetchCategories();
     }, []);
 
     const fetchUsers = async () => {
@@ -196,6 +221,25 @@ const GetAllExpense = () => {
             setAllUsers(list);
         } catch {
             // silently ignore – users list is optional
+        }
+    };
+
+    const fetchCategories = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.get(`${API_URL}/category`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.data?.categories) {
+                setCategories(response.data.categories);
+            } else if (Array.isArray(response.data)) {
+                setCategories(response.data);
+            } else {
+                setCategories([]);
+            }
+        } catch (error) {
+            console.error("Fetch categories error:", error);
+            setCategories([]);
         }
     };
 
@@ -224,11 +268,81 @@ const GetAllExpense = () => {
         }
     };
 
+    const handleDownloadTemplate = () => {
+        const headers = [
+            "Expense Name",
+            "Category",
+            "Month",
+            "Week",
+            "Amount"
+        ];
+        const sampleRow = {
+            "Expense Name": "Office Stationery",
+            "Category": "Office Expenses",
+            "Month": "May",
+            "Week": "Week 1",
+            "Amount": 1500
+        };
+
+        const worksheet = XLSX.utils.json_to_sheet([sampleRow], { header: headers });
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+        const blobData = new Blob([excelBuffer], { type: "application/octet-stream" });
+        saveAs(blobData, "Expense_Bulk_Import_Template.xlsx");
+        toast.success("Template downloaded successfully.");
+    };
+
+    const handleImportFile = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setImporting(true);
+        setImportErrors([]);
+
+        try {
+            const ab = await file.arrayBuffer();
+            const wb = XLSX.read(ab, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+            if (!rows.length) {
+                toast.warn("No rows found in the file.");
+                setImporting(false);
+                return;
+            }
+
+            const token = localStorage.getItem("token");
+            const response = await axios.post(`${API_URL}/finance/expense/bulk-import`, rows, {
+                headers: { 
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
+
+            toast.success(response.data?.message || "Import completed successfully!");
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            fetchExpenses(); // refresh list
+        } catch (error) {
+            console.error("Bulk import error:", error);
+            const errData = error.response?.data;
+            if (errData?.errors && Array.isArray(errData.errors)) {
+                setImportErrors(errData.errors);
+                setShowErrorsModal(true);
+                toast.error("Import failed with validation errors.");
+            } else {
+                toast.error(errData?.message || "Error processing import file.");
+            }
+        } finally {
+            setImporting(false);
+        }
+    };
+
     const handleApproveClick = (expense) => {
         setSelectedExpense(expense);
         const remaining = expense.remainingAmount !== undefined ? expense.remainingAmount : expense.amount;
-        setApprovalData({ reason: "", givenBy: "", amountPaid: String(remaining) });
-        setGivenBySearch("");
+        const currentUserName = user.name || "";
+        setApprovalData({ reason: "", givenBy: currentUserName, amountPaid: String(remaining) });
+        setGivenBySearch(currentUserName);
         setShowGivenByDropdown(false);
         setShowApproveModal(true);
     };
@@ -291,7 +405,14 @@ const GetAllExpense = () => {
             if (!expenseMatchesSearch(expense, searchTerm)) return false;
             if (!expenseMatchesName(expense, nameFilter)) return false;
             if (!expenseMatchesDateRange(expense, fromDate, toDate)) return false;
-            if (typeFilter !== "all" && (expense.expenseType || "General") !== typeFilter) return false;
+            if (typeFilter !== "all") {
+                if (typeFilter === "Salary") {
+                    if (expense.expenseType !== "Salary") return false;
+                } else {
+                    const expCatId = expense.category?._id?.toString() || expense.category?.toString();
+                    if (expense.expenseType === "Salary" || expCatId !== typeFilter) return false;
+                }
+            }
             if (statusFilter !== "all" && getExpenseStatusLabel(expense) !== statusFilter) return false;
             return true;
         });
@@ -367,22 +488,18 @@ const GetAllExpense = () => {
     const tdClass = "px-4 py-3 text-sm align-top";
 
     const renderApprovedBy = (expense) => {
-        if (expense.expenseType !== "Salary") {
-            return (
-                <span className={isDarkMode ? "text-slate-300" : "text-slate-700"}>
-                    {expense.approvedBy?.name || expense.approvedBy?.email || "—"}
-                </span>
-            );
-        }
+        const isSalary = expense.expenseType === "Salary";
+        const initiatorLabel = isSalary ? "HR Init" : "Created By";
+        const initiatorUser = isSalary ? expense.hrApprovedBy : expense.createdBy;
 
         return (
             <div className="space-y-1.5 min-w-[180px]">
                 <div className="leading-snug">
                     <span className={`text-[10px] font-bold uppercase ${isDarkMode ? "text-purple-400" : "text-purple-600"}`}>
-                        HR Init
+                        {initiatorLabel}
                     </span>
                     <span className={`block mt-0.5 ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
-                        {expense.hrApprovedBy?.name || "—"}
+                        {initiatorUser?.name || "—"}
                     </span>
                 </div>
 
@@ -406,7 +523,7 @@ const GetAllExpense = () => {
                                 </div>
                                 {pmt.givenBy && (
                                     <div className={isDarkMode ? "text-slate-400" : "text-slate-500"}>
-                                        Given: {pmt.givenBy}
+                                        Approved By: {pmt.givenBy}
                                     </div>
                                 )}
                             </div>
@@ -424,7 +541,7 @@ const GetAllExpense = () => {
                         </div>
                         {expense.givenBy && (
                             <div className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                                Given by: {expense.givenBy}
+                                Approved by: {expense.givenBy}
                             </div>
                         )}
                     </div>
@@ -451,7 +568,50 @@ const GetAllExpense = () => {
                                 Browse finance expense records with filters, approval details, and Excel export.
                             </p>
                         </div>
-                        <div className="flex flex-wrap gap-2 sm:gap-3">
+                        <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
+                            {canCreate && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={handleDownloadTemplate}
+                                        className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition ${
+                                            isDarkMode
+                                                ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+                                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                                        }`}
+                                    >
+                                        <FaFileExport /> Download Template
+                                    </button>
+
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            accept=".xlsx, .xls"
+                                            onChange={handleImportFile}
+                                            className="hidden"
+                                            id="bulk-import-file-input"
+                                            disabled={importing}
+                                        />
+                                        <label
+                                            htmlFor="bulk-import-file-input"
+                                            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 cursor-pointer ${
+                                                importing ? "opacity-50 cursor-not-allowed" : ""
+                                            }`}
+                                        >
+                                            {importing ? (
+                                                <>
+                                                    <FaSpinner className="animate-spin" /> Importing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FaFileImport /> Bulk Import
+                                                </>
+                                            )}
+                                        </label>
+                                    </div>
+                                </>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleExportToExcel}
@@ -562,8 +722,12 @@ const GetAllExpense = () => {
                                         className={inputClass}
                                     >
                                         <option value="all">All types</option>
-                                        <option value="General">General</option>
                                         <option value="Salary">Salary</option>
+                                        {categories.map((cat) => (
+                                            <option key={cat._id} value={cat._id}>
+                                                {cat.name}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div>
@@ -654,7 +818,7 @@ const GetAllExpense = () => {
                                                             isDarkMode
                                                         )}`}
                                                     >
-                                                        {expense.expenseType || "General"}
+                                                        {expense.expenseType === "Salary" ? "Salary" : getCategoryName(expense)}
                                                     </span>
                                                 </td>
 
@@ -706,113 +870,92 @@ const GetAllExpense = () => {
                                                             )}
                                                             {!expense.months && !expense.salaryPeriod && "—"}
                                                         </div>
-                                                    ) : (
-                                                        expense.category?.name || "—"
-                                                    )}
+                                                     ) : (
+                                                         <div className="min-w-[120px]">
+                                                             {(expense.months || expense.week) ? (
+                                                                 <div className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
+                                                                     {[expense.months, expense.week].filter(Boolean).join(" · ")}
+                                                                 </div>
+                                                             ) : "—"}
+                                                         </div>
+                                                     )}
                                                 </td>
 
                                                 <td className={tdClass}>
-                                                    {expense.expenseType === "Salary" ? (
-                                                        <div className="space-y-1 min-w-[100px]">
-                                                            <div
-                                                                className={`font-bold tabular-nums ${
-                                                                    isDarkMode ? "text-slate-100" : "text-slate-800"
-                                                                }`}
-                                                            >
-                                                                ₹
-                                                                {expense.originalAmount !== undefined
-                                                                    ? expense.originalAmount
-                                                                    : expense.amount}
-                                                            </div>
-                                                            {expense.paidAmount > 0 && (
-                                                                <div
-                                                                    className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold ${
-                                                                        isDarkMode
-                                                                            ? "bg-emerald-500/15 text-emerald-300"
-                                                                            : "bg-green-50 text-green-700"
-                                                                    }`}
-                                                                >
-                                                                    Paid: ₹{expense.paidAmount}
-                                                                </div>
-                                                            )}
-                                                            {expense.remainingAmount > 0 && expense.paidAmount > 0 && (
-                                                                <div
-                                                                    className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold ${
-                                                                        isDarkMode
-                                                                            ? "bg-amber-500/15 text-amber-300"
-                                                                            : "bg-amber-50 text-amber-700"
-                                                                    }`}
-                                                                >
-                                                                    Rem: ₹{expense.remainingAmount}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span
+                                                    <div className="space-y-1 min-w-[100px]">
+                                                        <div
                                                             className={`font-bold tabular-nums ${
                                                                 isDarkMode ? "text-slate-100" : "text-slate-800"
                                                             }`}
                                                         >
-                                                            {expense.amount ? `₹${expense.amount}` : "—"}
-                                                        </span>
-                                                    )}
+                                                            ₹
+                                                            {expense.originalAmount !== undefined
+                                                                ? expense.originalAmount
+                                                                : (expense.amount || 0)}
+                                                        </div>
+                                                        {expense.paidAmount > 0 && (
+                                                            <div
+                                                                className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                                                                    isDarkMode
+                                                                        ? "bg-emerald-500/15 text-emerald-300"
+                                                                        : "bg-green-50 text-green-700"
+                                                                }`}
+                                                            >
+                                                                Paid: ₹{expense.paidAmount}
+                                                            </div>
+                                                        )}
+                                                        {expense.remainingAmount > 0 && expense.paidAmount > 0 && (
+                                                            <div
+                                                                className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                                                                    isDarkMode
+                                                                        ? "bg-amber-500/15 text-amber-300"
+                                                                        : "bg-amber-50 text-amber-700"
+                                                                }`}
+                                                            >
+                                                                Rem: ₹{expense.remainingAmount}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
 
                                                 <td className={tdClass}>
-                                                    {expense.expenseType === "Salary" ? (
-                                                        <span
-                                                            className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
-                                                                expense,
-                                                                isDarkMode
-                                                            )}`}
-                                                        >
-                                                            {getSalaryFinanceStatusLabel(expense)}
-                                                        </span>
-                                                    ) : (
-                                                        <span
-                                                            className={`text-xs font-medium ${
-                                                                isDarkMode ? "text-slate-500" : "text-slate-400"
-                                                            }`}
-                                                        >
-                                                            N/A
-                                                        </span>
-                                                    )}
+                                                    <span
+                                                        className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                                                            expense,
+                                                            isDarkMode
+                                                        )}`}
+                                                    >
+                                                        {getSalaryFinanceStatusLabel(expense)}
+                                                    </span>
                                                 </td>
 
                                                 <td className={tdClass}>{renderApprovedBy(expense)}</td>
 
                                                 <td className={tdClass}>
-                                                    {expense.expenseType === "Salary" ? (
-                                                        <div
-                                                            className={`space-y-0.5 text-xs min-w-[110px] ${
-                                                                isDarkMode ? "text-slate-400" : "text-slate-600"
-                                                            }`}
-                                                        >
+                                                    <div
+                                                        className={`space-y-0.5 text-xs min-w-[110px] ${
+                                                            isDarkMode ? "text-slate-400" : "text-slate-600"
+                                                        }`}
+                                                    >
+                                                        <div>
+                                                            <span className={isDarkMode ? "text-slate-500" : "text-slate-400"}>
+                                                                {expense.expenseType === "Salary" ? "Init: " : "Created: "}
+                                                            </span>
+                                                            {formatDate(expense.expenseType === "Salary" ? expense.hrApprovedDate : expense.expenseDate)}
+                                                        </div>
+                                                        {expense.financeStatus === "Approved" && expense.financeApprovedDate && (
                                                             <div>
                                                                 <span className={isDarkMode ? "text-slate-500" : "text-slate-400"}>
-                                                                    Init:{" "}
+                                                                    Appr:{" "}
                                                                 </span>
-                                                                {formatDate(expense.hrApprovedDate)}
+                                                                {formatDate(expense.financeApprovedDate)}
                                                             </div>
-                                                            {expense.financeStatus === "Approved" && (
-                                                                <div>
-                                                                    <span className={isDarkMode ? "text-slate-500" : "text-slate-400"}>
-                                                                        Appr:{" "}
-                                                                    </span>
-                                                                    {formatDate(expense.financeApprovedDate)}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className={isDarkMode ? "text-slate-400" : "text-slate-600"}>
-                                                            {formatDate(expense.expenseDate)}
-                                                        </span>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </td>
 
                                                 <td className={`${tdClass} text-center`}>
-                                                    {expense.expenseType === "Salary" &&
-                                                    expense.financeStatus === "Pending" ? (
+                                                    {expense.financeStatus === "Pending" || (expense.remainingAmount !== undefined && expense.remainingAmount > 0) ? (
                                                         <button
                                                             type="button"
                                                             onClick={() => handleApproveClick(expense)}
@@ -848,20 +991,32 @@ const GetAllExpense = () => {
                                     isDarkMode ? "border-slate-700" : "border-slate-200"
                                 }`}
                             >
-                                Approve Salary Expense
+                                {selectedExpense?.expenseType === "Salary" ? "Approve Salary Expense" : "Approve General Expense"}
                             </h2>
 
                             <div className="mb-4">
-                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Employee</label>
-                                <div className="font-semibold">{selectedExpense?.employeeId?.name}</div>
+                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+                                    {selectedExpense?.expenseType === "Salary" ? "Employee" : "Expense Name"}
+                                </label>
+                                <div className="font-semibold">
+                                    {selectedExpense?.expenseType === "Salary" ? selectedExpense?.employeeId?.name : selectedExpense?.name}
+                                </div>
                             </div>
                             <div className="mb-4">
-                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Salary Month</label>
-                                <div className="font-semibold">{selectedExpense?.months || "—"}</div>
+                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+                                    {selectedExpense?.expenseType === "Salary" ? "Salary Month" : "Category"}
+                                </label>
+                                <div className="font-semibold">
+                                    {selectedExpense?.expenseType === "Salary" ? (selectedExpense?.months || "—") : getCategoryName(selectedExpense)}
+                                </div>
                             </div>
                             <div className="mb-4">
-                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Payout Week</label>
-                                <div className="font-semibold">{selectedExpense?.salaryPeriod || "—"}</div>
+                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+                                    {selectedExpense?.expenseType === "Salary" ? "Payout Week" : "Period"}
+                                </label>
+                                <div className="font-semibold">
+                                    {selectedExpense?.expenseType === "Salary" ? (selectedExpense?.salaryPeriod || "—") : `${selectedExpense?.months || "—"} · ${selectedExpense?.week || "—"}`}
+                                </div>
                             </div>
                              <div className={`mb-4 grid grid-cols-3 gap-2 rounded-lg border p-3 ${
                                  isDarkMode ? "bg-[#131619] border-slate-700" : "bg-slate-50 border-slate-200"
@@ -904,7 +1059,7 @@ const GetAllExpense = () => {
                                 />
                             </div>
                             <div className="mb-6" style={{ position: "relative" }}>
-                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Given By (Optional)</label>
+                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>Approved By (Optional)</label>
                                 <input
                                     type="text"
                                     value={givenBySearch}
@@ -981,6 +1136,47 @@ const GetAllExpense = () => {
                                     className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 flex items-center gap-2 transition"
                                 >
                                     <FaCheck /> Approve
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Import Errors Modal */}
+                {showErrorsModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                        <div className={`w-full max-w-2xl rounded-xl p-6 shadow-2xl ${
+                            isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
+                        }`}>
+                            <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-200 dark:border-slate-700">
+                                <h3 className="text-lg font-black text-red-500 uppercase tracking-wider flex items-center gap-2">
+                                    Import Validation Errors
+                                </h3>
+                                <button
+                                    onClick={() => setShowErrorsModal(false)}
+                                    className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                                        isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800"
+                                    }`}
+                                >
+                                    <FaTimes size={18} />
+                                </button>
+                            </div>
+                            <div className="max-h-96 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                {importErrors.map((err, idx) => (
+                                    <div key={idx} className={`p-3 rounded-lg border text-sm font-semibold flex items-center gap-2 ${
+                                        isDarkMode ? "bg-red-950/20 border-red-900/50 text-red-300" : "bg-red-50 border-red-200 text-red-800"
+                                    }`}>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                                        <span>{err}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setShowErrorsModal(false)}
+                                    className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-red-600/20 transition-all"
+                                >
+                                    Dismiss
                                 </button>
                             </div>
                         </div>

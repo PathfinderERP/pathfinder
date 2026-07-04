@@ -2,14 +2,17 @@ import {
     createExpense,
     getAllExpence,
     getSingleExpence,
-    updateExpence
+    updateExpence,
+    bulkImportExpenses
 } from "../../controllers/Finance/expense.js";
 
 import express from "express";
+import protect from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.post("/", createExpense);
+router.post("/bulk-import", protect, bulkImportExpenses);
 
 router.get("/",getAllExpence);
 

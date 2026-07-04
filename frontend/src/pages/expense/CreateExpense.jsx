@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaTimes, FaMoneyBillWave, FaCalendarAlt, FaUser, FaTag, FaClock } from "react-icons/fa";
+import { FaPlus, FaTimes, FaMoneyBillWave, FaCalendarAlt, FaUser, FaTag, FaClock, FaFileImport, FaFileExport, FaSpinner } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -13,19 +16,21 @@ const MONTHS = [
     "September", "October", "November", "December"
 ];
 
+const WEEKS = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
+
 const EMPTY_FORM = {
     name: "",
     category: "",
     months: "",
-    approvedBy: "",
-    approvedDate: "",
+    week: "",
+    amount: "",
     expenseDate: "",
 };
 
 const CreateExpense = () => {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [categories, setCategories] = useState([]);
-    const [users, setUsers] = useState([]);
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [canCreate, setCanCreate] = useState(false);
 
@@ -36,24 +41,9 @@ const CreateExpense = () => {
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
-        setCanCreate(hasPermission(user, "financeFees", "expense", "create"));
+        setCanCreate(hasPermission(user, "financeFees", "expense", "create") || hasPermission(user, "financeFees", "addExpense", "create"));
         fetchCategories();
-        fetchUsers();
     }, []);
-
-    const fetchUsers = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const response = await axios.get(`${API_URL}/superAdmin/getAllUsers`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (response.data?.users && Array.isArray(response.data.users)) {
-                setUsers(response.data.users);
-            }
-        } catch (error) {
-            console.error("Fetch users error:", error);
-        }
-    };
 
     const fetchCategories = async () => {
         try {
@@ -85,16 +75,17 @@ const CreateExpense = () => {
         // Validate required fields
         if (!formData.name.trim()) { toast.error("Expense Name is required."); return; }
         if (!formData.category) { toast.error("Category is required."); return; }
-        if (!formData.approvedBy) { toast.error("Approved By is required."); return; }
-        if (!formData.approvedDate) { toast.error("Approved Date is required."); return; }
+        if (!formData.months) { toast.error("Month is required."); return; }
+        if (!formData.week) { toast.error("Week is required."); return; }
+        if (!formData.amount || Number(formData.amount) <= 0) { toast.error("A valid Amount is required."); return; }
 
         const payload = {
             name: formData.name.trim(),
             category: formData.category,
-            approvedBy: formData.approvedBy,
-            approvedDate: formData.approvedDate,
+            months: formData.months,
+            week: formData.week,
+            amount: Number(formData.amount),
             createdBy: user._id || user.id || "",
-            ...(formData.months && { months: formData.months }),
             ...(formData.expenseDate && { expenseDate: formData.expenseDate }),
         };
 
@@ -123,16 +114,6 @@ const CreateExpense = () => {
     const labelClass = `block text-xs font-bold uppercase tracking-wider mb-1.5 ${
         isDarkMode ? "text-slate-400" : "text-slate-500"
     }`;
-
-    const RequiredBadge = () => (
-        <span className="ml-1 text-red-400 font-bold">*</span>
-    );
-
-    const FieldWrapper = ({ children, col = 1 }) => (
-        <div className={col === 2 ? "md:col-span-2" : ""}>
-            {children}
-        </div>
-    );
 
     return (
         <Layout activePage="Finance">
@@ -208,24 +189,61 @@ const CreateExpense = () => {
                                     </select>
                                 </FieldWrapper>
 
-                                {/* Month — Optional */}
+                                {/* Month — Required */}
                                 <FieldWrapper>
                                     <label className={labelClass}>
-                                        <FaCalendarAlt className="inline mr-1 text-slate-400" size={10} />
-                                        Month
-                                        <span className={`ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded ${isDarkMode ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-400"}`}>optional</span>
+                                        <FaCalendarAlt className="inline mr-1 text-cyan-500" size={10} />
+                                        Month <RequiredBadge />
                                     </label>
                                     <select
                                         name="months"
                                         value={formData.months}
                                         onChange={handleInputChange}
                                         className={inputClass}
+                                        required
                                     >
                                         <option value="">— Select Month —</option>
                                         {MONTHS.map((m) => (
                                             <option key={m} value={m}>{m}</option>
                                         ))}
                                     </select>
+                                </FieldWrapper>
+
+                                {/* Week — Required */}
+                                <FieldWrapper>
+                                    <label className={labelClass}>
+                                        <FaCalendarAlt className="inline mr-1 text-cyan-500" size={10} />
+                                        Week <RequiredBadge />
+                                    </label>
+                                    <select
+                                        name="week"
+                                        value={formData.week}
+                                        onChange={handleInputChange}
+                                        className={inputClass}
+                                        required
+                                    >
+                                        <option value="">— Select Week —</option>
+                                        {WEEKS.map((w) => (
+                                            <option key={w} value={w}>{w}</option>
+                                        ))}
+                                    </select>
+                                </FieldWrapper>
+
+                                {/* Amount — Required */}
+                                <FieldWrapper>
+                                    <label className={labelClass}>
+                                        <FaMoneyBillWave className="inline mr-1 text-cyan-500" size={10} />
+                                        Amount (₹) <RequiredBadge />
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="amount"
+                                        value={formData.amount}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. 5000"
+                                        className={inputClass}
+                                        required
+                                    />
                                 </FieldWrapper>
 
                                 {/* Expense Date — Optional (default: today) */}
@@ -249,52 +267,13 @@ const CreateExpense = () => {
                         {/* Divider */}
                         <div className={`my-6 border-t ${isDarkMode ? "border-slate-700" : "border-slate-100"}`} />
 
-                        {/* Section: Approval Info */}
+                        {/* Section: Metadata Details */}
                         <div className="mb-6">
                             <h2 className={`text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>
                                 <span className="w-4 h-0.5 bg-cyan-500 inline-block rounded-full"></span>
-                                Approval Details
+                                Metadata Details
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                                {/* Approved By — Required */}
-                                <FieldWrapper>
-                                    <label className={labelClass}>
-                                        <FaUser className="inline mr-1 text-cyan-500" size={10} />
-                                        Approved By <RequiredBadge />
-                                    </label>
-                                    <select
-                                        name="approvedBy"
-                                        value={formData.approvedBy}
-                                        onChange={handleInputChange}
-                                        className={inputClass}
-                                        required
-                                    >
-                                        <option value="">— Select Approver —</option>
-                                        {users.map((u) => (
-                                            <option key={u._id} value={u._id}>
-                                                {u.name} {u.email ? `(${u.email})` : ""}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </FieldWrapper>
-
-                                {/* Approved Date — Required */}
-                                <FieldWrapper>
-                                    <label className={labelClass}>
-                                        <FaCalendarAlt className="inline mr-1 text-cyan-500" size={10} />
-                                        Approved Date <RequiredBadge />
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="approvedDate"
-                                        value={formData.approvedDate}
-                                        onChange={handleInputChange}
-                                        className={inputClass}
-                                        required
-                                    />
-                                </FieldWrapper>
-
                                 {/* Created By — Auto filled */}
                                 <FieldWrapper>
                                     <label className={labelClass}>
@@ -333,7 +312,7 @@ const CreateExpense = () => {
 
                             <button
                                 type="button"
-                                onClick={() => setFormData(EMPTY_FORM)}
+                                onClick={() => navigate("/finance/expenses")}
                                 className={`inline-flex items-center gap-2 rounded-xl border px-6 py-3 text-sm font-bold transition-all ${
                                     isDarkMode
                                         ? "border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-white"
@@ -350,10 +329,21 @@ const CreateExpense = () => {
                             )}
                         </div>
                     </div>
+
                 </div>
             </div>
         </Layout>
     );
 };
+
+const RequiredBadge = () => (
+    <span className="ml-1 text-red-400 font-bold">*</span>
+);
+
+const FieldWrapper = ({ children, col = 1 }) => (
+    <div className={col === 2 ? "md:col-span-2" : ""}>
+        {children}
+    </div>
+);
 
 export default CreateExpense;

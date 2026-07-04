@@ -232,7 +232,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Transaction List", path: "/finance/transaction-list", permissionSection: "transactionReport" },
                 { name: "Expense Category", path: "/master-data/finance-expense-category", permissionSection: "financeExpenseCategory" },
                 { name: "Expenses", path: "/finance/expenses", permissionSection: "expense" },
-                { name: "Add Expense", path: "/finance/expense/create", permissionSection: "expense" },
+                { name: "Add Expense", path: "/finance/expense/create", permissionSection: "addExpense" },
                 //{ name: "Analysis", path: "/finance/analysis", permissionSection: "financialAnalysis" },
                 //{ name: "Center Tagging", path: "/finance/center-tagging", permissionSection: "centerTagging" },
                 //{ name: "Budget", path: "/finance/budget", permissionSection: "budget" },
@@ -342,7 +342,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Upload File", path: "/hr/documents/upload", icon: <FaFileUpload />, permissionSection: "upload" },
                 { name: "All Feedback", path: "/hr/feedback", icon: <FaCommentDots />, permissionSection: "feedback" },
                 { name: "Reimbursement List", path: "/hr/reimbursement", icon: <FaMoneyCheckAlt />, permissionSection: "reimbursement" },
-                { name: "Salary Expense", path: "/hr/salary-expense", icon: <FaMoneyBillWave />, permissionSection: "reimbursement" },
+                { name: "Salary Expense", path: "/hr/salary-expense", icon: <FaMoneyBillWave />, permissionSection: "salaryExpense" },
                 { name: "Resign Request", path: "/hr/resign-request", icon: <FaUserMinus />, permissionSection: "resign" },
                 { name: "Birthday Lists", path: "/hr/birthday", icon: <FaBirthdayCake />, permissionSection: "birthday" },
             ]
