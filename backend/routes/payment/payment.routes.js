@@ -10,7 +10,9 @@ router.post("/generate-bill/:admissionId/:installmentNumber", requireAnyGranular
     { module: "financeFees", section: "billGeneration", action: "create" },
     { module: "financeFees", section: "installmentPayment", action: "create" },
     { module: "financeFees", section: "installmentPayment", action: "edit" },
-    { module: "admissions", section: "enrolledStudents", action: "edit" }
+    { module: "admissions", section: "enrolledStudents", action: "edit" },
+    { module: "admissions", section: "boardCourseAdmission", action: "create" },
+    { module: "admissions", section: "boardCourseAdmission", action: "edit" }
 ]), generateBill);
 
 // Get bill by bill ID
