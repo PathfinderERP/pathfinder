@@ -210,9 +210,10 @@ export const generateMonthlyBill = async (req, res) => {
         console.log("Base fees calculated:", baseFees);
 
         // Calculate taxes
+        const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
         const taxableAmount = baseFees;
-        const cgstAmount = Math.round(taxableAmount * 0.09);
-        const sgstAmount = Math.round(taxableAmount * 0.09);
+        const cgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
+        const sgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
         const totalAmount = taxableAmount + cgstAmount + sgstAmount;
         console.log("Total amount with taxes:", totalAmount);
 
@@ -542,10 +543,11 @@ export const updateBoardSubjects = async (req, res) => {
             return res.status(400).json({ message: "One or more subjects not configured for this board" });
         }
 
+        const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
         const baseFees = validSelectedSubjects.reduce((sum, sub) => sum + sub.price, 0);
         const taxableAmount = baseFees;
-        const cgstAmount = Math.round(taxableAmount * 0.09);
-        const sgstAmount = Math.round(taxableAmount * 0.09);
+        const cgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
+        const sgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
         const totalAmount = taxableAmount + cgstAmount + sgstAmount;
 
         // Propagation Logic for updateBoardSubjects: Update this month and ALL future UNPAID months

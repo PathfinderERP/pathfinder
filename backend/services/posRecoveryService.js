@@ -182,8 +182,9 @@ export const recoverPendingPosPayments = async () => {
                 }
 
                 const billId = await generateBillId(centreCode);
-                const taxableAmount = amount / 1.18;
-                const cgst = (amount - taxableAmount) / 2;
+                const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+                const taxableAmount = isPHSPS ? amount : amount / 1.18;
+                const cgst = isPHSPS ? 0 : (amount - taxableAmount) / 2;
                 const sgst = cgst;
 
                 const paymentDoc = {

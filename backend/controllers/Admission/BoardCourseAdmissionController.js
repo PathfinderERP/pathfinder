@@ -240,8 +240,9 @@ export const createBoardAdmission = async (req, res) => {
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
-            const taxableAmount = totalPaidToday / 1.18;
-            const cgst = (totalPaidToday - taxableAmount) / 2;
+            const isPHSPS = centre && /phsps/i.test(centre);
+            const taxableAmount = isPHSPS ? totalPaidToday : totalPaidToday / 1.18;
+            const cgst = isPHSPS ? 0 : (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
             // Adjust Course Name for bill: Append "+ Examination" only if exam fee was paid
@@ -702,8 +703,9 @@ export const collectBoardExamFee = async (req, res) => {
 
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
-            const taxableAmount = paidAmount / 1.18;
-            const cgst = (paidAmount - taxableAmount) / 2;
+            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+            const taxableAmount = isPHSPS ? paidAmount : paidAmount / 1.18;
+            const cgst = isPHSPS ? 0 : (paidAmount - taxableAmount) / 2;
             const sgst = cgst;
 
             const paymentRecord = new Payment({
@@ -916,8 +918,9 @@ export const collectBoardInstallment = async (req, res) => {
 
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
-            const taxableAmount = totalPaidToday / 1.18;
-            const cgst = (totalPaidToday - taxableAmount) / 2;
+            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+            const taxableAmount = isPHSPS ? totalPaidToday : totalPaidToday / 1.18;
+            const cgst = isPHSPS ? 0 : (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
             let billCourseName = admission.boardCourseName || '';
@@ -1019,8 +1022,9 @@ export const collectBoardAdditionalFee = async (req, res) => {
 
             const billId = await generateBillId(centreCode, new Date());
 
-            const taxableAmount = paidAmount / 1.18;
-            const cgst = (paidAmount - taxableAmount) / 2;
+            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+            const taxableAmount = isPHSPS ? paidAmount : paidAmount / 1.18;
+            const cgst = isPHSPS ? 0 : (paidAmount - taxableAmount) / 2;
             const sgst = cgst;
 
             const paymentRecord = new Payment({
@@ -1134,8 +1138,9 @@ export const collectNcrpFees = async (req, res) => {
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
             const billId = await generateBillId(centreCode, new Date());
 
-            const taxableAmount = totalPaidToday / 1.18;
-            const cgst = (totalPaidToday - taxableAmount) / 2;
+            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+            const taxableAmount = isPHSPS ? totalPaidToday : totalPaidToday / 1.18;
+            const cgst = isPHSPS ? 0 : (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
             let billCourseName = admission.boardCourseName || '';

@@ -235,8 +235,9 @@ export const generateBill = async (req, res) => {
                 console.warn(`⚠️ Payment record missing for PAID installment. Creating one now...`);
 
                 // Calculate tax amounts
+                const isPHSPS = centre.centreName && /phsps/i.test(centre.centreName);
                 const totalAmount = parseFloat(Number(actualPaidTotal).toFixed(2));
-                const baseAmount = totalAmount / 1.18;
+                const baseAmount = isPHSPS ? totalAmount : totalAmount / 1.18;
                 const courseFee = parseFloat(baseAmount.toFixed(2));
                 const remainingForGst = totalAmount - courseFee;
                 const cgst = parseFloat((remainingForGst / 2).toFixed(2));
@@ -281,8 +282,9 @@ export const generateBill = async (req, res) => {
 
             // RE-CALCULATE amounts for the bill response to match UI source of truth
             // This fixes legacy/corrupted records where totalAmount was set to baseAmount
+            const isPHSPS = centre.centreName && /phsps/i.test(centre.centreName);
             const billTotal = Math.max(actualPaidTotal, payment.totalAmount || 0);
-            const billBase = billTotal / 1.18;
+            const billBase = isPHSPS ? billTotal : billTotal / 1.18;
             const finalCourseFee = parseFloat(billBase.toFixed(2));
             const finalGstPool = billTotal - finalCourseFee;
             const finalCgst = parseFloat((finalGstPool / 2).toFixed(2));

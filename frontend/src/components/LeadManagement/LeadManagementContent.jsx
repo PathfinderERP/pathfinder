@@ -1726,7 +1726,7 @@ const LeadManagementContent = () => {
                                     {renderSortableHeader("Last Feedback", "followUps.feedback")}
                                     {renderSortableHeader("Next Follow Up", "nextFollowUpDate")}
                                     {renderSortableHeader("Uploaded By", "createdBy")}
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[350px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[460px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
@@ -1903,7 +1903,7 @@ const LeadManagementContent = () => {
                                                     {lead.createdBy?.name || "—"}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 min-w-[350px]">
+                                            <td className="px-6 py-4 min-w-[460px]">
                                                 <div className="flex items-center gap-2.5 whitespace-nowrap min-w-max">
 
                                                     {['superadmin', 'zonalmanager'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, '')) && (
@@ -1931,9 +1931,12 @@ const LeadManagementContent = () => {
                                                         Counselling
                                                     </button>
                                                     {lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
-                                                        <span className="text-emerald-500 font-black uppercase text-[8px] tracking-widest px-3 py-1.5 border border-emerald-500/30 bg-emerald-500/5 rounded-[2px] whitespace-nowrap">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleTagWalkIn(lead._id); }}
+                                                            className="bg-emerald-500 hover:bg-emerald-400 text-white px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all whitespace-nowrap"
+                                                        >
                                                             Walkined
-                                                        </span>
+                                                        </button>
                                                     ) : (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleTagWalkIn(lead._id); }}

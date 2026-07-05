@@ -313,19 +313,21 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                     <FaEdit size={12} /> Edit
                                 </button>
                             )}
-                            {!lead.isWalkIn && (
-                                <button
-                                    onClick={async () => {
-                                        if (onWalkIn) {
-                                            await onWalkIn(lead._id);
-                                            onClose();
-                                        }
-                                    }}
-                                    className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-amber-600 text-white hover:bg-amber-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95"
-                                >
-                                    <FaMapMarkerAlt size={12} /> Walk In
-                                </button>
-                            )}
+                            <button
+                                onClick={async () => {
+                                    if (onWalkIn) {
+                                        await onWalkIn(lead._id);
+                                        onClose();
+                                    }
+                                }}
+                                className={`px-5 py-3 sm:py-2.5 justify-center rounded-[4px] transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 ${
+                                    (lead.isWalkIn || lead.source?.toLowerCase() === 'walk in')
+                                        ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20"
+                                        : "bg-amber-600 hover:bg-amber-500 text-white shadow-amber-500/20"
+                                }`}
+                            >
+                                <FaMapMarkerAlt size={12} /> {(lead.isWalkIn || lead.source?.toLowerCase() === 'walk in') ? "Walkined" : "Walk In"}
+                            </button>
                             {/* <button
                                 onClick={handleCallNow}
                                 className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-95"

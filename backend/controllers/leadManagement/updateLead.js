@@ -53,24 +53,34 @@ export const tagWalkIn = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const updatedLead = await LeadManagement.findByIdAndUpdate(
-            id,
-            { 
-                isWalkIn: true, 
-                source: "Walk In",
-                walkInDate: new Date(),
-                walkInBy: req.user.id || req.user._id
-            },
-            { new: true }
-        ).populate(['className', 'centre', 'course', 'board']);
-
-        if (!updatedLead) {
+        const lead = await LeadManagement.findById(id);
+        if (!lead) {
             return res.status(404).json({ message: "Lead not found" });
         }
 
+        if (lead.isWalkIn) {
+            // Unmark as walk-in
+            lead.isWalkIn = false;
+            lead.walkInBy = undefined;
+            if (lead.source === "Walk In") {
+                lead.source = undefined;
+            }
+        } else {
+            // Mark as walk-in
+            lead.isWalkIn = true;
+            lead.source = "Walk In";
+            if (!lead.walkInDate) {
+                lead.walkInDate = new Date();
+            }
+            lead.walkInBy = req.user.id || req.user._id;
+        }
+
+        await lead.save();
+        await lead.populate(['className', 'centre', 'course', 'board']);
+
         res.status(200).json({
-            message: "Lead tagged as Walk-In successfully",
-            lead: updatedLead
+            message: lead.isWalkIn ? "Lead tagged as Walk-In successfully" : "Lead unmarked as Walk-In successfully",
+            lead
         });
     } catch (err) {
         console.error("Tag walk-in error:", err);

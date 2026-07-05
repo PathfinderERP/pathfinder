@@ -248,8 +248,9 @@ export const razorpayWebhookHandler = async (req, res) => {
                     billId = await generateBillId(centreCode);
                 } catch (e) { console.error("Bill ID Gen error:", e); }
 
-                const taxableAmount = amountPaid / 1.18;
-                const cgst = (amountPaid - taxableAmount) / 2;
+                const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+                const taxableAmount = isPHSPS ? amountPaid : amountPaid / 1.18;
+                const cgst = isPHSPS ? 0 : (amountPaid - taxableAmount) / 2;
                 const sgst = cgst;
 
                 let billCourseName = admission.boardCourseName || '';

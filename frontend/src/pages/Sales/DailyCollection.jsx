@@ -241,117 +241,194 @@ const DailyCollection = () => {
         try {
             const workbook = XLSX.utils.book_new();
 
-            // Summary Sheet
-            const summaryData = [
-                ["Daily Collection Report"],
-                [""],
-                ["Report Date:", new Date().toLocaleString()],
-                ["Collection Date:", new Date(date).toLocaleDateString()],
-                [""],
-                ["Summary Information"],
-                ["Total Amount Collected:", "", "", "$" + formatAmount(totalCollection).replace("₹", "")],
-                ["Total Transactions:", transactionCount],
-                [""],
-                ["Payment Methods Breakdown"],
-                ["Payment Method", "Total Amount", "Count"],
-                ...paymentMethods.map(m => [m._id, formatAmount(m.totalAmount), m.count])
-            ];
+            if (activeTab === "centers") {
+                // Export Centres Collection aggregated data
+                const aggregated = dailyDetails.reduce((acc, curr) => {
+                    const c = curr.centre || "N/A";
+                    if (!acc[c]) acc[c] = { total: 0 };
+                    acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
+                    acc[c].total += (curr.paidAmount || 0);
+                    return acc;
+                }, (() => {
+                    const initialAcc = {};
+                    const targetCentres = selectedCentres.length > 0
+                        ? centres.filter(c => selectedCentres.includes(c._id))
+                        : centres;
+                    targetCentres.forEach(c => {
+                        if (c.centreName) {
+                            initialAcc[c.centreName] = { total: 0 };
+                        }
+                    });
+                    return initialAcc;
+                })());
 
-            const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-            summarySheet["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
-            XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+                const sortedAggregated = Object.entries(aggregated).sort((a, b) => a[0].localeCompare(b[0]));
 
-            // Details Sheet
-            const detailsHeaders = [
-                "MR Date",
-                "Received Date",
-                "Centre",
-                "Student Name",
-                "Admission No.",
-                "Student Class",
-                "Email",
-                "Mobile",
-                "Whatsapp",
-                "Address",
-                "Guardian Name",
-                "Guardian Mobile",
-                "Bill ID",
-                "Transaction ID",
-                "Course",
-                "Department",
-                "Payment Method",
-                "Amount",
-                "Status",
-                "Recorded By",
-                "Total Classes",
-                "Present",
-                "Absent",
-                "Attendance Status"
-            ];
+                const headers = [
+                    "Centre Name",
+                    "Daily Target (Without GST)",
+                    ...paymentMethodsList,
+                    "Total (With GST)",
+                    "Total (Without GST)"
+                ];
 
-            const detailsData = dailyDetails.map(item => [
-                formatDateTime(item.date),
-                formatDateTime(item.receivedDate),
-                item.centre || "-",
-                item.studentName || "-",
-                item.admissionNumber || "-",
-                item.studentClass || "-",
-                item.studentEmail || "-",
-                item.studentMobile || "-",
-                item.studentWhatsapp || "-",
-                item.studentAddress || "-",
-                item.guardianName || "-",
-                item.guardianMobile || "-",
-                item.billId || "-",
-                item.transactionId || "-",
-                item.courseName || "-",
-                item.departmentName || "-",
-                item.paymentMethod || "-",
-                item.paidAmount || 0,
-                item.status || "-",
-                item.recordedByName || "-",
-                item.totalClasses || 0,
-                item.presentCount || 0,
-                item.absentCount || 0,
-                item.attendanceStatus || "Not Taken"
-            ]);
+                const rows = sortedAggregated.map(([centre, data]) => {
+                    const row = [
+                        centre,
+                        centreTargets[centre] || 0
+                    ];
+                    paymentMethodsList.forEach(method => {
+                        row.push(data[method] || 0);
+                    });
+                    row.push(data.total || 0);
+                    row.push(Number((data.total / 1.18).toFixed(2)) || 0);
+                    return row;
+                });
 
-            const detailsSheet = XLSX.utils.aoa_to_sheet([detailsHeaders, ...detailsData]);
-            detailsSheet["!cols"] = [
-                { wch: 20 },
-                { wch: 15 },
-                { wch: 20 },
-                { wch: 15 },
-                { wch: 12 },
-                { wch: 12 },
-                { wch: 15 },
-                { wch: 15 },
-                { wch: 15 },
-                { wch: 15 },
-                { wch: 12 },
-                { wch: 12 },
-                { wch: 15 }
-            ];
+                const sheetData = [headers, ...rows];
+                const sheet = XLSX.utils.aoa_to_sheet(sheetData);
 
-            // Style header row
-            for (let i = 0; i < detailsHeaders.length; i++) {
-                const cell = detailsSheet[XLSX.utils.encode_col(i) + "1"];
-                if (cell) {
-                    cell.s = {
-                        font: { bold: true, color: { rgb: "FFFFFF" } },
-                        fill: { fgColor: { rgb: "4B5563" } },
-                        alignment: { horizontal: "center", vertical: "center" }
-                    };
+                // Set column widths
+                sheet["!cols"] = [
+                    { wch: 25 }, // Centre Name
+                    { wch: 25 }, // Daily Target
+                    ...paymentMethodsList.map(() => ({ wch: 15 })), // Payment Methods
+                    { wch: 18 }, // Total With GST
+                    { wch: 18 }  // Total Without GST
+                ];
+
+                // Style header row
+                for (let i = 0; i < headers.length; i++) {
+                    const cell = sheet[XLSX.utils.encode_col(i) + "1"];
+                    if (cell) {
+                        cell.s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "4B5563" } },
+                            alignment: { horizontal: "center", vertical: "center" }
+                        };
+                    }
                 }
+
+                XLSX.utils.book_append_sheet(workbook, sheet, "Centers Collection");
+
+                // Generate file name with date
+                const fileName = `Centers-Collection-${new Date(date).toISOString().split("T")[0]}.xlsx`;
+                XLSX.writeFile(workbook, fileName);
+
+                toast.success("Centers collection exported successfully!");
+            } else {
+                // Summary Sheet
+                const summaryData = [
+                    ["Daily Collection Report"],
+                    [""],
+                    ["Report Date:", new Date().toLocaleString()],
+                    ["Collection Date:", new Date(date).toLocaleDateString()],
+                    [""],
+                    ["Summary Information"],
+                    ["Total Amount Collected:", "", "", "$" + formatAmount(totalCollection).replace("₹", "")],
+                    ["Total Transactions:", transactionCount],
+                    [""],
+                    ["Payment Methods Breakdown"],
+                    ["Payment Method", "Total Amount", "Count"],
+                    ...paymentMethods.map(m => [m._id, formatAmount(m.totalAmount), m.count])
+                ];
+
+                const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+                summarySheet["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+                XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+                // Details Sheet
+                const detailsHeaders = [
+                    "MR Date",
+                    "Received Date",
+                    "Centre",
+                    "Student Name",
+                    "Admission No.",
+                    "Student Class",
+                    "Email",
+                    "Mobile",
+                    "Whatsapp",
+                    "Address",
+                    "Guardian Name",
+                    "Guardian Mobile",
+                    "Bill ID",
+                    "Transaction ID",
+                    "Course",
+                    "Department",
+                    "Payment Method",
+                    "Amount",
+                    "Status",
+                    "Recorded By",
+                    "Total Classes",
+                    "Present",
+                    "Absent",
+                    "Attendance Status"
+                ];
+
+                const detailsData = dailyDetails.map(item => [
+                    formatDateTime(item.date),
+                    formatDateTime(item.receivedDate),
+                    item.centre || "-",
+                    item.studentName || "-",
+                    item.admissionNumber || "-",
+                    item.studentClass || "-",
+                    item.studentEmail || "-",
+                    item.studentMobile || "-",
+                    item.studentWhatsapp || "-",
+                    item.studentAddress || "-",
+                    item.guardianName || "-",
+                    item.guardianMobile || "-",
+                    item.billId || "-",
+                    item.transactionId || "-",
+                    item.courseName || "-",
+                    item.departmentName || "-",
+                    item.paymentMethod || "-",
+                    item.paidAmount || 0,
+                    item.status || "-",
+                    item.recordedByName || "-",
+                    item.totalClasses || 0,
+                    item.presentCount || 0,
+                    item.absentCount || 0,
+                    item.attendanceStatus || "Not Taken"
+                ]);
+
+                const detailsSheet = XLSX.utils.aoa_to_sheet([detailsHeaders, ...detailsData]);
+                detailsSheet["!cols"] = [
+                    { wch: 20 },
+                    { wch: 15 },
+                    { wch: 20 },
+                    { wch: 15 },
+                    { wch: 12 },
+                    { wch: 12 },
+                    { wch: 15 },
+                    { wch: 15 },
+                    { wch: 15 },
+                    { wch: 15 },
+                    { wch: 12 },
+                    { wch: 12 },
+                    { wch: 15 }
+                ];
+
+                // Style header row
+                for (let i = 0; i < detailsHeaders.length; i++) {
+                    const cell = detailsSheet[XLSX.utils.encode_col(i) + "1"];
+                    if (cell) {
+                        cell.s = {
+                            font: { bold: true, color: { rgb: "FFFFFF" } },
+                            fill: { fgColor: { rgb: "4B5563" } },
+                            alignment: { horizontal: "center", vertical: "center" }
+                        };
+                    }
+                }
+
+                XLSX.utils.book_append_sheet(workbook, detailsSheet, "Transaction Details");
+
+                // Generate file name with date
+                const fileName = `Daily-Collection-${new Date(date).toISOString().split("T")[0]}.xlsx`;
+                XLSX.writeFile(workbook, fileName);
+
+                toast.success("Excel file exported successfully!");
             }
-
-            XLSX.utils.book_append_sheet(workbook, detailsSheet, "Transaction Details");
-
-            // Generate file name with date
-            const fileName = `Daily-Collection-${new Date(date).toISOString().split("T")[0]}.xlsx`;
-            XLSX.writeFile(workbook, fileName);
-
-            toast.success("Excel file exported successfully!");
         } catch (error) {
             console.error("Error exporting to Excel:", error);
             toast.error("Failed to export to Excel");
@@ -490,7 +567,7 @@ const DailyCollection = () => {
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
-                                    setIsSessionOpen(false);
+                                    setIsPaymentMethodOpen(false);
                                 }}
                                 className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
@@ -545,7 +622,7 @@ const DailyCollection = () => {
                                     setIsCentreOpen(false);
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
-                                    setIsSessionOpen(false);
+                                    setIsPaymentMethodOpen(false);
                                 }}
                                 className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >

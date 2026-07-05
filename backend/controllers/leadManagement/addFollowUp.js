@@ -53,8 +53,6 @@ export const addFollowUp = async (req, res) => {
 
         if (walkInDate) {
             lead.walkInDate = new Date(walkInDate);
-            lead.isWalkIn = true;
-            lead.walkInBy = req.user?._id || req.user?.id;
         }
 
         await lead.save();

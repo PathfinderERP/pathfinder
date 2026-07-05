@@ -111,9 +111,10 @@ export const updateBoardSubjects = async (req, res) => {
         // Create Payment record for this month
         if (paymentAmount > 0) {
             // Calculate tax breakdown
-            const dpBaseAmount = paymentAmount / 1.18;
-            const dpCgst = dpBaseAmount * 0.09;
-            const dpSgst = dpBaseAmount * 0.09;
+            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+            const dpBaseAmount = isPHSPS ? paymentAmount : paymentAmount / 1.18;
+            const dpCgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
+            const dpSgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
             const dpCourseFee = paymentAmount - dpCgst - dpSgst;
 
             // Fetch Centre Info for Bill ID

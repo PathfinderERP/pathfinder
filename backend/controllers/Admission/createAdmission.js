@@ -157,15 +157,17 @@ export const createAdmission = async (req, res) => {
             course = { courseDurationMonths: durationMonths, monthlyFees: monthlyFees };
         }
 
+        const isPHSPS = centre && /phsps/i.test(centre);
+
         // Calculate Fees (Inclusive Deduction)
-        const totalInclusiveBeforeWaiver = baseFees * 1.18;
+        const totalInclusiveBeforeWaiver = isPHSPS ? baseFees : baseFees * 1.18;
         const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - Number(feeWaiver) + previousBalance)).toFixed(3));
 
         // Back-calculate taxable and GST (excluding previous balance)
         const totalForGst = Math.max(0, totalFees - previousBalance);
-        const taxableAmount = parseFloat((totalForGst / 1.18).toFixed(3));
-        const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
-        const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
+        const taxableAmount = isPHSPS ? totalForGst : parseFloat((totalForGst / 1.18).toFixed(3));
+        const cgstAmount = isPHSPS ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
+        const sgstAmount = isPHSPS ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
 
         const remainingAmount = totalFees - downPayment;
 
@@ -179,8 +181,8 @@ export const createAdmission = async (req, res) => {
         let monthlyPaymentAmount = 0;
         if (admissionType === "BOARD" && durationMonths > 0) {
             const monthlyTaxable = baseFees / durationMonths;
-            const monthlyCgst = Math.round(monthlyTaxable * 0.09);
-            const monthlySgst = Math.round(monthlyTaxable * 0.09);
+            const monthlyCgst = isPHSPS ? 0 : Math.round(monthlyTaxable * 0.09);
+            const monthlySgst = isPHSPS ? 0 : Math.round(monthlyTaxable * 0.09);
             monthlyPaymentAmount = monthlyTaxable + monthlyCgst + monthlySgst;
         }
 
@@ -326,9 +328,9 @@ export const createAdmission = async (req, res) => {
             // Calculate tax breakdown for down payment (pro-rated)
             // For down payment, we treat it as a payment that includes taxes
             // Base amount = Down Payment / 1.18
-            const dpBaseAmount = downPayment / 1.18;
-            const dpCgst = dpBaseAmount * 0.09;
-            const dpSgst = dpBaseAmount * 0.09;
+            const dpBaseAmount = isPHSPS ? downPayment : downPayment / 1.18;
+            const dpCgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
+            const dpSgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
             const dpCourseFee = downPayment - dpCgst - dpSgst;
 
             // Fetch Centre Info for Bill ID

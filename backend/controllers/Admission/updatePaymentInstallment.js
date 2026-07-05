@@ -271,9 +271,10 @@ export const updatePaymentInstallment = async (req, res) => {
         // We log the payment for the amount that WAS paid.
         if (installment.paidAmount > 0) {
             // Calculate tax amounts
-            const baseAmount = paidAmountFloat / 1.18;
-            const cgst = baseAmount * 0.09;
-            const sgst = baseAmount * 0.09;
+            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+            const baseAmount = isPHSPS ? paidAmountFloat : paidAmountFloat / 1.18;
+            const cgst = isPHSPS ? 0 : baseAmount * 0.09;
+            const sgst = isPHSPS ? 0 : baseAmount * 0.09;
             const courseFee = baseAmount;
             const totalAmount = paidAmountFloat;
 
