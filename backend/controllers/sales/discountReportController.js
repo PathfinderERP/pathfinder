@@ -58,8 +58,15 @@ export const getDiscountReport = async (req, res) => {
                     matchStage.centre = { $in: requestedNames };
                 }
             }
-        } else if (req.user.role !== 'superAdmin') {
-            matchStage.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
+        } else {
+            let defaultNames = [];
+            if (req.user.role !== 'superAdmin') {
+                defaultNames = allowedCentreNames.filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));
+            } else {
+                const activeCentres = await Centre.find({ status: { $ne: "deactive" } }).select("centreName");
+                defaultNames = activeCentres.map(c => c.centreName).filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));
+            }
+            matchStage.centre = { $in: defaultNames.length > 0 ? defaultNames : ["__NO_MATCH__"] };
         }
 
         // 3. Exam Tag Filter (Support multiple tags comma separated)

@@ -82,13 +82,20 @@ export const getAdmissionReport = async (req, res) => {
                 admissionQuery.centre = { $in: centreNames.length > 0 ? centreNames : ["__NO_MATCH__"] };
             }
         } else {
+            // Exclude phsps, franchise, rkm by default
+            let finalCentreIds = [];
+            let finalCentreNames = [];
             if (req.user.role !== 'superAdmin') {
-                leadQuery.centre = { $in: allowedCentreIds.map(id => new mongoose.Types.ObjectId(id)) };
-                admissionQuery.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
+                const filteredCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id centreName");
+                finalCentreIds = filteredCentres.map(c => c._id);
+                finalCentreNames = filteredCentres.map(c => c.centreName);
             } else {
-                leadQuery.centre = { $in: activeCentreIds.map(id => new mongoose.Types.ObjectId(id)) };
-                admissionQuery.centre = { $in: activeCentreNames.length > 0 ? activeCentreNames : ["__NO_MATCH__"] };
+                const filteredCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id centreName");
+                finalCentreIds = filteredCentres.map(c => c._id);
+                finalCentreNames = filteredCentres.map(c => c.centreName);
             }
+            leadQuery.centre = { $in: finalCentreIds.length > 0 ? finalCentreIds : [new mongoose.Types.ObjectId()] };
+            admissionQuery.centre = { $in: finalCentreNames.length > 0 ? finalCentreNames : ["__NO_MATCH__"] };
         }
 
         // Course Filter

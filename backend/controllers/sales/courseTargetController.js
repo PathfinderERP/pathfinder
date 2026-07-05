@@ -75,10 +75,10 @@ export const getCourseTargetAnalysis = async (req, res) => {
         if (centre === 'all') {
             let allowedCentres;
             if (req.user.role === 'superAdmin') {
-                allowedCentres = await Centre.find({ status: { $ne: 'deactive' } }).lean();
+                allowedCentres = await Centre.find({ status: { $ne: 'deactive' }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();
             } else {
                 const userCentres = req.user.centres.map(id => typeof id === 'object' ? id._id : id);
-                allowedCentres = await Centre.find({ _id: { $in: userCentres }, status: { $ne: 'deactive' } }).lean();
+                allowedCentres = await Centre.find({ _id: { $in: userCentres }, status: { $ne: 'deactive' }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();
             }
             centreIds = allowedCentres.map(c => c._id.toString());
         } else {

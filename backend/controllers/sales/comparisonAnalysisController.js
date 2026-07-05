@@ -31,24 +31,21 @@ export const getComparisonAnalysis = async (req, res) => {
             allowedCentreIds = (req.user.centres || []).map(id => id.toString());
         }
 
-        let queryCentres = [];
+        let centreQuery = { status: { $ne: 'deactive' } };
         if (centreIds) {
             const requested = (typeof centreIds === 'string' ? centreIds.split(',') : centreIds).filter(Boolean);
             if (req.user.role !== 'superAdmin') {
                 queryCentres = requested.filter(id => allowedCentreIds.includes(id));
+                centreQuery._id = { $in: queryCentres };
             } else {
-                queryCentres = requested;
+                centreQuery._id = { $in: requested };
             }
-        } else if (req.user.role !== 'superAdmin') {
-            queryCentres = allowedCentreIds;
-        }
-
-        let centreQuery = { status: { $ne: 'deactive' } };
-        if (queryCentres.length > 0) {
-            centreQuery._id = { $in: queryCentres };
-        } else if (req.user.role !== 'superAdmin') {
-            // Restricted user with no centres assigned
-            return res.status(200).json({ data: [] });
+        } else {
+            // Exclude phsps, franchise, rkm by default
+            centreQuery.centreName = { $nin: [/phsps/i, /franchise/i, /rkm/i] };
+            if (req.user.role !== 'superAdmin') {
+                centreQuery._id = { $in: allowedCentreIds };
+            }
         }
 
         const centres = await Centre.find(centreQuery).sort({ centreName: 1 });

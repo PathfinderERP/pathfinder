@@ -66,11 +66,9 @@ export const getAverageAdmissionFee = async (req, res) => {
                 admissionQuery.centre = { $in: centreNames.length > 0 ? centreNames : ["__NO_MATCH__"] };
             }
         } else {
-            if (req.user.role !== 'superAdmin') {
-                admissionQuery.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
-            } else {
-                admissionQuery.centre = { $in: activeCentreNames.length > 0 ? activeCentreNames : ["__NO_MATCH__"] };
-            }
+            const allowedNames = (req.user.role !== 'superAdmin' ? allowedCentreNames : activeCentreNames)
+                .filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));
+            admissionQuery.centre = { $in: allowedNames.length > 0 ? allowedNames : ["__NO_MATCH__"] };
         }
 
         // Exam Tag Filter

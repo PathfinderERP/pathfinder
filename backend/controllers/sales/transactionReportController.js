@@ -138,8 +138,8 @@ export const getTransactionReport = async (req, res) => {
                 }
             }
         } else {
-            // Default: Exclude franchise and PHSPS
-            const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name));
+            // Default: Exclude franchise, PHSPS, and RKM
+            const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name));
             admissionMatch["admissionInfo.centre"] = { $in: defaultCentreNames.length > 0 ? defaultCentreNames : ["__NO_MATCH__"] };
         }
 

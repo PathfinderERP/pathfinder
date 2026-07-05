@@ -4,6 +4,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import LeadManagement from "../../models/LeadManagement.js";
 import Payment from "../../models/Payment/Payment.js";
+import Centre from "../../models/Master_data/Centre.js";
 import mongoose from "mongoose";
 
 export const getUserRankings = async (req, res) => {
@@ -39,6 +40,13 @@ export const getUserRankings = async (req, res) => {
             return res.status(200).json({ rankings: [] });
         }
 
+        const allowedCentres = await Centre.find({
+            status: { $ne: "deactive" },
+            centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] }
+        }).select("_id centreName");
+        const allowedIds = allowedCentres.map(c => c._id);
+        const allowedNames = allowedCentres.map(c => c.centreName);
+
         const userIds = users.map(u => u._id);
         const userNames = users.map(u => u.name).filter(Boolean);
 
@@ -56,31 +64,31 @@ export const getUserRankings = async (req, res) => {
 
             // 1. Board counselling - tracked by ObjectId
             BoardCourseCounselling.aggregate([
-                { $match: { counselledDate: dateRange, counselledBy: { $in: userIds } } },
+                { $match: { counselledDate: dateRange, counselledBy: { $in: userIds }, centre: { $in: allowedNames } } },
                 { $group: { _id: "$counselledBy", count: { $sum: 1 } } }
             ]),
 
             // 2. Regular lead counselling - tracked by name (leadResponsibility string)
             LeadManagement.aggregate([
-                { $match: { isCounseled: true, updatedAt: dateRange, leadResponsibility: { $in: userNames } } },
+                { $match: { isCounseled: true, updatedAt: dateRange, leadResponsibility: { $in: userNames }, centre: { $in: allowedIds } } },
                 { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
             ]),
 
             // 3. Normal admissions by createdBy
             Admission.aggregate([
-                { $match: { createdAt: dateRange, createdBy: { $in: userIds } } },
+                { $match: { createdAt: dateRange, createdBy: { $in: userIds }, centre: { $in: allowedNames } } },
                 { $group: { _id: "$createdBy", count: { $sum: 1 } } }
             ]),
 
             // 4. Board course admissions by createdBy
             BoardCourseAdmission.aggregate([
-                { $match: { createdAt: dateRange, createdBy: { $in: userIds } } },
+                { $match: { createdAt: dateRange, createdBy: { $in: userIds }, centre: { $in: allowedNames } } },
                 { $group: { _id: "$createdBy", count: { $sum: 1 } } }
             ]),
 
             // 5. Bulk lead uploads by createdBy
             LeadManagement.aggregate([
-                { $match: { isBulkUpload: true, createdAt: dateRange, createdBy: { $in: userIds } } },
+                { $match: { isBulkUpload: true, createdAt: dateRange, createdBy: { $in: userIds }, centre: { $in: allowedIds } } },
                 { $group: { _id: "$createdBy", count: { $sum: 1 } } }
             ]),
 
@@ -90,7 +98,8 @@ export const getUserRankings = async (req, res) => {
                     $match: {
                         $or: [{ isBulkUpload: false }, { isBulkUpload: { $exists: false } }],
                         createdAt: dateRange,
-                        createdBy: { $in: userIds }
+                        createdBy: { $in: userIds },
+                        centre: { $in: allowedIds }
                     }
                 },
                 { $group: { _id: "$createdBy", count: { $sum: 1 } } }
@@ -98,6 +107,7 @@ export const getUserRankings = async (req, res) => {
 
             // 7. Follow-ups by updatedBy (stored as string name)
             LeadManagement.aggregate([
+                { $match: { centre: { $in: allowedIds } } },
                 { $unwind: "$followUps" },
                 { $match: { "followUps.date": dateRange, "followUps.updatedBy": { $in: userNames } } },
                 { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
@@ -117,6 +127,37 @@ export const getUserRankings = async (req, res) => {
                                 status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
                             }
                         ]
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "admissions",
+                        localField: "admission",
+                        foreignField: "_id",
+                        as: "admNormal"
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "boardcourseadmissions",
+                        localField: "admission",
+                        foreignField: "_id",
+                        as: "admBoard"
+                    }
+                },
+                {
+                    $addFields: {
+                        adm: {
+                            $ifNull: [
+                                { $arrayElemAt: ["$admNormal", 0] },
+                                { $arrayElemAt: ["$admBoard", 0] }
+                            ]
+                        }
+                    }
+                },
+                {
+                    $match: {
+                        "adm.centre": { $in: allowedNames }
                     }
                 },
                 {

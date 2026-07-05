@@ -70,11 +70,9 @@ export const getCourseReport = async (req, res) => {
                 }
             }
         } else {
-            if (req.user.role !== 'superAdmin') {
-                matchStage.centre = { $in: allowedCentreNames.length > 0 ? allowedCentreNames : ["__NO_MATCH__"] };
-            } else {
-                matchStage.centre = { $in: activeCentreNames.length > 0 ? activeCentreNames : ["__NO_MATCH__"] };
-            }
+            const defaultNames = (req.user.role !== 'superAdmin' ? allowedCentreNames : activeCentreNames)
+                .filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));
+            matchStage.centre = { $in: defaultNames.length > 0 ? defaultNames : ["__NO_MATCH__"] };
         }
 
         // 4. Course Filter (New: Implement with ObjectId casting)

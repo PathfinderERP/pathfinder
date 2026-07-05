@@ -199,10 +199,13 @@ export const getWeeklyTarget = async (req, res) => {
             } else {
                 centreQuery = { _id: { $in: requestedIds } };
             }
-        } else if (req.user.role !== "superAdmin") {
+        } else {
             centreQuery = {
-                _id: { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] }
+                centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] }
             };
+            if (req.user.role !== "superAdmin") {
+                centreQuery._id = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
+            }
         }
 
         const centres = await Centre.find(centreQuery).sort({ centreName: 1 });
@@ -562,10 +565,13 @@ export const getFinalWeekendTarget = async (req, res) => {
             } else {
                 centreQuery = { _id: { $in: requestedIds } };
             }
-        } else if (req.user.role !== "superAdmin") {
+        } else {
             centreQuery = {
-                _id: { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] }
+                centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] }
             };
+            if (req.user.role !== "superAdmin") {
+                centreQuery._id = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
+            }
         }
 
         const centres      = await Centre.find(centreQuery).sort({ centreName: 1 });

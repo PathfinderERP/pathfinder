@@ -109,8 +109,15 @@ export const getCentreTargets = async (req, res) => {
             } else if (validRequestedIds.length > 0) {
                 query.centre = { $in: validRequestedIds };
             }
-        } else if (req.user.role !== 'superAdmin') {
-            query.centre = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
+        } else {
+            let targetCentres;
+            if (req.user.role !== 'superAdmin') {
+                targetCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id");
+            } else {
+                targetCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id");
+            }
+            const targetIds = targetCentres.map(c => c._id);
+            query.centre = { $in: targetIds.length > 0 ? targetIds : [new mongoose.Types.ObjectId()] };
         }
 
         if (startDate && endDate) {
@@ -340,7 +347,7 @@ export const getQuarterlyFullReport = async (req, res) => {
         const { financialYear } = req.query;
         if (!financialYear) return res.status(400).json({ message: "Financial Year is required" });
 
-        const centres = await Centre.find({ status: "active" }).sort({ centreName: 1 });
+        const centres = await Centre.find({ status: "active", centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).sort({ centreName: 1 });
         
         const quarters = [
             { id: "q1", name: "Q1", months: ["April", "May", "June"], match: "April,May,June" },

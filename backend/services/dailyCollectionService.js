@@ -99,8 +99,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         }
     } else {
-        const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name));
-        const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name));
+        const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name));
+        const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name));
         if (user.role !== 'superAdmin') {
             admissionMatch["admissionInfo.centre"] = defaultAllowedCentreNames.length > 0 ? { $in: defaultAllowedCentreNames } : "__NO_MATCH__";
         } else {
@@ -437,7 +437,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     targets.forEach(t => {
         if (t.centre && t.centre.centreName) {
             const name = t.centre.centreName;
-            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name))) {
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
                 const monthlyTargetExclGST = t.targetAmount || 0;
                 const dailyTargetExclGST = daysInMonth > 0 ? (monthlyTargetExclGST / daysInMonth) : 0;
                 centreTargets[name] = dailyTargetExclGST;
@@ -449,7 +449,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     customTargets.forEach(ct => {
         if (ct.centre && ct.centre.centreName) {
             const name = ct.centre.centreName;
-            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name))) {
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
                 centreTargets[name] = ct.targetAmount || 0;
             }
         }

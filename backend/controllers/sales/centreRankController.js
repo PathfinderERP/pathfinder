@@ -34,8 +34,15 @@ export const getCentreRankings = async (req, res) => {
             } else if (validRequestedIds.length > 0) {
                 query.centre = { $in: validRequestedIds.map(toObjectId) };
             }
-        } else if (req.user.role !== 'superAdmin') {
-            query.centre = { $in: allowedCentreIds.length > 0 ? allowedCentreIds.map(toObjectId) : ["__NONE__"] };
+        } else {
+            let targetCentres;
+            if (req.user.role !== 'superAdmin') {
+                targetCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id");
+            } else {
+                targetCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id");
+            }
+            const targetIds = targetCentres.map(c => c._id);
+            query.centre = { $in: targetIds.length > 0 ? targetIds.map(toObjectId) : [new mongoose.Types.ObjectId()] };
         }
 
         if (startDate && endDate) {
