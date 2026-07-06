@@ -341,25 +341,25 @@ function App() {
         <Route path="/lead-management/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
         <Route path="/lead-management/campaigns/:campaignId/upload-leads" element={<ProtectedRoute><CampaignUploadLeads /></ProtectedRoute>} />
 
-        <Route path="/master-data" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterData /></ProtectedRoute>} />
-        <Route path="/master-data/class" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataClass /></ProtectedRoute>} />
-        <Route path="/master-data/exam-tag" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExamTag /></ProtectedRoute>} />
-        <Route path="/master-data/department" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataDepartment /></ProtectedRoute>} />
-        <Route path="/master-data/centre" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataCentre /></ProtectedRoute>} />
-        <Route path="/master-data/batch" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataBatch /></ProtectedRoute>} />
-        <Route path="/master-data/source" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSource /></ProtectedRoute>} />
-        <Route path="/master-data/session" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSession /></ProtectedRoute>} />
-        <Route path="/master-data/script" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataScript /></ProtectedRoute>} />
-        <Route path="/master-data/expense-category" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenseCategory /></ProtectedRoute>} />
-        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><FinanceExpenseCategory /></ProtectedRoute>} />
-        <Route path="/master-data/expense-subcategory" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenseSubCategory /></ProtectedRoute>} />
-        <Route path="/master-data/expenditure-type" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataExpenditureType /></ProtectedRoute>} />
-        <Route path="/master-data/account" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataAccount /></ProtectedRoute>} />
-        <Route path="/master-data/board" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataBoard /></ProtectedRoute>} />
-        <Route path="/master-data/board-course-subject" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataBoardCourseSubject /></ProtectedRoute>} />
-        <Route path="/master-data/subject" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSubject /></ProtectedRoute>} />
-        <Route path="/master-data/zone" element={<ProtectedRoute allowedRoles={['superadmin']}><ZoneManagement /></ProtectedRoute>} />
-        <Route path="/master-data/school-data" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataSchoolData /></ProtectedRoute>} />
+        <Route path="/master-data" element={<ProtectedRoute requiredPermissionModule="masterData"><MasterData /></ProtectedRoute>} />
+        <Route path="/master-data/class" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="class"><MasterDataClass /></ProtectedRoute>} />
+        <Route path="/master-data/exam-tag" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="examTag"><MasterDataExamTag /></ProtectedRoute>} />
+        <Route path="/master-data/department" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="department"><MasterDataDepartment /></ProtectedRoute>} />
+        <Route path="/master-data/centre" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="centre"><MasterDataCentre /></ProtectedRoute>} />
+        <Route path="/master-data/batch" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="batch"><MasterDataBatch /></ProtectedRoute>} />
+        <Route path="/master-data/source" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="source"><MasterDataSource /></ProtectedRoute>} />
+        <Route path="/master-data/session" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="session"><MasterDataSession /></ProtectedRoute>} />
+        <Route path="/master-data/script" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="script"><MasterDataScript /></ProtectedRoute>} />
+        <Route path="/master-data/expense-category" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="category"><MasterDataExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/finance-expense-category" element={<ProtectedRoute requiredPermissionModule="financeFees" requiredPermissionSection="financeExpenseCategory"><FinanceExpenseCategory /></ProtectedRoute>} />
+        <Route path="/master-data/expense-subcategory" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="subcategory"><MasterDataExpenseSubCategory /></ProtectedRoute>} />
+        <Route path="/master-data/expenditure-type" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="expenditureType"><MasterDataExpenditureType /></ProtectedRoute>} />
+        <Route path="/master-data/account" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="account"><MasterDataAccount /></ProtectedRoute>} />
+        <Route path="/master-data/board" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="board"><MasterDataBoard /></ProtectedRoute>} />
+        <Route path="/master-data/board-course-subject" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="boardCourse"><MasterDataBoardCourseSubject /></ProtectedRoute>} />
+        <Route path="/master-data/subject" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="subject"><MasterDataSubject /></ProtectedRoute>} />
+        <Route path="/master-data/zone" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="zone"><ZoneManagement /></ProtectedRoute>} />
+        <Route path="/master-data/school-data" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="schoolData"><MasterDataSchoolData /></ProtectedRoute>} />
 
         {/* Petty Cash Routes */}
         <Route path="/petty-cash/centre" element={<ProtectedRoute><PettyCashCentre /></ProtectedRoute>} />
