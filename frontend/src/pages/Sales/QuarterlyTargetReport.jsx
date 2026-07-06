@@ -192,7 +192,7 @@ const QuarterlyTargetReport = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : data.filter(item => item.status === "active").map((item, idx) => {
+                                ) : data.map((item, idx) => {
                                     const getPct = (ach, tar) => tar > 0 ? (ach / tar) * 100 : 0;
                                     const getColorClass = (pct) => {
                                         if (pct >= 50) return 'text-green-500';
