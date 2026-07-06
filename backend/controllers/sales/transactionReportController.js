@@ -35,11 +35,11 @@ export const getTransactionReport = async (req, res) => {
         // Base Match for Payment (Inclusive: Show all transactions with activity)
         let baseAttributesMatch = {
             billId: { $regex: /^PATH/i },
-            paidAmount: { $gt: 0 }
+            paidAmount: { $gte: 0 }
         };
 
         if (minAmount || maxAmount) {
-            baseAttributesMatch.paidAmount = { $gt: 0 };
+            baseAttributesMatch.paidAmount = { $gte: 0 };
             if (minAmount) baseAttributesMatch.paidAmount.$gte = parseFloat(minAmount);
             if (maxAmount) baseAttributesMatch.paidAmount.$lte = parseFloat(maxAmount);
         }

@@ -80,17 +80,30 @@ const QuarterlyTargetReport = () => {
             [`Financial Year: ${filterFinancialYear}`],
             ["Generated on: " + new Date().toLocaleDateString()],
             [],
-            ["Centre Name", "Q1 Target", "Q1 Achieved", "Q2 Target", "Q2 Achieved", "Q3 Target", "Q3 Achieved", "Q4 Target", "Q4 Achieved", "Total Target", "Total Achieved"]
+            [
+                "Centre Name", 
+                "Q1 Target", "Q1 Achieved", "Q1 Shortfall", 
+                "Q2 Target", "Q2 Achieved", "Q2 Shortfall", 
+                "Q3 Target", "Q3 Achieved", "Q3 Shortfall", 
+                "Q4 Target", "Q4 Achieved", "Q4 Shortfall", 
+                "Total Target", "Total Achieved", "Total Shortfall"
+            ]
         ];
 
         data.forEach(item => {
+            const q1Target = Math.ceil(item.q1.targetWithGST || item.q1.target * 1.18);
+            const q2Target = Math.ceil(item.q2.targetWithGST || item.q2.target * 1.18);
+            const q3Target = Math.ceil(item.q3.targetWithGST || item.q3.target * 1.18);
+            const q4Target = Math.ceil(item.q4.targetWithGST || item.q4.target * 1.18);
+            const totalTarget = Math.ceil(item.total.targetWithGST || item.total.target * 1.18);
+
             sheetData.push([
                 item.centreName,
-                item.q1.target, item.q1.achieved,
-                item.q2.target, item.q2.achieved,
-                item.q3.target, item.q3.achieved,
-                item.q4.target, item.q4.achieved,
-                item.total.target, item.total.achieved
+                q1Target, item.q1.achieved, Math.max(0, q1Target - item.q1.achieved),
+                q2Target, item.q2.achieved, Math.max(0, q2Target - item.q2.achieved),
+                q3Target, item.q3.achieved, Math.max(0, q3Target - item.q3.achieved),
+                q4Target, item.q4.achieved, Math.max(0, q4Target - item.q4.achieved),
+                totalTarget, item.total.achieved, Math.max(0, totalTarget - item.total.achieved)
             ]);
         });
 
@@ -121,7 +134,7 @@ const QuarterlyTargetReport = () => {
                             <FaArrowLeft size={20} />
                         </button>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Quarterly Performance Matrix</h1>
+                            <h1 className="text-3xl font-bold text-gray-850 dark:text-white">Quarterly Performance Matrix</h1>
                             <p className="text-gray-600 dark:text-gray-400">Target vs Achieved Breakdown by Quarters</p>
                         </div>
                     </div>
@@ -152,40 +165,45 @@ const QuarterlyTargetReport = () => {
                     </div>
                 </div>
 
-                <div className={`rounded-[2px] border overflow-hidden transition-all shadow-2xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                <div className={`rounded-lg border overflow-hidden transition-all shadow-2xl ${isDarkMode ? 'bg-[#14181b] border-gray-800' : 'bg-white border-gray-200'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'} border-b`}>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-gray-500 sticky left-0 z-10 bg-inherit" rowSpan={2}>Centre Name</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q1 (Apr-Jun)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q2 (Jul-Sep)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q3 (Oct-Dec)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-gray-700" colSpan={2}>Q4 (Jan-Mar)</th>
-                                    <th className="p-5 text-xs font-black uppercase tracking-widest text-center border-l border-green-700 bg-green-900/10" colSpan={2}>Total Year</th>
+                                <tr className={`${isDarkMode ? 'bg-[#1c2227] text-gray-200 border-gray-800' : 'bg-gray-100 text-gray-800 border-gray-200'} border-b`}>
+                                    <th className="p-5 text-sm font-black uppercase tracking-wider sticky left-0 z-10 bg-inherit" rowSpan={2}>Centre Name</th>
+                                    <th className="p-5 text-sm font-black uppercase tracking-wider text-center border-l border-gray-300 dark:border-gray-800" colSpan={3}>Q1 (Apr-Jun)</th>
+                                    <th className="p-5 text-sm font-black uppercase tracking-wider text-center border-l border-gray-300 dark:border-gray-800" colSpan={3}>Q2 (Jul-Sep)</th>
+                                    <th className="p-5 text-sm font-black uppercase tracking-wider text-center border-l border-gray-300 dark:border-gray-800" colSpan={3}>Q3 (Oct-Dec)</th>
+                                    <th className="p-5 text-sm font-black uppercase tracking-wider text-center border-l border-gray-300 dark:border-gray-800" colSpan={3}>Q4 (Jan-Mar)</th>
+                                    <th className="p-5 text-sm font-black uppercase tracking-wider text-center border-l border-green-300 dark:border-green-800 bg-green-950/20" colSpan={3}>Total Year</th>
                                 </tr>
-                                <tr className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                                <tr className={`${isDarkMode ? 'bg-[#1c2227] text-gray-200 border-gray-800' : 'bg-gray-100 text-gray-800 border-gray-200'} border-b`}>
                                     {/* Q1 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-300 dark:border-gray-800">Target</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Shortfall</th>
                                     {/* Q2 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-300 dark:border-gray-800">Target</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Shortfall</th>
                                     {/* Q3 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-300 dark:border-gray-800">Target</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Shortfall</th>
                                     {/* Q4 */}
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right border-l border-gray-800">Target</th>
-                                    <th className="p-4 text-[10px] font-bold text-gray-400 text-right">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-300 dark:border-gray-800">Target</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-gray-600 dark:text-gray-400 text-right border-l border-gray-200 dark:border-gray-800/40">Shortfall</th>
                                     {/* Total */}
-                                    <th className="p-4 text-[10px] font-bold text-green-500 text-right border-l border-green-800 bg-green-900/10">Target</th>
-                                    <th className="p-4 text-[10px] font-bold text-green-500 text-right bg-green-900/10">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-green-600 dark:text-green-400 text-right border-l border-green-300 dark:border-green-800 bg-green-950/20">Target</th>
+                                    <th className="p-4 text-xs font-bold text-green-600 dark:text-green-400 text-right border-l border-green-300 dark:border-green-850 bg-green-950/20">Achieved</th>
+                                    <th className="p-4 text-xs font-bold text-green-600 dark:text-green-400 text-right border-l border-green-300 dark:border-green-850 bg-green-950/20">Shortfall</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={11} className="p-20 text-center">
+                                        <td colSpan={16} className="p-20 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-[2px] animate-spin"></div>
                                                 <p className="text-gray-500 font-bold text-sm tracking-widest animate-pulse">GENERATING MATRIX...</p>
@@ -200,9 +218,24 @@ const QuarterlyTargetReport = () => {
                                         return 'text-red-500';
                                     };
 
+                                    const q1Target = Math.ceil(item.q1.targetWithGST || item.q1.target * 1.18);
+                                    const q1Shortfall = Math.max(0, q1Target - item.q1.achieved);
+
+                                    const q2Target = Math.ceil(item.q2.targetWithGST || item.q2.target * 1.18);
+                                    const q2Shortfall = Math.max(0, q2Target - item.q2.achieved);
+
+                                    const q3Target = Math.ceil(item.q3.targetWithGST || item.q3.target * 1.18);
+                                    const q3Shortfall = Math.max(0, q3Target - item.q3.achieved);
+
+                                    const q4Target = Math.ceil(item.q4.targetWithGST || item.q4.target * 1.18);
+                                    const q4Shortfall = Math.max(0, q4Target - item.q4.achieved);
+
+                                    const totalTarget = Math.ceil(item.total.targetWithGST || item.total.target * 1.18);
+                                    const totalShortfall = Math.max(0, totalTarget - item.total.achieved);
+
                                     return (
                                         <tr key={idx} className={`hover:bg-blue-600/5 transition-colors group ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            <td className="p-4 text-xs font-black uppercase sticky left-0 z-10 bg-inherit group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xl">
+                                            <td className="p-4 text-sm font-bold uppercase sticky left-0 z-10 bg-inherit group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xl">
                                                 <div className="flex items-center gap-2">
                                                     <span>{item.centreName}</span>
                                                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
@@ -212,48 +245,73 @@ const QuarterlyTargetReport = () => {
                                             </td>
                                             
                                             {/* Q1 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q1.targetWithGST || item.q1.target * 1.18).toLocaleString()}</td>
-                                            <td className="p-4 text-xs text-right">
+                                            <td className="p-4 text-sm text-right border-l border-gray-300 dark:border-gray-800">
+                                                {q1Target.toLocaleString()}
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40">
                                                 <div className="font-bold">{item.q1.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q1.achieved, item.q1.targetWithGST || item.q1.target * 1.18))}`}>
-                                                    {getPct(item.q1.achieved, item.q1.targetWithGST || item.q1.target * 1.18).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q1.achieved, q1Target))}`}>
+                                                    {getPct(item.q1.achieved, q1Target).toFixed(1)}%
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40 text-red-500 font-bold">
+                                                {q1Shortfall.toLocaleString()}
                                             </td>
                                             
                                             {/* Q2 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q2.targetWithGST || item.q2.target * 1.18).toLocaleString()}</td>
-                                            <td className="p-4 text-xs text-right">
+                                            <td className="p-4 text-sm text-right border-l border-gray-300 dark:border-gray-800">
+                                                {q2Target.toLocaleString()}
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40">
                                                 <div className="font-bold">{item.q2.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q2.achieved, item.q2.targetWithGST || item.q2.target * 1.18))}`}>
-                                                    {getPct(item.q2.achieved, item.q2.targetWithGST || item.q2.target * 1.18).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q2.achieved, q2Target))}`}>
+                                                    {getPct(item.q2.achieved, q2Target).toFixed(1)}%
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40 text-red-500 font-bold">
+                                                {q2Shortfall.toLocaleString()}
                                             </td>
                                             
                                             {/* Q3 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q3.targetWithGST || item.q3.target * 1.18).toLocaleString()}</td>
-                                            <td className="p-4 text-xs text-right">
+                                            <td className="p-4 text-sm text-right border-l border-gray-300 dark:border-gray-800">
+                                                {q3Target.toLocaleString()}
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40">
                                                 <div className="font-bold">{item.q3.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q3.achieved, item.q3.targetWithGST || item.q3.target * 1.18))}`}>
-                                                    {getPct(item.q3.achieved, item.q3.targetWithGST || item.q3.target * 1.18).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q3.achieved, q3Target))}`}>
+                                                    {getPct(item.q3.achieved, q3Target).toFixed(1)}%
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40 text-red-500 font-bold">
+                                                {q3Shortfall.toLocaleString()}
                                             </td>
                                             
                                             {/* Q4 */}
-                                            <td className="p-4 text-xs text-right border-l border-gray-800/10">{(item.q4.targetWithGST || item.q4.target * 1.18).toLocaleString()}</td>
-                                            <td className="p-4 text-xs text-right">
+                                            <td className="p-4 text-sm text-right border-l border-gray-300 dark:border-gray-800">
+                                                {q4Target.toLocaleString()}
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40">
                                                 <div className="font-bold">{item.q4.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q4.achieved, item.q4.targetWithGST || item.q4.target * 1.18))}`}>
-                                                    {getPct(item.q4.achieved, item.q4.targetWithGST || item.q4.target * 1.18).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.q4.achieved, q4Target))}`}>
+                                                    {getPct(item.q4.achieved, q4Target).toFixed(1)}%
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-gray-200 dark:border-gray-800/40 text-red-500 font-bold">
+                                                {q4Shortfall.toLocaleString()}
                                             </td>
                                             
                                             {/* Total */}
-                                            <td className="p-4 text-xs text-right font-black border-l border-green-800/10 bg-green-500/5">{(item.total.targetWithGST || item.total.target * 1.18).toLocaleString()}</td>
-                                            <td className="p-4 text-xs text-right font-black bg-green-500/5">
+                                            <td className="p-4 text-sm text-right font-black border-l border-green-300 dark:border-green-800 bg-green-500/5">
+                                                {totalTarget.toLocaleString()}
+                                            </td>
+                                            <td className="p-4 text-sm text-right font-black border-l border-green-200 dark:border-green-800/40 bg-green-500/5">
                                                 <div className="font-bold">{item.total.achieved.toLocaleString()}</div>
-                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.total.achieved, item.total.targetWithGST || item.total.target * 1.18))}`}>
-                                                    {getPct(item.total.achieved, item.total.targetWithGST || item.total.target * 1.18).toFixed(1)}%
+                                                <div className={`text-[9px] font-black ${getColorClass(getPct(item.total.achieved, totalTarget))}`}>
+                                                    {getPct(item.total.achieved, totalTarget).toFixed(1)}%
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-sm text-right border-l border-green-200 dark:border-green-800/40 bg-green-500/5 text-red-500 font-black">
+                                                {totalShortfall.toLocaleString()}
                                             </td>
                                         </tr>
                                     );

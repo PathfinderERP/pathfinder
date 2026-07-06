@@ -50,15 +50,15 @@ const mapRoleToDepartment = (role) => {
     return "Operations";
 };
 
-// Add a new activity to today's log
+// Add a new activity to a log
 export const addOrUpdateActivity = async (req, res) => {
     try {
-        const { time, workDetails, completedWork, status, centre } = req.body;
+        const { time, workDetails, completedWork, status, centre, date } = req.body;
         if (!workDetails) {
             return res.status(400).json({ message: "Work Details are required." });
         }
 
-        const todayUTC = getMidnightIST();
+        const todayUTC = getMidnightIST(date);
         const startRange = new Date(todayUTC.getTime() - 12 * 60 * 60 * 1000);
         const endRange = new Date(todayUTC.getTime() + 12 * 60 * 60 * 1000);
 
@@ -494,5 +494,37 @@ export const deleteActivity = async (req, res) => {
     } catch (error) {
         console.error("Error deleting tracking log activity:", error);
         res.status(500).json({ message: "Failed to delete activity log.", error: error.message });
+    }
+};
+
+// Get all dates where the user has logged activities
+export const getMyLogDates = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        let query = { user: req.user._id };
+
+        if (startDate && endDate) {
+            query.date = {
+                $gte: getMidnightIST(startDate),
+                $lte: getMidnightIST(endDate)
+            };
+        }
+
+        // Only return logs where activities array has at least one item
+        query.activities = { $exists: true, $not: { $size: 0 } };
+
+        const logs = await DailyTrackingLog.find(query)
+            .select("date")
+            .lean();
+
+        const dates = logs.map(log => {
+            const d = new Date(log.date);
+            return d.toISOString().split("T")[0];
+        });
+
+        res.status(200).json({ dates });
+    } catch (error) {
+        console.error("Error fetching my log dates:", error);
+        res.status(500).json({ message: "Failed to fetch log dates.", error: error.message });
     }
 };

@@ -73,10 +73,118 @@ const DailyTrackingLog = () => {
         }
     }, [tabParam, navigate]);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+    const [loggedDates, setLoggedDates] = useState([]);
+
+    const fetchLoggedDates = async (year, month) => {
+        try {
+            const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
+            const res = await fetch(`${apiUrl}/daily-tracking-logs/my-log-dates?startDate=${startDate}&endDate=${endDate}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setLoggedDates(data.dates || []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch log dates", err);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === "myLog") {
+            fetchLoggedDates(currentYear, currentMonth);
+        }
+    }, [activeTab, currentYear, currentMonth]);
+
+    useEffect(() => {
+        if (selectedDate) {
+            const d = new Date(selectedDate);
+            if (!isNaN(d.getTime())) {
+                setCurrentYear(d.getFullYear());
+                setCurrentMonth(d.getMonth());
+            }
+        }
+    }, [selectedDate]);
+
     const [myActivities, setMyActivities] = useState([]);
     const [myLogId, setMyLogId] = useState(null);
     const [boardLogs, setBoardLogs] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    const handlePrevMonth = () => {
+        if (currentMonth === 0) {
+            setCurrentMonth(11);
+            setCurrentYear(prev => prev - 1);
+        } else {
+            setCurrentMonth(prev => prev - 1);
+        }
+    };
+
+    const handleNextMonth = () => {
+        if (currentMonth === 11) {
+            setCurrentMonth(0);
+            setCurrentYear(prev => prev + 1);
+        } else {
+            setCurrentMonth(prev => prev + 1);
+        }
+    };
+
+    const handleDateClick = (cell) => {
+        setSelectedDate(cell.dateStr);
+        if (!cell.isCurrentMonth) {
+            const d = new Date(cell.dateStr);
+            setCurrentYear(d.getFullYear());
+            setCurrentMonth(d.getMonth());
+        }
+    };
+
+    const getCalendarCells = () => {
+        const cells = [];
+        const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+        const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const prevMonthTotalDays = new Date(currentYear, currentMonth, 0).getDate();
+
+        // Previous month's trailing days
+        for (let i = firstDayIndex - 1; i >= 0; i--) {
+            const day = prevMonthTotalDays - i;
+            const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+            const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+            cells.push({
+                day,
+                isCurrentMonth: false,
+                dateStr: `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            });
+        }
+
+        // Current month's days
+        for (let day = 1; day <= totalDays; day++) {
+            cells.push({
+                day,
+                isCurrentMonth: true,
+                dateStr: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            });
+        }
+
+        // Next month's leading days to fill grid (usually 42 cells)
+        const remaining = 42 - cells.length;
+        for (let day = 1; day <= remaining; day++) {
+            const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+            const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+            cells.push({
+                day,
+                isCurrentMonth: false,
+                dateStr: `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            });
+        }
+
+        return cells;
+    };
 
     // Form states
     const [startTime, setStartTime] = useState("09:00");
@@ -414,7 +522,8 @@ const DailyTrackingLog = () => {
                     workDetails,
                     completedWork,
                     status,
-                    centre: selectedEntryCentre || null
+                    centre: selectedEntryCentre || null,
+                    date: selectedDate
                 })
             });
 
@@ -425,6 +534,7 @@ const DailyTrackingLog = () => {
                 setCompletedWork("");
 
                 fetchMyLog(selectedDate);
+                fetchLoggedDates(currentYear, currentMonth);
             } else {
                 toast.error(data.message || "Failed to log activity.");
             }
@@ -449,6 +559,7 @@ const DailyTrackingLog = () => {
             if (res.ok) {
                 toast.success("Activity deleted.");
                 fetchMyLog(selectedDate);
+                fetchLoggedDates(currentYear, currentMonth);
             } else {
                 toast.error(data.message || "Failed to delete activity.");
             }
@@ -529,6 +640,7 @@ const DailyTrackingLog = () => {
                 toast.success("Activity updated successfully!");
                 setEditingActivityId(null);
                 fetchMyLog(selectedDate);
+                fetchLoggedDates(currentYear, currentMonth);
             } else {
                 toast.error(data.message || "Failed to update activity.");
             }
@@ -616,9 +728,95 @@ const DailyTrackingLog = () => {
 
                 {activeTab === "myLog" && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Left side: Add activity form */}
-                        <div className="lg:col-span-1">
-                            <div className={`p-6 rounded-2xl border sticky top-6 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
+                        {/* Left side: Calendar + Add activity form */}
+                        <div className="lg:col-span-1 flex flex-col gap-6 sticky top-6 self-start">
+                            {/* Calendar Card */}
+                            <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"}`}>
+                                <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
+                                    <h3 className="text-md font-bold flex items-center gap-2">
+                                        <FaCalendarAlt className="text-indigo-500 text-sm" />
+                                        Log Calendar
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            type="button"
+                                            onClick={handlePrevMonth}
+                                            className={`p-1.5 rounded-lg border transition-colors ${isDarkMode ? "bg-gray-800 border-gray-700 hover:bg-gray-700 text-white" : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-800"}`}
+                                        >
+                                            &lt;
+                                        </button>
+                                        <span className="text-sm font-bold min-w-[90px] text-center">
+                                            {monthNames[currentMonth]} {currentYear}
+                                        </span>
+                                        <button 
+                                            type="button"
+                                            onClick={handleNextMonth}
+                                            className={`p-1.5 rounded-lg border transition-colors ${isDarkMode ? "bg-gray-800 border-gray-700 hover:bg-gray-700 text-white" : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-800"}`}
+                                        >
+                                            &gt;
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Calendar grid weekdays */}
+                                <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                                    {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
+                                        <div key={d} className={`text-xs font-bold py-1 ${isDarkMode ? "text-gray-500" : "text-slate-400"}`}>
+                                            {d}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Calendar grid days */}
+                                <div className="grid grid-cols-7 gap-1 text-center">
+                                    {getCalendarCells().map((cell, idx) => {
+                                        const isSelected = cell.dateStr === selectedDate;
+                                        const hasLog = cell.isCurrentMonth && loggedDates.includes(cell.dateStr);
+                                        const isCurrentMonth = cell.isCurrentMonth;
+                                        
+                                        let cellStyle = "";
+                                        if (isCurrentMonth) {
+                                            if (hasLog) {
+                                                cellStyle = "bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 border border-emerald-500/30";
+                                            } else {
+                                                cellStyle = "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border border-rose-500/20";
+                                            }
+                                        } else {
+                                            cellStyle = "text-gray-400 dark:text-gray-600 opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800";
+                                        }
+
+                                        return (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => handleDateClick(cell)}
+                                                className={`text-xs font-semibold py-2 rounded-xl transition duration-150 relative ${cellStyle} ${
+                                                    isSelected ? "ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-[#1a1f24] font-black z-10 scale-105" : ""
+                                                }`}
+                                            >
+                                                {cell.day}
+                                                {/* Current day dot */}
+                                                {cell.dateStr === new Date().toISOString().split("T")[0] && (
+                                                    <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-indigo-500 rounded-full"></span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-4 flex justify-between text-[10px] font-bold text-gray-500 px-1 border-t border-gray-100 dark:border-gray-800 pt-3">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/30"></div>
+                                        <span>Log Submitted</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500/10 border border-rose-500/20"></div>
+                                        <span>No Log</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Add activity form card */}
+                            <div className={`p-6 rounded-2xl border ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
                                 }`}>
                                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                                     <FaPlus className="text-indigo-500 text-sm" />
