@@ -88,6 +88,7 @@ const UploadLeads = () => {
     const [aiFeedback, setAiFeedback] = useState("");
     const [analyzingAi, setAnalyzingAi] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
+    const [skippedRows, setSkippedRows] = useState([]);
     
     const analyzeErrorWithAI = async (errorMsg) => {
         setAnalyzingAi(true);
@@ -270,6 +271,7 @@ const UploadLeads = () => {
                 fetchMyUploads(1); // refresh history
                 setAiFeedback("");
                 setValidationErrors([]);
+                setSkippedRows(data.skippedDetails || []);
             } else {
                 const msg = data.message || "Upload failed.";
                 toast.error(msg);
@@ -278,6 +280,7 @@ const UploadLeads = () => {
                 } else {
                     setValidationErrors([]);
                 }
+                setSkippedRows(data.skippedDetails || []);
                 analyzeErrorWithAI(msg);
                 setStep("preview");
             }
@@ -297,6 +300,7 @@ const UploadLeads = () => {
         setStep("idle");
         setAiFeedback("");
         setValidationErrors([]);
+        setSkippedRows([]);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -482,6 +486,29 @@ const UploadLeads = () => {
                                             <span>Row <b>{err.row}</b>: <b>{err.name}</b></span>
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isDark ? 'bg-red-950 text-red-400' : 'bg-red-100 text-red-600'}`}>
                                                 Invalid Source: "{err.source || 'Blank'}"
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Skipped Rows / Validation Errors */}
+                        {skippedRows.length > 0 && (
+                            <div className={`p-5 rounded-2xl border flex flex-col gap-3 ${isDark ? 'bg-orange-500/10 border-orange-500/20 text-orange-300' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                <div className="flex items-center gap-2">
+                                    <FaExclamationTriangle className="text-orange-500" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">Skipped Rows Report ({skippedRows.length} row{skippedRows.length !== 1 ? "s" : ""})</span>
+                                </div>
+                                <p className="text-xs font-semibold">
+                                    The following leads were skipped and will NOT be uploaded. Please verify the phone numbers or missing fields in the table below:
+                                </p>
+                                <div className="max-h-[200px] overflow-y-auto space-y-1.5 custom-scrollbar pr-2">
+                                    {skippedRows.map((err, i) => (
+                                        <div key={i} className={`flex items-center justify-between text-xs py-1.5 px-3 rounded-lg ${isDark ? 'bg-orange-950/20' : 'bg-orange-100/50'} font-medium`}>
+                                            <span>Row <b>{err.row}</b>: <b>{err.name}</b></span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isDark ? 'bg-orange-950/40 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>
+                                                {err.reason}
                                             </span>
                                         </div>
                                     ))}

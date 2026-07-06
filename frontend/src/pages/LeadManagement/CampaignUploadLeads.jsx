@@ -33,6 +33,7 @@ export default function CampaignUploadLeads() {
     const [pushing, setPushing] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);
     const [validationErrors, setValidationErrors] = useState([]);
+    const [skippedRows, setSkippedRows] = useState([]);
 
     const handlePushToLeadManagement = async () => {
         if (!campaignId) {
@@ -88,6 +89,7 @@ export default function CampaignUploadLeads() {
         setFileName(file.name);
         setUploadResult(null);
         setValidationErrors([]);
+        setSkippedRows([]);
 
         const reader = new FileReader();
         reader.onload = (evt) => {
@@ -181,8 +183,10 @@ export default function CampaignUploadLeads() {
                 setRows([]);
                 setFileName("");
                 setValidationErrors([]);
+                setSkippedRows(data.skippedDetails || []);
             } else {
                 toast.error(data.message || "Upload failed");
+                setSkippedRows(data.skippedDetails || []);
                 if (data.invalidSources && Array.isArray(data.invalidSources)) {
                     const formatted = data.invalidSources.map(err => 
                         `Row ${err.row}: "${err.name}" - Invalid source: "${err.source || 'Blank'}" (${err.reason})`
@@ -319,6 +323,28 @@ export default function CampaignUploadLeads() {
                         <ul className="space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
                             {validationErrors.map((err, i) => (
                                 <li key={i} className="text-[10px] font-semibold text-red-400">{err}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* ── Skipped Rows Report ── */}
+                {skippedRows.length > 0 && (
+                    <div className={`rounded-xl border p-5 mb-6 ${isDark ? "bg-orange-500/10 border-orange-500/30" : "bg-orange-50 border-orange-200"}`}>
+                        <h4 className="flex items-center gap-2 text-orange-500 font-black text-sm uppercase tracking-wider mb-3">
+                            <FaExclamationTriangle className="text-orange-500" /> Skipped Rows Report ({skippedRows.length} row{skippedRows.length !== 1 ? "s" : ""})
+                        </h4>
+                        <p className="text-[11px] font-semibold text-orange-400 mb-2">
+                            The following leads were skipped because they already exist in the database, are duplicated inside the file, or are missing required fields:
+                        </p>
+                        <ul className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                            {skippedRows.map((err, i) => (
+                                <li key={i} className={`flex flex-col sm:flex-row sm:items-center justify-between text-[10px] py-1.5 px-3 rounded ${isDark ? 'bg-orange-950/20' : 'bg-orange-100/50'} font-semibold text-orange-400`}>
+                                    <span>Row <b>{err.row}</b>: <b>{err.name}</b></span>
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${isDark ? 'bg-orange-950/40 text-orange-300' : 'bg-orange-100 text-orange-700'}`}>
+                                        {err.reason}
+                                    </span>
+                                </li>
                             ))}
                         </ul>
                     </div>

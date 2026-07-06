@@ -158,94 +158,107 @@ export const bulkUploadLeads = async (req, res) => {
                 }
             }
 
-            // Course mapping (Directly map ObjectId if valid, or store raw string text)
+            // Course mapping (Directly map ObjectId if valid, or resolve by name, or store raw string text)
             if (row.course) {
                 if (mongoose.Types.ObjectId.isValid(row.course)) {
                     doc.course = row.course;
-                } else if (typeof row.course === 'string' && row.course.trim()) {
-                    doc.courseText = row.course.trim();
+                } else {
+                    const matchedCourse = allCourses.find(c => c.courseName && c.courseName.toLowerCase().trim() === String(row.course).toLowerCase().trim());
+                    if (matchedCourse) {
+                        doc.course = matchedCourse._id;
+                    } else if (typeof row.course === 'string' && row.course.trim()) {
+                        doc.courseText = row.course.trim();
+                    }
                 }
             }
 
             return doc;
         });
 
-        // Collect all non-empty phone numbers from prepared data
+        // Collect all non-empty primary phone numbers from prepared data
         const incomingPhones = new Set();
         prepared.forEach(row => {
             if (row.phoneNumber) incomingPhones.add(row.phoneNumber);
-            if (row.secondPhoneNumber) incomingPhones.add(row.secondPhoneNumber);
         });
 
-        // Find existing phone numbers in database
+        // Find existing phone numbers in database (only checking the primary phoneNumber field)
         const existingPhones = new Set();
         if (incomingPhones.size > 0) {
             const phoneList = Array.from(incomingPhones);
             const [leadsWithPhones, campaignLeadsWithPhones] = await Promise.all([
                 LeadManagement.find({
-                    $or: [
-                        { phoneNumber: { $in: phoneList } },
-                        { secondPhoneNumber: { $in: phoneList } }
-                    ]
-                }, 'phoneNumber secondPhoneNumber').lean(),
+                    phoneNumber: { $in: phoneList }
+                }, 'phoneNumber').lean(),
                 CampaignLead.find({
-                    $or: [
-                        { phoneNumber: { $in: phoneList } },
-                        { secondPhoneNumber: { $in: phoneList } }
-                    ]
-                }, 'phoneNumber secondPhoneNumber').lean()
+                    phoneNumber: { $in: phoneList }
+                }, 'phoneNumber').lean()
             ]);
 
             leadsWithPhones.forEach(l => {
                 if (l.phoneNumber) existingPhones.add(l.phoneNumber.trim());
-                if (l.secondPhoneNumber) existingPhones.add(l.secondPhoneNumber.trim());
             });
             campaignLeadsWithPhones.forEach(l => {
                 if (l.phoneNumber) existingPhones.add(l.phoneNumber.trim());
-                if (l.secondPhoneNumber) existingPhones.add(l.secondPhoneNumber.trim());
             });
         }
 
         // Filter valid leads and check for duplicates (both against DB and within the file)
         const valid = [];
         const seenPhonesInImport = new Set();
+        const skippedDetails = [];
         let skipped = 0;
 
-        for (const row of prepared) {
+        for (let idx = 0; idx < prepared.length; idx++) {
+            const row = prepared[idx];
+            const originalRowIndex = idx + 1;
+
             if (!row.name || !row.schoolName) {
+                const missing = [];
+                if (!row.name) missing.push("Name");
+                if (!row.schoolName) missing.push("School Name");
+                skippedDetails.push({
+                    row: originalRowIndex,
+                    name: row.name || "Unknown Name",
+                    reason: `Missing required field(s): ${missing.join(", ")}`
+                });
                 skipped++;
                 continue;
             }
 
             const p = row.phoneNumber;
-            const s = row.secondPhoneNumber;
             let isDuplicate = false;
+            let duplicateReason = "";
 
             if (p) {
-                if (existingPhones.has(p) || seenPhonesInImport.has(p)) {
+                if (existingPhones.has(p)) {
                     isDuplicate = true;
-                }
-            }
-
-            if (!isDuplicate && s) {
-                if (existingPhones.has(s) || seenPhonesInImport.has(s)) {
+                    duplicateReason = `Phone number '${p}' already exists in database.`;
+                } else if (seenPhonesInImport.has(p)) {
                     isDuplicate = true;
+                    duplicateReason = `Phone number '${p}' is duplicated within the uploaded file.`;
                 }
             }
 
             if (isDuplicate) {
+                skippedDetails.push({
+                    row: originalRowIndex,
+                    name: row.name,
+                    reason: duplicateReason
+                });
                 skipped++;
                 continue;
             }
 
             if (p) seenPhonesInImport.add(p);
-            if (s) seenPhonesInImport.add(s);
 
             valid.push(row);
         }
 
         if (valid.length === 0) {
-            return res.status(400).json({ message: "All rows were skipped because they are missing the required 'name' or 'schoolName' fields, or contain duplicate phone numbers." });
+            return res.status(400).json({
+                message: "All rows were skipped because they are missing required fields or contain duplicate phone numbers.",
+                skippedDetails
+            });
         }
 
         let inserted;
@@ -259,6 +272,7 @@ export const bulkUploadLeads = async (req, res) => {
             message:    `${inserted.length} lead(s) uploaded successfully.`,
             total:      inserted.length,
             skipped,
+            skippedDetails,
             uploadedBy: uploaderName,
             campaign:   resolvedCampaignId || null,
         });

@@ -45,7 +45,7 @@ export const getMyUploads = async (req, res) => {
                 .populate("course",     "courseName name")
                 .populate("board",      "name boardName")
                 .populate("createdBy",  "name")
-                .select("name email phoneNumber secondPhoneNumber className centre course board source leadType leadResponsibility createdBy createdAt"),
+                .select("name email phoneNumber secondPhoneNumber className centre course courseText board source leadType leadResponsibility createdBy createdAt"),
             LeadManagement.countDocuments(query),
         ]);
 
