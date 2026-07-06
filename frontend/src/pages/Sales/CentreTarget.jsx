@@ -30,7 +30,7 @@ const CentreTarget = () => {
 
     const [filterFinancialYear, setFilterFinancialYear] = useState("");
     const [filterYear, setFilterYear] = useState(new Date().getFullYear());
-    const [viewMode, setViewMode] = useState(location.state?.viewMode || "Monthly");
+    const [viewMode, setViewMode] = useState(location.state?.viewMode === "Quarterly" ? "Monthly" : (location.state?.viewMode || "Monthly"));
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -51,6 +51,12 @@ const CentreTarget = () => {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        if (location.state?.viewMode === "Quarterly") {
+            navigate("/sales/quarterly-target-report", { replace: true });
+        }
+    }, [location.state, navigate]);
 
     useEffect(() => {
         fetchTargets();
@@ -351,6 +357,8 @@ const CentreTarget = () => {
                                     onClick={() => {
                                         if (mode === "Weekend") {
                                             navigate("/sales/final-weekend-target");
+                                        } else if (mode === "Quarterly") {
+                                            navigate("/sales/quarterly-target-report");
                                         } else {
                                             setViewMode(mode);
                                         }
