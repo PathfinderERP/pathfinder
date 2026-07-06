@@ -6,7 +6,7 @@ import { getSignedFileUrl } from "../../../utils/r2Upload.js";
 export const getAllAdminsBySuperAdmin = async (req, res) => {
   try {
     const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "hod", "assistantzonalmanager", "assistantcenterincharge"];
+    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "hod", "assistantzonalmanager", "assistantcenterincharge", "hr"];
     const isPrivileged = privilegedRoles.includes(userRoleStr);
 
     let query = { role: "admin" };
@@ -14,7 +14,7 @@ export const getAllAdminsBySuperAdmin = async (req, res) => {
     if (!isPrivileged) {
       // Non-privileged users (including standard admin) can ONLY see themselves
       query._id = req.user.id;
-    } else if (userRoleStr !== "superadmin" && userRoleStr !== "super admin") {
+    } else if (userRoleStr !== "superadmin" && userRoleStr !== "super admin" && userRoleStr !== "hr") {
       const userCentreIds = (req.user.centres || []).map(c => (c._id || c).toString());
       if (userCentreIds.length > 0) {
         query.centres = { $in: userCentreIds };
@@ -45,14 +45,14 @@ export const getAllTeachersBySuperAdmin = async (req, res) => {
     const requestingUser = req.user;
     const userRole = (requestingUser.role || "").toLowerCase().replace(/\s+/g, "");
 
-    const privilegedRoles = ["superadmin", "centerincharge", "zonalmanager", "hod", "assistantzonalmanager", "assistantcenterincharge"];
+    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "hod", "assistantzonalmanager", "assistantcenterincharge", "hr"];
     const isUnderPrivileged = !privilegedRoles.includes(userRole);
 
     let query = { role: "teacher" };
 
     if (isUnderPrivileged) {
       query._id = requestingUser._id;
-    } else if (userRole !== "superadmin") {
+    } else if (userRole !== "superadmin" && userRole !== "super admin" && userRole !== "hr") {
       const userCentreIds = (requestingUser.centres || []).map(c => (c._id || c).toString());
       if (userCentreIds.length > 0) {
         const centreObjectIds = userCentreIds.map(id => {
@@ -85,12 +85,12 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
   try {
     const requestingUser = req.user;
     const userRole = (requestingUser.role || "").toLowerCase().replace(/\s+/g, "");
-    const isSuperAdmin = ["superadmin", "super admin"].includes(userRole);
+    const isSuperAdminOrHR = ["superadmin", "super admin", "hr"].includes(userRole);
 
     let query = {};
 
-    // If not superAdmin, further filter to show only users who share the same centers
-    if (!isSuperAdmin && req.query.ignoreCentre !== "true") {
+    // If not superAdmin or HR, further filter to show only users who share the same centers
+    if (!isSuperAdminOrHR && req.query.ignoreCentre !== "true") {
       const userCentreIds = (requestingUser.centres || []).map(c => (c._id || c).toString());
 
       if (userCentreIds.length > 0) {

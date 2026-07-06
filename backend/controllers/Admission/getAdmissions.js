@@ -275,10 +275,45 @@ export const getAdmissions = async (req, res) => {
 export const getActiveEmployees = async (req, res) => {
     try {
         const User = (await import("../../models/User.js")).default;
-        const activeEmployees = await User.find({
+        const loggedInUserRole = req.user?.role || "";
+        const loggedInUserCentres = req.user?.centres || [];
+
+        const query = {
             isActive: true,
             role: { $ne: "teacher" }
-        })
+        };
+
+        // Zonal Manager, Assistant Zonal Manager, and Super Admin:
+        // Filter by the user management tagged centres (req.user.centres)
+        const isZonalOrSuperAdmin = [
+            "superAdmin",
+            "Super Admin",
+            "zonalManager",
+            "assistantZonalManager"
+        ].includes(loggedInUserRole);
+
+        if (isZonalOrSuperAdmin) {
+            query.centres = { $in: loggedInUserCentres };
+        } else {
+            // For other roles, filter by the primary centre tag in their employee profile
+            const Employee = (await import("../../models/HR/Employee.js")).default;
+            const loggedInEmployee = await Employee.findOne({ user: req.user._id }).lean();
+
+            if (loggedInEmployee && loggedInEmployee.primaryCentre) {
+                // Find all employees whose primaryCentre matches
+                const matchingEmployees = await Employee.find({
+                    primaryCentre: loggedInEmployee.primaryCentre
+                }, 'user').lean();
+
+                const userIds = matchingEmployees.map(emp => emp.user).filter(Boolean);
+                query._id = { $in: userIds };
+            } else {
+                // If logged-in user has no primary centre configured, return empty
+                query._id = { $in: [] };
+            }
+        }
+
+        const activeEmployees = await User.find(query)
         .select("name")
         .sort({ name: 1 })
         .lean();
