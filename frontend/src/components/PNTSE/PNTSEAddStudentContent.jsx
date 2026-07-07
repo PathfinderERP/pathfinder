@@ -91,10 +91,44 @@ const PNTSEAddStudentContent = () => {
         fetchMasterData();
     }, []);
 
+    const debounceTimeout = React.useRef({});
+
+    const checkDbDuplicate = async (name, value) => {
+        if (!value) return;
+        if (name === 'mobile' && !/^\d{10}$/.test(value)) return;
+        if (name === 'email' && !/\S+@\S+\.\S+/.test(value)) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/pntse/check-duplicate?${name}=${encodeURIComponent(value)}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (name === 'mobile' && data.mobileExists) {
+                    setErrors(prev => ({ ...prev, mobile: 'Mobile number is already registered' }));
+                } else if (name === 'email' && data.emailExists) {
+                    setErrors(prev => ({ ...prev, email: 'Email ID is already registered' }));
+                }
+            }
+        } catch (err) {
+            console.error("Duplicate check failed", err);
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+
+        if (name === 'mobile' || name === 'email') {
+            if (debounceTimeout.current[name]) {
+                clearTimeout(debounceTimeout.current[name]);
+            }
+            debounceTimeout.current[name] = setTimeout(() => {
+                checkDbDuplicate(name, value);
+            }, 600);
+        }
     };
 
     const validate = () => {
@@ -113,6 +147,12 @@ const PNTSEAddStudentContent = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const errs = validate();
+        if (errors.mobile && errors.mobile.includes("registered")) {
+            errs.mobile = errors.mobile;
+        }
+        if (errors.email && errors.email.includes("registered")) {
+            errs.email = errors.email;
+        }
         if (Object.keys(errs).length > 0) {
             setErrors(errs);
             return;
@@ -263,8 +303,10 @@ const PNTSEAddStudentContent = () => {
                                 value={form.email}
                                 onChange={handleChange}
                                 placeholder="student@example.com"
-                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 transition-all
+                                    ${errors.email ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
                             />
+                            {errors.email && <p className="text-xs text-red-400 mt-0.5">{errors.email}</p>}
                         </div>
                     </div>
                 </div>

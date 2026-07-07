@@ -306,7 +306,7 @@ const PNTSEAllStudentsContent = () => {
                                             <div className="w-16 h-1.5 rounded-full bg-gray-700 overflow-hidden">
                                                 <div
                                                     className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
-                                                    style={{ width: `${student.score}%` }}
+                                                    style={{ width: `${student.examTag}%` }}
                                                 />
                                             </div>
                                             <span className="text-gray-200 font-medium">{student.score}%</span>

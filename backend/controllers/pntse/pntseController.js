@@ -17,6 +17,20 @@ export const createPNTSEStudent = async (req, res) => {
             return res.status(400).json({ message: "Required fields are missing" });
         }
 
+        // Check for duplicate mobile
+        const duplicateMobile = await PNTSEStudent.findOne({ mobile });
+        if (duplicateMobile) {
+            return res.status(400).json({ message: "Mobile number is already registered" });
+        }
+
+        // Check for duplicate email
+        if (email) {
+            const duplicateEmail = await PNTSEStudent.findOne({ email });
+            if (duplicateEmail) {
+                return res.status(400).json({ message: "Email ID is already registered" });
+            }
+        }
+
         // Fetch center to get code
         const centreObj = await CentreSchema.findById(centreId);
         if (!centreObj) {
@@ -112,3 +126,28 @@ export const getPNTSEStudents = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+// Check if mobile or email exists
+export const checkDuplicate = async (req, res) => {
+    try {
+        const { mobile, email } = req.query;
+        let mobileExists = false;
+        let emailExists = false;
+
+        if (mobile) {
+            const student = await PNTSEStudent.findOne({ mobile });
+            if (student) mobileExists = true;
+        }
+
+        if (email) {
+            const student = await PNTSEStudent.findOne({ email });
+            if (student) emailExists = true;
+        }
+
+        res.status(200).json({ mobileExists, emailExists });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
