@@ -55,7 +55,7 @@ export const createEmployee = async (req, res) => {
         const employeeData = { ...req.body };
 
         // Parse JSON fields
-        const jsonFields = ["children", "centres", "workingDays", "salaryStructure"];
+        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "subject"];
         jsonFields.forEach(field => {
             if (typeof employeeData[field] === "string") {
                 try {
@@ -138,7 +138,9 @@ export const createEmployee = async (req, res) => {
                 name: employeeData.name,
                 email: employeeData.email,
                 teacherType: employeeData.typeOfEmployment || employeeData.teacherType || null,
-                designation: employeeData.designationName || employeeData.designation || null,
+                designation: employeeData.designationName 
+                    ? [employeeData.designationName] 
+                    : (employeeData.designation ? [employeeData.designation.toString()] : []),
                 subject: employeeData.subject || null,
                 boardType: employeeData.boardType || null,
                 teacherDepartment: employeeData.teacherDepartment || (employeeData.departmentName ? [employeeData.departmentName] : []),
@@ -432,7 +434,7 @@ export const updateEmployee = async (req, res) => {
         });
 
         // Parse arrays if they're strings
-        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "letters"];
+        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "letters", "subject"];
         jsonFields.forEach(field => {
             if (typeof updateData[field] === "string") {
                 try {
@@ -506,7 +508,11 @@ export const updateEmployee = async (req, res) => {
         if (updateData.subject) userSyncData.subject = updateData.subject;
         if (updateData.boardType) userSyncData.boardType = updateData.boardType;
         if (updateData.teacherDepartment) userSyncData.teacherDepartment = updateData.teacherDepartment;
-        if (updateData.designationName) userSyncData.designation = updateData.designationName;
+        if (updateData.designation !== undefined) {
+            userSyncData.designation = updateData.designation ? [updateData.designation.toString()] : [];
+        } else if (updateData.designationName) {
+            userSyncData.designation = [updateData.designationName];
+        }
 
         try {
             await User.findByIdAndUpdate(employee.user, userSyncData);

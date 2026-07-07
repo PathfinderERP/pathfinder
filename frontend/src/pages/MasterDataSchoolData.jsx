@@ -14,13 +14,23 @@ const EMPTY_FORM = { schoolName: "", studentName: "", className: "", board: "", 
 // ─── Custom Multi-Select Dropdown ─────────────────────────────────────────────
 const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
     const [open, setOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const ref = useRef(null);
+    const searchInputRef = useRef(null);
 
     useEffect(() => {
         const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
         document.addEventListener("mousedown", h);
         return () => document.removeEventListener("mousedown", h);
     }, []);
+
+    useEffect(() => {
+        if (open && searchInputRef.current) {
+            searchInputRef.current.focus();
+        } else {
+            setSearchQuery("");
+        }
+    }, [open]);
 
     const toggle = (val) => {
         onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
@@ -31,6 +41,10 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
         : selected.length === 1
             ? selected[0]
             : `${selected.length} selected`;
+
+    const filteredOptions = options.filter(opt =>
+        opt && opt.toString().toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <div className="relative" ref={ref}>
@@ -56,26 +70,52 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
             </button>
 
             {open && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a2030] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto">
-                    {options.length === 0 ? (
-                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest p-4 text-center">No options</p>
-                    ) : (
-                        options.map((opt, i) => {
-                            const checked = selected.includes(opt);
-                            return (
-                                <div
-                                    key={i}
-                                    onClick={() => toggle(opt)}
-                                    className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors text-sm ${checked ? "bg-blue-50 dark:bg-blue-600/10" : "hover:bg-gray-50 dark:hover:bg-white/5"}`}
-                                >
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600 bg-white dark:bg-[#131619]"}`}>
-                                        {checked && <FaCheck className="text-white text-[8px]" />}
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a2030] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 flex flex-col max-h-64">
+                    {/* Search Input Box */}
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/20 shrink-0">
+                        <FaSearch className="text-gray-400 text-xs shrink-0" />
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full text-xs bg-transparent border-0 outline-none text-gray-800 dark:text-white placeholder-gray-400 focus:ring-0 focus:outline-none p-0"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSearchQuery(""); }}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0"
+                            >
+                                <FaTimes className="text-[10px]" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Options List */}
+                    <div className="overflow-y-auto max-h-48">
+                        {filteredOptions.length === 0 ? (
+                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest p-4 text-center">No options</p>
+                        ) : (
+                            filteredOptions.map((opt, i) => {
+                                const checked = selected.includes(opt);
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={() => toggle(opt)}
+                                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors text-sm ${checked ? "bg-blue-50 dark:bg-blue-600/10" : "hover:bg-gray-50 dark:hover:bg-white/5"}`}
+                                    >
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600 bg-white dark:bg-[#131619]"}`}>
+                                            {checked && <FaCheck className="text-white text-[8px]" />}
+                                        </div>
+                                        <span className={`font-medium ${checked ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400"}`}>{opt}</span>
                                     </div>
-                                    <span className={`font-medium ${checked ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400"}`}>{opt}</span>
-                                </div>
-                            );
-                        })
-                    )}
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
             )}
         </div>
