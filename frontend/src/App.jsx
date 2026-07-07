@@ -190,6 +190,8 @@ import Community from "./pages/Community";
 import BoardAnalysis from "./pages/BoardAnalysis";
 import RedFlagDesk from "./pages/RedFlagDesk";
 import DailyTrackingLog from "./pages/DailyTrackingLog";
+import PNTSEAllStudents from "./pages/PNTSE/PNTSEAllStudents";
+import PNTSEAddStudent from "./pages/PNTSE/PNTSEAddStudent";
 
 function App() {
   return (
@@ -377,6 +379,10 @@ function App() {
         <Route path="/enrolled-students" element={<ProtectedRoute><EnrolledStudents /></ProtectedRoute>} />
         <Route path="/admissions/batch-allocation" element={<ProtectedRoute><BatchAllocation /></ProtectedRoute>} />
         <Route path="/edit-board-subjects/:admissionId" element={<ProtectedRoute><EditBoardSubjects /></ProtectedRoute>} />
+        {/* PNTSE Routes */}
+        <Route path="/pntse/all-students" element={<ProtectedRoute><PNTSEAllStudents /></ProtectedRoute>} />
+        <Route path="/pntse/add-student" element={<ProtectedRoute><PNTSEAddStudent /></ProtectedRoute>} />
+
         <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         {/* <Route path="/system-logs" element={<ProtectedRoute><SystemLogs /></ProtectedRoute>} /> */}
         <Route path="/task-workflow/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />

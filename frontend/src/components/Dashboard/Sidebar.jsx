@@ -7,7 +7,7 @@ import {
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
     FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus,
     FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle,
-    FaFlag
+    FaFlag, FaGraduationCap
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -405,6 +405,15 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Petty Cash Expenditure Approval", path: "/petty-cash/approval", permissionSection: "expenditureApproval" },
             ]
         },
+        {
+            name: "PNTSE",
+            icon: <FaGraduationCap />,
+            permissionModule: "pntse",
+            subItems: [
+                { name: "All Students", path: "/pntse/all-students", permissionSection: "allStudents" },
+                { name: "Add Student", path: "/pntse/add-student", permissionSection: "addStudent" },
+            ]
+        },
         { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },
     ], []);
 
@@ -443,7 +452,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Employee Center") return true;
+        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Employee Center" || item.name === "PNTSE") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (isSuperAdmin) return true;
         // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
