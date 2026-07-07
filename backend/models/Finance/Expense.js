@@ -47,6 +47,16 @@ const expenseSchema = new mongoose.Schema(
             ref: "User",
             required: true
         },
+        accountNumber: {
+            type: String,
+            required: true,
+            default: "N/A"
+        },
+        ifscCode: {
+            type: String,
+            required: true,
+            default: "N/A"
+        },
         // HR Salary Specific Fields ff
         employeeId: {
             type: mongoose.Schema.Types.ObjectId,

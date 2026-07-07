@@ -58,16 +58,24 @@ export const getEmployeesByDepartment = async (req, res) => {
         const employeesInfo = await Employee.find({ 
             user: { $in: userIds },
             status: "Active"
-        }).select('user currentSalary');
+        }).select('user currentSalary accountNumber ifscCode');
         const salaryMap = {};
         employeesInfo.forEach(emp => {
-            if (emp.user) salaryMap[emp.user.toString()] = emp.currentSalary || 0;
+            if (emp.user) {
+                salaryMap[emp.user.toString()] = {
+                    currentSalary: emp.currentSalary || 0,
+                    accountNumber: emp.accountNumber || "—",
+                    ifscCode: emp.ifscCode || "—"
+                };
+            }
         });
         const employeesWithSalary = users
             .filter(u => salaryMap[u._id.toString()] !== undefined)
             .map(u => {
                 const userObj = u.toObject();
-                userObj.currentSalary = salaryMap[u._id.toString()] || 0;
+                userObj.currentSalary = salaryMap[u._id.toString()].currentSalary || 0;
+                userObj.accountNumber = salaryMap[u._id.toString()].accountNumber || "—";
+                userObj.ifscCode = salaryMap[u._id.toString()].ifscCode || "—";
                 return userObj;
             });
         res.status(200).json({ success: true, employees: employeesWithSalary });
@@ -117,6 +125,8 @@ export const getAllEmployeesByCenter = async (req, res) => {
                 role: userObj.role,
                 departmentName: emp.department?.departmentName || "Other Department",
                 currentSalary: emp.currentSalary || 0,
+                accountNumber: emp.accountNumber || "—",
+                ifscCode: emp.ifscCode || "—",
                 centreId: emp.primaryCentre?._id || null,
                 centreName: emp.primaryCentre?.centreName || "Other Centre",
                 payouts: empExpenses.map(exp => ({
@@ -174,6 +184,8 @@ export const approveSalary = async (req, res) => {
             originalAmount: amount,
             remainingAmount: amount,
             paidAmount: 0,
+            accountNumber: employeeRecord?.accountNumber || "—",
+            ifscCode: employeeRecord?.ifscCode || "—",
             hrApprovedBy: hrUserId,
             hrApprovedDate: new Date(),
             financeStatus: 'Pending',
@@ -253,6 +265,8 @@ export const approveSalaryBulk = async (req, res) => {
                     originalAmount: parsedAmount,
                     remainingAmount: parsedAmount,
                     paidAmount: 0,
+                    accountNumber: employeeRecord?.accountNumber || "—",
+                    ifscCode: employeeRecord?.ifscCode || "—",
                     hrApprovedBy: hrUserId,
                     hrApprovedDate: new Date(),
                     financeStatus: "Pending",

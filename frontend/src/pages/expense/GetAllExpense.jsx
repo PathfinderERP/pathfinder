@@ -274,14 +274,18 @@ const GetAllExpense = () => {
             "Category",
             "Month",
             "Week",
-            "Amount"
+            "Amount",
+            "Bank Account No.",
+            "IFSC Code"
         ];
         const sampleRow = {
             "Expense Name": "Office Stationery",
             "Category": "Office Expenses",
             "Month": "May",
             "Week": "Week 1",
-            "Amount": 1500
+            "Amount": 1500,
+            "Bank Account No.": "1234567890",
+            "IFSC Code": "ABCD0123456"
         };
 
         const worksheet = XLSX.utils.json_to_sheet([sampleRow], { header: headers });
@@ -447,13 +451,13 @@ const GetAllExpense = () => {
             return {
                 Type: expense.expenseType || "General",
                 "Name / Employee": buildNameEmployeeLabel(expense),
+                "Bank Account No.": expense.accountNumber || "—",
+                "IFSC Code": expense.ifscCode || "—",
                 "Month / Period": buildMonthPeriodLabel(expense),
                 Amount: amount ?? "",
                 "Paid Amount": expense.paidAmount || 0,
                 "Remaining Amount": expense.remainingAmount ?? "",
                 Status: getExpenseStatusLabel(expense),
-                "Approved By (HR/Gen)": buildApprovedByLabel(expense),
-                Date: buildDateLabel(expense, formatDate),
             };
         });
 
@@ -768,6 +772,8 @@ const GetAllExpense = () => {
                                     <tr className={`border-b ${isDarkMode ? "border-slate-700" : "border-slate-200"}`}>
                                         <th className={thClass}>Type</th>
                                         <th className={thClass}>Name / Employee</th>
+                                        <th className={thClass}>Bank Account No.</th>
+                                        <th className={thClass}>IFSC Code</th>
                                         <th className={thClass}>Month / Period</th>
                                         <th className={thClass}>Amount</th>
                                         <th className={thClass}>Status</th>
@@ -780,7 +786,7 @@ const GetAllExpense = () => {
                                     {loading ? (
                                         <tr>
                                             <td
-                                                colSpan="8"
+                                                colSpan="10"
                                                 className={`px-4 py-12 text-center text-sm ${
                                                     isDarkMode ? "text-slate-400" : "text-slate-500"
                                                 }`}
@@ -791,7 +797,7 @@ const GetAllExpense = () => {
                                     ) : filteredExpenses.length === 0 ? (
                                         <tr>
                                             <td
-                                                colSpan="8"
+                                                colSpan="10"
                                                 className={`px-4 py-12 text-center text-sm ${
                                                     isDarkMode ? "text-slate-400" : "text-slate-500"
                                                 }`}
@@ -845,6 +851,14 @@ const GetAllExpense = () => {
                                                     ) : (
                                                         <span>{expense.name || "—"}</span>
                                                     )}
+                                                </td>
+
+                                                <td className={tdClass}>
+                                                    <span className="font-medium tabular-nums">{expense.accountNumber || "—"}</span>
+                                                </td>
+
+                                                <td className={tdClass}>
+                                                    <span className="font-medium">{expense.ifscCode || "—"}</span>
                                                 </td>
 
                                                 <td className={tdClass}>
@@ -1016,6 +1030,22 @@ const GetAllExpense = () => {
                                 </label>
                                 <div className="font-semibold">
                                     {selectedExpense?.expenseType === "Salary" ? (selectedExpense?.salaryPeriod || "—") : `${selectedExpense?.months || "—"} · ${selectedExpense?.week || "—"}`}
+                                </div>
+                            </div>
+                            <div className="mb-4">
+                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+                                    Bank Account No.
+                                </label>
+                                <div className="font-semibold">
+                                    {selectedExpense?.accountNumber || "—"}
+                                </div>
+                            </div>
+                            <div className="mb-4">
+                                <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+                                    IFSC Code
+                                </label>
+                                <div className="font-semibold">
+                                    {selectedExpense?.ifscCode || "—"}
                                 </div>
                             </div>
                              <div className={`mb-4 grid grid-cols-3 gap-2 rounded-lg border p-3 ${

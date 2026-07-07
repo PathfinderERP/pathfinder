@@ -22,6 +22,14 @@ import Layout from "../components/Layout";
 import CustomMultiSelect from "../components/common/CustomMultiSelect";
 import { hasPermission } from "../config/permissions";
 
+const getTodayDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 
 const DailyTrackingLog = () => {
     const { theme } = useTheme();
@@ -72,7 +80,7 @@ const DailyTrackingLog = () => {
             }
         }
     }, [tabParam, navigate]);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+    const [selectedDate, setSelectedDate] = useState(getTodayDateString());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [loggedDates, setLoggedDates] = useState([]);
@@ -206,15 +214,12 @@ const DailyTrackingLog = () => {
         ? currentUser.role.includes('superAdmin') || currentUser.role.includes('superadmin')
         : currentUser.role === 'superAdmin' || currentUser.role === 'superadmin';
 
-    const getTodayDateString = () => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
     const isToday = selectedDate === getTodayDateString();
-    const canModify = isSuperAdmin || isToday;
+    const isPreviousDate = (dateStr) => {
+        const todayStr = getTodayDateString();
+        return dateStr < todayStr;
+    };
+    const canModify = isSuperAdmin || !isPreviousDate(selectedDate);
     const [availableCentres, setAvailableCentres] = useState([]);
     const [availableRoles, setAvailableRoles] = useState([]);
 

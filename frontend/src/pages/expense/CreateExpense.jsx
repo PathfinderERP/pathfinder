@@ -25,6 +25,8 @@ const EMPTY_FORM = {
     week: "",
     amount: "",
     expenseDate: "",
+    accountNumber: "",
+    ifscCode: "",
 };
 
 const CreateExpense = () => {
@@ -78,6 +80,8 @@ const CreateExpense = () => {
         if (!formData.months) { toast.error("Month is required."); return; }
         if (!formData.week) { toast.error("Week is required."); return; }
         if (!formData.amount || Number(formData.amount) <= 0) { toast.error("A valid Amount is required."); return; }
+        if (!formData.accountNumber.trim()) { toast.error("Bank Account No. is required."); return; }
+        if (!formData.ifscCode.trim()) { toast.error("IFSC Code is required."); return; }
 
         const payload = {
             name: formData.name.trim(),
@@ -85,6 +89,8 @@ const CreateExpense = () => {
             months: formData.months,
             week: formData.week,
             amount: Number(formData.amount),
+            accountNumber: formData.accountNumber.trim(),
+            ifscCode: formData.ifscCode.trim(),
             createdBy: user._id || user.id || "",
             ...(formData.expenseDate && { expenseDate: formData.expenseDate }),
         };
@@ -259,6 +265,38 @@ const CreateExpense = () => {
                                         value={formData.expenseDate}
                                         onChange={handleInputChange}
                                         className={inputClass}
+                                    />
+                                </FieldWrapper>
+
+                                {/* Bank Account No. — Required */}
+                                <FieldWrapper>
+                                    <label className={labelClass}>
+                                        Bank Account No. <RequiredBadge />
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="accountNumber"
+                                        value={formData.accountNumber}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter bank account number"
+                                        className={inputClass}
+                                        required
+                                    />
+                                </FieldWrapper>
+
+                                {/* IFSC Code — Required */}
+                                <FieldWrapper>
+                                    <label className={labelClass}>
+                                        IFSC Code <RequiredBadge />
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="ifscCode"
+                                        value={formData.ifscCode}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter IFSC code"
+                                        className={inputClass}
+                                        required
                                     />
                                 </FieldWrapper>
                             </div>

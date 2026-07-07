@@ -885,7 +885,7 @@ const SalaryExpenseHub = () => {
                                                     <thead>
                                                         <tr style={{ background: isDark ? "#0f172a" : "#f1f5f9" }}>
                                                             <th style={{ padding: "10px 16px", width: 44 }} />
-                                                            {["Employee", "ID", "Email", "Mobile", "Department", "Centre", "Current Salary", "Action"].map(h => (
+                                                            {["Employee", "ID", "Email", "Mobile", "Department", "Centre", "Bank Account No.", "IFSC Code", "Current Salary", "Action"].map(h => (
                                                                 <th key={h} style={{
                                                                     padding: "10px 16px", textAlign: "left",
                                                                     color: sub, fontWeight: 700, fontSize: "0.75rem",
@@ -954,6 +954,12 @@ const SalaryExpenseHub = () => {
                                                                     <td style={{ padding: "12px 16px", color: text, whiteSpace: "nowrap" }}>
                                                                         {emp.centreName || "—"}
                                                                     </td>
+                                                                    <td style={{ padding: "12px 16px", color: sub, whiteSpace: "nowrap" }}>
+                                                                        {emp.accountNumber || "—"}
+                                                                    </td>
+                                                                    <td style={{ padding: "12px 16px", color: sub, whiteSpace: "nowrap" }}>
+                                                                        {emp.ifscCode || "—"}
+                                                                    </td>
                                                                     <td style={{ padding: "12px 16px", fontWeight: 700, color: text, whiteSpace: "nowrap" }}>
                                                                         {fmt(emp.currentSalary)}
                                                                     </td>
@@ -1014,7 +1020,9 @@ const SalaryExpenseHub = () => {
                                     {[
                                         ["Email", selectedEmployee.email],
                                         ["Mobile", selectedEmployee.mobNum],
-                                        ["Center", selectedCenter?.centreName],
+                                        ["Center", selectedEmployee.centreName || selectedCenter?.centreName],
+                                        ["Bank Account No.", selectedEmployee.accountNumber],
+                                        ["IFSC Code", selectedEmployee.ifscCode],
                                         ["Current Salary", fmt(selectedEmployee.currentSalary)],
                                     ].map(([l, v]) => (
                                         <div key={l} style={{

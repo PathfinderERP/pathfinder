@@ -14,13 +14,15 @@ const createExpense = async (req, res) => {
             approvedBy,
             approvedDate,
             expenseDate,
-            createdBy
+            createdBy,
+            accountNumber,
+            ifscCode
         } = req.body;
 
-        if (!name || !category || !months || !week || !amount || !createdBy) {
+        if (!name || !category || !months || !week || !amount || !createdBy || !accountNumber || !ifscCode) {
             return res.status(400).json({
                 success: false,
-                message: "Expense Name, Category, Month, Week, Amount and Created By fields are required",
+                message: "Expense Name, Category, Month, Week, Amount, Created By, Bank Account No., and IFSC Code fields are required",
             });
         }
 
@@ -33,13 +35,15 @@ const createExpense = async (req, res) => {
             approvedBy,
             approvedDate,
             expenseDate,
-            createdBy
+            createdBy,
+            accountNumber,
+            ifscCode
         };
 
         const expense = await Expense.create(data);
 
         return res.status(200).json({
-            message: "Expence created successfully",
+            message: "Expense created successfully",
             expense,
         });
 
@@ -239,6 +243,8 @@ const bulkImportExpenses = async (req, res) => {
             const approvedByName = row["Approved By"]?.toString().trim();
             const approvedDateVal = row["Approved Date"];
             const amountVal = row["Amount"];
+            const accountNumber = row["Bank Account No."] || row["Bank Account Number"] || row["Account Number"];
+            const ifscCode = row["IFSC Code"] || row["IFSC"];
 
             // Validations
             if (!name) {
@@ -265,6 +271,15 @@ const bulkImportExpenses = async (req, res) => {
             const amount = parseFloat(amountVal);
             if (isNaN(amount) || amount <= 0) {
                 errors.push(`Row ${i + 2}: Amount must be a positive number.`);
+                continue;
+            }
+
+            if (!accountNumber || !accountNumber.toString().trim()) {
+                errors.push(`Row ${i + 2}: Bank Account No. is required.`);
+                continue;
+            }
+            if (!ifscCode || !ifscCode.toString().trim()) {
+                errors.push(`Row ${i + 2}: IFSC Code is required.`);
                 continue;
             }
 
@@ -331,6 +346,8 @@ const bulkImportExpenses = async (req, res) => {
                 approvedBy,
                 approvedDate,
                 amount,
+                accountNumber: accountNumber.toString().trim(),
+                ifscCode: ifscCode.toString().trim(),
                 createdBy
             });
         }
