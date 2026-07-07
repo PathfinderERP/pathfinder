@@ -116,20 +116,17 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
                     .filter(s => s.startTime && s.endTime)
                     .sort((a, b) => timeToMins(a.startTime) - timeToMins(b.startTime));
 
-                // Determine workday start and end based on workingHours (default 9)
-                let dayWorkStart = WORK_START;
-                if (sorted.length > 0) {
-                    const firstClassStart = timeToMins(sorted[0].startTime);
-                    if (firstClassStart < dayWorkStart) {
-                        dayWorkStart = firstClassStart;
-                    }
+                if (sorted.length === 0) {
+                    data.days[day].freeSlots = [];
+                    continue;
                 }
 
-                let dayWorkEnd = dayWorkStart + workingHours * 60;
-                if (sorted.length > 0) {
-                    const lastClassEnd = timeToMins(sorted[sorted.length - 1].endTime);
-                    if (lastClassEnd > dayWorkEnd) {
-                        dayWorkEnd = lastClassEnd;
+                const dayWorkStart = timeToMins(sorted[0].startTime);
+                let dayWorkEnd = 0;
+                for (const s of sorted) {
+                    const eTime = timeToMins(s.endTime);
+                    if (eTime > dayWorkEnd) {
+                        dayWorkEnd = eTime;
                     }
                 }
 

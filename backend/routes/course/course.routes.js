@@ -23,7 +23,7 @@ router.post("/create", requireGranularPermission("courseManagement", "courses", 
 router.post("/import", requireGranularPermission("courseManagement", "courses", "create"), bulkImport(Course));
 router.post("/bulk-update", requireGranularPermission("courseManagement", "courses", "edit"), bulkUpdateCourses);
 router.put("/:id", requireGranularPermission("courseManagement", "courses", "edit"), updateCourse);
-router.delete("/delete-multiple", requireSuperAdmin, deleteMultipleCourses);
+router.delete("/delete-multiple", requireGranularPermission("courseManagement", "courses", "delete"), deleteMultipleCourses);
 
 router.delete("/:id", requireGranularPermission("courseManagement", "courses", "delete"), deleteCourse);
 

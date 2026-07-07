@@ -35,6 +35,7 @@ const CourseContent = () => {
     const canEdit = hasPermission(user, 'courseManagement', 'courses', 'edit');
     const canDelete = hasPermission(user, 'courseManagement', 'courses', 'delete');
     const isSuperAdmin = user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'super admin';
+    const isDigital = user.role?.toLowerCase() === 'digital';
 
 
     // Filter states
@@ -522,7 +523,7 @@ const CourseContent = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data (All the amounts are without GST)</h2>
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    {isSuperAdmin && canDelete && selectedIds.length > 0 && (
+                    {(isSuperAdmin || isDigital) && canDelete && selectedIds.length > 0 && (
                         <button
                             onClick={handleBulkDelete}
                             className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-pulse"

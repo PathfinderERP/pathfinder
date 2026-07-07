@@ -604,6 +604,10 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         return true; // SuperAdmin has all permissions
     }
 
+    if (role && role.toLowerCase() === 'digital' && module === 'courseManagement') {
+        return true;
+    }
+
     const ALL_ROLES_FOR_CLASS = [
         'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
         'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
@@ -658,8 +662,10 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
         return true; // SuperAdmin has access to all modules
     }
-
     const normalizedRole = role ? role.toLowerCase() : "";
+    if (module === 'courseManagement' && normalizedRole === 'digital') {
+        return true;
+    }
     if (module === 'academics' && (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
         return true;
     }

@@ -152,7 +152,9 @@ export default function TeacherSchedulePage() {
         return !search ||
             item.teacher.name?.toLowerCase().includes(search) ||
             item.teacher.employeeId?.toLowerCase().includes(search) ||
-            item.teacher.subject?.toLowerCase().includes(search);
+            (Array.isArray(item.teacher.subject)
+                ? item.teacher.subject.some(sub => sub?.toLowerCase().includes(search))
+                : item.teacher.subject?.toLowerCase().includes(search));
     });
 
     const days = filterDay === "All" ? DAYS : [filterDay];
@@ -261,7 +263,13 @@ export default function TeacherSchedulePage() {
                                         <p className="font-extrabold text-lg uppercase">{item.teacher.name}</p>
                                         <div className="flex flex-wrap gap-3 mt-1">
                                             <span className="text-xs font-bold opacity-50">{item.teacher.employeeId}</span>
-                                            {item.teacher.subject && <span className="text-xs font-bold text-amber-500">{item.teacher.subject}</span>}
+                                            {item.teacher.subject && (
+                                                <span className="text-xs font-bold text-amber-500">
+                                                    {Array.isArray(item.teacher.subject)
+                                                        ? item.teacher.subject.join(", ")
+                                                        : item.teacher.subject}
+                                                </span>
+                                            )}
                                             {item.teacher.email && <span className="text-xs opacity-40">{item.teacher.email}</span>}
                                         </div>
                                     </div>

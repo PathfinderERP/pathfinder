@@ -220,6 +220,11 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
+            // Grant automatic access to courseManagement module actions for digital role
+            if (!hasAccess && module === 'courseManagement' && user.role?.toLowerCase() === 'digital') {
+                hasAccess = true;
+            }
+
             if (!hasAccess) {
                 if (action === "view") {
                     // If checking for view, any entry in that section means they have access to view the list

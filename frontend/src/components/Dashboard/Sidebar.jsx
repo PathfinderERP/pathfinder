@@ -66,6 +66,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         ? user.role.some(r => typeof r === "string" && (r.toLowerCase().replace(/\s+/g, "") === "superadmin"))
         : typeof user.role === "string" && (user.role.toLowerCase().replace(/\s+/g, "") === "superadmin");
 
+    const isDigital = Array.isArray(user.role)
+        ? user.role.some(r => typeof r === "string" && (r.toLowerCase() === "digital"))
+        : typeof user.role === "string" && (user.role.toLowerCase() === "digital");
+
     useEffect(() => {
         const fetchUnviewedCount = async () => {
             if (location.pathname === "/task-workflow/tasks") {
@@ -470,6 +474,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             else if (hasModuleAccess(user, item.permissionModule)) {
                 if (item.subItems) {
                     const accessibleSubItems = item.subItems.filter(sub => {
+                        if (isDigital && item.permissionModule === 'courseManagement') return true;
                         if (sub.permissionAction) {
                             return hasPermission(user, item.permissionModule, sub.permissionSection, sub.permissionAction);
                         }
@@ -498,6 +503,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 const permModule = sub.permissionModule || item.permissionModule;
                 if (permModule) {
                     if (sub.permissionSection) {
+                        if (isDigital && permModule === 'courseManagement') return true;
                         if (sub.permissionAction) {
                             return hasPermission(user, permModule, sub.permissionSection, sub.permissionAction);
                         }
