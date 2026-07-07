@@ -263,13 +263,7 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Mobile</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Course</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid Status</th>
-                                <th
-                                    className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors"
-                                    onClick={() => handleSort('score')}
-                                >
-                                    <div className="flex items-center gap-1.5">Score <SortIcon field="score" /></div>
-                                </th>
-                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Tag</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/50">
@@ -302,19 +296,8 @@ const PNTSEAllStudentsContent = () => {
                                         </span>
                                     </td>
                                     <td className="px-5 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-16 h-1.5 rounded-full bg-gray-700 overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
-                                                    style={{ width: `${student.examTag}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-gray-200 font-medium">{student.score}%</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusBadge(student.status)}`}>
-                                            {student.status}
+                                        <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                                            {student.examTag?.name || '—'}
                                         </span>
                                     </td>
                                 </tr>

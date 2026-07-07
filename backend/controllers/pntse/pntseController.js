@@ -3,6 +3,7 @@ import Class from "../../models/Master_data/Class.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Session from "../../models/Master_data/Session.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import XLSX from "xlsx";
 
 // Create PNTSE Student
 export const createPNTSEStudent = async (req, res) => {
