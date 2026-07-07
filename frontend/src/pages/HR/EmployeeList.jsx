@@ -106,6 +106,12 @@ const EmployeeList = () => {
     const [centres, setCentres] = useState([]);
     const [allEmployeesDropdown, setAllEmployeesDropdown] = useState([]);
 
+    const getDesignationLabel = (val) => {
+        if (!val) return "";
+        const found = designations.find(d => d._id === val || d.name === val);
+        return found ? found.name : val;
+    };
+
 
     const fetchAnalytics = useCallback(async () => {
         setAnalyticsLoading(true);
@@ -1098,7 +1104,7 @@ const EmployeeList = () => {
                                     </thead>
                                     <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                         {[...Array(10)].map((_, i) => (
-                                            <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={8} />
+                                            <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={activeTab === 'teacher' ? 10 : 9} />
                                         ))}
                                     </tbody>
                                 </table>
@@ -1123,7 +1129,16 @@ const EmployeeList = () => {
                                                 />
                                             </th>
                                             <th className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest w-16 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>S/N</th>
-                                            {["Employee Structure", "Contact Vector", "Operational Unit", "Designation", "Centre Unit", "Status", "Manual Overrides"].map((head, i) => (
+                                            {[
+                                                "Employee Structure", 
+                                                "Contact Vector", 
+                                                "Operational Unit", 
+                                                "Designation", 
+                                                ...(activeTab === 'teacher' ? ["Subject"] : []),
+                                                "Centre Unit", 
+                                                "Status", 
+                                                "Manual Overrides"
+                                            ].map((head, i) => (
                                                 <th key={i} className={`px-6 py-5 text-left text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                     {head}
                                                 </th>
@@ -1184,13 +1199,24 @@ const EmployeeList = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-[2px] inline-block ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
-                                                        {activeTab === 'teacher' && employee.user?.subject ? (
-                                                            <span className="text-cyan-500 border-b border-cyan-500/30 font-black">{employee.user.subject.toUpperCase()}</span>
-                                                        ) : (
-                                                            employee.designation?.name || employee.user?.designation || "N/A"
-                                                        )}
+                                                        {employee.designation?.name || 
+                                                         (Array.isArray(employee.user?.designation)
+                                                             ? employee.user.designation.map(d => getDesignationLabel(d)).filter(Boolean).join(", ")
+                                                             : getDesignationLabel(employee.user?.designation)) || 
+                                                         "N/A"}
                                                     </div>
                                                 </td>
+                                                {activeTab === 'teacher' && (
+                                                    <td className="px-6 py-4">
+                                                        <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-[2px] inline-block ${isDarkMode ? 'bg-[#1e293b] text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
+                                                            {employee.user?.subject ? (
+                                                                Array.isArray(employee.user.subject)
+                                                                    ? employee.user.subject.join(", ").toUpperCase()
+                                                                    : employee.user.subject.toUpperCase()
+                                                            ) : "N/A"}
+                                                        </div>
+                                                    </td>
+                                                )}
                                                 <td className="px-6 py-4">
                                                     <div className={`text-[10px] font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                         <FaMapMarkerAlt className="text-cyan-500/50" size={10} />

@@ -145,9 +145,56 @@ const formatValue = (key, value) => {
     return Number(value).toLocaleString("en-IN");
 };
 
-const today = new Date();
-const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-const fmt = (d) => d.toISOString().split("T")[0];
+const fmt = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const r = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${r}`;
+};
+
+const getDateRange = (rangeType) => {
+    const today = new Date();
+    let from = new Date();
+    let to = new Date();
+
+    switch (rangeType) {
+        case "today":
+            from = today;
+            to = today;
+            break;
+        case "yesterday":
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            from = yesterday;
+            to = yesterday;
+            break;
+        case "last 7 days":
+            const last7 = new Date(today);
+            last7.setDate(today.getDate() - 6);
+            from = last7;
+            to = today;
+            break;
+        case "this month":
+            from = new Date(today.getFullYear(), today.getMonth(), 1);
+            to = today;
+            break;
+        case "last month":
+            from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            to = new Date(today.getFullYear(), today.getMonth(), 0);
+            break;
+        case "this year":
+            from = new Date(today.getFullYear(), 0, 1);
+            to = today;
+            break;
+        case "last year":
+            from = new Date(today.getFullYear() - 1, 0, 1);
+            to = new Date(today.getFullYear() - 1, 11, 31);
+            break;
+        default:
+            return null;
+    }
+    return { from: fmt(from), to: fmt(to) };
+};
 
 const UserRank = () => {
     const { theme } = useTheme();
@@ -157,10 +204,23 @@ const UserRank = () => {
     const [activeMetric, setActiveMetric] = useState("admissions");
     const [rankings, setRankings] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [fromDate, setFromDate] = useState(fmt(firstOfMonth));
-    const [toDate, setToDate] = useState(fmt(today));
+
+    const [dateRangeType, setDateRangeType] = useState("this month");
+    const [fromDate, setFromDate] = useState(fmt(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+    const [toDate, setToDate] = useState(fmt(new Date()));
     const [search, setSearch] = useState("");
     const [selectedRoles, setSelectedRoles] = useState([]);
+
+    const handleDateRangeTypeChange = (val) => {
+        setDateRangeType(val);
+        if (val !== "custom range") {
+            const range = getDateRange(val);
+            if (range) {
+                setFromDate(range.from);
+                setToDate(range.to);
+            }
+        }
+    };
 
     const fetchRankings = useCallback(async () => {
         setLoading(true);
@@ -275,19 +335,43 @@ const UserRank = () => {
                 {/* ── Filters Row ─────────────────────────────────────── */}
                 <div className={`p-4 rounded-xl border ${card} shadow-sm mb-5 flex flex-wrap items-end gap-4`}>
                     <div>
-                        <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>From Date</p>
+                        <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>Date Range</p>
                         <div className="flex items-center gap-2">
                             <FaCalendarAlt size={11} className={subText} />
-                            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className={inputCls} />
+                            <select
+                                value={dateRangeType}
+                                onChange={e => handleDateRangeTypeChange(e.target.value)}
+                                className={inputCls}
+                            >
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="last 7 days">Last 7 Days</option>
+                                <option value="this month">This Month</option>
+                                <option value="last month">Last Month</option>
+                                <option value="this year">This Year</option>
+                                <option value="last year">Last Year</option>
+                                <option value="custom range">Custom Range</option>
+                            </select>
                         </div>
                     </div>
-                    <div>
-                        <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>To Date</p>
-                        <div className="flex items-center gap-2">
-                            <FaCalendarAlt size={11} className={subText} />
-                            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={inputCls} />
-                        </div>
-                    </div>
+                    {dateRangeType === "custom range" && (
+                        <>
+                            <div>
+                                <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>From Date</p>
+                                <div className="flex items-center gap-2">
+                                    <FaCalendarAlt size={11} className={subText} />
+                                    <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className={inputCls} />
+                                </div>
+                            </div>
+                            <div>
+                                <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>To Date</p>
+                                <div className="flex items-center gap-2">
+                                    <FaCalendarAlt size={11} className={subText} />
+                                    <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className={inputCls} />
+                                </div>
+                            </div>
+                        </>
+                    )}
                     <div>
                         <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>Filter Roles</p>
                         <MultiSelectFilter
@@ -320,7 +404,7 @@ const UserRank = () => {
                 </div>
 
                 {/* ── Summary Cards ─────────────────────────────────── */}
-                {!loading && filtered.length > 0 && (
+                {!loading && (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
                         {METRICS.map(m => {
                             const total = filtered.reduce((s, r) => s + (r[m.key] || 0), 0);

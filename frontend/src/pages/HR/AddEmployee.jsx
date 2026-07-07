@@ -4,6 +4,7 @@ import Layout from "../../components/Layout";
 import { toast } from "react-toastify";
 import { FaPlus, FaTimes } from "react-icons/fa";
 import CustomSelect from "../../components/common/CustomSelect";
+import Select from "react-select";
 
 const AddEmployee = () => {
     const { id } = useParams();
@@ -28,6 +29,7 @@ const AddEmployee = () => {
         centres: [],
         department: "",
         designation: "",
+        subject: [],
         manager: "",
         state: "",
         city: "",
@@ -71,7 +73,8 @@ const AddEmployee = () => {
         centres: [],
         departments: [],
         designations: [],
-        managers: []
+        managers: [],
+        subjects: []
     });
 
     const [salaryModal, setSalaryModal] = useState({
@@ -106,18 +109,20 @@ const AddEmployee = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centreRes, deptRes, desigRes, managerRes] = await Promise.all([
+            const [centreRes, deptRes, desigRes, managerRes, subjectRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/hr/employee/dropdown`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/hr/employee/dropdown`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/subject`, { headers })
             ]);
 
             setMasterData({
                 centres: centreRes.ok ? await centreRes.json() : [],
                 departments: deptRes.ok ? await deptRes.json() : [],
                 designations: desigRes.ok ? await desigRes.json() : [],
-                managers: managerRes.ok ? await managerRes.json() : []
+                managers: managerRes.ok ? await managerRes.json() : [],
+                subjects: subjectRes.ok ? await subjectRes.json() : []
             });
         } catch (error) {
             console.error("Error fetching master data:", error);
@@ -143,6 +148,8 @@ const AddEmployee = () => {
                     centres: data.centres?.map(c => c._id) || [],
                     department: data.department?._id || "",
                     designation: data.designation?._id || "",
+                    subject: data.user?.subject ? (Array.isArray(data.user.subject) ? data.user.subject : [data.user.subject]) : [],
+                    role: data.user?.role || "",
                     manager: data.manager?._id || "",
                     workingHours: data.workingHours || 0,
                     specialAllowance: data.specialAllowance || 0,
@@ -579,6 +586,79 @@ const AddEmployee = () => {
         }
     };
 
+    const isDarkMode = document.documentElement.classList.contains("dark");
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+            borderColor: state.isFocused
+                ? "#3b82f6"
+                : isDarkMode
+                ? "#374151"
+                : "#d1d5db",
+            borderRadius: "0.5rem",
+            padding: "0.125rem",
+            color: isDarkMode ? "white" : "black",
+            boxShadow: state.isFocused ? "0 0 0 2px rgba(59, 130, 246, 0.2)" : null,
+            "&:hover": {
+                borderColor: state.isFocused
+                    ? "#3b82f6"
+                    : isDarkMode
+                    ? "#4b5563"
+                    : "#9ca3af"
+            }
+        }),
+        menu: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+            border: isDarkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+            zIndex: 9999
+        }),
+        option: (base, state) => ({
+            ...base,
+            backgroundColor: state.isSelected
+                ? "#3b82f6"
+                : state.isFocused
+                ? isDarkMode
+                    ? "#374151"
+                    : "#f3f4f6"
+                : "transparent",
+            color: state.isSelected
+                ? "white"
+                : isDarkMode
+                ? "#e5e7eb"
+                : "#1f2937",
+            "&:active": {
+                backgroundColor: "#3b82f6"
+            }
+        }),
+        multiValue: (base) => ({
+            ...base,
+            backgroundColor: isDarkMode ? "#374151" : "#e5e7eb",
+            borderRadius: "0.25rem"
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: isDarkMode ? "#e5e7eb" : "#1f2937"
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: isDarkMode ? "#9ca3af" : "#4b5563",
+            "&:hover": {
+                backgroundColor: isDarkMode ? "#4b5563" : "#d1d5db",
+                color: isDarkMode ? "#e5e7eb" : "#1f2937"
+            }
+        }),
+        singleValue: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black"
+        }),
+        input: (base) => ({
+            ...base,
+            color: isDarkMode ? "white" : "black"
+        })
+    };
+
     return (
         <Layout activePage="HR & Manpower">
             <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-10">
@@ -814,6 +894,40 @@ const AddEmployee = () => {
                                     required
                                 />
                             </div>
+                            {formData.role === "teacher" && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Subject *
+                                    </label>
+                                    <Select
+                                        isMulti
+                                        name="subject"
+                                        value={
+                                            (Array.isArray(formData.subject) ? formData.subject : [formData.subject].filter(Boolean)).map(val => ({ value: val, label: val }))
+                                        }
+                                        onChange={(selectedOptions) => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                subject: selectedOptions ? selectedOptions.map(opt => opt.value) : []
+                                            }));
+                                        }}
+                                        options={(masterData.subjects || []).map(s => ({ value: s.subName, label: s.subName }))}
+                                        styles={customSelectStyles}
+                                        className="react-select-container"
+                                        classNamePrefix="react-select"
+                                        placeholder="Select subjects..."
+                                    />
+                                    <input
+                                        type="text"
+                                        tabIndex={-1}
+                                        autoComplete="off"
+                                        style={{ opacity: 0, height: 0, width: 0, position: "absolute" }}
+                                        required
+                                        value={formData.subject && formData.subject.length > 0 ? "selected" : ""}
+                                        onChange={() => {}}
+                                    />
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Manager
