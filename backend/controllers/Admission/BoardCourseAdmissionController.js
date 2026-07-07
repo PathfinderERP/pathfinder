@@ -58,15 +58,74 @@ export const createBoardAdmission = async (req, res) => {
             return res.status(400).json({ message: "A valid Student ID is required for admission" });
         }
 
-        // Fallback: Fetch student details only if name/mobile/centre not provided
-        if (studentId && (!studentName || !mobileNum || !centre)) {
-            const student = await Students.findById(studentId);
-            if (student && student.studentsDetails?.[0]) {
-                const officialDetails = student.studentsDetails[0];
-                studentName = studentName || officialDetails.studentName;
-                mobileNum = mobileNum || officialDetails.mobileNum;
-                centre = centre || officialDetails.centre;
+        const student = await Students.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+
+        if (student.status === 'Deactivated') {
+            const deactivationDate = student.deactivationDate;
+            const now = new Date();
+            const daysDeactivated = deactivationDate 
+                ? Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24))
+                : 0;
+
+            const Admission = mongoose.model("Admission");
+
+            if (daysDeactivated > 0) {
+                // Shift Normal Admissions
+                const admissions = await Admission.find({ student: studentId });
+                for (const admission of admissions) {
+                    admission.paymentBreakdown.forEach(inst => {
+                        if (inst.status === 'PENDING' || inst.status === 'OVERDUE') {
+                            const oldDueDate = new Date(inst.dueDate);
+                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                            inst.dueDate = oldDueDate;
+                            if (inst.status === 'OVERDUE' && oldDueDate > now) {
+                                inst.status = 'PENDING';
+                            }
+                        }
+                    });
+                    admission.admissionStatus = 'ACTIVE';
+                    await admission.save();
+                }
+
+                // Shift Board Admissions
+                const boardAdmissions = await BoardCourseAdmission.find({ studentId: studentId });
+                for (const bAdmission of boardAdmissions) {
+                    let changed = false;
+                    bAdmission.installments.forEach(inst => {
+                        if (inst.status === 'PENDING' || inst.status === 'PARTIAL' || inst.status === 'PARTIALLY_PAID') {
+                            const oldDueDate = new Date(inst.dueDate);
+                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                            inst.dueDate = oldDueDate;
+                            changed = true;
+                        }
+                    });
+                    if (changed) {
+                        await bAdmission.save();
+                    }
+                }
+            } else {
+                // Even if 0 days, ensure admissions are set to ACTIVE
+                await Admission.updateMany(
+                    { student: studentId },
+                    { admissionStatus: 'ACTIVE' }
+                );
             }
+
+            student.status = 'Active';
+            student.deactivationDate = null;
+            student.deactivatedBy = null;
+            student.deactivatedByUserId = null;
+            await student.save();
+        }
+
+        if (student && student.studentsDetails?.[0]) {
+            const officialDetails = student.studentsDetails[0];
+            studentName = studentName || officialDetails.studentName;
+            mobileNum = mobileNum || officialDetails.mobileNum;
+            centre = centre || officialDetails.centre;
         }
 
         // Validate Transaction ID for non-cash payments (except Cheque which has its own validation)

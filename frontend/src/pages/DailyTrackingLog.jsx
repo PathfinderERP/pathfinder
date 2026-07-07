@@ -205,6 +205,16 @@ const DailyTrackingLog = () => {
     const isSuperAdmin = Array.isArray(currentUser.role)
         ? currentUser.role.includes('superAdmin') || currentUser.role.includes('superadmin')
         : currentUser.role === 'superAdmin' || currentUser.role === 'superadmin';
+
+    const getTodayDateString = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    const isToday = selectedDate === getTodayDateString();
+    const canModify = isSuperAdmin || isToday;
     const [availableCentres, setAvailableCentres] = useState([]);
     const [availableRoles, setAvailableRoles] = useState([]);
 
@@ -816,92 +826,94 @@ const DailyTrackingLog = () => {
                             </div>
 
                             {/* Add activity form card */}
-                            <div className={`p-6 rounded-2xl border ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
-                                }`}>
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <FaPlus className="text-indigo-500 text-sm" />
-                                    Add Work Entry
-                                </h3>
-                                <form onSubmit={handleAddActivity} className="space-y-4">
+                            {canModify && (
+                                <div className={`p-6 rounded-2xl border ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
+                                    }`}>
+                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                        <FaPlus className="text-indigo-500 text-sm" />
+                                        Add Work Entry
+                                    </h3>
+                                    <form onSubmit={handleAddActivity} className="space-y-4">
 
-                                    <div>
-                                        <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
-                                            }`}>
-                                            Work Details / Activity
-                                        </label>
-                                        <textarea
-                                            rows={3}
-                                            value={workDetails}
-                                            onChange={(e) => setWorkDetails(e.target.value)}
-                                            placeholder="What are you working on right now?"
-                                            className={`w-full p-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500" : "bg-slate-50 border-slate-200 text-slate-900"
-                                                }`}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
-                                            }`}>
-                                            Completed Tasks (If any)
-                                        </label>
-                                        <textarea
-                                            rows={2}
-                                            value={completedWork}
-                                            onChange={(e) => setCompletedWork(e.target.value)}
-                                            placeholder="Mention completed deliverables (optional)..."
-                                            className={`w-full p-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500" : "bg-slate-50 border-slate-200 text-slate-900"
-                                                }`}
-                                        />
-                                    </div>
-
-                                    {availableCentres.length > 0 && (
                                         <div>
                                             <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
                                                 }`}>
-                                                Centre
+                                                Work Details / Activity
+                                            </label>
+                                            <textarea
+                                                rows={3}
+                                                value={workDetails}
+                                                onChange={(e) => setWorkDetails(e.target.value)}
+                                                placeholder="What are you working on right now?"
+                                                className={`w-full p-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500" : "bg-slate-50 border-slate-200 text-slate-900"
+                                                    }`}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                }`}>
+                                                Completed Tasks (If any)
+                                            </label>
+                                            <textarea
+                                                rows={2}
+                                                value={completedWork}
+                                                onChange={(e) => setCompletedWork(e.target.value)}
+                                                placeholder="Mention completed deliverables (optional)..."
+                                                className={`w-full p-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white placeholder-gray-500" : "bg-slate-50 border-slate-200 text-slate-900"
+                                                    }`}
+                                            />
+                                        </div>
+
+                                        {availableCentres.length > 0 && (
+                                            <div>
+                                                <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                    }`}>
+                                                    Centre
+                                                </label>
+                                                <select
+                                                    value={selectedEntryCentre}
+                                                    onChange={(e) => setSelectedEntryCentre(e.target.value)}
+                                                    className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
+                                                        }`}
+                                                >
+                                                    <option value="">Select Centre</option>
+                                                    {availableCentres.map((c) => (
+                                                        <option key={c._id} value={c._id}>
+                                                            {c.centreName || 'Unknown Centre'}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                }`}>
+                                                Work Status
                                             </label>
                                             <select
-                                                value={selectedEntryCentre}
-                                                onChange={(e) => setSelectedEntryCentre(e.target.value)}
+                                                value={status}
+                                                onChange={(e) => setStatus(e.target.value)}
                                                 className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
                                                     }`}
                                             >
-                                                <option value="">Select Centre</option>
-                                                {availableCentres.map((c) => (
-                                                    <option key={c._id} value={c._id}>
-                                                        {c.centreName || 'Unknown Centre'}
-                                                    </option>
-                                                ))}
+                                                <option value="Completed">Completed</option>
+                                                <option value="In Progress">In Progress</option>
                                             </select>
                                         </div>
-                                    )}
 
-                                    <div>
-                                        <label className={`block text-xs font-semibold mb-1 uppercase tracking-wider ${isDarkMode ? "text-gray-400" : "text-gray-500"
-                                            }`}>
-                                            Work Status
-                                        </label>
-                                        <select
-                                            value={status}
-                                            onChange={(e) => setStatus(e.target.value)}
-                                            className={`w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
-                                                }`}
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                            className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20"
                                         >
-                                            <option value="Completed">Completed</option>
-                                            <option value="In Progress">In Progress</option>
-                                        </select>
-                                    </div>
-
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20"
-                                    >
-                                        {isSubmitting ? <FaSpinner className="animate-spin text-white" /> : <FaPlus />}
-                                        Log Activity
-                                    </button>
-                                </form>
-                            </div>
+                                            {isSubmitting ? <FaSpinner className="animate-spin text-white" /> : <FaPlus />}
+                                            Log Activity
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
                         </div>
 
                         {/* Right side: Current activities list */}
@@ -1046,38 +1058,52 @@ const DailyTrackingLog = () => {
                                                         <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
                                                             <div className="flex items-center gap-2">
                                                                 {/* Status badge toggler */}
-                                                                <button
-                                                                    onClick={() => toggleActivityStatus(act, act.status === "Completed" ? "In Progress" : "Completed")}
-                                                                    title="Click to toggle status"
-                                                                    className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 transition ${act.status === "Completed"
-                                                                        ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                                                                        : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
-                                                                        }`}
-                                                                >
-                                                                    <span className={`w-1.5 h-1.5 rounded-full ${act.status === "Completed" ? "bg-emerald-500" : "bg-amber-500"}`} />
-                                                                    {act.status}
-                                                                </button>
+                                                                {canModify ? (
+                                                                    <button
+                                                                        onClick={() => toggleActivityStatus(act, act.status === "Completed" ? "In Progress" : "Completed")}
+                                                                        title="Click to toggle status"
+                                                                        className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 transition ${act.status === "Completed"
+                                                                            ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                                                                            : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
+                                                                            }`}
+                                                                    >
+                                                                        <span className={`w-1.5 h-1.5 rounded-full ${act.status === "Completed" ? "bg-emerald-500" : "bg-amber-500"}`} />
+                                                                        {act.status}
+                                                                    </button>
+                                                                ) : (
+                                                                    <div
+                                                                        className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 ${act.status === "Completed"
+                                                                            ? "bg-emerald-500/10 text-emerald-500"
+                                                                            : "bg-amber-500/10 text-amber-500"
+                                                                            }`}
+                                                                    >
+                                                                        <span className={`w-1.5 h-1.5 rounded-full ${act.status === "Completed" ? "bg-emerald-500" : "bg-amber-500"}`} />
+                                                                        {act.status}
+                                                                    </div>
+                                                                )}
                                                             </div>
 
                                                             {/* Edit/Delete controls */}
-                                                            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                                <button
-                                                                    onClick={() => startEdit(act)}
-                                                                    title="Edit Log"
-                                                                    className={`p-1.5 rounded-lg text-xs transition ${isDarkMode ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-slate-200 text-gray-500 hover:text-slate-900"
-                                                                        }`}
-                                                                >
-                                                                    <FaEdit />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteActivity(act._id)}
-                                                                    title="Delete Log"
-                                                                    className={`p-1.5 rounded-lg text-xs transition ${isDarkMode ? "hover:bg-red-950/30 text-gray-400 hover:text-red-400" : "hover:bg-red-550/10 text-gray-500 hover:text-red-500"
-                                                                        }`}
-                                                                >
-                                                                    <FaTrash />
-                                                                </button>
-                                                            </div>
+                                                            {canModify && (
+                                                                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                                    <button
+                                                                        onClick={() => startEdit(act)}
+                                                                        title="Edit Log"
+                                                                        className={`p-1.5 rounded-lg text-xs transition ${isDarkMode ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-slate-200 text-gray-500 hover:text-slate-900"
+                                                                            }`}
+                                                                    >
+                                                                        <FaEdit />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteActivity(act._id)}
+                                                                        title="Delete Log"
+                                                                        className={`p-1.5 rounded-lg text-xs transition ${isDarkMode ? "hover:bg-red-950/30 text-gray-400 hover:text-red-400" : "hover:bg-red-550/10 text-gray-500 hover:text-red-500"
+                                                                            }`}
+                                                                    >
+                                                                        <FaTrash />
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
 
                                                         <div className="space-y-2">
