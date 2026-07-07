@@ -373,7 +373,7 @@ function App() {
 
         <Route path="/master-data/designation" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataDesignation /></ProtectedRoute>} />
         <Route path="/master-data/follow-up-feedback" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataFollowUpFeedback /></ProtectedRoute>} />
-        <Route path="/course-management" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataCourse /></ProtectedRoute>} />
+        <Route path="/course-management" element={<ProtectedRoute allowedRoles={['superadmin', 'digital']}><MasterDataCourse /></ProtectedRoute>} />
         <Route path="/course-management/carry-forward" element={<ProtectedRoute ><CarryForward /></ProtectedRoute>} />
         <Route path="/course-management/course-transfer" element={<ProtectedRoute ><CourseTransfer /></ProtectedRoute>} />
         <Route path="/enrolled-students" element={<ProtectedRoute><EnrolledStudents /></ProtectedRoute>} />
