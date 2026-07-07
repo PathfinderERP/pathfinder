@@ -172,6 +172,16 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 //{ name: "Section Allotment", path: "/admissions/section-allotment", permissionSection: "sectionAllotment" },
                 // { name: "Walk-in Registration", path: "/student-registration", permissionSection: "allLeads" },
                 //{ name: "Telecalling Console", path: "/admissions/telecalling-console", permissionSection: "telecallingConsole" },
+
+                {
+                    name: "PNTSE",
+                    icon: <FaGraduationCap />,
+                    permissionModule: "pntse",
+                    subItems: [
+                        { name: "All Students", path: "/pntse/all-students", permissionSection: "allStudents" },
+                        { name: "Add Student", path: "/pntse/add-student", permissionSection: "addStudent" },
+                    ]
+                },
             ]
         },
         {
@@ -405,15 +415,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Petty Cash Expenditure Approval", path: "/petty-cash/approval", permissionSection: "expenditureApproval" },
             ]
         },
-        {
-            name: "PNTSE",
-            icon: <FaGraduationCap />,
-            permissionModule: "pntse",
-            subItems: [
-                { name: "All Students", path: "/pntse/all-students", permissionSection: "allStudents" },
-                { name: "Add Student", path: "/pntse/add-student", permissionSection: "addStudent" },
-            ]
-        },
+
         { name: "User Management", icon: <FaUsers />, path: "/user-management", permissionModule: "userManagement" },
     ], []);
 
