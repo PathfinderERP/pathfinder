@@ -80,8 +80,9 @@ import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
 import teacherBookingRoutes from "./routes/Academics/teacherBooking.routes.js";
-//updated
 import categoryRoutes from "./routes/masterData/category.route.js";
+import pntseRoutes from "./routes/pntse/pntse.routes.js";
+
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
@@ -214,6 +215,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/category",categoryRoutes);
+app.use("/api/pntse", pntseRoutes);
 app.use("/api/task-workflow", taskWorkflowRoutes);
 // app.use("/api/system-logs", systemLogRoutes);
 

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     FaSearch, FaFilter, FaDownload, FaEye, FaEdit, FaTrash,
-    FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown
+    FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown, FaSpinner
 } from 'react-icons/fa';
 
 const PNTSEAllStudentsContent = () => {
@@ -14,32 +14,77 @@ const PNTSEAllStudentsContent = () => {
     });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
-    // Demo data
-    const students = [
-        { id: 1, name: 'Aarav Sharma', rollNo: 'PNTSE-2025-001', class: '10th', centre: 'Lucknow', mobile: '9876543210', score: 95, rank: 1, status: 'Qualified', session: '2025-26' },
-        { id: 2, name: 'Priya Verma', rollNo: 'PNTSE-2025-002', class: '9th', centre: 'Kanpur', mobile: '9876543211', score: 88, rank: 5, status: 'Qualified', session: '2025-26' },
-        { id: 3, name: 'Rohit Singh', rollNo: 'PNTSE-2025-003', class: '10th', centre: 'Lucknow', mobile: '9876543212', score: 72, rank: 18, status: 'Appeared', session: '2025-26' },
-        { id: 4, name: 'Sneha Gupta', rollNo: 'PNTSE-2025-004', class: '8th', centre: 'Varanasi', mobile: '9876543213', score: 91, rank: 3, status: 'Qualified', session: '2025-26' },
-        { id: 5, name: 'Amit Kumar', rollNo: 'PNTSE-2025-005', class: '9th', centre: 'Agra', mobile: '9876543214', score: 65, rank: 32, status: 'Not Qualified', session: '2025-26' },
-        { id: 6, name: 'Nisha Patel', rollNo: 'PNTSE-2025-006', class: '10th', centre: 'Kanpur', mobile: '9876543215', score: 85, rank: 8, status: 'Qualified', session: '2025-26' },
-        { id: 7, name: 'Vikram Yadav', rollNo: 'PNTSE-2025-007', class: '8th', centre: 'Lucknow', mobile: '9876543216', score: 78, rank: 14, status: 'Appeared', session: '2025-26' },
-    ];
+    const [students, setStudents] = useState([]);
+    const [dbCentres, setDbCentres] = useState([]);
+    const [dbClasses, setDbClasses] = useState([]);
+    const [dbSessions, setDbSessions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [studentsLoading, setStudentsLoading] = useState(false);
 
-    const centres = ['Lucknow', 'Kanpur', 'Varanasi', 'Agra'];
-    const classes = ['8th', '9th', '10th'];
     const statuses = ['Qualified', 'Appeared', 'Not Qualified'];
-    const sessions = ['2025-26', '2024-25', '2023-24'];
 
-    const filteredStudents = students.filter(s => {
-        const matchSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            s.rollNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            s.mobile.includes(searchQuery);
-        const matchCentre = !filters.centre || s.centre === filters.centre;
-        const matchClass = !filters.class || s.class === filters.class;
-        const matchStatus = !filters.status || s.status === filters.status;
-        const matchSession = !filters.session || s.session === filters.session;
-        return matchSearch && matchCentre && matchClass && matchStatus && matchSession;
-    });
+    // Load master data
+    useEffect(() => {
+        const fetchMasterData = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const headers = { "Authorization": `Bearer ${token}` };
+
+                const [centresRes, classesRes, sessionsRes] = await Promise.all([
+                    fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+                ]);
+
+                if (centresRes.ok) setDbCentres(await centresRes.json());
+                if (classesRes.ok) setDbClasses(await classesRes.json());
+                if (sessionsRes.ok) {
+                    const data = await sessionsRes.json();
+                    setDbSessions(Array.isArray(data) ? data : (data.sessions || []));
+                }
+            } catch (err) {
+                console.error("Failed to load master data", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMasterData();
+    }, []);
+
+    // Load PNTSE Students when filters or search query changes
+    useEffect(() => {
+        const fetchStudents = async () => {
+            setStudentsLoading(true);
+            try {
+                const token = localStorage.getItem("token");
+                const headers = { "Authorization": `Bearer ${token}` };
+
+                const params = new URLSearchParams();
+                if (searchQuery) params.append('search', searchQuery);
+                if (filters.centre) params.append('centre', filters.centre);
+                if (filters.class) params.append('class', filters.class);
+                if (filters.session) params.append('session', filters.session);
+                if (filters.status) params.append('status', filters.status);
+
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/pntse/list?${params.toString()}`, { headers });
+                if (response.ok) {
+                    const data = await response.json();
+                    setStudents(data);
+                }
+            } catch (err) {
+                console.error("Failed to load PNTSE students", err);
+            } finally {
+                setStudentsLoading(false);
+            }
+        };
+
+        const handler = setTimeout(() => {
+            fetchStudents();
+        }, 300); // Small debounce
+
+        return () => clearTimeout(handler);
+    }, [searchQuery, filters]);
 
     const handleSort = (key) => {
         setSortConfig(prev => ({
@@ -48,10 +93,20 @@ const PNTSEAllStudentsContent = () => {
         }));
     };
 
-    const sortedStudents = [...filteredStudents].sort((a, b) => {
+    const sortedStudents = [...students].sort((a, b) => {
         if (!sortConfig.key) return 0;
-        const aVal = a[sortConfig.key];
-        const bVal = b[sortConfig.key];
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        // Handle populated fields object
+        if (sortConfig.key === 'class') {
+            aVal = a.class?.name || '';
+            bVal = b.class?.name || '';
+        } else if (sortConfig.key === 'centre') {
+            aVal = a.centre?.centreName || '';
+            bVal = b.centre?.centreName || '';
+        }
+
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -61,7 +116,7 @@ const PNTSEAllStudentsContent = () => {
         { label: 'Total Students', value: students.length, icon: <FaUsers />, color: 'from-blue-500 to-cyan-500', bg: 'bg-blue-500/10' },
         { label: 'Qualified', value: students.filter(s => s.status === 'Qualified').length, icon: <FaTrophy />, color: 'from-emerald-500 to-green-500', bg: 'bg-emerald-500/10' },
         { label: 'Appeared', value: students.filter(s => s.status === 'Appeared').length, icon: <FaGraduationCap />, color: 'from-amber-500 to-yellow-500', bg: 'bg-amber-500/10' },
-        { label: 'Avg. Score', value: `${Math.round(students.reduce((a, b) => a + b.score, 0) / students.length)}%`, icon: <FaChartLine />, color: 'from-purple-500 to-pink-500', bg: 'bg-purple-500/10' },
+        { label: 'Avg. Score', value: students.length > 0 ? `${Math.round(students.reduce((a, b) => a + (b.score || 0), 0) / students.length)}%` : '0%', icon: <FaChartLine />, color: 'from-purple-500 to-pink-500', bg: 'bg-purple-500/10' },
     ];
 
     const getStatusBadge = (status) => {
@@ -77,6 +132,17 @@ const PNTSEAllStudentsContent = () => {
         if (sortConfig.key !== field) return <FaSortUp className="opacity-30" />;
         return sortConfig.direction === 'asc' ? <FaSortUp className="text-cyan-400" /> : <FaSortDown className="text-cyan-400" />;
     };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                    <FaSpinner className="text-4xl text-cyan-400 animate-spin" />
+                    <p className="text-sm text-gray-400">Loading PNTSE console...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-950 text-gray-100 p-6">
@@ -98,7 +164,7 @@ const PNTSEAllStudentsContent = () => {
                 {stats.map((stat, i) => (
                     <div key={i} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all duration-200 group">
                         <div className="flex items-center justify-between mb-3">
-                            <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center text-lg bg-gradient-to-br ${stat.color} bg-clip-text`} style={{ color: 'transparent', backgroundImage: `linear-gradient(to bottom right, var(--tw-gradient-stops))` }}>
+                            <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center text-lg`} style={{ color: 'transparent' }}>
                                 <span className={`bg-gradient-to-br ${stat.color} bg-clip-text text-transparent text-xl`}>{stat.icon}</span>
                             </div>
                         </div>
@@ -130,7 +196,7 @@ const PNTSEAllStudentsContent = () => {
                         className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[140px]"
                     >
                         <option value="">All Centres</option>
-                        {centres.map(c => <option key={c} value={c}>{c}</option>)}
+                        {dbCentres.map(c => <option key={c._id} value={c._id}>{c.centreName || c.enterCode}</option>)}
                     </select>
 
                     {/* Class Filter */}
@@ -140,7 +206,7 @@ const PNTSEAllStudentsContent = () => {
                         className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[130px]"
                     >
                         <option value="">All Classes</option>
-                        {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                        {dbClasses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                     </select>
 
                     {/* Status Filter */}
@@ -160,19 +226,19 @@ const PNTSEAllStudentsContent = () => {
                         className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[130px]"
                     >
                         <option value="">All Sessions</option>
-                        {sessions.map(s => <option key={s} value={s}>{s}</option>)}
+                        {dbSessions.map(s => <option key={s._id} value={s._id}>{s.sessionName}</option>)}
                     </select>
-
-                    {/* Export */}
-                    <button className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-medium transition-all duration-200 shadow-lg shadow-cyan-500/20 ml-auto">
-                        <FaDownload className="text-xs" />
-                        Export
-                    </button>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden relative">
+                {studentsLoading && (
+                    <div className="absolute inset-0 bg-gray-950/40 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                        <FaSpinner className="text-3xl text-cyan-400 animate-spin" />
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
                     <h2 className="text-sm font-semibold text-white">
                         PNTSE Students
@@ -195,20 +261,15 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Class</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Centre</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Mobile</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Course</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid Status</th>
                                 <th
                                     className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors"
                                     onClick={() => handleSort('score')}
                                 >
                                     <div className="flex items-center gap-1.5">Score <SortIcon field="score" /></div>
                                 </th>
-                                <th
-                                    className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors"
-                                    onClick={() => handleSort('rank')}
-                                >
-                                    <div className="flex items-center gap-1.5">Rank <SortIcon field="rank" /></div>
-                                </th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/50">
@@ -220,7 +281,7 @@ const PNTSEAllStudentsContent = () => {
                                     </td>
                                 </tr>
                             ) : sortedStudents.map((student, idx) => (
-                                <tr key={student.id} className="hover:bg-gray-800/40 transition-colors duration-150">
+                                <tr key={student._id} className="hover:bg-gray-800/40 transition-colors duration-150">
                                     <td className="px-5 py-4 text-gray-400">{idx + 1}</td>
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
@@ -230,10 +291,16 @@ const PNTSEAllStudentsContent = () => {
                                             <span className="font-medium text-gray-100">{student.name}</span>
                                         </div>
                                     </td>
-                                    <td className="px-5 py-4 text-gray-300 font-mono text-xs">{student.rollNo}</td>
-                                    <td className="px-5 py-4 text-gray-300">{student.class}</td>
-                                    <td className="px-5 py-4 text-gray-300">{student.centre}</td>
+                                    <td className="px-5 py-4 text-cyan-400 font-mono text-xs font-semibold">{student.rollNo}</td>
+                                    <td className="px-5 py-4 text-gray-300">{student.class?.name || student.class}</td>
+                                    <td className="px-5 py-4 text-gray-300">{student.centre?.centreName || student.centre?.enterCode || student.centre}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.mobile}</td>
+                                    <td className="px-5 py-4 text-gray-300">{student.course}</td>
+                                    <td className="px-5 py-4">
+                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${student.paymentType === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                                            {student.paymentType} {student.paymentType === 'paid' && `(Rs. ${student.amountPaid})`}
+                                        </span>
+                                    </td>
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-2">
                                             <div className="w-16 h-1.5 rounded-full bg-gray-700 overflow-hidden">
@@ -246,24 +313,9 @@ const PNTSEAllStudentsContent = () => {
                                         </div>
                                     </td>
                                     <td className="px-5 py-4">
-                                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${student.rank <= 3 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-gray-300'}`}>
-                                            #{student.rank}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-4">
                                         <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusBadge(student.status)}`}>
                                             {student.status}
                                         </span>
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <button className="w-7 h-7 rounded-lg bg-gray-800 hover:bg-cyan-500/20 hover:text-cyan-400 text-gray-400 flex items-center justify-center transition-all">
-                                                <FaEye className="text-xs" />
-                                            </button>
-                                            <button className="w-7 h-7 rounded-lg bg-gray-800 hover:bg-blue-500/20 hover:text-blue-400 text-gray-400 flex items-center justify-center transition-all">
-                                                <FaEdit className="text-xs" />
-                                            </button>
-                                        </div>
                                     </td>
                                 </tr>
                             ))}

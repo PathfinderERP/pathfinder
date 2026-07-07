@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     FaUserPlus, FaGraduationCap, FaPhoneAlt, FaMapMarkerAlt,
-    FaSchool, FaCalendarAlt, FaSave, FaTimes, FaCheckCircle
+    FaSchool, FaCalendarAlt, FaSave, FaTimes, FaCheckCircle, FaSpinner
 } from 'react-icons/fa';
 
 const INITIAL_FORM = {
-    firstName: '',
-    lastName: '',
+    name: '',
     mobile: '',
     email: '',
     dob: '',
@@ -15,6 +14,9 @@ const INITIAL_FORM = {
     school: '',
     centre: '',
     session: '',
+    examTag: '',
+    course: '',
+    paymentType: 'free',
     guardianName: '',
     guardianMobile: '',
     address: '',
@@ -22,7 +24,6 @@ const INITIAL_FORM = {
     state: '',
     pincode: '',
     examDate: '',
-    rollNo: '',
     remarks: '',
 };
 
@@ -30,11 +31,65 @@ const PNTSEAddStudentContent = () => {
     const [form, setForm] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
     const [submitted, setSubmitted] = useState(false);
+    const [message, setMessage] = useState('');
 
-    const centres = ['Lucknow', 'Kanpur', 'Varanasi', 'Agra', 'Allahabad', 'Gorakhpur'];
-    const classes = ['6th', '7th', '8th', '9th', '10th'];
-    const sessions = ['2025-26', '2026-27'];
+    const [dbCentres, setDbCentres] = useState([]);
+    const [dbClasses, setDbClasses] = useState([]);
+    const [dbSessions, setDbSessions] = useState([]);
+    const [dbExamTags, setDbExamTags] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const courses = [
+        'PNTSE CLASS 6',
+        'PNTSE CLASS 7',
+        'PNTSE CLASS 8',
+        'PNTSE CLASS 9',
+        'PNTSE CLASS 10'
+    ];
     const genders = ['Male', 'Female', 'Other'];
+    const paymentTypes = [
+        { value: 'free', label: 'Free (Rs. 0)' },
+        { value: 'paid', label: 'Paid (Rs. 100)' }
+    ];
+
+    useEffect(() => {
+        const fetchMasterData = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const headers = { "Authorization": `Bearer ${token}` };
+
+                const [centresRes, classesRes, sessionsRes, tagsRes] = await Promise.all([
+                    fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
+                ]);
+
+                if (centresRes.ok) {
+                    const data = await centresRes.json();
+                    setDbCentres(data);
+                }
+                if (classesRes.ok) {
+                    const data = await classesRes.json();
+                    setDbClasses(data);
+                }
+                if (sessionsRes.ok) {
+                    const data = await sessionsRes.json();
+                    setDbSessions(Array.isArray(data) ? data : (data.sessions || []));
+                }
+                if (tagsRes.ok) {
+                    const data = await tagsRes.json();
+                    setDbExamTags(data);
+                }
+            } catch (err) {
+                console.error("Failed to load master data", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMasterData();
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -44,29 +99,51 @@ const PNTSEAddStudentContent = () => {
 
     const validate = () => {
         const errs = {};
-        if (!form.firstName.trim()) errs.firstName = 'First name is required';
-        if (!form.lastName.trim()) errs.lastName = 'Last name is required';
+        if (!form.name.trim()) errs.name = 'Full Name is required';
         if (!form.mobile.trim() || !/^\d{10}$/.test(form.mobile)) errs.mobile = 'Valid 10-digit mobile is required';
         if (!form.class) errs.class = 'Class is required';
         if (!form.centre) errs.centre = 'Centre is required';
         if (!form.session) errs.session = 'Session is required';
+        if (!form.examTag) errs.examTag = 'Exam Tag is required';
+        if (!form.course) errs.course = 'Course is required';
         if (!form.gender) errs.gender = 'Gender is required';
         return errs;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const errs = validate();
         if (Object.keys(errs).length > 0) {
             setErrors(errs);
             return;
         }
-        // TODO: API call here
-        setSubmitted(true);
-        setTimeout(() => {
-            setSubmitted(false);
-            setForm(INITIAL_FORM);
-        }, 3000);
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/pntse/create`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(form)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                setMessage(data.message || 'Student registered successfully!');
+                setSubmitted(true);
+                setForm(INITIAL_FORM);
+                setTimeout(() => {
+                    setSubmitted(false);
+                }, 3000);
+            } else {
+                alert(data.message || 'Registration failed.');
+            }
+        } catch (err) {
+            console.error("Error creating student", err);
+            alert("Server error occurred.");
+        }
     };
 
     const handleReset = () => {
@@ -74,40 +151,16 @@ const PNTSEAddStudentContent = () => {
         setErrors({});
     };
 
-    const Field = ({ label, name, type = 'text', placeholder, options, required }) => (
-        <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                {label} {required && <span className="text-red-400">*</span>}
-            </label>
-            {options ? (
-                <select
-                    name={name}
-                    value={form[name]}
-                    onChange={handleChange}
-                    className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer
-                        ${errors[name] ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
-                >
-                    <option value="">Select {label}</option>
-                    {options.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-            ) : (
-                <input
-                    type={type}
-                    name={name}
-                    value={form[name]}
-                    onChange={handleChange}
-                    placeholder={placeholder}
-                    className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 transition-all
-                        ${errors[name] ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
-                />
-            )}
-            {errors[name] && (
-                <p className="text-xs text-red-400 mt-0.5 flex items-center gap-1">
-                    <FaTimes className="text-[10px]" /> {errors[name]}
-                </p>
-            )}
-        </div>
-    );
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                    <FaSpinner className="text-4xl text-cyan-400 animate-spin" />
+                    <p className="text-sm text-gray-400">Loading master data...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-950 text-gray-100 p-6">
@@ -128,7 +181,7 @@ const PNTSEAddStudentContent = () => {
             {submitted && (
                 <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-emerald-500 text-white px-5 py-3.5 rounded-2xl shadow-2xl shadow-emerald-500/30 animate-bounce">
                     <FaCheckCircle className="text-lg" />
-                    <span className="font-medium">Student registered successfully!</span>
+                    <span className="font-medium">{message}</span>
                 </div>
             )}
 
@@ -142,12 +195,77 @@ const PNTSEAddStudentContent = () => {
                         <h2 className="text-sm font-semibold text-white">Personal Information</h2>
                     </div>
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        <Field label="First Name" name="firstName" placeholder="Enter first name" required />
-                        <Field label="Last Name" name="lastName" placeholder="Enter last name" required />
-                        <Field label="Date of Birth" name="dob" type="date" required={false} />
-                        <Field label="Gender" name="gender" options={genders} required />
-                        <Field label="Mobile" name="mobile" placeholder="10-digit mobile number" required />
-                        <Field label="Email" name="email" type="email" placeholder="student@example.com" />
+                        <div className="flex flex-col gap-1.5 md:col-span-2">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Full Name <span className="text-red-400">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="name"
+                                value={form.name}
+                                onChange={handleChange}
+                                placeholder="Enter full name"
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 transition-all
+                                    ${errors.name ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            />
+                            {errors.name && <p className="text-xs text-red-400 mt-0.5">{errors.name}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Gender <span className="text-red-400">*</span>
+                            </label>
+                            <select
+                                name="gender"
+                                value={form.gender}
+                                onChange={handleChange}
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer
+                                    ${errors.gender ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            >
+                                <option value="">Select Gender</option>
+                                {genders.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                            {errors.gender && <p className="text-xs text-red-400 mt-0.5">{errors.gender}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Mobile <span className="text-red-400">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="mobile"
+                                value={form.mobile}
+                                onChange={handleChange}
+                                placeholder="10-digit mobile number"
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 transition-all
+                                    ${errors.mobile ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            />
+                            {errors.mobile && <p className="text-xs text-red-400 mt-0.5">{errors.mobile}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Date of Birth</label>
+                            <input
+                                type="date"
+                                name="dob"
+                                value={form.dob}
+                                onChange={handleChange}
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 md:col-span-2 lg:col-span-1">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Email</label>
+                            <input
+                                type="email"
+                                name="email"
+                                value={form.email}
+                                onChange={handleChange}
+                                placeholder="student@example.com"
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -160,12 +278,137 @@ const PNTSEAddStudentContent = () => {
                         <h2 className="text-sm font-semibold text-white">Academic Details</h2>
                     </div>
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        <Field label="Class" name="class" options={classes} required />
-                        <Field label="School Name" name="school" placeholder="Name of school" />
-                        <Field label="Centre" name="centre" options={centres} required />
-                        <Field label="Session" name="session" options={sessions} required />
-                        <Field label="Exam Date" name="examDate" type="date" />
-                        <Field label="Roll No." name="rollNo" placeholder="Leave blank to auto-generate" />
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Class <span className="text-red-400">*</span>
+                            </label>
+                            <select
+                                name="class"
+                                value={form.class}
+                                onChange={handleChange}
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer
+                                    ${errors.class ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            >
+                                <option value="">Select Class</option>
+                                {dbClasses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                            </select>
+                            {errors.class && <p className="text-xs text-red-400 mt-0.5">{errors.class}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Course <span className="text-red-400">*</span>
+                            </label>
+                            <select
+                                name="course"
+                                value={form.course}
+                                onChange={handleChange}
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer
+                                    ${errors.course ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            >
+                                <option value="">Select Course</option>
+                                {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            {errors.course && <p className="text-xs text-red-400 mt-0.5">{errors.course}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Centre <span className="text-red-400">*</span>
+                            </label>
+                            <select
+                                name="centre"
+                                value={form.centre}
+                                onChange={handleChange}
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer
+                                    ${errors.centre ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            >
+                                <option value="">Select Centre</option>
+                                {dbCentres.map(c => <option key={c._id} value={c._id}>{c.centreName || c.enterCode}</option>)}
+                            </select>
+                            {errors.centre && <p className="text-xs text-red-400 mt-0.5">{errors.centre}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Session <span className="text-red-400">*</span>
+                            </label>
+                            <select
+                                name="session"
+                                value={form.session}
+                                onChange={handleChange}
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer
+                                    ${errors.session ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            >
+                                <option value="">Select Session</option>
+                                {dbSessions.map(s => <option key={s._id} value={s._id}>{s.sessionName}</option>)}
+                            </select>
+                            {errors.session && <p className="text-xs text-red-400 mt-0.5">{errors.session}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Exam Tag <span className="text-red-400">*</span>
+                            </label>
+                            <select
+                                name="examTag"
+                                value={form.examTag}
+                                onChange={handleChange}
+                                className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer
+                                    ${errors.examTag ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}
+                            >
+                                <option value="">Select Exam Tag</option>
+                                {dbExamTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                            </select>
+                            {errors.examTag && <p className="text-xs text-red-400 mt-0.5">{errors.examTag}</p>}
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                Payment Type
+                            </label>
+                            <select
+                                name="paymentType"
+                                value={form.paymentType}
+                                onChange={handleChange}
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer"
+                            >
+                                {paymentTypes.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">School Name</label>
+                            <input
+                                type="text"
+                                name="school"
+                                value={form.school}
+                                onChange={handleChange}
+                                placeholder="Name of school"
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Date</label>
+                            <input
+                                type="date"
+                                name="examDate"
+                                value={form.examDate}
+                                onChange={handleChange}
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No. Status</label>
+                            <input
+                                type="text"
+                                disabled
+                                placeholder="Auto-generated on save"
+                                className="px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-500 cursor-not-allowed"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -178,8 +421,28 @@ const PNTSEAddStudentContent = () => {
                         <h2 className="text-sm font-semibold text-white">Guardian Details</h2>
                     </div>
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <Field label="Guardian Name" name="guardianName" placeholder="Parent / Guardian name" />
-                        <Field label="Guardian Mobile" name="guardianMobile" placeholder="10-digit mobile number" />
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Guardian Name</label>
+                            <input
+                                type="text"
+                                name="guardianName"
+                                value={form.guardianName}
+                                onChange={handleChange}
+                                placeholder="Parent / Guardian name"
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Guardian Mobile</label>
+                            <input
+                                type="text"
+                                name="guardianMobile"
+                                value={form.guardianMobile}
+                                onChange={handleChange}
+                                placeholder="10-digit mobile number"
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -203,9 +466,39 @@ const PNTSEAddStudentContent = () => {
                                 className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all resize-none"
                             />
                         </div>
-                        <Field label="City" name="city" placeholder="City" />
-                        <Field label="State" name="state" placeholder="State" />
-                        <Field label="Pincode" name="pincode" placeholder="6-digit pincode" />
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">City</label>
+                            <input
+                                type="text"
+                                name="city"
+                                value={form.city}
+                                onChange={handleChange}
+                                placeholder="City"
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">State</label>
+                            <input
+                                type="text"
+                                name="state"
+                                value={form.state}
+                                onChange={handleChange}
+                                placeholder="State"
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pincode</label>
+                            <input
+                                type="text"
+                                name="pincode"
+                                value={form.pincode}
+                                onChange={handleChange}
+                                placeholder="6-digit pincode"
+                                className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                            />
+                        </div>
                     </div>
                 </div>
 
