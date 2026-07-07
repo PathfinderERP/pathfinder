@@ -1,6 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
 import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Payment from "../../models/Payment/Payment.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
@@ -73,7 +74,59 @@ export const createAdmission = async (req, res) => {
         const previousBalance = student.carryForwardBalance || 0;
 
         if (student.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. New admissions are restricted." });
+            const deactivationDate = student.deactivationDate;
+            const now = new Date();
+            const daysDeactivated = deactivationDate 
+                ? Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24))
+                : 0;
+
+            if (daysDeactivated > 0) {
+                // Shift Normal Admissions
+                const admissions = await Admission.find({ student: studentId });
+                for (const admission of admissions) {
+                    admission.paymentBreakdown.forEach(inst => {
+                        if (inst.status === 'PENDING' || inst.status === 'OVERDUE') {
+                            const oldDueDate = new Date(inst.dueDate);
+                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                            inst.dueDate = oldDueDate;
+                            if (inst.status === 'OVERDUE' && oldDueDate > now) {
+                                inst.status = 'PENDING';
+                            }
+                        }
+                    });
+                    admission.admissionStatus = 'ACTIVE';
+                    await admission.save();
+                }
+
+                // Shift Board Admissions
+                const boardAdmissions = await BoardCourseAdmission.find({ studentId: studentId });
+                for (const bAdmission of boardAdmissions) {
+                    let changed = false;
+                    bAdmission.installments.forEach(inst => {
+                        if (inst.status === 'PENDING' || inst.status === 'PARTIAL' || inst.status === 'PARTIALLY_PAID') {
+                            const oldDueDate = new Date(inst.dueDate);
+                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                            inst.dueDate = oldDueDate;
+                            changed = true;
+                        }
+                    });
+                    if (changed) {
+                        await bAdmission.save();
+                    }
+                }
+            } else {
+                // Even if 0 days, ensure admissions are set to ACTIVE
+                await Admission.updateMany(
+                    { student: studentId },
+                    { admissionStatus: 'ACTIVE' }
+                );
+            }
+
+            student.status = 'Active';
+            student.deactivationDate = null;
+            student.deactivatedBy = null;
+            student.deactivatedByUserId = null;
+            await student.save();
         }
 
         let baseFees = 0;

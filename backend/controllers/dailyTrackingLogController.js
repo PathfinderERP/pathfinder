@@ -58,6 +58,18 @@ export const addOrUpdateActivity = async (req, res) => {
             return res.status(400).json({ message: "Work Details are required." });
         }
 
+        const isSuperAdmin = Array.isArray(req.user.role) 
+            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
+            : req.user.role === "superAdmin" || req.user.role === "superadmin";
+
+        if (!isSuperAdmin) {
+            const currentMidnight = getMidnightIST();
+            const inputMidnight = getMidnightIST(date);
+            if (currentMidnight.getTime() !== inputMidnight.getTime()) {
+                return res.status(403).json({ message: "Access denied. You can only log activities for the current date." });
+            }
+        }
+
         const todayUTC = getMidnightIST(date);
         const startRange = new Date(todayUTC.getTime() - 12 * 60 * 60 * 1000);
         const endRange = new Date(todayUTC.getTime() + 12 * 60 * 60 * 1000);
@@ -443,6 +455,18 @@ export const updateActivity = async (req, res) => {
             return res.status(404).json({ message: "Tracking log not found." });
         }
 
+        const isSuperAdmin = Array.isArray(req.user.role) 
+            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
+            : req.user.role === "superAdmin" || req.user.role === "superadmin";
+
+        if (!isSuperAdmin) {
+            const currentMidnight = getMidnightIST();
+            const logMidnight = getMidnightIST(log.date);
+            if (currentMidnight.getTime() !== logMidnight.getTime()) {
+                return res.status(403).json({ message: "Access denied. You can only edit logs for the current date." });
+            }
+        }
+
         // Check ownership (only the log owner or a superAdmin/HR can edit)
         const isOwner = log.user.toString() === req.user._id.toString();
         const isAdminOrHR = req.user.role === "superAdmin" || req.user.role === "hr";
@@ -478,6 +502,18 @@ export const deleteActivity = async (req, res) => {
         const log = await DailyTrackingLog.findById(logId);
         if (!log) {
             return res.status(404).json({ message: "Tracking log not found." });
+        }
+
+        const isSuperAdmin = Array.isArray(req.user.role) 
+            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
+            : req.user.role === "superAdmin" || req.user.role === "superadmin";
+
+        if (!isSuperAdmin) {
+            const currentMidnight = getMidnightIST();
+            const logMidnight = getMidnightIST(log.date);
+            if (currentMidnight.getTime() !== logMidnight.getTime()) {
+                return res.status(403).json({ message: "Access denied. You can only delete logs for the current date." });
+            }
         }
 
         // Check ownership
