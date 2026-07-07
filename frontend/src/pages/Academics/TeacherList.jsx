@@ -45,8 +45,16 @@ const TeacherList = () => {
     const [showModal, setShowModal] = useState(false);
     const [viewOnly, setViewOnly] = useState(false);
     const [centres, setCentres] = useState([]);
+    const [subjectOptionsList, setSubjectOptionsList] = useState([]);
+    const [designationOptionsList, setDesignationOptionsList] = useState([]);
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
+
+    const getDesignationLabel = useCallback((val) => {
+        if (!val) return "";
+        const found = designationOptionsList.find(opt => opt.value === val);
+        return found ? found.label : val;
+    }, [designationOptionsList]);
 
     // Form Data State
     const [formData, setFormData] = useState({
@@ -54,13 +62,13 @@ const TeacherList = () => {
         email: "",
         mobNum: "",
         employeeId: "",
-        subject: "",
+        subject: [],
         centre: "",
         teacherDepartment: [],
         boardType: "",
         teacherType: "",
         onlineOfflineType: "",
-        designation: "",
+        designation: [],
         isDeptHod: false,
         isBoardHod: false,
         isSubjectHod: false
@@ -126,10 +134,66 @@ const TeacherList = () => {
         }
     }, []);
 
+    const fetchDropdownOptions = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const headers = { Authorization: `Bearer ${token}` };
+
+            // Fetch Subject Master
+            const subRes = await fetch(`${API_URL}/subject`, { headers });
+            if (subRes.ok) {
+                const subData = await subRes.json();
+                const options = (subData || [])
+                    .map(s => ({ value: s.subName, label: s.subName }))
+                    .sort((a, b) => a.label.localeCompare(b.label));
+                setSubjectOptionsList(options);
+            }
+
+            // Fetch designations from Master and HR
+            const [desigRes, empRes] = await Promise.all([
+                fetch(`${API_URL}/designation`, { headers }),
+                fetch(`${API_URL}/hr/employee/dropdown`, { headers })
+            ]);
+
+            let masterDesigs = [];
+            let employeeDesigs = [];
+
+            if (desigRes.ok) {
+                masterDesigs = await desigRes.json();
+            }
+            if (empRes.ok) {
+                employeeDesigs = await empRes.json();
+            }
+
+            const map = new Map();
+            (masterDesigs || []).forEach(d => {
+                if (d && d._id && d.name) {
+                    map.set(d._id.toString(), { value: d._id.toString(), label: d.name });
+                }
+            });
+
+            (employeeDesigs || []).forEach(emp => {
+                const des = emp.designation;
+                if (des && typeof des === "object" && des._id && des.name) {
+                    map.set(des._id.toString(), { value: des._id.toString(), label: des.name });
+                } else if (des && typeof des === "string" && des.trim() !== "") {
+                    map.set(des, { value: des, label: des });
+                }
+            });
+
+            const merged = Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+            setDesignationOptionsList(merged);
+
+        } catch (error) {
+            console.error("Error fetching dropdown options:", error);
+        }
+    }, []);
+
     useEffect(() => {
         fetchTeachers();
         fetchCentres();
-    }, [fetchTeachers, fetchCentres]);
+        fetchDropdownOptions();
+    }, [fetchTeachers, fetchCentres, fetchDropdownOptions]);
 
     // Handle Input Change
     const handleChange = (e) => {
@@ -200,13 +264,13 @@ const TeacherList = () => {
             email: teacher.email,
             mobNum: teacher.mobNum,
             employeeId: teacher.employeeId,
-            subject: teacher.subject,
+            subject: Array.isArray(teacher.subject) ? teacher.subject : (teacher.subject ? [teacher.subject] : []),
             centre: teacher.centres?.[0]?._id || teacher.centres?.[0] || teacher.centre || "",
             teacherDepartment: Array.isArray(teacher.teacherDepartment) ? teacher.teacherDepartment : (teacher.teacherDepartment ? [teacher.teacherDepartment] : []),
             boardType: teacher.boardType,
             teacherType: teacher.teacherType,
             onlineOfflineType: teacher.onlineOfflineType || "",
-            designation: teacher.designation,
+            designation: Array.isArray(teacher.designation) ? teacher.designation : (teacher.designation ? [teacher.designation] : []),
             isDeptHod: teacher.isDeptHod,
             isBoardHod: teacher.isBoardHod,
             isSubjectHod: teacher.isSubjectHod
@@ -255,8 +319,8 @@ const TeacherList = () => {
                 setEditId(null);
                 fetchTeachers();
                 setFormData({
-                    name: "", email: "", mobNum: "", employeeId: "", subject: "",
-                    centre: "", teacherDepartment: [], boardType: "", teacherType: "", onlineOfflineType: "", designation: "",
+                    name: "", email: "", mobNum: "", employeeId: "", subject: [],
+                    centre: "", teacherDepartment: [], boardType: "", teacherType: "", onlineOfflineType: "", designation: [],
                     isDeptHod: false, isBoardHod: false, isSubjectHod: false
                 });
             } else {
@@ -270,8 +334,8 @@ const TeacherList = () => {
 
     const openAddModal = () => {
         setFormData({
-            name: "", email: "", mobNum: "", employeeId: "", subject: "",
-            centre: "", teacherDepartment: [], boardType: "", teacherType: "", onlineOfflineType: "", designation: "",
+            name: "", email: "", mobNum: "", employeeId: "", subject: [],
+            centre: "", teacherDepartment: [], boardType: "", teacherType: "", onlineOfflineType: "", designation: [],
             isDeptHod: false, isBoardHod: false, isSubjectHod: false
         });
         setEditId(null);
@@ -285,13 +349,13 @@ const TeacherList = () => {
             email: teacher.email,
             mobNum: teacher.mobNum,
             employeeId: teacher.employeeId,
-            subject: teacher.subject,
+            subject: Array.isArray(teacher.subject) ? teacher.subject : (teacher.subject ? [teacher.subject] : []),
             centre: teacher.centres?.[0]?._id || teacher.centres?.[0] || teacher.centre || "",
             teacherDepartment: Array.isArray(teacher.teacherDepartment) ? teacher.teacherDepartment : (teacher.teacherDepartment ? [teacher.teacherDepartment] : []),
             boardType: teacher.boardType,
             teacherType: teacher.teacherType,
             onlineOfflineType: teacher.onlineOfflineType || "",
-            designation: teacher.designation,
+            designation: Array.isArray(teacher.designation) ? teacher.designation : (teacher.designation ? [teacher.designation] : []),
             isDeptHod: teacher.isDeptHod,
             isBoardHod: teacher.isBoardHod,
             isSubjectHod: teacher.isSubjectHod
@@ -312,7 +376,7 @@ const TeacherList = () => {
             }
         });
         const unique = [...new Set(values)].filter(Boolean);
-        return unique.map(val => ({ value: val, label: val }));
+        return unique.map(val => ({ value: val, label: key === 'designation' ? getDesignationLabel(val) : val }));
     };
 
     // Get centre options from filtered centres state
@@ -363,10 +427,18 @@ const TeacherList = () => {
         const matchesBoard = boardList.length === 0 || boardList.includes(t.boardType);
 
         const desigList = filterDesignations.map(v => v.value);
-        const matchesDesig = desigList.length === 0 || desigList.includes(t.designation);
+        const matchesDesig = desigList.length === 0 || (
+            Array.isArray(t.designation)
+                ? t.designation.some(d => desigList.includes(d))
+                : desigList.includes(t.designation)
+        );
 
         const subjectList = filterSubjects.map(v => v.value);
-        const matchesSubject = subjectList.length === 0 || subjectList.includes(t.subject);
+        const matchesSubject = subjectList.length === 0 || (
+            Array.isArray(t.subject)
+                ? t.subject.some(s => subjectList.includes(s))
+                : subjectList.includes(t.subject)
+        );
 
         const typeList = filterTypes.map(v => v.value);
         const matchesType = typeList.length === 0 || typeList.includes(t.teacherType) || typeList.includes(t.onlineOfflineType);
@@ -713,7 +785,11 @@ const TeacherList = () => {
                                                     >
                                                         {teacher.name}
                                                     </span>
-                                                    <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{teacher.designation || "Faculty"}</span>
+                                                    <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        {Array.isArray(teacher.designation)
+                                                            ? teacher.designation.map(d => getDesignationLabel(d)).filter(Boolean).join(", ") || "Faculty"
+                                                            : (getDesignationLabel(teacher.designation) || "Faculty")}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
@@ -738,8 +814,14 @@ const TeacherList = () => {
                                                 </div>
                                             ) : "-"}
                                         </td>
-                                        <td className={`p-4 text-sm ${isDarkMode ? 'text-white' : 'text-gray-800 font-medium'}`}>{teacher.subject || "-"}</td>
-                                        <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{teacher.designation || "-"}</td>
+                                        <td className={`p-4 text-sm ${isDarkMode ? 'text-white' : 'text-gray-800 font-medium'}`}>
+                                            {Array.isArray(teacher.subject) ? teacher.subject.join(", ") : (teacher.subject || "-")}
+                                        </td>
+                                        <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            {Array.isArray(teacher.designation)
+                                                ? teacher.designation.map(d => getDesignationLabel(d)).filter(Boolean).join(", ")
+                                                : (getDesignationLabel(teacher.designation) || "-")}
+                                        </td>
                                         <td className={`p-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                                             {Array.isArray(teacher.teacherDepartment) ? (
                                                 <div className="flex flex-wrap gap-1">
@@ -877,8 +959,34 @@ const TeacherList = () => {
                                     </div>
                                     <div>
                                         <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Subject <span className="text-red-500">*</span></label>
-                                        <input type="text" name="subject" required disabled={viewOnly} value={formData.subject} onChange={handleChange}
-                                            className={`w-full border rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none disabled:opacity-70 ${isDarkMode ? 'bg-[#13171c] border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`} placeholder="Select a subject" />
+                                        <Select
+                                            isMulti
+                                            name="subject"
+                                            isDisabled={viewOnly}
+                                            value={
+                                                (Array.isArray(formData.subject) ? formData.subject : [formData.subject].filter(Boolean)).map(val => ({ value: val, label: val }))
+                                            }
+                                            onChange={(selectedOptions) => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    subject: selectedOptions ? selectedOptions.map(opt => opt.value) : []
+                                                }));
+                                            }}
+                                            options={subjectOptionsList}
+                                            styles={customSelectStyles}
+                                            className="react-select-container"
+                                            classNamePrefix="react-select"
+                                            placeholder="Select subjects..."
+                                        />
+                                        <input
+                                            type="text"
+                                            tabIndex={-1}
+                                            autoComplete="off"
+                                            style={{ opacity: 0, height: 0, width: 0, position: "absolute" }}
+                                            required
+                                            value={formData.subject && formData.subject.length > 0 ? "selected" : ""}
+                                            onChange={() => {}}
+                                        />
                                     </div>
 
                                     {/* Row 3 - Centre */}
@@ -951,8 +1059,37 @@ const TeacherList = () => {
                                     </div>
                                     <div>
                                         <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600 font-medium'}`}>Designation <span className="text-red-500">*</span></label>
-                                        <input type="text" name="designation" required disabled={viewOnly} value={formData.designation} onChange={handleChange}
-                                            className={`w-full border rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none disabled:opacity-70 ${isDarkMode ? 'bg-[#13171c] border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`} placeholder="Select a designation" />
+                                        <Select
+                                            isMulti
+                                            name="designation"
+                                            isDisabled={viewOnly}
+                                            value={
+                                                (Array.isArray(formData.designation) ? formData.designation : [formData.designation].filter(Boolean)).map(val => {
+                                                    const found = designationOptionsList.find(opt => opt.value === val);
+                                                    return found ? found : { value: val, label: val };
+                                                })
+                                            }
+                                            onChange={(selectedOptions) => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    designation: selectedOptions ? selectedOptions.map(opt => opt.value) : []
+                                                }));
+                                            }}
+                                            options={designationOptionsList}
+                                            styles={customSelectStyles}
+                                            className="react-select-container"
+                                            classNamePrefix="react-select"
+                                            placeholder="Select designations..."
+                                        />
+                                        <input
+                                            type="text"
+                                            tabIndex={-1}
+                                            autoComplete="off"
+                                            style={{ opacity: 0, height: 0, width: 0, position: "absolute" }}
+                                            required
+                                            value={formData.designation && formData.designation.length > 0 ? "selected" : ""}
+                                            onChange={() => {}}
+                                        />
                                     </div>
                                 </div>
 

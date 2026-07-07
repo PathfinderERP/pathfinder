@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema({
     }],
 
     // Teacher Specific Fields
-    subject: { type: String },
+    subject: [{ type: String }],
     teacherDepartment: [{
         type: String,
         enum: ['Foundation', 'All India', 'Board'], // Capitalized to match frontend
@@ -56,7 +56,7 @@ const userSchema = new mongoose.Schema({
         enum: ['Online', 'Offline'],
         default: null
     },
-    designation: { type: String },
+    designation: [{ type: String }],
 
     // HOD Flags
     isDeptHod: { type: Boolean, default: false },

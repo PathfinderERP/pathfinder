@@ -221,6 +221,8 @@ export const updateTeacher = async (req, res) => {
         if (updates.onlineOfflineType === "") updates.onlineOfflineType = null;
         if (updates.teacherType === "") updates.teacherType = null;
         if (updates.boardType === "") updates.boardType = null;
+        if (updates.subject === "") updates.subject = [];
+        if (updates.designation === "") updates.designation = [];
         if (updates.teacherDepartment === "") updates.teacherDepartment = [];
         if (Array.isArray(updates.teacherDepartment) && updates.teacherDepartment.length === 1 && updates.teacherDepartment[0] === "") {
             updates.teacherDepartment = [];

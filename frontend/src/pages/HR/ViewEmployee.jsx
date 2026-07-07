@@ -235,6 +235,16 @@ const ViewEmployee = () => {
                         <DataField label="Aadhar Number" value={employee.aadharNumber} />
                         <DataField label="PAN Number" value={employee.panNumber} />
                         <DataField label="Reports To (Manager)" value={employee.manager?.name} subValue={employee.manager?.employeeId} />
+                        {(employee.user?.role === "teacher" || employee.role === "teacher") && (
+                            <DataField 
+                                label="Subject" 
+                                value={
+                                    employee.user?.subject 
+                                        ? (Array.isArray(employee.user.subject) ? employee.user.subject.join(", ") : employee.user.subject) 
+                                        : "—"
+                                } 
+                            />
+                        )}
                         <div className="md:col-span-3">
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Assigned Centers</p>
                             <div className="flex flex-wrap gap-2">
