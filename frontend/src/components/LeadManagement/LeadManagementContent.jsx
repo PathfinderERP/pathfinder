@@ -112,7 +112,8 @@ const LeadManagementContent = () => {
         marketingBy: [],
         isPriority: "",
         schoolName: [],
-        showDuplicates: ""
+        showDuplicates: "",
+        zone: []
     });
 
     // Dropdown data for filters
@@ -123,6 +124,7 @@ const LeadManagementContent = () => {
     const [telecallers, setTelecallers] = useState([]);
     const [allowedCentres, setAllowedCentres] = useState([]);
     const [feedbackCategories, setFeedbackCategories] = useState([]);
+    const [zones, setZones] = useState([]);
     const [schoolsList, setSchoolsList] = useState([]);
 
     const fetchLeadStats = useCallback(async () => {
@@ -446,6 +448,15 @@ const LeadManagementContent = () => {
                 const sortedSchools = [...schools].sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' }));
                 setSchoolsList(sortedSchools);
             }
+
+            // Fetch zones
+            const zoneResponse = await fetch(`${import.meta.env.VITE_API_URL}/zone`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (zoneResponse.ok) {
+                const zoneData = await zoneResponse.json();
+                setZones(zoneData.data || zoneData.zones || []);
+            }
         } catch (error) {
             console.error("Error fetching filter data:", error);
         }
@@ -610,7 +621,8 @@ const LeadManagementContent = () => {
             marketingBy: [],
             isPriority: "",
             schoolName: [],
-            showDuplicates: ""
+            showDuplicates: "",
+            zone: []
         });
         setSortField(null);
         setSortDirection('asc');
@@ -1452,6 +1464,18 @@ const LeadManagementContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
+                        {user?.role === 'superAdmin' && (
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Zone</label>
+                                <CustomMultiSelect
+                                    options={zones.map(z => ({ value: z._id, label: z.name }))}
+                                    value={filters.zone}
+                                    onChange={(selected) => handleFilterChange('zone', selected)}
+                                    placeholder="Select Zone"
+                                    theme={isDarkMode ? 'dark' : 'light'}
+                                />
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Centre</label>
                             <CustomMultiSelect

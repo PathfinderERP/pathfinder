@@ -141,7 +141,7 @@ export const buildLeadQuery = async (queryParams, user) => {
     const { 
         search, leadType, source, centre, course, leadResponsibility, 
         board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus,
-        schoolName, followUpFromDate, followUpToDate, showDuplicates, includeInvalid
+        schoolName, followUpFromDate, followUpToDate, showDuplicates, includeInvalid, zone
     } = queryParams;
 
     const query = {};
@@ -232,9 +232,49 @@ export const buildLeadQuery = async (queryParams, user) => {
         const values = Array.isArray(className) ? normalizeValue(className) : [normalizeValue(className)];
         query.className = { $in: values };
     }
+    let zoneQueryCentres = [];
+    if (zone && (!Array.isArray(zone) || zone.length > 0)) {
+        const zoneValues = Array.isArray(zone) ? normalizeValue(zone) : [normalizeValue(zone)];
+        const normalizedZones = zoneValues.filter(z => z);
+        
+        if (normalizedZones.length > 0) {
+            try {
+                const Zone = mongoose.model("Zone");
+                const zoneDocs = await Zone.find({
+                    _id: { $in: normalizedZones }
+                }).select("centres");
+                
+                const taggedCentreIds = zoneDocs.flatMap(z => z.centres || []);
+                if (taggedCentreIds.length > 0) {
+                    zoneQueryCentres = taggedCentreIds;
+                } else {
+                    zoneQueryCentres = [new mongoose.Types.ObjectId()];
+                }
+            } catch (err) {
+                console.error("Error resolving zone centres in buildLeadQuery:", err);
+            }
+        }
+    }
+
+    let centreFilterIds = [];
     if (centre && (!Array.isArray(centre) || centre.length > 0)) {
-        const values = Array.isArray(centre) ? normalizeValue(centre) : [normalizeValue(centre)];
-        query.centre = { $in: values };
+        centreFilterIds = Array.isArray(centre) ? normalizeValue(centre) : [normalizeValue(centre)];
+    }
+
+    if (zoneQueryCentres.length > 0) {
+        if (centreFilterIds.length > 0) {
+            const stringifiedZoneCentres = zoneQueryCentres.map(c => c.toString());
+            const intersectedCentres = centreFilterIds.filter(c => stringifiedZoneCentres.includes(c.toString()));
+            if (intersectedCentres.length > 0) {
+                query.centre = { $in: intersectedCentres };
+            } else {
+                query.centre = { $in: [new mongoose.Types.ObjectId()] };
+            }
+        } else {
+            query.centre = { $in: zoneQueryCentres };
+        }
+    } else if (centreFilterIds.length > 0) {
+        query.centre = { $in: centreFilterIds };
     }
     if (queryParams.marketingBy && (!Array.isArray(queryParams.marketingBy) || queryParams.marketingBy.length > 0)) {
         const values = Array.isArray(queryParams.marketingBy) ? normalizeValue(queryParams.marketingBy) : [normalizeValue(queryParams.marketingBy)];

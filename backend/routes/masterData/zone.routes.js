@@ -14,8 +14,8 @@ import { requireAuth, requirePermission } from '../../middleware/permissionMiddl
 
 const router = express.Router();
 
-// Get all zones (requires read permission)
-router.get('/', requireAuth, requirePermission('Zone Management', 'read'), getZones);
+// Get all zones
+router.get('/', requireAuth, getZones);
 
 // Get zone by ID (requires read permission)
 router.get('/:id', requireAuth, requirePermission('Zone Management', 'read'), getZoneById);
