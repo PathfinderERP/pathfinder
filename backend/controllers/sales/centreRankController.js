@@ -91,6 +91,42 @@ export const getCentreRankings = async (req, res) => {
             }
 
             if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
+        } else {
+            if (viewMode === "Monthly" && year && (month || months)) {
+                const targetYear = parseInt(year);
+                const firstMonth = month || months.split(',')[0].trim();
+                const monthIndex = monthNames.indexOf(firstMonth);
+                if (monthIndex >= 0) {
+                    const fyStart = monthIndex >= 3 ? targetYear : targetYear - 1;
+                    query.financialYear = `${fyStart}-${fyStart + 1}`;
+                }
+            } else if (financialYear) {
+                query.financialYear = financialYear;
+            } else if (!year && !month && !months) {
+                const now = new Date();
+                const curMonth = now.getMonth();
+                const curYear = now.getFullYear();
+                const fyStart = curMonth >= 3 ? curYear : curYear - 1;
+                query.financialYear = `${fyStart}-${fyStart + 1}`;
+            }
+
+            if (viewMode === "Yearly") {
+                query.month = "YEARLY";
+            } else if (viewMode === "Quarterly") {
+                query.month = { $regex: /,/ };
+            } else if (viewMode === "Monthly") {
+                if (months) {
+                     query.month = { $in: months.split(',') };
+                } else if (month) {
+                     query.month = month;
+                } else {
+                     query.month = { $not: /,|YEARLY/ };
+                }
+            } else if (month) {
+                 query.month = month;
+            }
+
+            if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
         }
 
         // --- Determine Date Range for Exact Payment Retrieval ---
@@ -234,7 +270,8 @@ export const getCentreRankings = async (req, res) => {
                 $group: {
                     _id: "$centre",
                     targetAmount: { $sum: "$targetAmount" },
-                    achievedAmount: { $sum: "$achievedAmount" }
+                    achievedAmount: { $sum: "$achievedAmount" },
+                    achievedAmountExclGST: { $sum: "$achievedAmountExclGST" }
                 }
             },
             {
@@ -308,6 +345,7 @@ export const getCentreRankings = async (req, res) => {
                 {
                     $project: {
                         paidAmount: 1,
+                        courseFee: 1,
                         centreName: {
                             $ifNull: [
                                 { $arrayElemAt: ["$adm.centre", 0] },
@@ -316,7 +354,18 @@ export const getCentreRankings = async (req, res) => {
                         }
                     }
                 },
-                { $group: { _id: "$centreName", totalPaid: { $sum: "$paidAmount" } } }
+                {
+                    $addFields: {
+                        revenueBase: {
+                            $cond: [
+                                { $gt: ["$courseFee", 0] },
+                                "$courseFee",
+                                { $divide: ["$paidAmount", 1.18] }
+                            ]
+                        }
+                    }
+                },
+                { $group: { _id: "$centreName", totalPaid: { $sum: "$revenueBase" } } }
             ]);
 
             const prevPaymentMap = {};
@@ -327,7 +376,7 @@ export const getCentreRankings = async (req, res) => {
             const prevRankList = filteredPrevTargets.map(t => {
                 const cName = t.centre?.centreName?.trim().toUpperCase();
                 const target = targetMap[cName] || 0;
-                const achieved = prevPaymentMap[cName] || 0;
+                const achieved = prevPaymentMap[cName] !== undefined ? prevPaymentMap[cName] : (t.achievedAmountExclGST || 0);
                 return {
                     centreId: t.centre?._id?.toString(),
                     achievementPct: target > 0 ? (achieved / target) * 100 : 0
@@ -363,7 +412,7 @@ export const getCentreRankings = async (req, res) => {
             {
                 $addFields: {
                     pct: {
-                        $cond: [{ $gt: ["$targetAmount", 0] }, { $multiply: [{ $divide: ["$achievedAmount", "$targetAmount"] }, 100] }, 0]
+                        $cond: [{ $gt: ["$targetAmount", 0] }, { $multiply: [{ $divide: ["$achievedAmountExclGST", "$targetAmount"] }, 100] }, 0]
                     }
                 }
             },
@@ -390,7 +439,7 @@ export const getCentreRankings = async (req, res) => {
             // targetAmount in CentreTarget is stored without GST
             const targetAmt = t.targetAmount || 0;
             // Use exact payment revenueBase (without GST) if available, else fallback
-            const achievedAmt = paymentMap[cName] !== undefined ? paymentMap[cName] : (t.achievedAmount || 0);
+            const achievedAmt = paymentMap[cName] !== undefined ? paymentMap[cName] : (t.achievedAmountExclGST || 0);
 
             const achievementPct = targetAmt > 0 ? (achievedAmt / targetAmt) * 100 : 0;
             const prev = prevDataMap[centerId] || { achievementPct: 0, rank: null };

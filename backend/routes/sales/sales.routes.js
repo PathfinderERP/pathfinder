@@ -16,7 +16,7 @@ import { getDiscountReport } from "../../controllers/sales/discountReportControl
 import { getTransactionReport } from "../../controllers/sales/transactionReportController.js";
 import { getDailyCollectionReport, saveDailyTarget } from "../../controllers/sales/dailyCollectionController.js";
 import { getBoardReport } from "../../controllers/sales/boardReportController.js";
-import { getWeeklyTarget, getFinalWeekendTarget } from "../../controllers/sales/weeklyTargetController.js";
+import { getWeeklyTarget, getFinalWeekendTarget, overrideWeeklyTarget } from "../../controllers/sales/weeklyTargetController.js";
 import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
 import { getComparisonAnalysis, saveComparisonManualData } from "../../controllers/sales/comparisonAnalysisController.js";
 import { getAverageAdmissionFee } from "../../controllers/sales/averageAdmissionFeeController.js";
@@ -45,6 +45,7 @@ router.delete("/centre-target/:id", requireAuth, deleteCentreTarget);
 router.get("/quarterly-target-report", requireAuth, getQuarterlyFullReport);
 router.get("/weekly-target", requireAuth, getWeeklyTarget);
 router.get("/final-weekend-target", requireAuth, getFinalWeekendTarget);
+router.post("/weekly-target/override", requireAuth, overrideWeeklyTarget);
 
 // Course Target Routes
 router.post("/course-target", requireAuth, saveCourseTarget);

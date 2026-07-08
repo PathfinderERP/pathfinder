@@ -666,6 +666,9 @@ const EnrolledStudentsContent = () => {
                 const student = item.student?.studentsDetails?.[0] || {};
                 return item.admissions.some(admission => {
                     const centre = admission.centre || student.centre || admission.department?.departmentName || "";
+                    if (filterCentre.includes("BLANK") && (!centre || centre === "N/A" || centre === "UNKNOWN")) {
+                        return true;
+                    }
                     return filterCentre.includes(centre);
                 });
             });
@@ -684,6 +687,13 @@ const EnrolledStudentsContent = () => {
             result = result.filter(item =>
                 item.admissions.some(admission => {
                     const courseName = resolveCourseName(admission);
+                    const isCourseBlank = !courseName || 
+                                          courseName === "N/A" || 
+                                          courseName === "UNKNOWN COURSE" || 
+                                          courseName.startsWith("COURSE ID:");
+                    if (filterCourse.includes("BLANK") && isCourseBlank) {
+                        return true;
+                    }
                     return filterCourse.includes(courseName);
                 })
             );
@@ -957,7 +967,10 @@ const EnrolledStudentsContent = () => {
         toast.info("Refreshed data and filters");
     };
 
-    const uniqueCentres = allowedCentres;
+    const uniqueCentres = React.useMemo(() => {
+        return ["BLANK", ...allowedCentres];
+    }, [allowedCentres]);
+
     const uniqueCourses = React.useMemo(() => {
         const coursesSet = new Set(masterCourses.map(c => c.courseName));
         students.forEach(item => {
@@ -968,7 +981,8 @@ const EnrolledStudentsContent = () => {
                 }
             });
         });
-        return Array.from(coursesSet).sort((a, b) => a.localeCompare(b));
+        const coursesList = Array.from(coursesSet).sort((a, b) => a.localeCompare(b));
+        return ["BLANK", ...coursesList];
     }, [masterCourses, students, resolveCourseName]);
     const uniqueBoards = [...new Set(students.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))];
     const uniqueExamTags = [...new Set(students.flatMap(item => item.admissions.map(a => a.examTag?.name)).filter(Boolean))];

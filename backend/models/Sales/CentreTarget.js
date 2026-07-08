@@ -41,6 +41,10 @@ const centreTargetSchema = new mongoose.Schema({
     },
     groupId: {
         type: String // To group targets added in the same batch
+    },
+    weeklyTargetsOverride: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     }
 }, { timestamps: true });
 

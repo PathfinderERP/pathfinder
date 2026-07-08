@@ -265,9 +265,15 @@ export const getWeeklyTarget = async (req, res) => {
 
                 for (const week of weeks) {
                     // Proportional target for this calendar week
-                    const weeklyTargetExclGST = daysInMonth > 0
+                    const baseWeeklyTargetExclGST = daysInMonth > 0
                         ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
                         : 0;
+
+                    const overrideVal = targetRecord?.weeklyTargetsOverride?.[week.weekNumber];
+                    const weeklyTargetExclGST = overrideVal !== undefined && overrideVal !== null
+                        ? overrideVal
+                        : baseWeeklyTargetExclGST;
+
                     const weeklyTargetWithGST = weeklyTargetExclGST * 1.18;
 
                     let weekTotalWithGST    = 0;
@@ -613,7 +619,12 @@ export const getFinalWeekendTarget = async (req, res) => {
                         : 0;
 
                     // Add weekly shortfall from previous week
-                    const phaseTarget = basePhaseTarget + carryoverShortfall;
+                    let phaseTarget = basePhaseTarget + carryoverShortfall;
+
+                    const overrideVal = targetRecord?.weeklyTargetsOverride?.[week.weekNumber];
+                    if (overrideVal !== undefined && overrideVal !== null) {
+                        phaseTarget = overrideVal;
+                    }
 
                     const workingTarget    = phaseTarget * 0.35;
                     const baseWeekendTarget = phaseTarget * 0.65;
@@ -708,6 +719,49 @@ export const getFinalWeekendTarget = async (req, res) => {
         });
     } catch (error) {
         console.error("getFinalWeekendTarget Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// POST /sales/weekly-target/override
+export const overrideWeeklyTarget = async (req, res) => {
+    try {
+        const userRoleLower = req.user?.role?.toLowerCase()?.replace(/\s+/g, '') || "";
+        if (userRoleLower !== "superadmin" && userRoleLower !== "zonalmanager") {
+            return res.status(403).json({ message: "Access denied. Only Super Admin and Zonal Manager can edit weekly targets." });
+        }
+
+        const { centreId, year, month, weekNumber, target } = req.body;
+
+        if (!centreId || !year || !month || !weekNumber || target === undefined) {
+            return res.status(400).json({ message: "Missing required fields: centreId, year, month, weekNumber, target" });
+        }
+
+        const targetRecord = await CentreTarget.findOne({
+            centre: centreId,
+            year: parseInt(year, 10),
+            month: month
+        });
+
+        if (!targetRecord) {
+            return res.status(404).json({ message: "Centre target record not found. Configure monthly target first." });
+        }
+
+        if (!targetRecord.weeklyTargetsOverride) {
+            targetRecord.weeklyTargetsOverride = {};
+        }
+
+        targetRecord.weeklyTargetsOverride = {
+            ...targetRecord.weeklyTargetsOverride,
+            [weekNumber]: parseFloat(target)
+        };
+
+        targetRecord.markModified("weeklyTargetsOverride");
+        await targetRecord.save();
+
+        res.status(200).json({ message: "Weekly target updated successfully", weeklyTargetsOverride: targetRecord.weeklyTargetsOverride });
+    } catch (error) {
+        console.error("overrideWeeklyTarget Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

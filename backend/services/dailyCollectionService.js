@@ -4,6 +4,120 @@ import mongoose from "mongoose";
 import CentreTarget from "../models/Sales/CentreTarget.js";
 import DailyTarget from "../models/Sales/DailyTarget.js";
 
+const getDailyAchievedForMonth = async (startDate, endDate) => {
+    try {
+        const result = await Payment.aggregate([
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionDetails: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
+            { $unwind: "$admissionDetails" },
+            {
+                $match: {
+                    billId: { $exists: true, $nin: [null, "", "-"] },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
+                        { paymentMethod: { $exists: true } },
+                        { paidAmount: { $gt: 0 } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    revenueBase: {
+                        $cond: [
+                            { $gt: ["$courseFee", 0] },
+                            "$courseFee",
+                            { $divide: ["$paidAmount", 1.18] }
+                        ]
+                    }
+                }
+            },
+            {
+                $match: {
+                    effectiveDate: { $gte: startDate, $lte: endDate }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        centre: "$admissionDetails.centre",
+                        day: { $dayOfMonth: "$effectiveDate" }
+                    },
+                    totalExclGST: { $sum: "$revenueBase" }
+                }
+            }
+        ]);
+        return result;
+    } catch (err) {
+        console.error("getDailyAchievedForMonth error:", err);
+        return [];
+    }
+};
+
+const buildFixedWeeks = (year, monthIndex) => {
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    const periods = [
+        { weekNumber: 1, start: 1, end: 7 },
+        { weekNumber: 2, start: 8, end: 14 },
+        { weekNumber: 3, start: 15, end: 21 },
+        { weekNumber: 4, start: 22, end: 28 },
+    ];
+
+    if (daysInMonth > 28) {
+        periods.push({ weekNumber: 5, start: 29, end: daysInMonth });
+    }
+
+    return periods
+        .filter(p => p.start <= daysInMonth)
+        .map(p => {
+            const actualEnd = Math.min(p.end, daysInMonth);
+            const days = [];
+            for (let d = p.start; d <= actualEnd; d++) {
+                const date = new Date(year, monthIndex, d);
+                const dow  = date.getDay(); // 0=Sun … 6=Sat
+                days.push({
+                    day:       d,
+                    dayName:   dayNames[dow],
+                    isWeekend: dow === 0 || dow === 6,
+                    isEmpty:   false
+                });
+            }
+            return {
+                weekNumber: p.weekNumber,
+                startDay:   p.start,
+                endDay:     actualEnd,
+                actualDays: days.length,
+                days
+            };
+        });
+};
+
 
 export const getDailyCollectionReportData = async ({ query, user }) => {
     const {
@@ -490,16 +604,92 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         date: { $gte: startOfDate, $lte: endOfDate }
     }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
 
+    const startOfMonth = new Date(year, monthIndex, 1);
+    const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+
+    const achievementMap = {};
+    const dailyRaw = await getDailyAchievedForMonth(startOfMonth, endOfMonth);
+    dailyRaw.forEach(d => {
+        const cName = d._id.centre?.trim().toUpperCase();
+        const dayNum = d._id.day;
+        if (cName) {
+            if (!achievementMap[cName]) achievementMap[cName] = {};
+            achievementMap[cName][dayNum] = d.totalExclGST || 0;
+        }
+    });
+
+    const fixedWeeks = buildFixedWeeks(year, monthIndex);
+    const selectedDayNum = selectedDate.getDate();
+
     const centreTargets = {};
     
-    // Set default proportional targets first
+    // Set default daily targets based on weekends target module rules
     targets.forEach(t => {
         if (t.centre && t.centre.centreName) {
             const name = t.centre.centreName;
             if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
+                const cNameUpper = name.trim().toUpperCase();
                 const monthlyTargetExclGST = t.targetAmount || 0;
-                const dailyTargetExclGST = daysInMonth > 0 ? (monthlyTargetExclGST / daysInMonth) : 0;
-                centreTargets[name] = dailyTargetExclGST;
+
+                const dayMap = achievementMap[cNameUpper] || {};
+
+                let carryoverShortfall = 0;
+                let finalDailyTarget = 0;
+
+                for (const week of fixedWeeks) {
+                    // Proportional target for this week's days
+                    const basePhaseTarget = daysInMonth > 0
+                        ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
+                        : 0;
+
+                    // Add weekly shortfall from previous week
+                    let phaseTarget = basePhaseTarget + carryoverShortfall;
+
+                    const overrideVal = t.weeklyTargetsOverride?.[week.weekNumber];
+                    if (overrideVal !== undefined && overrideVal !== null) {
+                        phaseTarget = overrideVal;
+                    }
+
+                    // Check if the selected day falls within this week
+                    const isDayInWeek = selectedDayNum >= week.startDay && selectedDayNum <= week.endDay;
+
+                    // Calculate achievements in this week to compute shortfall
+                    let phaseAchieved = 0;
+                    week.days.forEach(d => {
+                        phaseAchieved += dayMap[d.day] || 0;
+                    });
+
+                    const phaseShortfall = Math.max(0, phaseTarget - phaseAchieved);
+
+                    if (isDayInWeek) {
+                        // This is the week containing our selected date!
+                        // Determine daily target based on weekdays/weekend split
+                        const workingTarget = phaseTarget * 0.35;
+                        const baseWeekendTarget = phaseTarget * 0.65;
+
+                        const dayIndex = selectedDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+                        const isWeekend = dayIndex === 0 || dayIndex === 6;
+
+                        if (isWeekend) {
+                            const satTarget = baseWeekendTarget * 0.35;
+                            const sunTarget = baseWeekendTarget * 0.65;
+                            if (dayIndex === 6) {
+                                finalDailyTarget = satTarget;
+                            } else {
+                                finalDailyTarget = sunTarget;
+                            }
+                        } else {
+                            finalDailyTarget = workingTarget / 5;
+                        }
+                        
+                        break;
+                    }
+
+                    // Carry over the shortfall to the next week
+                    carryoverShortfall = phaseShortfall;
+                }
+
+                centreTargets[name] = finalDailyTarget;
             }
         }
     });

@@ -24,7 +24,8 @@ const BulkUpdateStudentModal = ({
         examTag: false,
         admissionStatus: false,
         counselledBy: false,
-        createdBy: false // Admitted By
+        createdBy: false, // Admitted By
+        courseDeactivation: false
     });
 
     const [formData, setFormData] = useState({
@@ -36,7 +37,8 @@ const BulkUpdateStudentModal = ({
         examTag: "",
         admissionStatus: "",
         counselledBy: "",
-        createdBy: ""
+        createdBy: "",
+        courseDeactivation: ""
     });
 
     const [loading, setLoading] = useState(false);
@@ -237,6 +239,26 @@ const BulkUpdateStudentModal = ({
                                 {courses.map(course => (
                                     <option key={course._id} value={course._id}>{course.courseName}</option>
                                 ))}
+                            </select>
+                        </div>
+
+                        {/* Course Status (Deactivation / Reactivation) */}
+                        <div className={`p-3 rounded-lg border transition-all ${enabledFields.courseDeactivation ? (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200') : (isDarkMode ? 'border-gray-800' : 'border-gray-200')}`}>
+                            <div className="flex items-center gap-2 mb-2 cursor-pointer select-none" onClick={() => toggleField('courseDeactivation')}>
+                                {enabledFields.courseDeactivation ? <FaCheckSquare className="text-cyan-500" /> : <FaSquare className="text-gray-500" />}
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-750'}`}>Enable Course Status Update</span>
+                            </div>
+                            <label className={labelClasses(enabledFields.courseDeactivation)}>Course Status</label>
+                            <select
+                                name="courseDeactivation"
+                                disabled={!enabledFields.courseDeactivation}
+                                value={formData.courseDeactivation}
+                                onChange={handleChange}
+                                className={selectClasses(enabledFields.courseDeactivation)}
+                            >
+                                <option value="">Select Option</option>
+                                <option value="DEACTIVATE">Deactivate Courses</option>
+                                <option value="REACTIVATE">Reactivate Courses</option>
                             </select>
                         </div>
 

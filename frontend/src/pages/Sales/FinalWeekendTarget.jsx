@@ -97,6 +97,52 @@ const FinalWeekendTarget = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canView = hasPermission(user, "sales", "centreTarget", "view");
 
+    const [editingTargets, setEditingTargets] = useState({});
+
+    const userRoleLower = user?.role?.toLowerCase()?.replace(/\s+/g, "") || "";
+    const isEditableRole = ["superadmin", "zonalmanager"].includes(userRoleLower);
+
+    const handleSaveOverride = async (centreId, weekNumber, value) => {
+        const numericVal = parseFloat(value);
+        if (isNaN(numericVal) || numericVal < 0) {
+            toast.error("Please enter a valid target amount");
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/weekly-target/override`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    centreId,
+                    year: selectedYear,
+                    month: selectedMonth,
+                    weekNumber,
+                    target: numericVal
+                })
+            });
+            const json = await res.json();
+            if (res.ok) {
+                toast.success("Weekly target updated");
+                setEditingTargets(prev => {
+                    const copy = { ...prev };
+                    delete copy[`${centreId}-${weekNumber}`];
+                    return copy;
+                });
+                fetchData();
+            } else {
+                toast.error(json.message || "Failed to update weekly target");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Error saving weekly target override");
+        }
+    };
+
     useEffect(() => {
         if (!canView && user.role !== "superAdmin") {
             toast.error("Access Denied");
@@ -460,6 +506,32 @@ const FinalWeekendTarget = () => {
                                                 return WEEK_COLS.map((col, ci) => {
                                                     const val = m[col.key];
                                                     const isShortfall = col.key === "phaseShortfall" || col.key === "weekendDeficit";
+
+                                                    if (col.key === "phaseTarget" && isEditableRole) {
+                                                        const key = `${c.centreId}-${w.weekNumber}`;
+                                                        const displayVal = editingTargets[key] !== undefined ? editingTargets[key] : Math.round(val);
+                                                        return (
+                                                            <td key={`${wi}-${ci}`}
+                                                                className={`px-2 py-3 text-center text-xs whitespace-nowrap ${ci === 0 ? `border-l-2 ${isDarkMode ? "border-cyan-500/20" : "border-cyan-200"}` : ""} ${cellColor(col.key, val, isDarkMode)}`}>
+                                                                <input
+                                                                    type="number"
+                                                                    value={displayVal}
+                                                                    onChange={(e) => setEditingTargets(prev => ({ ...prev, [key]: e.target.value }))}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            handleSaveOverride(c.centreId, w.weekNumber, e.target.value);
+                                                                            e.target.blur();
+                                                                        }
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        handleSaveOverride(c.centreId, w.weekNumber, e.target.value);
+                                                                    }}
+                                                                    className={`w-24 text-center bg-transparent border-b border-dashed border-cyan-500 focus:border-solid focus:border-blue-500 outline-none font-black text-xs ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}
+                                                                />
+                                                            </td>
+                                                        );
+                                                    }
+
                                                     return (
                                                         <td key={`${wi}-${ci}`}
                                                             className={`px-3 py-4 text-center text-xs whitespace-nowrap ${ci === 0 ? `border-l-2 ${isDarkMode ? "border-cyan-500/20" : "border-cyan-200"}` : ""} ${cellColor(col.key, val, isDarkMode)}`}>

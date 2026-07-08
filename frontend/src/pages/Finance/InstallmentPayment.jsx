@@ -244,7 +244,7 @@ const InstallmentPayment = () => {
     const [activeTab, setActiveTab] = useState('regular');
 
     // Board Course Admission tab state
-    const [boardAdmissionsList, setBoardAdmissionsList] = useState([]);
+    const [rawBoardAdmissionsList, setRawBoardAdmissionsList] = useState([]);
     const [boardLoading, setBoardLoading] = useState(false);
     const [boardCurrentPage, setBoardCurrentPage] = useState(1);
     const [boardItemsPerPage, setBoardItemsPerPage] = useState(10);
@@ -271,7 +271,7 @@ const InstallmentPayment = () => {
     const canCreatePayment = hasPermission(user, 'financeFees', 'installmentPayment', 'create') || hasPermission(user, 'admissions', 'enrolledStudents', 'edit');
 
     // Admissions List & Filters
-    const [admissionsList, setAdmissionsList] = useState([]);
+    const [rawAdmissionsList, setRawAdmissionsList] = useState([]);
     const [filters, setFilters] = useState({
         centre: [],
         course: [],
@@ -287,6 +287,27 @@ const InstallmentPayment = () => {
         maxRemaining: "",
         searchTerm: ""
     });
+
+    const admissionsList = React.useMemo(() => {
+        if (filters.centre && filters.centre.length > 0) {
+            return rawAdmissionsList;
+        }
+        return rawAdmissionsList.filter(adm => {
+            const name = (adm.centre || "").trim().toLowerCase();
+            return !name.includes("phsps") && !name.includes("rkm") && !name.includes("franchise");
+        });
+    }, [rawAdmissionsList, filters.centre]);
+
+    const boardAdmissionsList = React.useMemo(() => {
+        if (boardFilters.centre && boardFilters.centre.length > 0) {
+            return rawBoardAdmissionsList;
+        }
+        return rawBoardAdmissionsList.filter(adm => {
+            const name = (adm.centre || "").trim().toLowerCase();
+            return !name.includes("phsps") && !name.includes("rkm") && !name.includes("franchise");
+        });
+    }, [rawBoardAdmissionsList, boardFilters.centre]);
+
     const [metadata, setMetadata] = useState({
         centres: [],
         courses: [],
@@ -321,10 +342,10 @@ const InstallmentPayment = () => {
 
     // Fetch board admissions when board tab or allDetails tab becomes active
     useEffect(() => {
-        if ((activeTab === 'boardCourse' || activeTab === 'allDetails') && boardAdmissionsList.length === 0) {
+        if ((activeTab === 'boardCourse' || activeTab === 'allDetails') && rawBoardAdmissionsList.length === 0) {
             fetchBoardAdmissions();
         }
-    }, [activeTab]);
+    }, [activeTab, rawBoardAdmissionsList.length]);
 
     const fetchBoardAdmissions = async () => {
         setBoardLoading(true);
@@ -335,7 +356,7 @@ const InstallmentPayment = () => {
             });
             if (res.ok) {
                 const data = await res.json();
-                setBoardAdmissionsList(data);
+                setRawBoardAdmissionsList(data);
             } else {
                 toast.error('Failed to load board admissions');
             }
@@ -436,7 +457,7 @@ const InstallmentPayment = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                setAdmissionsList(data);
+                setRawAdmissionsList(data);
             } else {
                 toast.error("Failed to load admissions");
             }

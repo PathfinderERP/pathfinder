@@ -18,6 +18,9 @@ export const bulkUpdateAdmissions = async (req, res) => {
 
         // Clean up optional fields that might be empty strings from frontend
         const cleanUpdateData = { ...updateData };
+
+        // No-op here, courseDeactivation handled inside the loop to avoid deactivating the main student profile status.
+
         const optionalFields = ['class', 'examTag', 'department', 'course'];
         optionalFields.forEach(field => {
             if (cleanUpdateData[field] === "") {
@@ -59,6 +62,12 @@ export const bulkUpdateAdmissions = async (req, res) => {
             if (cleanUpdateData.examTag !== undefined) admissionUpdates.examTag = cleanUpdateData.examTag;
             if (cleanUpdateData.admissionStatus !== undefined) admissionUpdates.admissionStatus = cleanUpdateData.admissionStatus;
             if (cleanUpdateData.createdBy !== undefined) admissionUpdates.createdBy = cleanUpdateData.createdBy; // Admitted By
+
+            if (cleanUpdateData.courseDeactivation === "DEACTIVATE") {
+                admissionUpdates.admissionStatus = "INACTIVE";
+            } else if (cleanUpdateData.courseDeactivation === "REACTIVATE") {
+                admissionUpdates.admissionStatus = "ACTIVE";
+            }
 
             // Sync Centre across all admissions of the student and on the student record
             if (cleanUpdateData.centre !== undefined) {
