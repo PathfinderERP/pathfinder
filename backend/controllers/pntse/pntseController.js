@@ -3,6 +3,8 @@ import Class from "../../models/Master_data/Class.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Session from "../../models/Master_data/Session.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import Payment from "../../models/Payment/Payment.js";
+import { generateBillId } from "../../utils/billIdGenerator.js";
 import XLSX from "xlsx";
 
 // Create PNTSE Student
@@ -11,7 +13,9 @@ export const createPNTSEStudent = async (req, res) => {
         const {
             name, mobile, email, dob, gender, address, city, state, pincode,
             class: classId, centre: centreId, session: sessionId, examTag: examTagId,
-            course, paymentType, school, guardianName, guardianMobile, examDate, remarks, status, score, rank
+            course, paymentType, school, guardianName, guardianMobile, examDate, remarks, status, score, rank,
+            // Payment fields (only used when paymentType === 'paid')
+            paymentMethod, transactionId, accountHolderName, chequeDate, receivedDate, waiver
         } = req.body;
 
         if (!name || !mobile || !classId || !centreId || !sessionId || !examTagId || !course) {
@@ -62,8 +66,10 @@ export const createPNTSEStudent = async (req, res) => {
             }
         }
 
-        // Determine amount paid (default 100 for paid, 0 for free)
-        const amt = paymentType === 'paid' ? 100 : 0;
+        // Determine amounts
+        const waiverAmt = paymentType === 'paid' ? Math.max(0, Math.min(100, Number(waiver) || 0)) : 0;
+        const grossFee = paymentType === 'paid' ? 100 : 0;
+        const amountPaid = grossFee - waiverAmt;
 
         const newStudent = new PNTSEStudent({
             name, mobile, email, dob, gender, address, city, state, pincode,
@@ -73,7 +79,9 @@ export const createPNTSEStudent = async (req, res) => {
             examTag: examTagId,
             course,
             paymentType: paymentType || 'free',
-            amountPaid: amt,
+            amountPaid,
+            waiver: waiverAmt,
+            paymentMethod: paymentType === 'paid' ? (paymentMethod || 'CASH') : null,
             rollNo,
             school,
             guardianName,
@@ -86,12 +94,116 @@ export const createPNTSEStudent = async (req, res) => {
         });
 
         await newStudent.save();
-        res.status(201).json({ message: "Student registered successfully", student: newStudent });
+
+        // ─── PAID: Create Payment record & generate bill ─────────────────────────
+        let billData = null;
+        if (paymentType === 'paid') {
+            try {
+                const isPHSPS = centreObj.centreName && /phsps/i.test(centreObj.centreName);
+                const totalAmount = parseFloat(amountPaid.toFixed(2));
+                const baseAmount = isPHSPS ? totalAmount : totalAmount / 1.18;
+                const courseFee = parseFloat(baseAmount.toFixed(2));
+                const gstPool = totalAmount - courseFee;
+                const cgst = parseFloat((gstPool / 2).toFixed(2));
+                const sgst = parseFloat((gstPool - cgst).toFixed(2));
+
+                const billId = await generateBillId(centreCode, receivedDate || new Date());
+
+                const paymentRecord = new Payment({
+                    admission: newStudent._id,          // PNTSE student _id stored as admission ref
+                    installmentNumber: 0,
+                    amount: grossFee,
+                    paidAmount: totalAmount,
+                    dueDate: receivedDate ? new Date(receivedDate) : new Date(),
+                    paidDate: receivedDate ? new Date(receivedDate) : new Date(),
+                    receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
+                    status: 'PAID',
+                    paymentMethod: paymentMethod || 'CASH',
+                    transactionId: transactionId || '',
+                    accountHolderName: accountHolderName || '',
+                    chequeDate: chequeDate ? new Date(chequeDate) : null,
+                    remarks: remarks || `PNTSE Registration Fee - ${name}`,
+                    recordedBy: req.user?.id || req.user?._id,
+                    cgst,
+                    sgst,
+                    courseFee,
+                    totalAmount,
+                    billId,
+                    boardCourseName: course,   // reuse boardCourseName for PNTSE course label
+                });
+
+                await paymentRecord.save();
+
+                // Back-link billId and paymentId to the student record
+                newStudent.billId = billId;
+                newStudent.paymentId = paymentRecord._id;
+                await newStudent.save();
+
+                // Build billData in the same shape BillGenerator expects
+                billData = {
+                    billId,
+                    billDate: paymentRecord.paidDate,
+                    centre: {
+                        name: centreObj.centreName,
+                        address: centreObj.address || 'N/A',
+                        phoneNumber: centreObj.phoneNumber || 'N/A',
+                        gstNumber: centreObj.enterGstNo || 'N/A',
+                        corporateAddress: centreObj.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                        corporatePhone: centreObj.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
+                    },
+                    student: {
+                        id: newStudent._id,
+                        name: newStudent.name,
+                        admissionNumber: newStudent.rollNo,
+                        phoneNumber: newStudent.mobile,
+                        email: newStudent.email || 'N/A'
+                    },
+                    course: {
+                        name: course,
+                        department: 'PNTSE',
+                        examTag: 'PNTSE',
+                        class: classObj.name || 'N/A',
+                        session: 'N/A'
+                    },
+                    payment: {
+                        installmentNumber: 0,
+                        paymentMethod: paymentMethod || 'CASH',
+                        transactionId: transactionId || '',
+                        paidDate: paymentRecord.paidDate,
+                        receivedDate: paymentRecord.receivedDate,
+                        accountHolderName: accountHolderName || '',
+                        chequeDate: chequeDate ? new Date(chequeDate) : null,
+                        status: 'PAID',
+                        remarks: `PNTSE Fee | Gross: ₹${grossFee} | Waiver: ₹${waiverAmt} | Net: ₹${amountPaid}`
+                    },
+                    amounts: {
+                        courseFee,
+                        cgst,
+                        sgst,
+                        totalAmount,
+                        waiver: waiverAmt,
+                        grossFee
+                    }
+                };
+            } catch (billErr) {
+                console.error("Error creating PNTSE payment record:", billErr);
+                // Student is saved — don't fail the whole request, just skip bill
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
+        res.status(201).json({
+            message: "Student registered successfully",
+            student: newStudent,
+            billData   // null for free, populated for paid
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+
 
 // Get all PNTSE Students with filtering and search
 export const getPNTSEStudents = async (req, res) => {

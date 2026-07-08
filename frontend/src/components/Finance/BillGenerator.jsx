@@ -4,13 +4,14 @@ import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
 import logo from '../../assets/logo-1.svg';
 
-const BillGenerator = ({ admission, installment, onClose }) => {
+const BillGenerator = ({ admission, installment, onClose, preloadedBillData = null }) => {
     const [generating, setGenerating] = useState(false);
     const generatingRef = useRef(false);
-    const [billData, setBillData] = useState(null);
+    const [billData, setBillData] = useState(preloadedBillData);  // pre-populate if provided
     const [logoBase64, setLogoBase64] = useState(null);
     const apiUrl = import.meta.env.VITE_API_URL;
     const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
+
 
     useEffect(() => {
         // Preload logo and convert to PNG base64 for jsPDF
@@ -491,23 +492,26 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                             <p className="text-gray-400 mb-6">
                                 Click the button below to generate a bill for this payment
                             </p>
-                            <button
-                                onClick={generateBill}
-                                disabled={generating}
-                                className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-2 mx-auto disabled:opacity-50"
-                            >
-                                {generating ? (
-                                    <>
-                                        <FaSpinner className="animate-spin" />
-                                        Generating...
-                                    </>
-                                ) : (
-                                    <>
-                                        <FaFileInvoice />
-                                        Generate Bill
-                                    </>
-                                )}
-                            </button>
+                            {/* Only show generate button for non-preloaded flows */}
+                            {!preloadedBillData && (
+                                <button
+                                    onClick={generateBill}
+                                    disabled={generating}
+                                    className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-2 mx-auto disabled:opacity-50"
+                                >
+                                    {generating ? (
+                                        <>
+                                            <FaSpinner className="animate-spin" />
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FaFileInvoice />
+                                            Generate Bill
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <div>
@@ -604,8 +608,20 @@ const BillGenerator = ({ admission, installment, onClose }) => {
                                 <div className="bg-[#1a1f24] rounded-lg p-4">
                                     <h3 className="text-lg font-bold text-cyan-400 mb-4">Fee Breakdown</h3>
                                     <div className="space-y-2 text-sm">
+                                        {billData.amounts.grossFee > 0 && billData.amounts.waiver > 0 && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-400">Gross Fee</span>
+                                                <span className="text-white font-medium">₹ {Number(billData.amounts.grossFee).toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {billData.amounts.waiver > 0 && (
+                                            <div className="flex justify-between">
+                                                <span className="text-amber-400">Waiver Applied</span>
+                                                <span className="text-amber-400 font-medium">− ₹ {Number(billData.amounts.waiver).toFixed(2)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between">
-                                            <span className="text-gray-400">Course Fee</span>
+                                            <span className="text-gray-400">Course Fee (Base)</span>
                                             <span className="text-white font-medium">₹ {billData.amounts.courseFee.toFixed(2)}</span>
                                         </div>
                                         <div className="flex justify-between">

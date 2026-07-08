@@ -72,10 +72,28 @@ const pntseStudentSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
+    waiver: {
+        type: Number,
+        default: 0,
+    },
     paymentType: {
         type: String,
         enum: ['free', 'paid'],
         default: 'free',
+    },
+    paymentMethod: {
+        type: String,
+        enum: ['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE'],
+        default: null,
+    },
+    billId: {
+        type: String,
+        default: null,
+    },
+    paymentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Payment',
+        default: null,
     },
     rollNo: {
         type: String,
