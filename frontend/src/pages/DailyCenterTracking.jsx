@@ -8,7 +8,7 @@ import DailyTrackingDetailsModal from '../components/Dashboard/DailyTrackingDeta
 import ActiveCentresCallsReportModal from '../components/Dashboard/ActiveCentresCallsReportModal';
 import { hasPermission } from '../config/permissions';
 import CustomMultiSelect from '../components/common/CustomMultiSelect';
-import { downloadExcel } from '../utils/exportUtils';
+import { downloadExcel, downloadMultiSheetExcel } from '../utils/exportUtils';
 
 
 const DailyCenterTracking = () => {
@@ -273,41 +273,178 @@ const DailyCenterTracking = () => {
         return matchesSearch && matchesCenter;
     });
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (!filteredCenters || filteredCenters.length === 0) {
             toast.warn("No data available to export");
             return;
         }
 
-        const headers = [
-            { key: "name", label: "Center Name" },
+        const formatExcelDateTime = (dateStr) => {
+            if (!dateStr) return 'N/A';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
 
-            { key: "walkIns", label: "Walk-Ins" },
-            { key: "dailyCalls", label: "Daily Calls" },
-            { key: "counselledNormal", label: "Counselled (Normal)" },
-            { key: "counselledBoard", label: "Counselled (Board)" },
-            { key: "counselledTotal", label: "Counselled (Total)" },
-            { key: "admissionNormal", label: "Admission (Normal)" },
-            { key: "admissionBoard", label: "Admission (Board)" },
-            { key: "admissionTotal", label: "Admission (Total)" },
-            { key: "collectionsAdmissionVal", label: "Collection (Admission) [Excl. GST]" },
-            { key: "collectionsInstallmentVal", label: "Collection (Installment) [Excl. GST]" },
-            { key: "collectionsVal", label: "Collection (Total) [Excl. GST]" }
-        ];
+            const hours = d.getHours();
+            const minutes = d.getMinutes();
+            const seconds = d.getSeconds();
 
-        const exportData = filteredCenters.map(center => ({
-            ...center,
-            counselledTotal: (center.counselledNormal || 0) + (center.counselledBoard || 0),
-            admissionTotal: (center.admissionNormal || 0) + (center.admissionBoard || 0),
-        }));
+            // UTC 00:00:00 translates to IST 05:30:00 (hours: 5, minutes: 30, seconds: 0)
+            const isDateOnly = (hours === 5 && minutes === 30 && seconds === 0) || (hours === 0 && minutes === 0 && seconds === 0);
 
-        const cleanDateRange = dateRange === "Custom Range"
-            ? `${customStartDate}_to_${customEndDate}`
-            : dateRange.replace(/\s+/g, '_');
+            if (isDateOnly) {
+                return d.toLocaleDateString(); // E.g. "7/8/2026"
+            }
+            return d.toLocaleString(); // E.g. "7/8/2026, 1:55:56 PM"
+        };
 
-        const filename = `Daily_Center_Tracking_${cleanDateRange}`;
-        downloadExcel(exportData, headers, filename);
-        toast.success("Excel exported successfully!");
+        const toastId = toast.info("Preparing multi-sheet Excel export, please wait...", { autoClose: false });
+
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const headers = { Authorization: `Bearer ${token}` };
+
+            const params = new URLSearchParams();
+            if (dateRange === "Custom Range") {
+                params.append("startDate", customStartDate);
+                params.append("endDate", customEndDate);
+            } else {
+                const { start, end } = getDateRangeLimits(dateRange);
+                params.append("startDate", start);
+                params.append("endDate", end);
+            }
+
+            if (selectedCenters && selectedCenters.length > 0) {
+                params.append("centerIds", selectedCenters.map(sc => sc.value).join(","));
+            }
+
+            if (leadTypeFilter) {
+                params.append("leadType", leadTypeFilter);
+            }
+
+            if (selectedAgents && selectedAgents.length > 0) {
+                params.append("agentIds", selectedAgents.map(sa => sa.value).join(","));
+            }
+
+            // Fetch details for all 5 categories in parallel
+            const [walkinsRes, counsellingRes, admissionRes, callsRes, collectionRes] = await Promise.all([
+                fetch(`${apiUrl}/operations/daily-tracking/details?category=walkins&${params.toString()}`, { headers }),
+                fetch(`${apiUrl}/operations/daily-tracking/details?category=counselling&${params.toString()}`, { headers }),
+                fetch(`${apiUrl}/operations/daily-tracking/details?category=admission&${params.toString()}`, { headers }),
+                fetch(`${apiUrl}/operations/daily-tracking/details?category=calls&${params.toString()}`, { headers }),
+                fetch(`${apiUrl}/operations/daily-tracking/details?category=collection&${params.toString()}`, { headers })
+            ]);
+
+            const [walkinsData, counsellingData, admissionData, callsData, collectionData] = await Promise.all([
+                walkinsRes.ok ? walkinsRes.json() : Promise.resolve([]),
+                counsellingRes.ok ? counsellingRes.json() : Promise.resolve([]),
+                admissionRes.ok ? admissionRes.json() : Promise.resolve([]),
+                callsRes.ok ? callsRes.json() : Promise.resolve([]),
+                collectionRes.ok ? collectionRes.json() : Promise.resolve([])
+            ]);
+
+            // Sheet 1: Summary Overview
+            const summarySheetData = filteredCenters.map(center => ({
+                "Center Name": center.name,
+                "Walk-Ins": center.walkIns || 0,
+                "Daily Calls": center.dailyCalls || 0,
+                "Counselled (Normal)": center.counselledNormal || 0,
+                "Counselled (Board)": center.counselledBoard || 0,
+                "Counselled (Total)": (center.counselledNormal || 0) + (center.counselledBoard || 0),
+                "Admission (Normal)": center.admissionNormal || 0,
+                "Admission (Board)": center.admissionBoard || 0,
+                "Admission (Total)": (center.admissionNormal || 0) + (center.admissionBoard || 0),
+                "Collection (Admission) [Excl. GST]": center.collectionsAdmissionVal || 0,
+                "Collection (Installment) [Excl. GST]": center.collectionsInstallmentVal || 0,
+                "Collection (Total) [Excl. GST]": center.collectionsVal || 0
+            }));
+
+            // Sheet 2: Walk-Ins details
+            const walkinsSheetData = walkinsData.map(d => ({
+                "Student Name": d.name,
+                "Mobile": d.phone,
+                "Email": d.email,
+                "Handled By": d.handledBy,
+                "Centre": d.centreName,
+                "Date / Time": formatExcelDateTime(d.dateTime),
+                "Tag": d.tag,
+                "Feedback / Remarks": d.feedback
+            }));
+
+            // Sheet 3: Counselling details
+            const counsellingSheetData = counsellingData.map(d => ({
+                "Student Name": d.name,
+                "Mobile": d.phone,
+                "Email": d.email,
+                "Handled By": d.handledBy,
+                "Centre": d.centreName,
+                "Date / Time": formatExcelDateTime(d.dateTime),
+                "Tag": d.tag,
+                "Feedback / Remarks": d.feedback
+            }));
+
+            // Sheet 4: Admissions details
+            const admissionSheetData = admissionData.map(d => ({
+                "Student Name": d.name,
+                "Mobile": d.phone,
+                "Email": d.email,
+                "Handled By": d.handledBy,
+                "Centre": d.centreName,
+                "Date / Time": formatExcelDateTime(d.dateTime),
+                "Course": d.course,
+                "Amount (excl. GST)": d.amount,
+                "Type": d.tag,
+                "Details": d.feedback
+            }));
+
+            // Sheet 5: Calls details
+            const callsSheetData = callsData.map(d => ({
+                "Student Name": d.name,
+                "Mobile": d.phone,
+                "Email": d.email,
+                "Call Handled By": d.handledBy,
+                "Centre": d.centreName,
+                "Call Date / Time": formatExcelDateTime(d.dateTime),
+                "Call Status / Tag": d.tag,
+                "Feedback / Remarks": d.feedback
+            }));
+
+            // Sheet 6: Collections details
+            const collectionSheetData = collectionData.map(d => ({
+                "Student Name": d.name,
+                "Mobile": d.phone,
+                "Email": d.email,
+                "Recorded By": d.handledBy,
+                "Centre": d.centreName,
+                "Payment Date / Time": formatExcelDateTime(d.dateTime),
+                "Course": d.course,
+                "Amount (excl. GST)": d.amount,
+                "Details": d.feedback
+            }));
+
+            const sheets = [
+                { name: "Summary Overview", data: summarySheetData },
+                { name: "Walk-Ins", data: walkinsSheetData },
+                { name: "Counselling", data: counsellingSheetData },
+                { name: "Admissions", data: admissionSheetData },
+                { name: "Calls", data: callsSheetData },
+                { name: "Collections", data: collectionSheetData }
+            ];
+
+            const cleanDateRange = dateRange === "Custom Range"
+                ? `${customStartDate}_to_${customEndDate}`
+                : dateRange.replace(/\s+/g, '_');
+
+            const filename = `Daily_Center_Tracking_${cleanDateRange}`;
+            
+            downloadMultiSheetExcel(sheets, filename);
+            toast.dismiss(toastId);
+            toast.success("Excel exported successfully with separate sheets!");
+        } catch (error) {
+            console.error("Error exporting Excel:", error);
+            toast.dismiss(toastId);
+            toast.error("Failed to generate Excel file.");
+        }
     };
 
 

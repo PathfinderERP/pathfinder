@@ -457,7 +457,7 @@ export const importExcel = async (req, res) => {
                     }
                 }
 
-                // Save student (all imports are FREE by default)
+                // Save student (all imports are FREE by default but pending selection)
                 const newStudent = new PNTSEStudent({
                     name, mobile, email, dob, gender, address, city, state, pincode,
                     class: classObj._id,
@@ -470,7 +470,9 @@ export const importExcel = async (req, res) => {
                     rollNo,
                     school, guardianName, guardianMobile, remarks,
                     status: 'Appeared',
-                    score: 0
+                    score: 0,
+                    isImported: true,
+                    isPaymentPending: true
                 });
 
                 await newStudent.save();
@@ -485,6 +487,244 @@ export const importExcel = async (req, res) => {
             message: `Import completed. ${results.success} imported, ${results.failed} failed.`,
             ...results
         });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Set imported student as Free
+export const setStudentFree = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const student = await PNTSEStudent.findById(id);
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+        student.paymentType = 'free';
+        student.isPaymentPending = false;
+        student.amountPaid = 0;
+        student.waiver = 0;
+        await student.save();
+        await student.populate(['class', 'centre', 'session', 'examTag']);
+        res.status(200).json({ message: "Student payment type updated to free", student });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Process payment for imported student
+export const processStudentPayment = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { paymentMethod, transactionId, accountHolderName, chequeDate, receivedDate, waiver } = req.body;
+        
+        const student = await PNTSEStudent.findById(id);
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+
+        const [centreObj, classObj] = await Promise.all([
+            CentreSchema.findById(student.centre),
+            Class.findById(student.class)
+        ]);
+
+        if (!centreObj) {
+            return res.status(400).json({ message: "Centre not found" });
+        }
+
+        const centreCode = (centreObj.enterCode || "XX").toUpperCase();
+        
+        const waiverAmt = Math.max(0, Math.min(100, Number(waiver) || 0));
+        const grossFee = 100;
+        const amountPaid = grossFee - waiverAmt;
+
+        const isPHSPS = centreObj.centreName && /phsps/i.test(centreObj.centreName);
+        const totalAmount = parseFloat(amountPaid.toFixed(2));
+        const baseAmount = isPHSPS ? totalAmount : totalAmount / 1.18;
+        const courseFee = parseFloat(baseAmount.toFixed(2));
+        const gstPool = totalAmount - courseFee;
+        const cgst = parseFloat((gstPool / 2).toFixed(2));
+        const sgst = parseFloat((gstPool - cgst).toFixed(2));
+
+        const billId = await generateBillId(centreCode, receivedDate || new Date());
+
+        const paymentRecord = new Payment({
+            admission: student._id,
+            installmentNumber: 0,
+            amount: grossFee,
+            paidAmount: totalAmount,
+            dueDate: receivedDate ? new Date(receivedDate) : new Date(),
+            paidDate: receivedDate ? new Date(receivedDate) : new Date(),
+            receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
+            status: 'PAID',
+            paymentMethod: paymentMethod || 'CASH',
+            transactionId: transactionId || '',
+            accountHolderName: accountHolderName || '',
+            chequeDate: chequeDate ? new Date(chequeDate) : null,
+            remarks: `PNTSE Registration Fee - ${student.name}`,
+            recordedBy: req.user?.id || req.user?._id,
+            cgst,
+            sgst,
+            courseFee,
+            totalAmount,
+            billId,
+            boardCourseName: student.course,
+        });
+
+        await paymentRecord.save();
+
+        student.paymentType = 'paid';
+        student.amountPaid = totalAmount;
+        student.waiver = waiverAmt;
+        student.paymentMethod = paymentMethod || 'CASH';
+        student.billId = billId;
+        student.paymentId = paymentRecord._id;
+        student.isPaymentPending = false;
+        await student.save();
+        await student.populate(['class', 'centre', 'session', 'examTag']);
+
+        const billData = {
+            billId,
+            billDate: paymentRecord.paidDate,
+            centre: {
+                name: centreObj.centreName,
+                address: centreObj.address || 'N/A',
+                phoneNumber: centreObj.phoneNumber || 'N/A',
+                gstNumber: centreObj.enterGstNo || 'N/A',
+                corporateAddress: centreObj.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                corporatePhone: centreObj.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
+            },
+            student: {
+                id: student._id,
+                name: student.name,
+                admissionNumber: student.rollNo,
+                phoneNumber: student.mobile,
+                email: student.email || 'N/A'
+            },
+            course: {
+                name: student.course,
+                department: 'PNTSE',
+                examTag: 'PNTSE',
+                class: classObj ? classObj.name : 'N/A',
+                session: 'N/A'
+            },
+            payment: {
+                installmentNumber: 0,
+                paymentMethod: paymentMethod || 'CASH',
+                transactionId: transactionId || '',
+                paidDate: paymentRecord.paidDate,
+                receivedDate: paymentRecord.receivedDate,
+                accountHolderName: accountHolderName || '',
+                chequeDate: chequeDate ? new Date(chequeDate) : null,
+                status: 'PAID',
+                remarks: `PNTSE Fee | Gross: ₹${grossFee} | Waiver: ₹${waiverAmt} | Net: ₹${amountPaid}`
+            },
+            amounts: {
+                courseFee,
+                cgst,
+                sgst,
+                totalAmount,
+                waiver: waiverAmt,
+                grossFee
+            }
+        };
+
+        res.status(200).json({
+            message: "Payment processed successfully",
+            student,
+            billData
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Update PNTSE Student
+export const updatePNTSEStudent = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+        
+        const student = await PNTSEStudent.findById(id);
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+
+        if (updateData.mobile && updateData.mobile !== student.mobile) {
+            const duplicateMobile = await PNTSEStudent.findOne({ mobile: updateData.mobile });
+            if (duplicateMobile) {
+                return res.status(400).json({ message: "Mobile number is already registered" });
+            }
+        }
+
+        if (updateData.email && updateData.email !== student.email) {
+            const duplicateEmail = await PNTSEStudent.findOne({ email: updateData.email });
+            if (duplicateEmail) {
+                return res.status(400).json({ message: "Email ID is already registered" });
+            }
+        }
+
+        // If class or centre changes, regenerate roll number
+        if ((updateData.centre && String(updateData.centre) !== String(student.centre)) || 
+            (updateData.class && String(updateData.class) !== String(student.class))) {
+            const centreId = updateData.centre || student.centre;
+            const classId = updateData.class || student.class;
+
+            const centreObj = await CentreSchema.findById(centreId);
+            const classObj = await Class.findById(classId);
+            if (centreObj && classObj) {
+                const centreCode = (centreObj.enterCode || "XX").toUpperCase();
+                const classDigit = classObj.name.replace(/\D/g, "") || classObj.name;
+
+                const count = await PNTSEStudent.countDocuments({ centre: centreId, class: classId });
+                let nextIndex = count + 1;
+                let rollNo;
+                let isUnique = false;
+                while (!isUnique) {
+                    rollNo = `PNTSE/${centreCode}/${classDigit}/${String(nextIndex).padStart(5, '0')}`;
+                    const existing = await PNTSEStudent.findOne({ rollNo });
+                    if (!existing) {
+                        isUnique = true;
+                    } else {
+                        nextIndex++;
+                    }
+                }
+                updateData.rollNo = rollNo;
+            }
+        }
+
+        const updatedStudent = await PNTSEStudent.findByIdAndUpdate(id, updateData, { new: true })
+            .populate('class')
+            .populate('centre')
+            .populate('session')
+            .populate('examTag')
+            .populate('paymentId');
+
+        res.status(200).json({ message: "Student updated successfully", student: updatedStudent });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Delete PNTSE Student
+export const deletePNTSEStudent = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const student = await PNTSEStudent.findById(id);
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+
+        if (student.paymentId) {
+            await Payment.findByIdAndDelete(student.paymentId);
+        }
+
+        await PNTSEStudent.findByIdAndDelete(id);
+        res.status(200).json({ message: "Student deleted successfully" });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });

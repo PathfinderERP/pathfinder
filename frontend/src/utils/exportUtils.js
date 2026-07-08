@@ -72,6 +72,25 @@ export const downloadExcel = (data, headers, filename = 'export') => {
     saveAs(blob, `${actualFilename}_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
+/**
+ * Download Excel file with multiple sheets
+ */
+export const downloadMultiSheetExcel = (sheets, filename = 'export') => {
+    if (!sheets || sheets.length === 0) return;
+
+    const workbook = XLSX.utils.book_new();
+
+    sheets.forEach(sheet => {
+        const worksheet = XLSX.utils.json_to_sheet(sheet.data);
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
+    });
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    
+    saveAs(blob, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
 
 /**
  * Show export options modal

@@ -94,23 +94,23 @@ const LeaveManagement = () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4 items-end">
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Search Employee</label>
-                            <input type="text" value={filters.employeeId} onChange={(e) => setFilters({ ...filters, employeeId: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm" placeholder="Employee ID or Name..." />
+                            <input type="text" value={filters.employeeId} onChange={(e) => setFilters({ ...filters, employeeId: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Employee ID or Name..." />
                         </div>
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">From Date</label>
-                            <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm" />
+                            <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white" />
                         </div>
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">To Date</label>
-                            <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm" />
+                            <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white" />
                         </div>
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Status</label>
-                            <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm">
-                                <option value="">All Status</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Approved">Approved</option>
-                                <option value="Rejected">Rejected</option>
+                            <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none">
+                                <option value="" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">All Status</option>
+                                <option value="Pending" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Pending</option>
+                                <option value="Approved" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Approved</option>
+                                <option value="Rejected" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Rejected</option>
                             </select>
                         </div>
                         <div className="flex gap-2">
@@ -132,12 +132,13 @@ const LeaveManagement = () => {
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase">Date Range</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase text-center">Days</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase text-center">Status</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase">Remarks</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="7" className="px-6 py-10 text-center"><FaSpinner className="animate-spin mx-auto text-blue-600" size={30} /></td></tr>
+                                    <tr><td colSpan="8" className="px-6 py-10 text-center"><FaSpinner className="animate-spin mx-auto text-blue-600" size={30} /></td></tr>
                                 ) : requests.length > 0 ? (
                                     requests.map((request, index) => (
                                         <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
@@ -176,6 +177,29 @@ const LeaveManagement = () => {
                                                     {request.status}
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4 text-xs">
+                                                {request.status !== 'Pending' ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        {request.reviewRemark ? (
+                                                            <span title={request.reviewRemark} className="text-gray-800 dark:text-gray-200 font-medium italic block truncate max-w-[200px] cursor-help border-b border-dashed border-gray-300 dark:border-gray-700 pb-0.5">
+                                                                "{request.reviewRemark}"
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400 dark:text-gray-500 italic block">
+                                                                No remarks
+                                                            </span>
+                                                        )}
+                                                        {request.reviewedBy?.name && (
+                                                            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-tight">
+                                                                {request.status === 'Approved' ? 'Approved by: ' : 'Rejected by: '}
+                                                                <span className="text-blue-500">{request.reviewedBy.name}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400 dark:text-gray-600 font-medium">-</span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
                                                     <button onClick={() => { setSelectedRequest(request); setReviewData({ status: "Approved", remark: "" }); setShowStatusModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg">
@@ -191,7 +215,7 @@ const LeaveManagement = () => {
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan="7" className="px-6 py-10 text-center text-gray-500 text-sm italic">No leave applications found matching your criteria</td></tr>
+                                    <tr><td colSpan="8" className="px-6 py-10 text-center text-gray-500 text-sm italic">No leave applications found matching your criteria</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -235,7 +259,7 @@ const LeaveManagement = () => {
                                         rows="3"
                                         value={reviewData.remark}
                                         onChange={(e) => setReviewData({ ...reviewData, remark: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm resize-none"
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl outline-none text-gray-900 dark:text-white text-sm resize-none"
                                         placeholder="Add a remark for the employee..."
                                     />
                                 </div>

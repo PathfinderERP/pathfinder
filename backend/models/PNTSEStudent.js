@@ -81,6 +81,14 @@ const pntseStudentSchema = new mongoose.Schema({
         enum: ['free', 'paid'],
         default: 'free',
     },
+    isImported: {
+        type: Boolean,
+        default: false,
+    },
+    isPaymentPending: {
+        type: Boolean,
+        default: false,
+    },
     paymentMethod: {
         type: String,
         enum: ['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE'],

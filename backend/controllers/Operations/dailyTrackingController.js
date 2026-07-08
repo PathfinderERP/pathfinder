@@ -1818,7 +1818,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 email: lead.email || 'N/A',
                 handledBy: lead.walkInBy?.name || lead.createdBy?.name || 'System',
                 centreName: lead.centre?.centreName || 'N/A',
-                dateTime: lead.walkInDate || lead.createdAt,
+                dateTime: lead.createdAt || lead.walkInDate,
                 tag: lead.leadType || 'WALK-IN',
                 feedback: lead.remarks || 'No remarks recorded'
             }));
@@ -1944,7 +1944,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     email: 'N/A',
                     handledBy: bc.counselledBy?.name || 'System',
                     centreName: bc.centre || 'N/A',
-                    dateTime: bc.counselledDate,
+                    dateTime: bc.createdAt || bc.counselledDate,
                     tag: 'BOARD COUNSEL',
                     feedback: 'Board Course Counselling'
                 };
@@ -2237,7 +2237,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     email: admInfo?.email || 'N/A',
                     handledBy: p.recordedBy?.name || 'System',
                     centreName,
-                    dateTime: p.receivedDate || p.paidDate || p.createdAt,
+                    dateTime: p.createdAt || p.receivedDate || p.paidDate,
                     tag: `₹${amountWithoutGst.toLocaleString()}`,
                     amount: amountWithoutGst,
                     course: admInfo?.courseName || "N/A",

@@ -186,8 +186,28 @@ const LeaveRequest = () => {
                                                     {request.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400">
-                                                {request.reviewRemark || "-"}
+                                            <td className="px-6 py-4 text-xs">
+                                                {request.status !== 'Pending' ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        {request.reviewRemark ? (
+                                                            <span title={request.reviewRemark} className="text-gray-800 dark:text-gray-200 font-medium italic block truncate max-w-[200px] cursor-help border-b border-dashed border-gray-300 dark:border-gray-700 pb-0.5">
+                                                                "{request.reviewRemark}"
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400 dark:text-gray-500 italic block">
+                                                                No remarks
+                                                            </span>
+                                                        )}
+                                                        {request.reviewedBy?.name && (
+                                                            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-tight">
+                                                                {request.status === 'Approved' ? 'Approved by: ' : 'Rejected by: '}
+                                                                <span className="text-blue-500">{request.reviewedBy.name}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400 dark:text-gray-600 font-medium">-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))
