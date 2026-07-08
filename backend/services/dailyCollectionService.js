@@ -184,16 +184,44 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         },
         {
+            $lookup: {
+                from: "pntsestudents",
+                localField: "admission",
+                foreignField: "_id",
+                as: "admissionInfoPntse"
+            }
+        },
+        {
             $addFields: {
                 admissionInfo: {
                     $ifNull: [
                         { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                        { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                        { $arrayElemAt: ["$admissionInfoPntse", 0] }
                     ]
                 }
             }
         },
         { $unwind: "$admissionInfo" },
+        {
+            $lookup: {
+                from: "centreschemas",
+                localField: "admissionInfo.centre",
+                foreignField: "_id",
+                as: "pntseCentreInfo"
+            }
+        },
+        {
+            $addFields: {
+                "admissionInfo.centre": {
+                    $cond: {
+                        if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] },
+                        then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                        else: "$admissionInfo.centre"
+                    }
+                }
+            }
+        },
         {
             $lookup: {
                 from: "students",
@@ -255,6 +283,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 studentName: {
                     $ifNull: [
                         { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
+                        "$admissionInfo.name",
                         ""
                     ]
                 },
@@ -265,7 +294,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     ]
                 },
                 courseName: {
-                    $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName"]
+                    $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$admissionInfo.course"]
                 },
                 mrDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                 actualReceivedDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
@@ -276,12 +305,42 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         "N/A"
                     ]
                 },
-                studentEmail: { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
-                studentMobile: { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
-                studentWhatsapp: { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
-                studentAddress: { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
-                guardianName: { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
-                guardianMobile: { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
+                studentEmail: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
+                        "$admissionInfo.email"
+                    ]
+                },
+                studentMobile: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
+                        "$admissionInfo.mobile"
+                    ]
+                },
+                studentWhatsapp: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
+                        "$admissionInfo.mobile"
+                    ]
+                },
+                studentAddress: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
+                        "$admissionInfo.address"
+                    ]
+                },
+                guardianName: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
+                        "$admissionInfo.guardianName"
+                    ]
+                },
+                guardianMobile: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
+                        "$admissionInfo.guardianMobile"
+                    ]
+                },
                 }
             },
             {
@@ -365,7 +424,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             receivedDate: "$actualReceivedDate",
                             centre: "$admissionInfo.centre",
                             academicSession: "$admissionInfo.academicSession",
-                            admissionNumber: "$admissionInfo.admissionNumber",
+                            admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
                             studentName: "$studentName",
                             studentClass: 1,
                             billId: 1,

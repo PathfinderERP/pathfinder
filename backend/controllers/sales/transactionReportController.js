@@ -229,8 +229,11 @@ export const getTransactionReport = async (req, res) => {
             chartPipeline.push(
                 { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
                 { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
-                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }] } } },
+                { $lookup: { from: "pntsestudents", localField: "admission", foreignField: "_id", as: "admissionInfoPntse" } },
+                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }, { $arrayElemAt: ["$admissionInfoPntse", 0] }] } } },
                 { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
+                { $lookup: { from: "centreschemas", localField: "admissionInfo.centre", foreignField: "_id", as: "pntseCentreInfo" } },
+                { $addFields: { "admissionInfo.centre": { $cond: { if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] }, then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] }, else: "$admissionInfo.centre" } } } },
                 { $match: admissionMatch }
             );
 
@@ -296,16 +299,44 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPntse"
+                }
+            },
+            {
                 $addFields: {
                     admissionInfo: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] }
                         ]
                     }
                 }
             },
             { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admissionInfo.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
+                }
+            },
+            {
+                $addFields: {
+                    "admissionInfo.centre": {
+                        $cond: {
+                            if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] },
+                            then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                            else: "$admissionInfo.centre"
+                        }
+                    }
+                }
+            },
             { $match: admissionMatch },
 
             // Lookup Student Details (handle difference between 'student' and 'studentId' fields)
@@ -416,19 +447,54 @@ export const getTransactionReport = async (req, res) => {
                     status: "$status",
 
                     // Student & Center Info Expanded
-                    studentName: { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
-                    studentEmail: { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
-                    studentMobile: { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
-                    studentWhatsapp: { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
-                    studentAddress: { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
-                    guardianName: { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
-                    guardianMobile: { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
+                    studentName: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
+                            "$admissionInfo.name"
+                        ]
+                    },
+                    studentEmail: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
+                            "$admissionInfo.email"
+                        ]
+                    },
+                    studentMobile: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
+                            "$admissionInfo.mobile"
+                        ]
+                    },
+                    studentWhatsapp: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
+                            "$admissionInfo.mobile"
+                        ]
+                    },
+                    studentAddress: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
+                            "$admissionInfo.address"
+                        ]
+                    },
+                    guardianName: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
+                            "$admissionInfo.guardianName"
+                        ]
+                    },
+                    guardianMobile: { 
+                        $ifNull: [
+                            { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
+                            "$admissionInfo.guardianMobile"
+                        ]
+                    },
 
                     centre: "$admissionInfo.centre",
-                    course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$boardCourseName"] },
-                    department: { $ifNull: ["$departmentDetails.departmentName", "BOARD"] },
+                    course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$admissionInfo.course", "$boardCourseName"] },
+                    department: { $ifNull: ["$departmentDetails.departmentName", "BOARD", "PNTSE"] },
                     session: "$admissionInfo.academicSession",
-                    admissionNumber: "$admissionInfo.admissionNumber",
+                    admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
                     receivedDate: "$receivedDate",
                     receiptNo: "$billId",
                     installmentNumber: "$installmentNumber",
@@ -504,8 +570,11 @@ export const getTransactionReport = async (req, res) => {
             statsPipeline.push(
                 { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
                 { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
-                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }] } } },
+                { $lookup: { from: "pntsestudents", localField: "admission", foreignField: "_id", as: "admissionInfoPntse" } },
+                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }, { $arrayElemAt: ["$admissionInfoPntse", 0] }] } } },
                 { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
+                { $lookup: { from: "centreschemas", localField: "admissionInfo.centre", foreignField: "_id", as: "pntseCentreInfo" } },
+                { $addFields: { "admissionInfo.centre": { $cond: { if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] }, then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] }, else: "$admissionInfo.centre" } } } },
                 { $match: admissionMatch }
             );
 

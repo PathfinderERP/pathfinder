@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    FaSearch, FaDownload, FaFileImport, FaFileExcel,
+import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
-    FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle
+    FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice
 } from 'react-icons/fa';
+import BillGenerator from '../Finance/BillGenerator';
 
 const PNTSEAllStudentsContent = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ centre: '', class: '', status: '', session: '' });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    
+    // Bill Generation State
+    const [selectedStudentForBill, setSelectedStudentForBill] = useState(null);
 
     const [students, setStudents] = useState([]);
     const [dbCentres, setDbCentres] = useState([]);
@@ -132,6 +135,59 @@ const PNTSEAllStudentsContent = () => {
 
     const handleSort = (key) => {
         setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
+    };
+
+    const handleViewBill = (student) => {
+        if (!student.paymentId) return;
+        const payment = student.paymentId;
+        
+        const billData = {
+            billId: student.billId || payment.billId,
+            billDate: payment.paidDate || payment.receivedDate || payment.createdAt,
+            centre: {
+                name: student.centre?.centreName || student.centre?.enterCode || 'N/A',
+                address: student.centre?.address || 'N/A',
+                phoneNumber: student.centre?.phoneNumber || 'N/A',
+                gstNumber: student.centre?.enterGstNo || 'N/A',
+                corporateAddress: student.centre?.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                corporatePhone: student.centre?.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
+            },
+            student: {
+                id: student._id,
+                name: student.name,
+                admissionNumber: student.rollNo,
+                phoneNumber: student.mobile,
+                email: student.email || 'N/A'
+            },
+            course: {
+                name: student.course,
+                department: 'PNTSE',
+                examTag: student.examTag?.name || 'PNTSE',
+                class: student.class?.name || 'N/A',
+                session: student.session?.sessionName || 'N/A'
+            },
+            payment: {
+                installmentNumber: 0,
+                paymentMethod: payment.paymentMethod || 'CASH',
+                transactionId: payment.transactionId || '',
+                paidDate: payment.paidDate,
+                receivedDate: payment.receivedDate,
+                accountHolderName: payment.accountHolderName || '',
+                chequeDate: payment.chequeDate ? new Date(payment.chequeDate) : null,
+                status: payment.status || 'PAID',
+                remarks: payment.remarks || `PNTSE Fee | Net: ₹${student.amountPaid}`
+            },
+            amounts: {
+                courseFee: payment.courseFee || student.amountPaid,
+                cgst: payment.cgst || 0,
+                sgst: payment.sgst || 0,
+                totalAmount: payment.totalAmount || student.amountPaid,
+                waiver: student.waiver || 0,
+                grossFee: payment.amount || (student.amountPaid + (student.waiver || 0))
+            }
+        };
+
+        setSelectedStudentForBill(billData);
     };
 
     const sortedStudents = [...students].sort((a, b) => {
@@ -302,9 +358,19 @@ const PNTSEAllStudentsContent = () => {
                                     <td className="px-5 py-4 text-gray-300">{student.mobile}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.course}</td>
                                     <td className="px-5 py-4">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${student.paymentType === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                                            {student.paymentType} {student.paymentType === 'paid' && `(Rs. ${student.amountPaid})`}
-                                        </span>
+                                        {student.paymentType === 'paid' && student.paymentId ? (
+                                            <button 
+                                                onClick={() => handleViewBill(student)}
+                                                className="px-2 py-0.5 rounded text-xs font-semibold uppercase bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors flex items-center gap-1.5 cursor-pointer border border-emerald-500/30"
+                                            >
+                                                <FaFileInvoice className="text-[10px]" />
+                                                PAID (Rs. {student.amountPaid})
+                                            </button>
+                                        ) : (
+                                            <span className="px-2 py-0.5 rounded text-xs font-semibold uppercase bg-gray-500/20 text-gray-400">
+                                                {student.paymentType}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-5 py-4">
                                         <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-400 border border-violet-500/30">
@@ -429,6 +495,16 @@ const PNTSEAllStudentsContent = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ==================== BILL GENERATOR MODAL ==================== */}
+            {selectedStudentForBill && (
+                <BillGenerator
+                    admission={null}
+                    installment={null}
+                    preloadedBillData={selectedStudentForBill}
+                    onClose={() => setSelectedStudentForBill(null)}
+                />
             )}
         </div>
     );

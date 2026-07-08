@@ -231,6 +231,7 @@ export const getPNTSEStudents = async (req, res) => {
             .populate('centre')
             .populate('session')
             .populate('examTag')
+            .populate('paymentId')
             .sort({ createdAt: -1 });
 
         res.status(200).json(students);
