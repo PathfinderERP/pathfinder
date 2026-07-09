@@ -288,7 +288,9 @@ const ViewEmployee = () => {
                             
                             if (!employee.isDeductions) {
                                 latestSalary.pf = 0;
+                                latestSalary.pfEmployer = 0;
                                 latestSalary.esi = 0;
+                                latestSalary.esiEmployer = 0;
                                 latestSalary.pTax = 0;
                                 latestSalary.tds = 0;
                                 latestSalary.lossOfPay = 0;
@@ -338,7 +340,9 @@ const ViewEmployee = () => {
                                             <div className="space-y-2.5">
                                                 {[
                                                     { label: "Provident Fund (PF)", value: latestSalary.pf },
+                                                    { label: "P.F. (Employer Contribution)", value: latestSalary.pfEmployer },
                                                     { label: "ESI Contribution", value: latestSalary.esi },
+                                                    { label: "ESI (Employer Contribution)", value: latestSalary.esiEmployer },
                                                     { label: "Professional Tax", value: latestSalary.pTax },
                                                     { label: "TDS / Income Tax", value: latestSalary.tds },
                                                     { label: "Loss of Pay", value: latestSalary.lossOfPay },

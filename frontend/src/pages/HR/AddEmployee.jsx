@@ -316,20 +316,26 @@ const AddEmployee = () => {
 
                 // PF
                 let pf = 0;
+                let pfEmployer = 0;
                 let esi = 0;
+                let esiEmployer = 0;
                 let pTax = 0;
 
                 if (prev.isDeductions) {
                     if (basic <= 15000) {
                         pf = Math.round(basic * 0.12);
+                        pfEmployer = parseFloat((basic * 0.12).toFixed(2));
                     } else {
                         pf = 1800;
+                        pfEmployer = 1800;
                     }
 
                     if (totalEarnings <= 21000) {
                         esi = Math.ceil(totalEarnings * 0.0075);
+                        esiEmployer = parseFloat((totalEarnings * 0.0325).toFixed(2));
                     } else {
                         esi = 0;
+                        esiEmployer = 0;
                     }
 
                     if (totalEarnings <= 10000) pTax = 0;
@@ -345,7 +351,9 @@ const AddEmployee = () => {
                     (parseFloat(s.adjustment) || 0);
 
                 newSalaryStructure[index].pf = pf;
+                newSalaryStructure[index].pfEmployer = pfEmployer;
                 newSalaryStructure[index].esi = esi;
+                newSalaryStructure[index].esiEmployer = esiEmployer;
                 newSalaryStructure[index].pTax = pTax;
                 newSalaryStructure[index].totalEarnings = totalEarnings;
                 newSalaryStructure[index].totalDeductions = totalDeductions;
@@ -377,22 +385,28 @@ const AddEmployee = () => {
 
         // Deductions
         let pf = 0;
+        let pfEmployer = 0;
         let esi = 0;
+        let esiEmployer = 0;
         let pTax = 0;
 
         if (applyDeductions) {
             // PF
             if (basic <= 15000) {
                 pf = Math.round(basic * 0.12);
+                pfEmployer = parseFloat((basic * 0.12).toFixed(2));
             } else {
                 pf = 1800;
+                pfEmployer = 1800;
             }
 
             // ESI
             if (gross <= 21000) {
                 esi = Math.ceil(gross * 0.0075);
+                esiEmployer = parseFloat((gross * 0.0325).toFixed(2));
             } else {
                 esi = 0;
+                esiEmployer = 0;
             }
 
             // P. Tax
@@ -413,7 +427,9 @@ const AddEmployee = () => {
             adjustment: 0,
             totalEarnings: gross,
             pf,
+            pfEmployer,
             esi,
+            esiEmployer,
             pTax,
             tds: 0,
             lossOfPay: 0,
@@ -470,20 +486,26 @@ const AddEmployee = () => {
 
             // PF
             let pf = 0;
+            let pfEmployer = 0;
             let esi = 0;
+            let esiEmployer = 0;
             let pTax = 0;
 
             if (formData.isDeductions) {
                 if (basic <= 15000) {
                     pf = Math.round(basic * 0.12);
+                    pfEmployer = parseFloat((basic * 0.12).toFixed(2));
                 } else {
                     pf = 1800;
+                    pfEmployer = 1800;
                 }
 
                 if (totalEarnings <= 21000) {
                     esi = Math.ceil(totalEarnings * 0.0075);
+                    esiEmployer = parseFloat((totalEarnings * 0.0325).toFixed(2));
                 } else {
                     esi = 0;
+                    esiEmployer = 0;
                 }
 
                 if (totalEarnings <= 10000) pTax = 0;
@@ -503,7 +525,9 @@ const AddEmployee = () => {
                 tempData: {
                     ...updated,
                     pf,
+                    pfEmployer,
                     esi,
+                    esiEmployer,
                     pTax,
                     totalEarnings,
                     totalDeductions,
@@ -1638,7 +1662,9 @@ const AddEmployee = () => {
                                     <div className="space-y-4">
                                         {[
                                             { label: "P.F. (Employee's Contribution)", field: "pf" },
+                                            { label: "P.F. (Employer Contribution)", field: "pfEmployer", disabled: true },
                                             { label: "ESI (Employee's Contribution)", field: "esi" },
+                                            { label: "ESI (Employer Contribution)", field: "esiEmployer", disabled: true },
                                             { label: "P Tax", field: "pTax" },
                                             { label: "TDS", field: "tds" },
                                             { label: "Loss Of Pay", field: "lossOfPay" },
@@ -1647,12 +1673,17 @@ const AddEmployee = () => {
                                             <div key={item.field} className="flex flex-col gap-1.5">
                                                 <label className="text-sm font-semibold text-gray-600 dark:text-gray-400 ml-1">{item.label}</label>
                                                 <div className="relative group">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium group-focus-within:text-red-500 transition-colors">₹</span>
+                                                    <span className={`absolute left-3 top-1/2 -translate-y-1/2 font-medium transition-colors ${item.disabled ? 'text-gray-400' : 'text-gray-400 group-focus-within:text-red-500'}`}>₹</span>
                                                     <input
                                                         type="number"
                                                         value={salaryModal.tempData?.[item.field] || 0}
                                                         onChange={(e) => handleSalaryModalInputChange(item.field, e.target.value)}
-                                                        className="w-full pl-8 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all dark:text-white font-medium"
+                                                        disabled={item.disabled}
+                                                        className={`w-full pl-8 pr-4 py-2.5 border rounded-xl focus:ring-2 outline-none transition-all font-medium ${
+                                                            item.disabled 
+                                                                ? 'bg-gray-100 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-800 cursor-not-allowed'
+                                                                : 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:ring-red-500 focus:border-transparent dark:text-white'
+                                                        }`}
                                                     />
                                                 </div>
                                             </div>

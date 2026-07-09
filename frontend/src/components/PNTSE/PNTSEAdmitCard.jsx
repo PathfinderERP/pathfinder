@@ -26,13 +26,20 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
             const canvas = await html2canvas(element, { 
                 scale: 2,
                 useCORS: true,
-                logging: false
+                allowTaint: true,
+                logging: false,
+                backgroundColor: '#ffffff'
             });
+
+            if (!canvas || canvas.width === 0 || canvas.height === 0) {
+                throw new Error("Generated canvas has 0 width or height.");
+            }
+
             const imgData = canvas.toDataURL('image/png');
             
-            // A4 size in mm: 210 x 297
-            // We'll calculate the scaled height to fit within A4 width (or height if landscape)
-            const pdf = new jsPDF('p', 'mm', 'a4');
+            // Safe constructor instantiation supporting both ESM/CJS formats
+            const JsPDFConstructor = jsPDF.jsPDF || jsPDF;
+            const pdf = new JsPDFConstructor('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             
@@ -51,7 +58,7 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
             pdf.addImage(imgData, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
             pdf.save(`PNTSE_Admit_Card_${student?.rollNo || student?.name?.replace(/\s+/g, '_')}.pdf`);
         } catch (err) {
-            console.error("Failed to generate PDF", err);
+            console.error("Failed to generate PDF details:", err);
             alert("Failed to generate PDF. Please try printing instead.");
         } finally {
             setIsDownloading(false);
@@ -122,7 +129,7 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                 <div className="p-8 overflow-y-auto bg-gray-50 flex-1 flex justify-center">
                     
                     {/* Real Admit Card Structure */}
-                    <div ref={printRef} className="w-[800px] bg-white text-black p-8 font-sans" style={{ '@media print': { margin: 0, padding: 0 } }}>
+                    <div ref={printRef} className="w-[800px] bg-white text-black p-8 font-sans">
                         {/* Define print specific styles inside */}
                         <style type="text/css" media="print">
                             {`
@@ -136,13 +143,13 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                             <div className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 bg-black text-white text-3xl font-extrabold tracking-[0.3em] py-2 px-12 uppercase" style={{ transformOrigin: 'left top', marginTop: '150px', left: '30px' }}>
                                 ADMIT CARD
                             </div>
-
+ 
                             <div className="ml-16 pl-4 pr-6 flex-1">
                                 {/* Header / Logo area */}
                                 <div className="text-center mb-6">
                                     <div className="flex justify-center items-center mb-2 gap-2">
                                         <div className="w-12 h-12 bg-black flex items-center justify-center border-2 border-black">
-                                            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" className="w-8 h-8 text-white" fill="white" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
                                         </div>
                                         <div>
                                             <h1 className="text-4xl font-extrabold tracking-tight m-0 leading-none">PATHFINDER<sup className="text-xl">&reg;</sup></h1>

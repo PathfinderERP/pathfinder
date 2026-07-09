@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
-    FaEdit, FaTrash, FaEye
+    FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus
 } from 'react-icons/fa';
 import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
 
 const PNTSEAllStudentsContent = () => {
+    const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ centre: '', class: '', status: '', session: '' });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -450,11 +452,47 @@ const PNTSEAllStudentsContent = () => {
         return 0;
     });
 
+    const pntseClasses = dbClasses.filter(cls => {
+        if (!cls || !cls.name) return false;
+        const name = String(cls.name).trim();
+        const isMatch = /^(?:6|7|8|9|10|VI|VII|VIII|IX|X|Class\s*(?:6|7|8|9|10|VI|VII|VIII|IX|X))$/i.test(name);
+        if (isMatch) return true;
+        return students.some(s => (s.class?._id || s.class) === cls._id);
+    });
+
+    const sortedClasses = [...pntseClasses].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+    const classStats = sortedClasses.map((cls, index) => {
+        const count = students.filter(s => (s.class?._id || s.class) === cls._id).length;
+        
+        const colorSchemes = [
+            { color: 'from-emerald-500 to-green-500', bg: 'bg-emerald-500/10', icon: <FaGraduationCap /> },
+            { color: 'from-amber-500 to-orange-500', bg: 'bg-amber-500/10', icon: <FaBookOpen /> },
+            { color: 'from-purple-500 to-indigo-500', bg: 'bg-purple-500/10', icon: <FaChalkboardTeacher /> },
+            { color: 'from-rose-500 to-pink-500', bg: 'bg-rose-500/10', icon: <FaSchool /> },
+            { color: 'from-cyan-500 to-blue-500', bg: 'bg-cyan-500/10', icon: <FaUsers /> },
+        ];
+        
+        const scheme = colorSchemes[index % colorSchemes.length];
+        
+        return {
+            label: cls.name.toLowerCase().includes('class') ? cls.name : `Class ${cls.name}`,
+            value: count,
+            icon: scheme.icon,
+            color: scheme.color,
+            bg: scheme.bg
+        };
+    });
+
     const stats = [
-        { label: 'Total Students', value: students.length, icon: <FaUsers />, color: 'from-blue-500 to-cyan-500', bg: 'bg-blue-500/10' },
-        { label: 'Qualified', value: students.filter(s => s.status === 'Qualified').length, icon: <FaTrophy />, color: 'from-emerald-500 to-green-500', bg: 'bg-emerald-500/10' },
-        { label: 'Appeared', value: students.filter(s => s.status === 'Appeared').length, icon: <FaGraduationCap />, color: 'from-amber-500 to-yellow-500', bg: 'bg-amber-500/10' },
-        { label: 'Avg. Score', value: students.length > 0 ? `${Math.round(students.reduce((a, b) => a + (b.score || 0), 0) / students.length)}%` : '0%', icon: <FaChartLine />, color: 'from-purple-500 to-pink-500', bg: 'bg-purple-500/10' },
+        { 
+            label: 'Total Students', 
+            value: students.length, 
+            icon: <FaUsers />, 
+            color: 'from-blue-500 to-cyan-500', 
+            bg: 'bg-blue-500/10'
+        },
+        ...classStats
     ];
 
     const getStatusBadge = (status) => {
@@ -495,27 +533,38 @@ const PNTSEAllStudentsContent = () => {
                         <p className="text-xs text-gray-400 mt-0.5">Pathfinder National Talent Search Examination</p>
                     </div>
                 </div>
-                {/* Import Button */}
-                <button
-                    onClick={() => setShowImportModal(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/25"
-                >
-                    <FaFileImport />
-                    Import Excel
-                </button>
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => navigate('/pntse/add-student')}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-cyan-500/25 cursor-pointer"
+                    >
+                        <FaPlus />
+                        Add Student
+                    </button>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/25 cursor-pointer"
+                    >
+                        <FaFileImport />
+                        Import Excel
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
                 {stats.map((stat, i) => (
-                    <div key={i} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all duration-200">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                                <span className={`bg-gradient-to-br ${stat.color} bg-clip-text text-transparent text-xl`}>{stat.icon}</span>
+                    <div key={i} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all duration-200 flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
+                                    <span className={`bg-gradient-to-br ${stat.color} bg-clip-text text-transparent text-xl`}>{stat.icon}</span>
+                                </div>
                             </div>
+                            <p className="text-3xl font-bold text-white">{stat.value}</p>
+                            <p className="text-xs text-gray-400 mt-1">{stat.label}</p>
                         </div>
-                        <p className="text-3xl font-bold text-white">{stat.value}</p>
-                        <p className="text-xs text-gray-400 mt-1">{stat.label}</p>
                     </div>
                 ))}
             </div>

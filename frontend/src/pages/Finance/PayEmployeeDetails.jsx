@@ -54,7 +54,7 @@ const PayEmployeeDetails = () => {
     const calculateSalaryBreakdown = (grossAmount) => {
         if (!grossAmount) return {
             basic: 0, hra: 0, conveyance: 0, specialAllowance: 0, cca: 0, adjustment: 0,
-            pf: 0, esi: 0, pTax: 0, tds: 0, lossOfPay: 0, totalEarnings: 0, totalDeductions: 0, netSalary: 0
+            pf: 0, pfEmployer: 0, esi: 0, esiEmployer: 0, pTax: 0, tds: 0, lossOfPay: 0, totalEarnings: 0, totalDeductions: 0, netSalary: 0
         };
 
         const gross = parseFloat(grossAmount);
@@ -65,7 +65,9 @@ const PayEmployeeDetails = () => {
 
         // Deductions
         let pf = basic <= 15000 ? Math.round(basic * 0.12) : 1800;
+        let pfEmployer = basic <= 15000 ? parseFloat((basic * 0.12).toFixed(2)) : 1800;
         let esi = gross <= 21000 ? Math.ceil(gross * 0.0075) : 0;
+        let esiEmployer = gross <= 21000 ? parseFloat((gross * 0.0325).toFixed(2)) : 0;
         let pTax = 0;
         if (gross > 10000 && gross <= 15000) pTax = 110;
         else if (gross > 15000 && gross <= 25000) pTax = 130;
@@ -76,7 +78,7 @@ const PayEmployeeDetails = () => {
 
         return {
             basic, hra, conveyance, specialAllowance, cca: 0, adjustment: 0,
-            pf, esi, pTax, tds: 0, lossOfPay: 0,
+            pf, pfEmployer, esi, esiEmployer, pTax, tds: 0, lossOfPay: 0,
             totalEarnings: gross,
             totalDeductions,
             netSalary: gross - totalDeductions
@@ -107,6 +109,9 @@ const PayEmployeeDetails = () => {
         else if (totalEarnings > 25000 && totalEarnings <= 40000) pTax = 150;
         else if (totalEarnings > 40000) pTax = 200;
 
+        const pfEmployer = newEarnings.basic <= 15000 ? parseFloat((newEarnings.basic * 0.12).toFixed(2)) : 1800;
+        const esiEmployer = totalEarnings <= 21000 ? parseFloat((totalEarnings * 0.0325).toFixed(2)) : 0;
+
         // Keep other deductions fixed from structure if they exist
         const extraDeductions = (parseFloat(baseStructure.tds) || 0) + (parseFloat(baseStructure.lossOfPay) || 0);
         const totalDeductions = pf + esi + pTax + extraDeductions;
@@ -116,7 +121,9 @@ const PayEmployeeDetails = () => {
             ...baseStructure,
             ...newEarnings,
             pf,
+            pfEmployer,
             esi,
+            esiEmployer,
             pTax,
             totalEarnings,
             totalDeductions,
@@ -321,10 +328,12 @@ const PayEmployeeDetails = () => {
         ];
 
         const deductions = [
-            { label: "Provident Fund", val: structure.pf },
+            { label: "Provident Fund (PF)", val: structure.pf },
+            { label: "P.F. (Employer Contribution)", val: structure.pfEmployer },
+            { label: "ESI Contribution", val: structure.esi },
+            { label: "ESI (Employer Contribution)", val: structure.esiEmployer },
             { label: "Professional Tax", val: structure.pTax },
             { label: "TDS", val: structure.tds },
-            { label: "ESI", val: structure.esi },
             { label: "Loss of Pay", val: structure.lossOfPay },
         ];
 
@@ -576,8 +585,10 @@ const PayEmployeeDetails = () => {
                                 <h4 className="text-red-400 text-xs font-black uppercase tracking-widest mb-4">Deductions</h4>
                                 <div className="space-y-3">
                                     <Row label="Provident Fund" value={salary.pf} />
-                                    <Row label="Professional Tax" value={salary.pTax} />
+                                    <Row label="P.F. (Employer Contribution)" value={salary.pfEmployer} />
                                     <Row label="ESI" value={salary.esi} />
+                                    <Row label="ESI (Employer Contribution)" value={salary.esiEmployer} />
+                                    <Row label="Professional Tax" value={salary.pTax} />
                                     <Row label="TDS" value={salary.tds} />
                                     <Row label="Loss of Pay" value={salary.lossOfPay} />
                                     <div className="pt-3 border-t border-gray-800 mt-3">
