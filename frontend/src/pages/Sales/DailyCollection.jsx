@@ -266,7 +266,13 @@ const DailyCollection = () => {
 
                 const headers = [
                     "Centre Name",
-                    "Daily Target (Without GST)",
+                    (() => {
+                        const d = new Date(date);
+                        const day = d.getDay();
+                        if (day === 6) return "Daily Target (Sat Target - Excl. GST)";
+                        if (day === 0) return "Daily Target (Sun Target - Excl. GST)";
+                        return "Daily Target (Weekday Target - Excl. GST)";
+                    })(),
                     ...paymentMethodsList,
                     "Total (With GST)",
                     "Total (Without GST)"
@@ -888,7 +894,16 @@ const DailyCollection = () => {
                                 <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                     <tr>
                                         <th className="px-4 py-3">Centre Name</th>
-                                        <th className="px-4 py-3 text-right font-bold text-amber-500">Daily Target (Without GST)</th>
+                                        <th className="px-4 py-3 text-right font-bold text-amber-500">
+                                            Daily Target 
+                                            {(() => {
+                                                const d = new Date(date);
+                                                const day = d.getDay();
+                                                if (day === 6) return " (Sat Target - Excl. GST)";
+                                                if (day === 0) return " (Sun Target - Excl. GST)";
+                                                return " (Weekday Target - Excl. GST)";
+                                            })()}
+                                        </th>
                                         {paymentMethodsList.map(method => (
                                             <th key={method} className="px-4 py-3 text-right">{method}</th>
                                         ))}

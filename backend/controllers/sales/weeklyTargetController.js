@@ -90,6 +90,86 @@ const getDailyAchievedForCentre = async (centreName, startDate, endDate) => {
     }
 };
 
+const getDailyAchievedForAllCentres = async (centreNames, startDate, endDate) => {
+    try {
+        const result = await Payment.aggregate([
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionDetails: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
+            { $unwind: "$admissionDetails" },
+            {
+                $match: {
+                    "admissionDetails.centre": { $in: centreNames },
+                    billId: { $exists: true, $nin: [null, "", "-"] },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
+                        { paymentMethod: { $exists: true } },
+                        { paidAmount: { $gt: 0 } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    revenueBase: {
+                        $cond: [
+                            { $gt: ["$courseFee", 0] },
+                            "$courseFee",
+                            { $divide: ["$paidAmount", 1.18] }
+                        ]
+                    }
+                }
+            },
+            {
+                $match: {
+                    effectiveDate: { $gte: startDate, $lte: endDate }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        centre: "$admissionDetails.centre",
+                        year: { $year: "$effectiveDate" },
+                        month: { $month: "$effectiveDate" },
+                        day: { $dayOfMonth: "$effectiveDate" },
+                        method: "$paymentMethod"
+                    },
+                    totalWithGST: { $sum: "$paidAmount" },
+                    totalExclGST: { $sum: "$revenueBase" }
+                }
+            },
+            { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
+        ]);
+        return result;
+    } catch (err) {
+        console.error("getDailyAchievedForAllCentres error:", err);
+        return [];
+    }
+};
+
 /**
  * Build REAL calendar weeks (Mon → Sun) for a given month/year.
  *
@@ -209,9 +289,20 @@ export const getWeeklyTarget = async (req, res) => {
         }
 
         const centres = await Centre.find(centreQuery).sort({ centreName: 1 });
-
         const startOfMonth = new Date(parsedYear, monthIndex, 1);
         const endOfMonth   = new Date(parsedYear, monthIndex + 1, 0, 23, 59, 59, 999);
+
+        // Batch load all daily achievements in a single query
+        const centreNames = centres.map(c => c.centreName);
+        const allDailyRaw = await getDailyAchievedForAllCentres(centreNames, startOfMonth, endOfMonth);
+        const centreDailyMap = {};
+        allDailyRaw.forEach(d => {
+            const cName = d._id.centre;
+            if (!centreDailyMap[cName]) {
+                centreDailyMap[cName] = [];
+            }
+            centreDailyMap[cName].push(d);
+        });
 
         // --- Process each centre ---
         const results = await Promise.all(
@@ -225,8 +316,8 @@ export const getWeeklyTarget = async (req, res) => {
                 const monthlyTargetExclGST = targetRecord ? targetRecord.targetAmount : 0;
                 const monthlyTargetWithGST = monthlyTargetExclGST * 1.18;
 
-                // Fetch all daily data for the month
-                const dailyRaw = await getDailyAchievedForCentre(c.centreName, startOfMonth, endOfMonth);
+                // Retrieve daily raw records from our preloaded batch map
+                const dailyRaw = centreDailyMap[c.centreName] || [];
 
                 // Process filters: paymentMethods
                 const methodList = paymentMethods ? paymentMethods.split(",") : null;
@@ -500,15 +591,28 @@ const buildFixedWeeks = (year, monthIndex) => {
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-    const periods = [
-        { weekNumber: 1, start: 1,  end: 7  },
-        { weekNumber: 2, start: 8,  end: 14 },
-        { weekNumber: 3, start: 15, end: 21 },
-        { weekNumber: 4, start: 22, end: 28 },
-    ];
+    const periods = [];
+    let weekNum = 1;
+    let startDay = 1;
 
-    if (daysInMonth > 28) {
-        periods.push({ weekNumber: 5, start: 29, end: daysInMonth });
+    while (startDay <= daysInMonth) {
+        let endDay = startDay;
+        while (endDay < daysInMonth) {
+            const date = new Date(year, monthIndex, endDay);
+            if (date.getDay() === 0) { // Sunday ends the week
+                break;
+            }
+            endDay++;
+        }
+
+        periods.push({
+            weekNumber: weekNum,
+            start: startDay,
+            end: endDay
+        });
+
+        startDay = endDay + 1;
+        weekNum++;
     }
 
     return periods
@@ -584,6 +688,18 @@ export const getFinalWeekendTarget = async (req, res) => {
         const startOfMonth = new Date(parsedYear, monthIndex, 1);
         const endOfMonth   = new Date(parsedYear, monthIndex + 1, 0, 23, 59, 59, 999);
 
+        // Batch load all daily achievements in a single query
+        const centreNames = centres.map(c => c.centreName);
+        const allDailyRaw = await getDailyAchievedForAllCentres(centreNames, startOfMonth, endOfMonth);
+        const centreDailyMap = {};
+        allDailyRaw.forEach(d => {
+            const cName = d._id.centre;
+            if (!centreDailyMap[cName]) {
+                centreDailyMap[cName] = [];
+            }
+            centreDailyMap[cName].push(d);
+        });
+
         const results = await Promise.all(
             centres.map(async (c) => {
                 const targetRecord = await CentreTarget.findOne({
@@ -594,10 +710,8 @@ export const getFinalWeekendTarget = async (req, res) => {
 
                 const monthlyTargetExclGST = targetRecord ? targetRecord.targetAmount : 0;
 
-                // Fetch raw daily totals for the month
-                const dailyRaw = await getDailyAchievedForCentre(
-                    c.centreName, startOfMonth, endOfMonth
-                );
+                // Retrieve daily raw records from our preloaded batch map
+                const dailyRaw = centreDailyMap[c.centreName] || [];
 
                 // Build day-keyed map: { dayNum -> { exclGST } }
                 const dayMap = {};
@@ -626,8 +740,24 @@ export const getFinalWeekendTarget = async (req, res) => {
                         phaseTarget = overrideVal;
                     }
 
-                    const workingTarget    = phaseTarget * 0.35;
-                    const baseWeekendTarget = phaseTarget * 0.65;
+                    const hasWeekdays = week.days.some(d => !d.isWeekend);
+                    const hasSat = week.days.some(d => d.dayName === 'Sat');
+                    const hasSun = week.days.some(d => d.dayName === 'Sun');
+                    const hasWeekend = hasSat || hasSun;
+
+                    let workingTarget = 0;
+                    let baseWeekendTarget = 0;
+
+                    if (hasWeekdays && !hasWeekend) {
+                        workingTarget = phaseTarget;
+                        baseWeekendTarget = 0;
+                    } else if (!hasWeekdays && hasWeekend) {
+                        workingTarget = 0;
+                        baseWeekendTarget = phaseTarget;
+                    } else if (hasWeekdays && hasWeekend) {
+                        workingTarget = phaseTarget * 0.35;
+                        baseWeekendTarget = phaseTarget * 0.65;
+                    }
 
                     let phaseAchieved   = 0;
                     let weekendAchieved = 0;
@@ -654,8 +784,20 @@ export const getFinalWeekendTarget = async (req, res) => {
                     const workingDeficit        = Math.max(0, workingTarget - workingAchieved);
                     const adjustedWeekendTarget = baseWeekendTarget;
                     
-                    const satTarget = adjustedWeekendTarget * 0.35;
-                    const sunTarget = adjustedWeekendTarget * 0.65;
+                    let satTarget = 0;
+                    let sunTarget = 0;
+
+                    if (hasSat && hasSun) {
+                        satTarget = adjustedWeekendTarget * 0.35;
+                        sunTarget = adjustedWeekendTarget * 0.65;
+                    } else if (hasSat && !hasSun) {
+                        satTarget = adjustedWeekendTarget;
+                        sunTarget = 0;
+                    } else if (!hasSat && hasSun) {
+                        satTarget = 0;
+                        sunTarget = adjustedWeekendTarget;
+                    }
+
                     const satDeficit = Math.max(0, satTarget - satAchieved);
                     const sunDeficit = Math.max(0, sunTarget - sunAchieved);
 
@@ -674,6 +816,9 @@ export const getFinalWeekendTarget = async (req, res) => {
                         startDay:               week.startDay,
                         endDay:                 week.endDay,
                         actualDays:             week.actualDays,
+                        hasWeekdays,
+                        hasSat,
+                        hasSun,
                         phaseTarget,
                         workingTarget,
                         baseWeekendTarget,
@@ -761,7 +906,66 @@ export const overrideWeeklyTarget = async (req, res) => {
 
         res.status(200).json({ message: "Weekly target updated successfully", weeklyTargetsOverride: targetRecord.weeklyTargetsOverride });
     } catch (error) {
-        console.error("overrideWeeklyTarget Error:", error);
+        console.error("overrideWeeklyTargetError:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// POST /sales/weekly-target/override-bulk
+export const overrideWeeklyTargetBulk = async (req, res) => {
+    try {
+        const userRoleLower = req.user?.role?.toLowerCase()?.replace(/\s+/g, '') || "";
+        if (userRoleLower !== "superadmin" && userRoleLower !== "zonalmanager") {
+            return res.status(403).json({ message: "Access denied. Only Super Admin and Zonal Manager can edit weekly targets." });
+        }
+
+        const { overrides } = req.body;
+
+        if (!Array.isArray(overrides) || overrides.length === 0) {
+            return res.status(400).json({ message: "Missing or invalid overrides list" });
+        }
+
+        const groups = {};
+        for (const item of overrides) {
+            const { centreId, year, month, weekNumber, target } = item;
+            if (!centreId || !year || !month || weekNumber === undefined || target === undefined) {
+                return res.status(400).json({ message: "Missing required fields in overrides" });
+            }
+            const key = `${centreId}-${year}-${month}`;
+            if (!groups[key]) {
+                groups[key] = { centreId, year, month, weeks: {} };
+            }
+            groups[key].weeks[weekNumber] = parseFloat(target);
+        }
+
+        for (const key of Object.keys(groups)) {
+            const g = groups[key];
+            const targetRecord = await CentreTarget.findOne({
+                centre: g.centreId,
+                year: parseInt(g.year, 10),
+                month: g.month
+            });
+
+            if (!targetRecord) {
+                return res.status(404).json({ message: `Centre target record not found for centreId ${g.centreId}. Configure monthly target first.` });
+            }
+
+            if (!targetRecord.weeklyTargetsOverride) {
+                targetRecord.weeklyTargetsOverride = {};
+            }
+
+            targetRecord.weeklyTargetsOverride = {
+                ...targetRecord.weeklyTargetsOverride,
+                ...g.weeks
+            };
+
+            targetRecord.markModified("weeklyTargetsOverride");
+            await targetRecord.save();
+        }
+
+        res.status(200).json({ message: "Weekly targets updated successfully" });
+    } catch (error) {
+        console.error("overrideWeeklyTargetBulk Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
