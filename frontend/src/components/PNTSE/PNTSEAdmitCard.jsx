@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { FaPrint, FaTimes, FaDownload, FaSpinner } from 'react-icons/fa';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 const PNTSEAdmitCard = ({ student, onClose }) => {
     const printRef = useRef(null);
@@ -23,40 +23,48 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
         try {
             setIsDownloading(true);
             const element = printRef.current;
-            const canvas = await html2canvas(element, { 
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                logging: false,
+            
+            const dataUrl = await toPng(element, {
+                pixelRatio: 2,
                 backgroundColor: '#ffffff'
             });
 
-            if (!canvas || canvas.width === 0 || canvas.height === 0) {
-                throw new Error("Generated canvas has 0 width or height.");
+            if (!dataUrl || dataUrl === 'data:,') {
+                throw new Error("Generated image is empty.");
             }
-
-            const imgData = canvas.toDataURL('image/png');
             
             // Safe constructor instantiation supporting both ESM/CJS formats
             const JsPDFConstructor = jsPDF.jsPDF || jsPDF;
             const pdf = new JsPDFConstructor('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             
-            // If the scaled height exceeds A4 height, we scale by height instead
-            let finalWidth = pdfWidth;
-            let finalHeight = pdfHeight;
-            if (pdfHeight > pdf.internal.pageSize.getHeight()) {
-                finalHeight = pdf.internal.pageSize.getHeight();
-                finalWidth = (canvas.width * finalHeight) / canvas.height;
-            }
+            await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = (img.height * pdfWidth) / img.width;
+                        
+                        let finalWidth = pdfWidth;
+                        let finalHeight = pdfHeight;
+                        if (pdfHeight > pdf.internal.pageSize.getHeight()) {
+                            finalHeight = pdf.internal.pageSize.getHeight();
+                            finalWidth = (img.width * finalHeight) / img.height;
+                        }
+            
+                        const xOffset = (pdfWidth - finalWidth) / 2;
+                        const yOffset = 10; // small top margin
+            
+                        pdf.addImage(dataUrl, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
+                        pdf.save(`PNTSE_Admit_Card_${student?.rollNo || student?.name?.replace(/\s+/g, '_')}.pdf`);
+                        resolve();
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+                img.onerror = reject;
+                img.src = dataUrl;
+            });
 
-            // Center horizontally if scaled by height
-            const xOffset = (pdfWidth - finalWidth) / 2;
-            const yOffset = 10; // small top margin
-
-            pdf.addImage(imgData, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
-            pdf.save(`PNTSE_Admit_Card_${student?.rollNo || student?.name?.replace(/\s+/g, '_')}.pdf`);
         } catch (err) {
             console.error("Failed to generate PDF details:", err);
             alert("Failed to generate PDF. Please try printing instead.");
