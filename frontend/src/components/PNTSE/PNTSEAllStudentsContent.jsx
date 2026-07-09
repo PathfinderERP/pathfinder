@@ -5,6 +5,7 @@ import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaEdit, FaTrash, FaEye
 } from 'react-icons/fa';
 import BillGenerator from '../Finance/BillGenerator';
+import PNTSEAdmitCard from './PNTSEAdmitCard';
 
 const PNTSEAllStudentsContent = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -13,6 +14,15 @@ const PNTSEAllStudentsContent = () => {
     
     // Bill Generation State
     const [selectedStudentForBill, setSelectedStudentForBill] = useState(null);
+
+    // Admit Card State
+    const [showAdmitCard, setShowAdmitCard] = useState(false);
+    const [admitCardStudent, setAdmitCardStudent] = useState(null);
+
+    const handleGenerateAdmitCard = (student) => {
+        setAdmitCardStudent(student);
+        setShowAdmitCard(true);
+    };
 
     // Checkout Payment Modal State
     const [showPayModal, setShowPayModal] = useState(false);
@@ -570,6 +580,7 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Course</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid Status</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Tag</th>
+                                <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Admit Card</th>
                                 <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Actions</th>
                             </tr>
                         </thead>
@@ -616,6 +627,15 @@ const PNTSEAllStudentsContent = () => {
                                         <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-400 border border-violet-500/30">
                                             {student.examTag?.name || '—'}
                                         </span>
+                                    </td>
+                                    <td className="px-5 py-4 text-center">
+                                        <button 
+                                            onClick={() => handleGenerateAdmitCard(student)}
+                                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow transition-all cursor-pointer flex items-center justify-center gap-1.5 mx-auto"
+                                        >
+                                            <FaDownload size={12} />
+                                            Admit Card
+                                        </button>
                                     </td>
                                     <td className="px-5 py-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
@@ -801,6 +821,14 @@ const PNTSEAllStudentsContent = () => {
                     installment={null}
                     preloadedBillData={selectedStudentForBill}
                     onClose={() => setSelectedStudentForBill(null)}
+                />
+            )}
+
+            {/* ==================== ADMIT CARD MODAL ==================== */}
+            {showAdmitCard && (
+                <PNTSEAdmitCard 
+                    student={admitCardStudent} 
+                    onClose={() => { setShowAdmitCard(false); setAdmitCardStudent(null); }} 
                 />
             )}
 
