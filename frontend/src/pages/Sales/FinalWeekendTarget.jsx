@@ -39,6 +39,26 @@ const WEEK_COLS = [
     { key: "weekendDeficit", label: "Weekend Shortfall", color: "red" },
 ];
 
+const getActiveCols = (w) => {
+    if (!w) return WEEK_COLS;
+    return WEEK_COLS.filter(col => {
+        if (w.hasWeekdays === false && (col.key === "workingTarget" || col.key === "workingAchieved")) {
+            return false;
+        }
+        if (w.hasSat === false && (col.key === "satTarget" || col.key === "satAchieved")) {
+            return false;
+        }
+        if (w.hasSun === false && (col.key === "sunTarget" || col.key === "sunAchieved")) {
+            return false;
+        }
+        const hasWeekend = w.hasSat !== false || w.hasSun !== false;
+        if (!hasWeekend && (col.key === "adjustedWeekendTarget" || col.key === "weekendAchieved" || col.key === "weekendDeficit")) {
+            return false;
+        }
+        return true;
+    });
+};
+
 // Compute derived values for a single week object from backend
 const weekMetrics = (w) => ({
     phaseTarget: w.phaseTarget,
@@ -140,6 +160,54 @@ const FinalWeekendTarget = () => {
         } catch (e) {
             console.error(e);
             toast.error("Error saving weekly target override");
+        }
+    };
+
+    const handleCancelBulk = () => {
+        setEditingTargets({});
+        toast.info("Unsaved changes discarded");
+    };
+
+    const handleSaveBulk = async () => {
+        const overrides = Object.keys(editingTargets).map(key => {
+            const [centreId, weekNumberStr] = key.split("-");
+            const weekNumber = parseInt(weekNumberStr, 10);
+            const val = parseFloat(editingTargets[key]);
+            return {
+                centreId,
+                year: selectedYear,
+                month: selectedMonth,
+                weekNumber,
+                target: isNaN(val) ? 0 : val
+            };
+        });
+
+        if (overrides.length === 0) return;
+
+        try {
+            setLoading(true);
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/weekly-target/override-bulk`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ overrides })
+            });
+            const json = await res.json();
+            if (res.ok) {
+                toast.success("All weekly targets updated successfully");
+                setEditingTargets({});
+                fetchData();
+            } else {
+                toast.error(json.message || "Failed to update weekly targets");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("Error saving bulk changes");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -321,6 +389,31 @@ const FinalWeekendTarget = () => {
                     </div>
                 </div>
 
+                {Object.keys(editingTargets).length > 0 && (
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                                You have {Object.keys(editingTargets).length} unsaved weekly target changes
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleCancelBulk}
+                                className="px-4 py-1.5 rounded-lg border border-gray-600 hover:bg-gray-800 text-xs font-bold uppercase transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveBulk}
+                                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-xs font-bold uppercase tracking-wider transition-all"
+                            >
+                                Save All Changes
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Filters */}
                 <div className={`${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-sm"} p-5 rounded-xl border`}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -394,7 +487,7 @@ const FinalWeekendTarget = () => {
                     </div>
 
                     <div className="overflow-auto max-h-[65vh]">
-                        <table className="text-left border-collapse" style={{ minWidth: `${200 + 140 + weekList.length * 12 * 110 + 340}px` }}>
+                        <table className="text-left border-collapse" style={{ minWidth: `${200 + 140 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) * 110 + 340}px` }}>
                             <thead className="sticky top-0 z-30 shadow-md">
                                 {/* ── Row 1: Week group headers ─────────────────── */}
                                 <tr className={isDarkMode ? "bg-[#0d1015]" : "bg-gray-100"}>
@@ -407,15 +500,18 @@ const FinalWeekendTarget = () => {
                                         Total Monthly<br />Target
                                     </th>
                                     {/* Week group spans */}
-                                    {weekList.map(w => (
-                                        <th key={w.weekNumber} colSpan={12}
-                                            className={`px-3 py-2 text-[11px] font-black uppercase tracking-widest text-center border-l-2 ${isDarkMode ? "text-cyan-300 border-cyan-500/30 bg-cyan-500/10" : "text-cyan-700 border-cyan-300 bg-cyan-50"}`}>
-                                            W{w.weekNumber} &nbsp;·&nbsp; {w.startDay}–{w.endDay}
-                                            <span className={`ml-2 text-[9px] font-semibold ${isDarkMode ? "text-cyan-500" : "text-cyan-500"}`}>
-                                                ({w.actualDays} days)
-                                            </span>
-                                        </th>
-                                    ))}
+                                    {weekList.map(w => {
+                                        const activeCols = getActiveCols(w);
+                                        return (
+                                            <th key={w.weekNumber} colSpan={activeCols.length}
+                                                className={`px-3 py-2 text-[11px] font-black uppercase tracking-widest text-center border-l-2 ${isDarkMode ? "text-cyan-300 border-cyan-500/30 bg-cyan-500/10" : "text-cyan-700 border-cyan-300 bg-cyan-50"}`}>
+                                                W{w.weekNumber} &nbsp;·&nbsp; {w.startDay}–{w.endDay}
+                                                <span className={`ml-2 text-[9px] font-semibold ${isDarkMode ? "text-cyan-500" : "text-cyan-500"}`}>
+                                                    ({w.actualDays} days)
+                                                </span>
+                                            </th>
+                                        );
+                                    })}
                                     {/* Summary group */}
                                     <th colSpan={3}
                                         className={`px-3 py-2 text-[11px] font-black uppercase tracking-widest text-center border-l-2 ${isDarkMode ? "text-amber-300 border-amber-500/30 bg-amber-500/10" : "text-amber-700 border-amber-300 bg-amber-50"}`}>
@@ -425,14 +521,15 @@ const FinalWeekendTarget = () => {
 
                                 {/* ── Row 2: Sub-column labels ──────────────────── */}
                                 <tr className={isDarkMode ? "bg-[#0d1015]" : "bg-gray-50"}>
-                                    {weekList.map((w, wi) =>
-                                        WEEK_COLS.map((col, ci) => (
-                                            <th key={`${wi}-${ci}`}
+                                    {weekList.map((w, wi) => {
+                                        const activeCols = getActiveCols(w);
+                                        return activeCols.map((col, ci) => (
+                                            <th key={`${wi}-${col.key}`}
                                                 className={`px-3 py-2 text-[9px] font-black uppercase tracking-wide text-center whitespace-nowrap ${ci === 0 ? `border-l-2 ${isDarkMode ? "border-cyan-500/30" : "border-cyan-300"}` : ""} ${headerBg(col.color, isDarkMode)}`}>
                                                 {col.label}
                                             </th>
-                                        ))
-                                    )}
+                                        ));
+                                    })}
                                     {/* Summary sub-cols */}
                                     {[
                                         { label: "Total %", color: "amber" },
@@ -451,12 +548,12 @@ const FinalWeekendTarget = () => {
                                 {loading ? (
                                     [1, 2, 3].map(i => (
                                         <tr key={i}>
-                                            <td colSpan={2 + weekList.length * 12 + 3} className="h-14 animate-pulse bg-gray-500/5" />
+                                            <td colSpan={2 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) + 3} className="h-14 animate-pulse bg-gray-500/5" />
                                         </tr>
                                     ))
                                 ) : activeCentres.length === 0 ? (
                                     <tr>
-                                        <td colSpan={2 + weekList.length * 12 + 3} className={`px-6 py-16 text-center text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                                        <td colSpan={2 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) + 3} className={`px-6 py-16 text-center text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                                             No data available for the selected filters.
                                         </td>
                                     </tr>
@@ -502,8 +599,9 @@ const FinalWeekendTarget = () => {
 
                                             {/* Week data cells */}
                                             {weeks.map((w, wi) => {
+                                                const activeCols = getActiveCols(w);
                                                 const m = weekMetrics(w);
-                                                return WEEK_COLS.map((col, ci) => {
+                                                return activeCols.map((col, ci) => {
                                                     const val = m[col.key];
                                                     const isShortfall = col.key === "phaseShortfall" || col.key === "weekendDeficit";
 
@@ -511,7 +609,7 @@ const FinalWeekendTarget = () => {
                                                         const key = `${c.centreId}-${w.weekNumber}`;
                                                         const displayVal = editingTargets[key] !== undefined ? editingTargets[key] : Math.round(val);
                                                         return (
-                                                            <td key={`${wi}-${ci}`}
+                                                            <td key={`${wi}-${col.key}`}
                                                                 className={`px-2 py-3 text-center text-xs whitespace-nowrap ${ci === 0 ? `border-l-2 ${isDarkMode ? "border-cyan-500/20" : "border-cyan-200"}` : ""} ${cellColor(col.key, val, isDarkMode)}`}>
                                                                 <input
                                                                     type="number"
@@ -523,9 +621,6 @@ const FinalWeekendTarget = () => {
                                                                             e.target.blur();
                                                                         }
                                                                     }}
-                                                                    onBlur={(e) => {
-                                                                        handleSaveOverride(c.centreId, w.weekNumber, e.target.value);
-                                                                    }}
                                                                     className={`w-24 text-center bg-transparent border-b border-dashed border-cyan-500 focus:border-solid focus:border-blue-500 outline-none font-black text-xs ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}
                                                                 />
                                                             </td>
@@ -533,7 +628,7 @@ const FinalWeekendTarget = () => {
                                                     }
 
                                                     return (
-                                                        <td key={`${wi}-${ci}`}
+                                                        <td key={`${wi}-${col.key}`}
                                                             className={`px-3 py-4 text-center text-xs whitespace-nowrap ${ci === 0 ? `border-l-2 ${isDarkMode ? "border-cyan-500/20" : "border-cyan-200"}` : ""} ${cellColor(col.key, val, isDarkMode)}`}>
                                                             {isShortfall && val === 0 ? (
                                                                 <span className={`text-[10px] font-black ${isDarkMode ? "text-emerald-500" : "text-emerald-600"}`}>✓ Met</span>
@@ -586,8 +681,9 @@ const FinalWeekendTarget = () => {
                                             {fmt(totalTarget)}
                                         </td>
                                         {weekList.map((w, wi) => {
+                                            const activeCols = getActiveCols(w);
                                             // Sum each metric across centres for this week
-                                            const totals = WEEK_COLS.reduce((acc, col) => {
+                                            const totals = activeCols.reduce((acc, col) => {
                                                 const sum = activeCentres.reduce((s, c) => {
                                                     const m = weekMetrics(c.weeks?.[wi] || {
                                                         phaseTarget: 0, phaseAchieved: 0, workingTarget: 0, workingAchieved: 0,
@@ -600,8 +696,8 @@ const FinalWeekendTarget = () => {
                                                 return acc;
                                             }, {});
 
-                                            return WEEK_COLS.map((col, ci) => (
-                                                <td key={`tot-${wi}-${ci}`}
+                                            return activeCols.map((col, ci) => (
+                                                <td key={`tot-${wi}-${col.key}`}
                                                     className={`px-3 py-3 text-center text-[10px] font-black whitespace-nowrap ${ci === 0 ? `border-l-2 ${isDarkMode ? "border-cyan-500/30" : "border-cyan-300"}` : ""} ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>
                                                     {fmt(totals[col.key])}
                                                 </td>

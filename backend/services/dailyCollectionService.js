@@ -82,15 +82,28 @@ const buildFixedWeeks = (year, monthIndex) => {
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-    const periods = [
-        { weekNumber: 1, start: 1, end: 7 },
-        { weekNumber: 2, start: 8, end: 14 },
-        { weekNumber: 3, start: 15, end: 21 },
-        { weekNumber: 4, start: 22, end: 28 },
-    ];
+    const periods = [];
+    let weekNum = 1;
+    let startDay = 1;
 
-    if (daysInMonth > 28) {
-        periods.push({ weekNumber: 5, start: 29, end: daysInMonth });
+    while (startDay <= daysInMonth) {
+        let endDay = startDay;
+        while (endDay < daysInMonth) {
+            const date = new Date(year, monthIndex, endDay);
+            if (date.getDay() === 0) { // Sunday ends the week
+                break;
+            }
+            endDay++;
+        }
+
+        periods.push({
+            weekNumber: weekNum,
+            start: startDay,
+            end: endDay
+        });
+
+        startDay = endDay + 1;
+        weekNum++;
     }
 
     return periods
@@ -663,23 +676,51 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
 
                     if (isDayInWeek) {
                         // This is the week containing our selected date!
-                        // Determine daily target based on weekdays/weekend split
-                        const workingTarget = phaseTarget * 0.35;
-                        const baseWeekendTarget = phaseTarget * 0.65;
+                        const hasWeekdays = week.days.some(d => !d.isWeekend);
+                        const hasSat = week.days.some(d => d.dayName === 'Sat');
+                        const hasSun = week.days.some(d => d.dayName === 'Sun');
+                        const hasWeekend = hasSat || hasSun;
+
+                        let workingTarget = 0;
+                        let baseWeekendTarget = 0;
+
+                        if (hasWeekdays && !hasWeekend) {
+                            workingTarget = phaseTarget;
+                            baseWeekendTarget = 0;
+                        } else if (!hasWeekdays && hasWeekend) {
+                            workingTarget = 0;
+                            baseWeekendTarget = phaseTarget;
+                        } else if (hasWeekdays && hasWeekend) {
+                            workingTarget = phaseTarget * 0.35;
+                            baseWeekendTarget = phaseTarget * 0.65;
+                        }
 
                         const dayIndex = selectedDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
                         const isWeekend = dayIndex === 0 || dayIndex === 6;
 
                         if (isWeekend) {
-                            const satTarget = baseWeekendTarget * 0.35;
-                            const sunTarget = baseWeekendTarget * 0.65;
+                            let satTarget = 0;
+                            let sunTarget = 0;
+
+                            if (hasSat && hasSun) {
+                                satTarget = baseWeekendTarget * 0.35;
+                                sunTarget = baseWeekendTarget * 0.65;
+                            } else if (hasSat && !hasSun) {
+                                satTarget = baseWeekendTarget;
+                                sunTarget = 0;
+                            } else if (!hasSat && hasSun) {
+                                satTarget = 0;
+                                sunTarget = baseWeekendTarget;
+                            }
+
                             if (dayIndex === 6) {
                                 finalDailyTarget = satTarget;
                             } else {
                                 finalDailyTarget = sunTarget;
                             }
                         } else {
-                            finalDailyTarget = workingTarget / 5;
+                            const weekdayCount = week.days.filter(d => !d.isWeekend).length;
+                            finalDailyTarget = weekdayCount > 0 ? workingTarget / weekdayCount : 0;
                         }
                         
                         break;
