@@ -396,3 +396,75 @@ export const updateCentreTargetAchieved = async (centreName, paymentDateInput) =
         console.error("Error updating centre target achievement:", error);
     }
 };
+
+export const getBatchAchievedForCentres = async (centreNames, startDate, endDate) => {
+    try {
+        const result = await Payment.aggregate([
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoNormal"
+                }
+            },
+            {
+                $lookup: {
+                    from: "boardcourseadmissions",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoBoard"
+                }
+            },
+            {
+                $addFields: {
+                    admissionDetails: {
+                        $ifNull: [
+                            { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                        ]
+                    }
+                }
+            },
+            { $unwind: "$admissionDetails" },
+            {
+                $match: {
+                    "admissionDetails.centre": { $in: centreNames },
+                    billId: { $exists: true, $nin: [null, "", "-"] },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
+                        { paymentMethod: "CHEQUE" },
+                        { paidAmount: { $gt: 0 } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                }
+            },
+            {
+                $match: {
+                    effectiveDate: { $gte: startDate, $lte: endDate }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        centre: "$admissionDetails.centre",
+                        year: { $year: "$effectiveDate" },
+                        month: { $month: "$effectiveDate" },
+                        day: { $dayOfMonth: "$effectiveDate" }
+                    },
+                    totalWithGST: { $sum: "$paidAmount" },
+                    totalExclGST: { $sum: "$revenueBase" }
+                }
+            }
+        ]);
+        return result;
+    } catch (err) {
+        console.error("Error in getBatchAchievedForCentres service:", err);
+        return [];
+    }
+};

@@ -1,7 +1,7 @@
 import express from "express";
 import { createLead } from "../../controllers/leadManagement/createLead.js";
 import { cleanDuplicates } from "../../controllers/leadManagement/cleanDuplicates.js";
-import { getLeads, getLeadById, getDistinctSchools, getDistinctSources } from "../../controllers/leadManagement/getLeads.js";
+import { getLeads, getLeadById, getDistinctSchools, getDistinctSources, getLeadUploaders } from "../../controllers/leadManagement/getLeads.js";
 import { getFollowUpLeads } from "../../controllers/leadManagement/getFollowUpLeads.js";
 import { updateLead, tagWalkIn, toggleLeadPriority } from "../../controllers/leadManagement/updateLead.js";
 import { deleteLead } from "../../controllers/leadManagement/deleteLead.js";
@@ -36,6 +36,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get("/", requireAuth, getLeads);
 router.get("/distinct-schools", requireAuth, getDistinctSchools);
 router.get("/distinct-sources", requireAuth, getDistinctSources);
+router.get("/uploaders", requireAuth, getLeadUploaders);
 router.get("/follow-ups", requireAuth, getFollowUpLeads);
 router.get("/stats/dashboard", requireAuth, getLeadDashboardStats);
 router.get("/stats/today-followups", requireAuth, getFollowUpStats);

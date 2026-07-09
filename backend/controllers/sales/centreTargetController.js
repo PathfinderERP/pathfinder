@@ -1,6 +1,6 @@
 import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
-import { calculateCentreTargetAchieved, calculateCentreTargetAchievedYearly, calculateCentreTargetAchievedMultiMonth } from "../../services/centreTargetService.js";
+import { calculateCentreTargetAchieved, calculateCentreTargetAchievedYearly, calculateCentreTargetAchievedMultiMonth, getBatchAchievedForCentres } from "../../services/centreTargetService.js";
 import mongoose from "mongoose";
 
 const monthNames = [
@@ -168,30 +168,165 @@ export const getCentreTargets = async (req, res) => {
             .populate({ path: 'centre', select: 'centreName', model: 'CentreSchema' })
             .sort({ createdAt: -1 });
 
-        // Calculate achieved amounts
+        // Calculate achieved amounts in a single batch aggregation
+        let globalMinDate = null;
+        let globalMaxDate = null;
+        const centreNamesSet = new Set();
+
+        const updateGlobalRange = (start, end) => {
+            if (!globalMinDate || start < globalMinDate) globalMinDate = start;
+            if (!globalMaxDate || end > globalMaxDate) globalMaxDate = end;
+        };
+
+        targets.forEach(t => {
+            if (!t.centre || !t.centre.centreName || t.financialYear === "2025-2026") return;
+            
+            centreNamesSet.add(t.centre.centreName);
+
+            if (startDate && endDate) {
+                updateGlobalRange(new Date(startDate), new Date(endDate));
+            } else if (t.month === "YEARLY") {
+                const parts = t.financialYear.split('-');
+                if (parts.length === 2) {
+                    const fyStartYear = parseInt(parts[0], 10);
+                    const fyEndYear = parseInt(parts[1], 10);
+                    const start = new Date(fyStartYear, 3, 1);
+                    let end = new Date(fyEndYear, 2, 31, 23, 59, 59, 999);
+                    const now = new Date();
+                    if (now < end) end = now;
+                    updateGlobalRange(start, end);
+                }
+            } else if (t.month && t.month.includes(",")) {
+                const parts = t.financialYear.split('-');
+                if (parts.length === 2) {
+                    const fyStartYear = parseInt(parts[0], 10);
+                    const fyEndYear = parseInt(parts[1], 10);
+                    const selectedMonths = t.month.split(',').map(m => m.trim()).filter(m => monthNames.includes(m));
+                    selectedMonths.forEach(mName => {
+                        const mIndex = monthNames.indexOf(mName);
+                        const calYear = mIndex >= 3 ? fyStartYear : fyEndYear;
+                        updateGlobalRange(
+                            new Date(calYear, mIndex, 1),
+                            new Date(calYear, mIndex + 1, 0, 23, 59, 59, 999)
+                        );
+                    });
+                }
+            } else {
+                const mIndex = monthNames.indexOf(t.month);
+                if (mIndex !== -1) {
+                    updateGlobalRange(
+                        new Date(t.year, mIndex, 1),
+                        new Date(t.year, mIndex + 1, 0, 23, 59, 59, 999)
+                    );
+                }
+            }
+        });
+
+        const batchLookup = {};
+        if (centreNamesSet.size > 0 && globalMinDate && globalMaxDate) {
+            const rawAchievements = await getBatchAchievedForCentres(
+                Array.from(centreNamesSet),
+                globalMinDate,
+                globalMaxDate
+            );
+
+            rawAchievements.forEach(r => {
+                const cName = r._id.centre;
+                const y = r._id.year;
+                const m = r._id.month - 1; // 0-indexed
+                const d = r._id.day;
+
+                if (!batchLookup[cName]) batchLookup[cName] = {};
+                const dateKey = new Date(y, m, d).getTime();
+                batchLookup[cName][dateKey] = {
+                    withGST: r.totalWithGST || 0,
+                    exclGST: r.totalExclGST || 0
+                };
+            });
+        }
+
+        const calculateTargetFromLookup = (centreName, start, end, monthString = null) => {
+            const lookup = batchLookup[centreName];
+            if (!lookup) return { totalWithGST: 0, totalExclGST: 0 };
+            
+            let totalWithGST = 0;
+            let totalExclGST = 0;
+            const startTime = start.getTime();
+            const endTime = end.getTime();
+            
+            const allowedMonths = monthString && monthString.includes(",") 
+                ? monthString.split(",").map(m => m.trim().toLowerCase())
+                : null;
+            
+            for (const timeStr of Object.keys(lookup)) {
+                const time = Number(timeStr);
+                if (time >= startTime && time <= endTime) {
+                    if (allowedMonths) {
+                        const dObj = new Date(time);
+                        const mName = monthNames[dObj.getMonth()].toLowerCase();
+                        if (!allowedMonths.includes(mName)) continue;
+                    }
+                    totalWithGST += lookup[timeStr].withGST;
+                    totalExclGST += lookup[timeStr].exclGST;
+                }
+            }
+            return { totalWithGST, totalExclGST };
+        };
+
         const processedTargets = await Promise.all(targets.map(async (t) => {
             if (t.centre && t.centre.centreName) {
                 if (t.financialYear === "2025-2026") {
                     return t.toObject();
                 }
-                let totalWithGST, totalExclGST;
                 
-                if (t.month === "YEARLY") {
-                    const yearlyResult = await calculateCentreTargetAchievedYearly(t.centre.centreName, t.financialYear);
-                    totalWithGST = yearlyResult.totalWithGST;
-                    totalExclGST = yearlyResult.totalExclGST;
+                let start, end;
+                let monthString = null;
+
+                if (startDate && endDate) {
+                    start = new Date(startDate);
+                    end = new Date(endDate);
+                } else if (t.month === "YEARLY") {
+                    const parts = t.financialYear.split('-');
+                    if (parts.length === 2) {
+                        const fyStartYear = parseInt(parts[0], 10);
+                        const fyEndYear = parseInt(parts[1], 10);
+                        start = new Date(fyStartYear, 3, 1);
+                        end = new Date(fyEndYear, 2, 31, 23, 59, 59, 999);
+                        const now = new Date();
+                        if (now < end) end = now;
+                    }
                 } else if (t.month && t.month.includes(",")) {
-                    const multiResult = await calculateCentreTargetAchievedMultiMonth(t.centre.centreName, t.month, t.financialYear);
-                    totalWithGST = multiResult.totalWithGST;
-                    totalExclGST = multiResult.totalExclGST;
+                    const parts = t.financialYear.split('-');
+                    if (parts.length === 2) {
+                        const fyStartYear = parseInt(parts[0], 10);
+                        const fyEndYear = parseInt(parts[1], 10);
+                        monthString = t.month;
+                        const selectedMonths = t.month.split(',').map(m => m.trim()).filter(m => monthNames.includes(m));
+                        const mIndices = selectedMonths.map(m => monthNames.indexOf(m));
+                        const years = mIndices.map(mIndex => mIndex >= 3 ? fyStartYear : fyEndYear);
+                        const startYear = Math.min(...years);
+                        const endYear = Math.max(...years);
+                        const startMonthIndex = Math.min(...mIndices);
+                        const endMonthIndex = Math.max(...mIndices);
+                        
+                        start = new Date(startYear, startMonthIndex, 1);
+                        end = new Date(endYear, endMonthIndex + 1, 0, 23, 59, 59, 999);
+                    }
                 } else {
-                    // Pass startDate and endDate to calculate range-specific achievement
-                    const monthlyResult = await calculateCentreTargetAchieved(t.centre.centreName, t.month, t.year, startDate, endDate);
-                    totalWithGST = monthlyResult.totalWithGST;
-                    totalExclGST = monthlyResult.totalExclGST;
+                    const mIndex = monthNames.indexOf(t.month);
+                    if (mIndex !== -1) {
+                        start = new Date(t.year, mIndex, 1);
+                        end = new Date(t.year, mIndex + 1, 0, 23, 59, 59, 999);
+                    }
+                }
+
+                let totalWithGST = 0, totalExclGST = 0;
+                if (start && end) {
+                    const res = calculateTargetFromLookup(t.centre.centreName, start, end, monthString);
+                    totalWithGST = res.totalWithGST;
+                    totalExclGST = res.totalExclGST;
                 }
                 
-                // Only update database if we're NOT in a custom range mode to avoid cache corruption
                 const isCustomRange = !!(startDate && endDate);
                 if (!isCustomRange && (totalWithGST !== t.achievedAmountWithGST || totalExclGST !== t.achievedAmountExclGST)) {
                     await CentreTarget.updateOne(

@@ -113,7 +113,8 @@ const LeadManagementContent = () => {
         isPriority: "",
         schoolName: [],
         showDuplicates: "",
-        zone: []
+        zone: [],
+        uploadedBy: []
     });
 
     // Dropdown data for filters
@@ -126,6 +127,7 @@ const LeadManagementContent = () => {
     const [feedbackCategories, setFeedbackCategories] = useState([]);
     const [zones, setZones] = useState([]);
     const [schoolsList, setSchoolsList] = useState([]);
+    const [uploaders, setUploaders] = useState([]);
 
     const fetchLeadStats = useCallback(async () => {
         try {
@@ -457,6 +459,15 @@ const LeadManagementContent = () => {
                 const zoneData = await zoneResponse.json();
                 setZones(zoneData.data || zoneData.zones || []);
             }
+
+            // Fetch lead uploaders
+            const uploadersResponse = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/uploaders`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (uploadersResponse.ok) {
+                const uploaderData = await uploadersResponse.json();
+                setUploaders(uploaderData.uploaders || []);
+            }
         } catch (error) {
             console.error("Error fetching filter data:", error);
         }
@@ -622,7 +633,8 @@ const LeadManagementContent = () => {
             isPriority: "",
             schoolName: [],
             showDuplicates: "",
-            zone: []
+            zone: [],
+            uploadedBy: []
         });
         setSortField(null);
         setSortDirection('asc');
@@ -1538,6 +1550,16 @@ const LeadManagementContent = () => {
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
                                 placeholder="Select Agent"
                                 isDisabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Uploaded By</label>
+                            <CustomMultiSelect
+                                options={uploaders.map(u => ({ value: u._id, label: u.name }))}
+                                value={filters.uploadedBy || []}
+                                onChange={(selected) => handleFilterChange('uploadedBy', selected)}
+                                placeholder="Select Uploader"
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

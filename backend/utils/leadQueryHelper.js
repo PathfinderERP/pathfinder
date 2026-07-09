@@ -141,7 +141,8 @@ export const buildLeadQuery = async (queryParams, user) => {
     const { 
         search, leadType, source, centre, course, leadResponsibility, 
         board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus,
-        schoolName, followUpFromDate, followUpToDate, showDuplicates, includeInvalid, zone
+        schoolName, followUpFromDate, followUpToDate, showDuplicates, includeInvalid, zone,
+        uploadedBy
     } = queryParams;
 
     const query = {};
@@ -279,6 +280,13 @@ export const buildLeadQuery = async (queryParams, user) => {
     if (queryParams.marketingBy && (!Array.isArray(queryParams.marketingBy) || queryParams.marketingBy.length > 0)) {
         const values = Array.isArray(queryParams.marketingBy) ? normalizeValue(queryParams.marketingBy) : [normalizeValue(queryParams.marketingBy)];
         query.marketingBy = { $in: values };
+    }
+    if (uploadedBy && (!Array.isArray(uploadedBy) || uploadedBy.length > 0)) {
+        const values = Array.isArray(uploadedBy) ? normalizeValue(uploadedBy) : [normalizeValue(uploadedBy)];
+        const cleanValues = values.filter(v => v);
+        if (cleanValues.length > 0) {
+            query.createdBy = { $in: cleanValues };
+        }
     }
     if (schoolName && (!Array.isArray(schoolName) || schoolName.length > 0)) {
         const values = Array.isArray(schoolName) ? normalizeValue(schoolName) : [normalizeValue(schoolName)];

@@ -216,3 +216,15 @@ export const getDistinctSources = async (req, res) => {
     }
 };
 
+export const getLeadUploaders = async (req, res) => {
+    try {
+        const uploaderIds = await LeadManagement.distinct("createdBy", { createdBy: { $ne: null } });
+        const users = await User.find({ _id: { $in: uploaderIds } }).select("name");
+        users.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: 'base' }));
+        res.status(200).json({ success: true, uploaders: users });
+    } catch (err) {
+        console.error("Error fetching lead uploaders:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
