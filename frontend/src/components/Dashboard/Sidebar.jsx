@@ -158,7 +158,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "leadManagement",
             subItems: [
                 { name: "All Leads", path: "/lead-management", permissionSection: "leads" },
-                { name: "Conversion Report", path: "/lead-management/conversion-report", permissionSection: "leads" },
+                { name: "Conversion Report", path: "/lead-management/conversion-report", permissionSection: "conversionReport", restrictedToSuperAdmin: false },
                 { name: "Teacher Schedule", path: "/lead-management/teacher-schedule", permissionSection: "leads" },
                 { name: "Campaigns/Ads", path: "/lead-management/campaigns", permissionSection: "campaignAds" },
             ]

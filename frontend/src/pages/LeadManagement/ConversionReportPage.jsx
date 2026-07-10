@@ -1,11 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import { FaChartLine, FaCalendarAlt, FaSyncAlt, FaBuilding, FaUserAlt, FaFilter, FaBullhorn, FaTimes, FaGraduationCap, FaUserCheck } from 'react-icons/fa';
+import { hasPermission } from "../../config/permissions";
 
 export default function ConversionReportPage() {
+    const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const canView = hasPermission(user, "leadManagement", "conversionReport", "view");
+
+    useEffect(() => {
+        if (!canView) {
+            toast.error("Access Denied: You do not have permission to view the Conversion Report.");
+            navigate("/dashboard");
+        }
+    }, [canView, navigate]);
+
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const apiUrl = import.meta.env.VITE_API_URL;

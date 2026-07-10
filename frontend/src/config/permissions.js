@@ -530,6 +530,10 @@ export const PERMISSION_MODULES = {
             campaignAds: {
                 label: "Campaign/Ads",
                 operations: ["view", "create", "edit", "delete"]
+            },
+            conversionReport: {
+                label: "Conversion Report",
+                operations: ["view"]
             }
         }
     },
