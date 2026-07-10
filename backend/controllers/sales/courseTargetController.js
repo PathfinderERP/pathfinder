@@ -63,7 +63,7 @@ export const saveCourseTarget = async (req, res) => {
 // GET /sales/course-target/analysis
 export const getCourseTargetAnalysis = async (req, res) => {
     try {
-        const { centre, year, month, quarter, week, targetType, programme } = req.query;
+        const { centre, year, month, quarter, week, targetType, programme, sessions } = req.query;
 
         if (!centre || !year || !targetType) {
             return res.status(400).json({ message: "Centre(s), Year, and Target Type are required" });
@@ -121,9 +121,32 @@ export const getCourseTargetAnalysis = async (req, res) => {
             endDate = new Date(parsedYear + 1, 2, 31, 23, 59, 59, 999);
         } else if (targetType === 'WEEKLY') {
             const mIdx = monthNames.indexOf(month);
+            const parsedWeekNum = parseInt(week, 10);
             const daysInMonth = new Date(parsedYear, mIdx + 1, 0).getDate();
-            const startDay = (week - 1) * 7 + 1;
-            const endDay = Math.min(week * 7, daysInMonth);
+            const firstDowJS = new Date(parsedYear, mIdx, 1).getDay();
+            const firstMonOffset = (firstDowJS + 6) % 7; // Mon=0, Tue=1 … Sun=6
+            
+            const weeksList = [];
+            let currentDay = 1;
+            let currentWeekNum = 1;
+            
+            while (currentDay <= daysInMonth) {
+                const startOffset = currentWeekNum === 1 ? firstMonOffset : 0;
+                let startDay = currentDay;
+                let colIdx = startOffset;
+                while (currentDay <= daysInMonth && colIdx < 7) {
+                    currentDay++;
+                    colIdx++;
+                }
+                const endDay = currentDay - 1;
+                weeksList.push({ weekNumber: currentWeekNum, startDay, endDay });
+                currentWeekNum++;
+            }
+            
+            const currentWeekRange = weeksList.find(w => w.weekNumber === parsedWeekNum) || weeksList[0];
+            const startDay = currentWeekRange ? currentWeekRange.startDay : 1;
+            const endDay = currentWeekRange ? currentWeekRange.endDay : 7;
+            
             startDate = new Date(parsedYear, mIdx, startDay);
             endDate = new Date(parsedYear, mIdx, endDay, 23, 59, 59, 999);
         } else if (targetType === 'CUSTOM') {
@@ -158,7 +181,10 @@ export const getCourseTargetAnalysis = async (req, res) => {
             targetMap[key] = t.targetCount;
         });
 
-        console.log(`Analyzing ${centreIds.length} centres from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+        const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
+        const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
+
+        console.log(`Analyzing ${centreIds.length} centres from ${startDate.toISOString()} to ${endDate.toISOString()} | Sessions: ${sessionList} | Programs: ${programList}`);
 
         for (const centreId of centreIds) {
             const centreDoc = centreMap[centreId];
@@ -167,15 +193,29 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const centreName = centreDoc.centreName;
             const centreRegex = new RegExp(`^${centreName.trim()}$`, 'i');
 
+            const normalMatch = {
+                centre: centreRegex,
+                admissionDate: { $gte: startDate, $lte: endDate },
+                admissionStatus: "ACTIVE",
+                admissionType: "NORMAL"
+            };
+            if (sessionList.length > 0) {
+                normalMatch.academicSession = { $in: sessionList };
+            }
+
+            const boardMatch = {
+                centre: centreRegex,
+                admissionDate: { $gte: startDate, $lte: endDate },
+                status: "ACTIVE"
+            };
+            if (sessionList.length > 0) {
+                boardMatch.academicSession = { $in: sessionList };
+            }
+
             const [normalAdmissions, boardAdmissions] = await Promise.all([
                 Admission.aggregate([
                     {
-                        $match: {
-                            centre: centreRegex,
-                            admissionDate: { $gte: startDate, $lte: endDate },
-                            admissionStatus: "ACTIVE",
-                            admissionType: "NORMAL"
-                        }
+                        $match: normalMatch
                     },
                     {
                         $lookup: {
@@ -186,9 +226,9 @@ export const getCourseTargetAnalysis = async (req, res) => {
                         }
                     },
                     { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
-                    ...(programme ? [{
+                    ...(programList.length > 0 ? [{
                         $match: {
-                            "studentInfo.studentsDetails.programme": programme
+                            "studentInfo.studentsDetails.programme": { $in: programList }
                         }
                     }] : []),
                     {
@@ -200,11 +240,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 ]),
                 BoardCourseAdmission.aggregate([
                     {
-                        $match: {
-                            centre: centreRegex,
-                            admissionDate: { $gte: startDate, $lte: endDate },
-                            status: "ACTIVE"
-                        }
+                        $match: boardMatch
                     },
                     {
                         $lookup: {
@@ -215,9 +251,9 @@ export const getCourseTargetAnalysis = async (req, res) => {
                         }
                     },
                     { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
-                    ...(programme ? [{
+                    ...(programList.length > 0 ? [{
                         $match: {
-                            "studentInfo.studentsDetails.programme": programme
+                            "studentInfo.studentsDetails.programme": { $in: programList }
                         }
                     }] : []),
                     {
@@ -310,7 +346,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 // GET /sales/course-target/admissions
 export const getAdmissionDetails = async (req, res) => {
     try {
-        const { centreName, departmentId, startDate, endDate, programme } = req.query;
+        const { centreName, departmentId, startDate, endDate, programme, sessions } = req.query;
 
         if (!centreName || !departmentId || !startDate || !endDate) {
             return res.status(400).json({ message: "Missing required parameters" });
@@ -322,14 +358,22 @@ export const getAdmissionDetails = async (req, res) => {
 
         const centreRegex = new RegExp(`^${centreName.trim()}$`, 'i');
 
+        const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
+        const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
+
         // Fetch Normal Admissions
-        const admissions = await Admission.find({
+        const normalQuery = {
             centre: centreRegex,
             department: departmentId,
             admissionDate: { $gte: start, $lte: end },
             admissionStatus: "ACTIVE",
             admissionType: "NORMAL"
-        })
+        };
+        if (sessionList.length > 0) {
+            normalQuery.academicSession = { $in: sessionList };
+        }
+
+        const admissions = await Admission.find(normalQuery)
             .populate('course', 'courseName programme')
             .populate('examTag', 'name tagName')
             .populate('student', 'studentsDetails mobileNum')
@@ -348,8 +392,8 @@ export const getAdmissionDetails = async (req, res) => {
             totalFees: a.totalFees || 0
         }));
 
-        if (programme) {
-            normalResults = normalResults.filter(a => a.programme === programme);
+        if (programList.length > 0) {
+            normalResults = normalResults.filter(a => programList.includes(a.programme));
         }
 
         // Fetch Board Course Admissions matching this department
@@ -369,6 +413,10 @@ export const getAdmissionDetails = async (req, res) => {
                     admissionDate: { $gte: start, $lte: end },
                     status: "ACTIVE"
                 };
+                if (sessionList.length > 0) {
+                    boardQuery.academicSession = { $in: sessionList };
+                }
+
                 const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
                     .populate('studentId')
                     .populate('boardId')
@@ -387,8 +435,8 @@ export const getAdmissionDetails = async (req, res) => {
                     totalFees: a.totalExpectedAmount || 0
                 }));
 
-                if (programme) {
-                    boardResults = boardResults.filter(a => a.programme === programme);
+                if (programList.length > 0) {
+                    boardResults = boardResults.filter(a => programList.includes(a.programme));
                 }
             }
         }

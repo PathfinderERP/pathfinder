@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
@@ -27,7 +27,10 @@ const CourseTarget = () => {
     // Student drill-down modal
     const [showStudentModal, setShowStudentModal] = useState(false);
     const [studentModalData, setStudentModalData] = useState({ centreName: "", deptName: "", tagName: "", students: [], loading: false });
-    const [selectedProgramme, setSelectedProgramme] = useState("");
+    const [selectedProgrammes, setSelectedProgrammes] = useState([]);
+    const [sessions, setSessions] = useState([]);
+    const [selectedSessions, setSelectedSessions] = useState([]);
+    const [activeCardModal, setActiveCardModal] = useState(null);
 
     const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
         setTargetModalData({
@@ -48,6 +51,42 @@ const CourseTarget = () => {
         fetchData();
     };
 
+    const getWeeksForMonth = (year, monthName) => {
+        const mIdx = monthNames.indexOf(monthName);
+        const daysInMonth = new Date(year, mIdx + 1, 0).getDate();
+        const firstDowJS = new Date(year, mIdx, 1).getDay();
+        const firstMonOffset = (firstDowJS + 6) % 7; // Mon=0, Tue=1 … Sun=6
+        
+        const weeks = [];
+        let day = 1;
+        let weekNum = 1;
+        
+        while (day <= daysInMonth) {
+            const days = [];
+            const startOffset = weekNum === 1 ? firstMonOffset : 0;
+            
+            for (let i = 0; i < startOffset; i++) {
+                days.push({ isEmpty: true });
+            }
+            
+            while (day <= daysInMonth && days.length < 7) {
+                days.push({ day, isEmpty: false });
+                day++;
+            }
+            
+            while (days.length < 7) {
+                days.push({ isEmpty: true });
+            }
+            
+            const startDay = days.find(d => !d.isEmpty)?.day ?? null;
+            const endDay = [...days].reverse().find(d => !d.isEmpty)?.day ?? null;
+            
+            weeks.push({ weekNumber: weekNum, startDay, endDay });
+            weekNum++;
+        }
+        return weeks;
+    };
+
     // Compute date range from current filter settings for the admissions API
     const getDateRange = () => {
         const mIdx = monthNames.indexOf(selectedMonth);
@@ -58,9 +97,10 @@ const CourseTarget = () => {
             const e = new Date(selectedYear, mIdx + 1, 0).toISOString().split('T')[0];
             return { startDate: s, endDate: e };
         } else if (viewMode === "WEEKLY") {
-            const daysInMonth = new Date(selectedYear, mIdx + 1, 0).getDate();
-            const startDay = (selectedWeek - 1) * 7 + 1;
-            const endDay = Math.min(selectedWeek * 7, daysInMonth);
+            const weeks = getWeeksForMonth(selectedYear, selectedMonth);
+            const currentWeekRange = weeks.find(w => w.weekNumber === selectedWeek) || weeks[0];
+            const startDay = currentWeekRange ? currentWeekRange.startDay : 1;
+            const endDay = currentWeekRange ? currentWeekRange.endDay : 7;
             const s = new Date(selectedYear, mIdx, startDay).toISOString().split('T')[0];
             const e = new Date(selectedYear, mIdx, endDay).toISOString().split('T')[0];
             return { startDate: s, endDate: e };
@@ -91,8 +131,11 @@ const CourseTarget = () => {
             const token = localStorage.getItem("token");
             const { startDate, endDate } = getDateRange();
             const params = new URLSearchParams({ centreName, departmentId: deptId, startDate, endDate });
-            if (selectedProgramme) {
-                params.append("programme", selectedProgramme);
+            if (selectedProgrammes && selectedProgrammes.length > 0) {
+                params.append("programme", selectedProgrammes.join(','));
+            }
+            if (selectedSessions && selectedSessions.length > 0) {
+                params.append("sessions", selectedSessions.join(','));
             }
             const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-target/admissions?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -136,7 +179,16 @@ const CourseTarget = () => {
     useEffect(() => {
         fetchCentres();
         fetchDepartments();
+        fetchExamTags();
+        fetchSessions();
     }, []);
+
+    useEffect(() => {
+        const weeks = getWeeksForMonth(selectedYear, selectedMonth);
+        if (selectedWeek > weeks.length) {
+            setSelectedWeek(1);
+        }
+    }, [selectedMonth, selectedYear, selectedWeek]);
 
     const fetchCentres = async () => {
         try {
@@ -182,6 +234,37 @@ const CourseTarget = () => {
         }
     };
 
+    const [allExamTags, setAllExamTags] = useState([]);
+
+    const fetchExamTags = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/examTag`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setAllExamTags(res.data || []);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const fetchSessions = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/session/list`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const sessionList = (Array.isArray(res.data) ? res.data : [])
+                .filter(s => s.isGlobalActive)
+                .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+            setSessions(sessionList);
+            // Select all sessions by default
+            setSelectedSessions(sessionList.map(s => s.sessionName));
+        } catch (e) {
+            console.error("Error fetching sessions:", e);
+        }
+    };
+
     const fetchData = useCallback(async () => {
         if (selectedCentres.length === 0) {
             setData([]);
@@ -203,8 +286,11 @@ const CourseTarget = () => {
                 endDate: customEndDate
             };
 
-            if (selectedProgramme) {
-                params.programme = selectedProgramme;
+            if (selectedProgrammes && selectedProgrammes.length > 0) {
+                params.programme = selectedProgrammes.join(',');
+            }
+            if (selectedSessions && selectedSessions.length > 0) {
+                params.sessions = selectedSessions.join(',');
             }
 
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/course-target/analysis`, {
@@ -223,7 +309,7 @@ const CourseTarget = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgramme]);
+    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions]);
 
     useEffect(() => {
         fetchData();
@@ -265,12 +351,12 @@ const CourseTarget = () => {
 
         const rows = data.map(centre => {
             const row = { "Centre Name": centre.centreName };
-            departments.forEach(deptName => {
-                const { target, achieved } = getDeptStats(centre, deptName);
+            uniqueTagColumns.forEach(tagColumn => {
+                const { target, achieved } = getExamTagStats(centre, tagColumn);
                 if (viewMode === "YEARLY") {
-                    row[deptName] = `${achieved} / ${target > 0 ? target : "-"}`;
+                    row[tagColumn] = `${achieved} / ${target > 0 ? target : "-"}`;
                 } else {
-                    row[deptName] = achieved;
+                    row[tagColumn] = achieved;
                 }
             });
             row["Grand Total"] = getCentreTotalAchieved(centre);
@@ -279,18 +365,18 @@ const CourseTarget = () => {
 
         // Add a Total row at the bottom
         const totalRow = { "Centre Name": "TOTAL" };
-        departments.forEach(deptName => {
-            let deptAchievedSum = 0;
-            let deptTargetSum = 0;
+        uniqueTagColumns.forEach(tagColumn => {
+            let tagAchievedSum = 0;
+            let tagTargetSum = 0;
             data.forEach(centre => {
-                const { target, achieved } = getDeptStats(centre, deptName);
-                deptAchievedSum += achieved;
-                deptTargetSum += target;
+                const { target, achieved } = getExamTagStats(centre, tagColumn);
+                tagAchievedSum += achieved;
+                tagTargetSum += target;
             });
             if (viewMode === "YEARLY") {
-                totalRow[deptName] = `${deptAchievedSum} / ${deptTargetSum > 0 ? deptTargetSum : "-"}`;
+                totalRow[tagColumn] = `${tagAchievedSum} / ${tagTargetSum > 0 ? tagTargetSum : "-"}`;
             } else {
-                totalRow[deptName] = deptAchievedSum;
+                totalRow[tagColumn] = tagAchievedSum;
             }
         });
         totalRow["Grand Total"] = data.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0);
@@ -318,6 +404,153 @@ const CourseTarget = () => {
         
         XLSX.writeFile(wb, `${filename}.xlsx`);
         toast.success("Excel report exported successfully!");
+    };
+
+    // Calculate stats dynamically for cards
+    const totalAdmissionsCount = data.reduce((sum, centre) => {
+        return sum + (centre.departments ? centre.departments.reduce((dSum, d) => dSum + (d.achieved || 0), 0) : 0);
+    }, 0);
+
+    const tagsMap = {};
+    const centresMapObj = {};
+    const deptsMapObj = {};
+    const admissionsBreakdownList = [];
+
+    data.forEach(centre => {
+        let centreTotal = 0;
+        if (centre.departments) {
+            centre.departments.forEach(dept => {
+                if (dept.achieved > 0) {
+                    centreTotal += dept.achieved;
+                    deptsMapObj[dept.name] = (deptsMapObj[dept.name] || 0) + dept.achieved;
+
+                    admissionsBreakdownList.push({
+                        centreName: centre.centreName,
+                        deptName: dept.name,
+                        count: dept.achieved
+                    });
+                }
+
+                if (dept.examTagAchieved) {
+                    dept.examTagAchieved.forEach(tag => {
+                        const name = tag.tagName || "Uncategorized";
+                        tagsMap[name] = (tagsMap[name] || 0) + tag.count;
+                    });
+                }
+            });
+        }
+        if (centreTotal > 0) {
+            centresMapObj[centre.centreName] = centreTotal;
+        }
+    });
+
+    const totalUniqueTags = Object.keys(tagsMap).length;
+    const totalUniqueCentres = Object.keys(centresMapObj).length;
+    const totalUniqueDepts = Object.keys(deptsMapObj).length;
+
+    const tagsBreakdownList = Object.entries(tagsMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+
+    const centresBreakdownList = Object.entries(centresMapObj)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+
+    const deptsBreakdownList = Object.entries(deptsMapObj)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+
+    admissionsBreakdownList.sort((a, b) => b.count - a.count);
+
+    const isBoardMatchingDept = (boardCourse, deptName) => {
+        const bName = (boardCourse || "").toUpperCase();
+        const dName = (deptName || "").toUpperCase();
+        
+        if (dName.includes(bName) || bName.includes(dName)) return true;
+        
+        if (bName === 'WBBSE' && dName.includes('MADHYAMIK')) return true;
+        if (dName.includes('WBBSE') && bName.includes('MADHYAMIK')) return true;
+        
+        if (bName === 'WBCHSE' && (dName.includes('HS') || dName.includes('HIGHER SECONDARY'))) return true;
+        
+        return false;
+    };
+
+    // Calculate unique tag columns dynamically
+    const allTagNamesSet = new Set(allExamTags.map(t => t.name || t.tagName).filter(Boolean));
+    data.forEach(centre => {
+        if (centre.departments) {
+            centre.departments.forEach(dept => {
+                if (dept.examTagAchieved) {
+                    dept.examTagAchieved.forEach(tag => {
+                        if (tag.tagName) {
+                            allTagNamesSet.add(tag.tagName);
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    const CUSTOM_ORDER = [
+        "JEE 1 YEAR",
+        "JEE 2 YEAR",
+        "NEET 1 YEAR",
+        "NEET 2 YEAR",
+        "REPEATER",
+        "FOUNDATION CLASS 10",
+        "FOUNDATION CLASS 9",
+        "FOUNDATION CLASS 8",
+        "FOUNDATION CLASS 7",
+        "FOUNDATION CLASS 6",
+        "FOUNDATION CLASS 5",
+        "HS",
+        "ISC",
+        "ICSE",
+        "MADHYAMIK"
+    ];
+
+    const uniqueTagColumns = Array.from(allTagNamesSet).sort((a, b) => {
+        const aIdx = CUSTOM_ORDER.indexOf(a.trim().toUpperCase());
+        const bIdx = CUSTOM_ORDER.indexOf(b.trim().toUpperCase());
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+        return a.localeCompare(b);
+    });
+
+    const getExamTagStats = (centreData, tagColumn) => {
+        let achieved = 0;
+        let target = 0;
+        let matchingDeptId = null;
+        let matchingDeptName = "";
+
+        if (centreData && centreData.departments) {
+            centreData.departments.forEach(dept => {
+                if (dept.examTagAchieved) {
+                    const found = dept.examTagAchieved.find(t => t.tagName === tagColumn);
+                    if (found) {
+                        achieved += found.count || 0;
+                    }
+                }
+
+                const deptNameUpper = (dept.name || "").toUpperCase().trim();
+                const tagColumnUpper = (tagColumn || "").toUpperCase().trim();
+                
+                const isMatch = deptNameUpper.includes(tagColumnUpper) || 
+                                tagColumnUpper.includes(deptNameUpper) ||
+                                (dept.examTagAchieved && dept.examTagAchieved.some(t => t.tagName === tagColumn)) ||
+                                isBoardMatchingDept(tagColumn, dept.name);
+
+                if (isMatch) {
+                    target = Math.max(target, dept.target || 0);
+                    matchingDeptId = dept.id;
+                    matchingDeptName = dept.name;
+                }
+            });
+        }
+
+        return { achieved, target, deptId: matchingDeptId, deptName: matchingDeptName };
     };
 
     return (
@@ -349,6 +582,53 @@ const CourseTarget = () => {
                         >
                             <FaDownload size={14} /> Export Matrix
                         </button>
+                    </div>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div 
+                        onClick={() => setActiveCardModal("admissions")}
+                        className={`rounded-2xl border p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-500/50 active:scale-95 transition-all duration-200 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
+                    >
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-blue-500/15 text-blue-500"><FaGraduationCap /></div>
+                        <div className="min-w-0">
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Total Admissions</p>
+                            <p className={`text-2xl font-black mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{totalAdmissionsCount.toLocaleString("en-IN")}</p>
+                        </div>
+                    </div>
+                    
+                    <div 
+                        onClick={() => setActiveCardModal("tags")}
+                        className={`rounded-2xl border p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-500/50 active:scale-95 transition-all duration-200 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
+                    >
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-violet-500/15 text-violet-500"><FaTag /></div>
+                        <div className="min-w-0">
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Exam Tags</p>
+                            <p className={`text-2xl font-black mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{totalUniqueTags}</p>
+                        </div>
+                    </div>
+
+                    <div 
+                        onClick={() => setActiveCardModal("centres")}
+                        className={`rounded-2xl border p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-500/50 active:scale-95 transition-all duration-200 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
+                    >
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-amber-500/15 text-amber-500"><FaBuilding /></div>
+                        <div className="min-w-0">
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Centres</p>
+                            <p className={`text-2xl font-black mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{totalUniqueCentres}</p>
+                        </div>
+                    </div>
+
+                    <div 
+                        onClick={() => setActiveCardModal("departments")}
+                        className={`rounded-2xl border p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-500/50 active:scale-95 transition-all duration-200 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
+                    >
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-emerald-500/15 text-emerald-500"><FaLayerGroup /></div>
+                        <div className="min-w-0">
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Departments</p>
+                            <p className={`text-2xl font-black mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{totalUniqueDepts}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -395,16 +675,51 @@ const CourseTarget = () => {
                             />
                         </div>
 
-                        <div className="min-w-[120px] z-20">
-                            <select
-                                value={selectedProgramme}
-                                onChange={(e) => setSelectedProgramme(e.target.value)}
-                                className={`border text-xs rounded-lg block w-full px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
-                            >
-                                <option value="">All Programs</option>
-                                <option value="CRP">CRP</option>
-                                <option value="NCRP">NCRP</option>
-                            </select>
+                        <div className="min-w-[150px] z-20 w-full sm:w-44">
+                            <CustomMultiSelect
+                                options={[
+                                    { value: 'all', label: 'All Programs' },
+                                    { value: 'CRP', label: 'CRP' },
+                                    { value: 'NCRP', label: 'NCRP' }
+                                ]}
+                                value={
+                                    selectedProgrammes.length === 2
+                                        ? [{ value: 'all', label: 'All Programs' }]
+                                        : [
+                                            { value: 'CRP', label: 'CRP' },
+                                            { value: 'NCRP', label: 'NCRP' }
+                                        ].filter(opt => selectedProgrammes.includes(opt.value))
+                                }
+                                onChange={(selected) => {
+                                    if (selected && selected.some(o => o.value === 'all')) {
+                                        setSelectedProgrammes(['CRP', 'NCRP']);
+                                    } else {
+                                        setSelectedProgrammes(selected ? selected.map(o => o.value) : []);
+                                    }
+                                }}
+                                placeholder="Select Programs"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        <div className="min-w-[180px] z-20 w-full sm:w-56">
+                            <CustomMultiSelect
+                                options={[{ value: 'all', label: 'All Sessions' }, ...sessions.map(s => ({ value: s.sessionName, label: s.sessionName }))]}
+                                value={
+                                    selectedSessions.length === sessions.length && sessions.length > 0
+                                        ? [{ value: 'all', label: 'All Sessions' }]
+                                        : sessions.map(s => ({ value: s.sessionName, label: s.sessionName })).filter(opt => selectedSessions.includes(opt.value))
+                                }
+                                onChange={(selected) => {
+                                    if (selected && selected.some(o => o.value === 'all')) {
+                                        setSelectedSessions(sessions.map(s => s.sessionName));
+                                    } else {
+                                        setSelectedSessions(selected ? selected.map(o => o.value) : []);
+                                    }
+                                }}
+                                placeholder="Select Sessions"
+                                isDarkMode={isDarkMode}
+                            />
                         </div>
 
                         {(viewMode === "MONTHLY" || viewMode === "WEEKLY") && (
@@ -426,22 +741,11 @@ const CourseTarget = () => {
                                     onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
                                     className={`border text-xs rounded-lg block w-full px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
                                 >
-                                    {(() => {
-                                        const mIdx = monthNames.indexOf(selectedMonth);
-                                        const daysInMonth = new Date(selectedYear, mIdx + 1, 0).getDate();
-                                        const weekOptions = [];
-                                        for (let i = 0; i < Math.ceil(daysInMonth / 7); i++) {
-                                            const weekNum = i + 1;
-                                            const startDay = i * 7 + 1;
-                                            const endDay = Math.min((i + 1) * 7, daysInMonth);
-                                            weekOptions.push(
-                                                <option key={weekNum} value={weekNum}>
-                                                    Week {weekNum} ({startDay} {selectedMonth.substring(0, 3)} - {endDay} {selectedMonth.substring(0, 3)})
-                                                </option>
-                                            );
-                                        }
-                                        return weekOptions;
-                                    })()}
+                                    {getWeeksForMonth(selectedYear, selectedMonth).map((wk) => (
+                                        <option key={wk.weekNumber} value={wk.weekNumber}>
+                                            Week {wk.weekNumber} ({wk.startDay} {selectedMonth.substring(0, 3)} - {wk.endDay} {selectedMonth.substring(0, 3)})
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         )}
@@ -514,10 +818,10 @@ const CourseTarget = () => {
                             <thead>
                                 <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                     <th className="px-6 py-4 sticky left-0 z-10 bg-inherit border-r border-inherit">Centre Name</th>
-                                    {departments.map(dept => (
-                                        <th key={dept} className="px-6 py-4 text-center border-r border-inherit min-w-[160px]">
+                                    {uniqueTagColumns.map(tag => (
+                                        <th key={tag} className="px-6 py-4 text-center border-r border-inherit min-w-[160px]">
                                             <div className="flex flex-col items-center">
-                                                <span className="text-cyan-500 mb-1">{dept}</span>
+                                                <span className="text-cyan-500 mb-1">{tag}</span>
                                                 <div className="flex gap-4 text-[9px] opacity-60">
                                                     <span>ADMISSIONS</span>
                                                 </div>
@@ -534,13 +838,13 @@ const CourseTarget = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={departments.length + 3} className="px-6 py-12 text-center text-cyan-400 font-bold animate-pulse">
+                                        <td colSpan={uniqueTagColumns.length + 3} className="px-6 py-12 text-center text-cyan-400 font-bold animate-pulse">
                                             Aggregating Course Intelligence Data...
                                         </td>
                                     </tr>
                                 ) : data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={departments.length + 3} className="px-6 py-12 text-center text-gray-500 font-medium">
+                                        <td colSpan={uniqueTagColumns.length + 3} className="px-6 py-12 text-center text-gray-500 font-medium">
                                             No admission data found for the selected period.
                                         </td>
                                     </tr>
@@ -557,22 +861,15 @@ const CourseTarget = () => {
                                                     </div>
                                                 </td>
 
-                                                {departments.map(deptName => {
-                                                    const { target, achieved, examTagAchieved, id: deptId } = getDeptStats(centre, deptName);
+                                                {uniqueTagColumns.map(tagColumn => {
+                                                    const { achieved, target, deptId, deptName } = getExamTagStats(centre, tagColumn);
                                                     return (
                                                         <td
-                                                            key={deptName}
+                                                            key={tagColumn}
                                                             className="px-6 py-5 text-center border-r border-inherit relative group/cell cursor-pointer hover:bg-cyan-500/5 transition-colors"
                                                             onClick={() => {
                                                                 if (achieved > 0) {
-                                                                    setDetailData({
-                                                                        centreName: centre.centreName,
-                                                                        deptName: deptName,
-                                                                        deptId: deptId,
-                                                                        achieved: achieved,
-                                                                        breakdown: examTagAchieved
-                                                                    });
-                                                                    setShowDetailModal(true);
+                                                                    fetchStudentAdmissions(centre.centreName, deptId, deptName, tagColumn);
                                                                 }
                                                             }}
                                                         >
@@ -590,7 +887,7 @@ const CourseTarget = () => {
                                                                 </span>
 
                                                                 {/* Edit/Add Target Icon on cell hover */}
-                                                                {canCreate && viewMode === "YEARLY" && (
+                                                                {canCreate && viewMode === "YEARLY" && deptId && (
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
@@ -601,18 +898,6 @@ const CourseTarget = () => {
                                                                     >
                                                                         <FaEdit size={12} />
                                                                     </button>
-                                                                )}
-
-                                                                {/* Exam Tag Breakdown - Shown always if data exists */}
-                                                                {examTagAchieved && examTagAchieved.length > 0 && (
-                                                                    <div className="mt-2 w-full space-y-0.5">
-                                                                        {examTagAchieved.map((tag, idx) => (
-                                                                            <div key={idx} className={`flex justify-between items-center text-[8px] font-bold px-1.5 py-1 rounded border ${isDarkMode ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-black/5 border-black/5 text-gray-700'}`}>
-                                                                                <span className="opacity-80 truncate max-w-[70px]" title={tag.tagName}>{tag.tagName}</span>
-                                                                                <span className="text-cyan-400">{tag.count}</span>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
                                                                 )}
                                                             </div>
                                                         </td>
@@ -798,6 +1083,103 @@ const CourseTarget = () => {
                                 <button
                                     onClick={() => setShowStudentModal(false)}
                                     className="px-5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeCardModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[80vh]`}>
+                            <div className="p-6 border-b border-inherit flex justify-between items-center flex-shrink-0">
+                                <div>
+                                    <h3 className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter`}>
+                                        {activeCardModal === 'admissions' && "Admissions Breakdown"}
+                                        {activeCardModal === 'tags' && "Exam Tags Breakdown"}
+                                        {activeCardModal === 'centres' && "Centres Breakdown"}
+                                        {activeCardModal === 'departments' && "Departments Breakdown"}
+                                    </h3>
+                                    <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest">Global Performance Overview</p>
+                                </div>
+                                <button onClick={() => setActiveCardModal(null)} className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded-full transition-colors">
+                                    <FaPlus className="rotate-45" />
+                                </button>
+                            </div>
+                            
+                            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                                <table className="w-full border-collapse text-left">
+                                    <thead>
+                                        <tr className={`border-b text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-gray-800 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
+                                            {activeCardModal === 'admissions' && (
+                                                <>
+                                                    <th className="pb-3">Centre</th>
+                                                    <th className="pb-3">Department</th>
+                                                    <th className="pb-3 text-right">Admissions</th>
+                                                </>
+                                            )}
+                                            {activeCardModal === 'tags' && (
+                                                <>
+                                                    <th className="pb-3">Exam Tag / Course</th>
+                                                    <th className="pb-3 text-right">Total Admissions</th>
+                                                </>
+                                            )}
+                                            {activeCardModal === 'centres' && (
+                                                <>
+                                                    <th className="pb-3">Centre Name</th>
+                                                    <th className="pb-3 text-right">Total Admissions</th>
+                                                </>
+                                            )}
+                                            {activeCardModal === 'departments' && (
+                                                <>
+                                                    <th className="pb-3">Department Name</th>
+                                                    <th className="pb-3 text-right">Total Admissions</th>
+                                                </>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y text-sm ${isDarkMode ? 'divide-gray-800 text-gray-300' : 'divide-gray-100 text-gray-700'}`}>
+                                        {activeCardModal === 'admissions' && admissionsBreakdownList.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-cyan-500/5 transition-colors">
+                                                <td className="py-3 font-semibold">{item.centreName}</td>
+                                                <td className="py-3 text-xs font-medium text-cyan-500">{item.deptName}</td>
+                                                <td className="py-3 text-right font-black text-emerald-500">{item.count}</td>
+                                            </tr>
+                                        ))}
+                                        {activeCardModal === 'tags' && tagsBreakdownList.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-cyan-500/5 transition-colors">
+                                                <td className="py-3 font-semibold">{item.name}</td>
+                                                <td className="py-3 text-right font-black text-cyan-500">{item.count}</td>
+                                            </tr>
+                                        ))}
+                                        {activeCardModal === 'centres' && centresBreakdownList.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-cyan-500/5 transition-colors">
+                                                <td className="py-3 font-semibold">{item.name}</td>
+                                                <td className="py-3 text-right font-black text-amber-500">{item.count}</td>
+                                            </tr>
+                                        ))}
+                                        {activeCardModal === 'departments' && deptsBreakdownList.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-cyan-500/5 transition-colors">
+                                                <td className="py-3 font-semibold">{item.name}</td>
+                                                <td className="py-3 text-right font-black text-purple-500">{item.count}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className={`border-t-2 font-black ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                            <td colSpan={activeCardModal === 'admissions' ? 2 : 1} className="py-4 text-right text-xs uppercase tracking-widest">Total</td>
+                                            <td className="py-4 text-right text-lg font-black text-emerald-500">{totalAdmissionsCount}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            
+                            <div className={`p-4 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50'} border-t border-inherit flex justify-end flex-shrink-0`}>
+                                <button
+                                    onClick={() => setActiveCardModal(null)}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
                                 >
                                     Close
                                 </button>

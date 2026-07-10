@@ -955,9 +955,9 @@ const InstallmentPayment = () => {
             }
 
             return {
-                totalFees: regFees + boardFees,
-                totalPaid: regPaid + boardPaid,
-                totalDue: regDue + boardDue
+                totalFees: (regFees + boardFees) / 1.18,
+                totalPaid: (regPaid + boardPaid) / 1.18,
+                totalDue: (regDue + boardDue) / 1.18
             };
         }
 
@@ -1012,8 +1012,8 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = parseFloat(inst.amount) || 0;
-                    const paid = parseFloat(inst.paidAmount) || 0;
+                    const amt = (parseFloat(inst.amount) || 0) / 1.18;
+                    const paid = (parseFloat(inst.paidAmount) || 0) / 1.18;
                     const due = amt - paid;
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
@@ -1032,9 +1032,9 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = parseFloat(a.totalFees) || 0;
-                    const paid = parseFloat(a.totalPaid) || 0;
-                    const due = parseFloat(a.remainingAmount) || 0;
+                    const amt = (parseFloat(a.totalFees) || 0) / 1.18;
+                    const paid = (parseFloat(a.totalPaid) || 0) / 1.18;
+                    const due = (parseFloat(a.remainingAmount) || 0) / 1.18;
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
                     counts[c].totalDue += due;
@@ -1055,8 +1055,8 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = parseFloat(inst.amount || inst.payableAmount) || 0;
-                    const paid = parseFloat(inst.paidAmount) || 0;
+                    const amt = (parseFloat(inst.amount || inst.payableAmount) || 0) / 1.18;
+                    const paid = (parseFloat(inst.paidAmount) || 0) / 1.18;
                     const due = amt - paid;
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
@@ -1075,8 +1075,8 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = parseFloat(a.totalExpectedAmount) || 0;
-                    const paid = parseFloat(a.totalPaidAmount) || 0;
+                    const amt = (parseFloat(a.totalExpectedAmount) || 0) / 1.18;
+                    const paid = (parseFloat(a.totalPaidAmount) || 0) / 1.18;
                     const due = Math.max(0, amt - paid);
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
