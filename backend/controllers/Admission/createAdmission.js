@@ -10,6 +10,7 @@ import Subject from "../../models/Master_data/Subject.js"; // Import Subject mod
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 import { rebalanceBoardHistory } from "./generateMonthlyBill.js";
 import { clearCachePattern } from "../../utils/redisCache.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -61,8 +62,8 @@ export const createAdmission = async (req, res) => {
         if (admissionType === "NORMAL" && (!courseId || !examTagId)) {
             return res.status(400).json({ message: "Course and Exam Tag are required for Normal Admission" });
         }
-        if (admissionType === "BOARD" && (!boardId || !selectedSubjectIds || selectedSubjectIds.length === 0 || !billingMonth)) {
-            return res.status(400).json({ message: "Board, Subjects, and Billing Month are required for Board Admission" });
+        if (admissionType === "BOARD" && (!boardId || !selectedSubjectIds || selectedSubjectIds.length === 0 || !billingMonth || !examTagId)) {
+            return res.status(400).json({ message: "Board, Subjects, Billing Month, and Exam Tag are required for Board Admission" });
         }
 
         // Fetch student details for carry forward balance
@@ -341,14 +342,37 @@ export const createAdmission = async (req, res) => {
 
         await admission.save();
 
+        // Resolve ExamTag name for student profile tagging
+        let examTagName = "";
+        if (examTagId) {
+            const tagDoc = await ExamTag.findById(examTagId);
+            if (tagDoc) examTagName = tagDoc.name;
+        }
+
         // Update student enrollment status and reset carryForwardBalance
+        const studentUpdatePayload = {
+            isEnrolled: true,
+            carryForwardBalance: 0,
+            updatedBy: req.user?.name || "System",
+            updatedByUserId: req.user?._id
+        };
+
+        if (examTagName) {
+            studentUpdatePayload.sessionExamCourse = [{
+                examTag: examTagName,
+                session: academicSession || student.sessionExamCourse?.[0]?.session || "",
+                targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
+            }];
+        } else if (academicSession) {
+            studentUpdatePayload.sessionExamCourse = [{
+                examTag: student.sessionExamCourse?.[0]?.examTag || "",
+                session: academicSession,
+                targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
+            }];
+        }
+
         await Student.findByIdAndUpdate(studentId, {
-            $set: {
-                isEnrolled: true,
-                carryForwardBalance: 0,
-                updatedBy: req.user?.name || "System",
-                updatedByUserId: req.user?._id
-            }
+            $set: studentUpdatePayload
         });
 
         // Mark matching leads as counselled/admitted (so they move out of All Leads)

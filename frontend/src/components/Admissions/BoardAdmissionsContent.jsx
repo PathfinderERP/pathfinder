@@ -823,6 +823,7 @@ const BoardAdmissionsContent = () => {
         if (!studentEmail) return toast.error("Please provide an email address");
         if (!programme) return toast.error("Please select a programme (CRP/NCRP)");
         if (!lastClass) return toast.error("Please specify the student's last class");
+        if (!examName) return toast.error("Please select an Exam Identifier (Exam Tag)");
         if (!boardId) return toast.error("Please select a board");
         if (programme !== "NCRP" && selectedSubjectIds.length === 0) return toast.error("Please select at least one subject");
 

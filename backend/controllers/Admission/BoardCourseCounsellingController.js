@@ -3,6 +3,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import Student from "../../models/Students.js";
 import Centre from "../../models/Master_data/Centre.js";
 import LeadManagement from "../../models/LeadManagement.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
 
 
 export const createBoardCourseCounselling = async (req, res) => {
@@ -38,6 +39,13 @@ export const createBoardCourseCounselling = async (req, res) => {
                     takenBy: dupName
                 });
             }
+        }
+
+        // Resolve ExamTag ID from examName
+        let resolvedExamTagId = null;
+        if (examName) {
+            const tagDoc = await ExamTag.findOne({ name: { $regex: new RegExp(`^${examName}$`, 'i') } });
+            if (tagDoc) resolvedExamTagId = tagDoc._id;
         }
 
         // If studentId is provided, check if it's a valid Student or a Lead
@@ -92,6 +100,10 @@ export const createBoardCourseCounselling = async (req, res) => {
                                 examStatus,
                                 markAgregate,
                                 scienceMathParcent
+                            }],
+                            sessionExamCourse: [{
+                                examTag: examName || "",
+                                session: ""
                             }],
                             isEnrolled: false,
                             counselledBy: req.user?._id,
@@ -154,6 +166,10 @@ export const createBoardCourseCounselling = async (req, res) => {
                         markAgregate,
                         scienceMathParcent
                     }],
+                    sessionExamCourse: [{
+                        examTag: examName || "",
+                        session: ""
+                    }],
                     isEnrolled: false,
                     counselledBy: req.user?._id,
                     createdBy: req.user?.name || "System",
@@ -169,6 +185,14 @@ export const createBoardCourseCounselling = async (req, res) => {
                 }
                 if (programme && programme !== student.studentsDetails?.[0]?.programme) {
                     updateSet["studentsDetails.0.programme"] = programme;
+                }
+                // Update sessionExamCourse if empty or different
+                if (examName && (!student.sessionExamCourse || student.sessionExamCourse.length === 0 || !student.sessionExamCourse[0].examTag)) {
+                    updateSet["sessionExamCourse"] = [{
+                        examTag: examName,
+                        session: student.sessionExamCourse?.[0]?.session || "",
+                        targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
+                    }];
                 }
                 if (Object.keys(updateSet).length > 0) {
                     await Student.findByIdAndUpdate(student._id, { $set: updateSet });
@@ -197,6 +221,7 @@ export const createBoardCourseCounselling = async (req, res) => {
             programme,
             lastClass,
             boardId,
+            examTag: resolvedExamTagId,
             selectedSubjects: selectedSubjectIds.map(id => ({ subjectId: id })),
             remarks,
             counselledBy: req.user._id,
@@ -241,6 +266,7 @@ export const getBoardCourseCounselling = async (req, res) => {
                     }
                 })
                 .populate('boardId')
+                .populate('examTag')
                 .populate('selectedSubjects.subjectId')
                 .populate('counselledBy', 'name email');
             
@@ -266,6 +292,7 @@ export const getBoardCourseCounselling = async (req, res) => {
                 }
             })
             .populate('boardId')
+            .populate('examTag')
             .populate('selectedSubjects.subjectId')
             .populate('counselledBy', 'name email')
             .sort({ counselledDate: -1, createdAt: -1 });
@@ -303,6 +330,12 @@ export const updateBoardCourseCounselling = async (req, res) => {
             counselling.selectedSubjects = selectedSubjectIds.map(subId => ({ subjectId: subId }));
         }
 
+        // Resolve and update examTag
+        if (examName) {
+            const tagDoc = await ExamTag.findOne({ name: { $regex: new RegExp(`^${examName}$`, 'i') } });
+            if (tagDoc) counselling.examTag = tagDoc._id;
+        }
+
         // Also update the linked student profile if studentId exists
         if (counselling.studentId) {
             const updateSet = {};
@@ -323,6 +356,17 @@ export const updateBoardCourseCounselling = async (req, res) => {
             if (guardianEmail) updateSet["studentsDetails.0.guardianEmail"] = guardianEmail;
             if (occupation) updateSet["studentsDetails.0.occupation"] = occupation;
             if (programme) updateSet["studentsDetails.0.programme"] = programme;
+            
+            if (examName) {
+                const studentObj = await Student.findById(counselling.studentId);
+                const currentSession = studentObj?.sessionExamCourse?.[0]?.session || "";
+                updateSet["sessionExamCourse"] = [{
+                    examTag: examName,
+                    session: currentSession,
+                    targetExams: studentObj?.sessionExamCourse?.[0]?.targetExams || ""
+                }];
+            }
+
             if (Object.keys(updateSet).length > 0) {
                 await Student.findByIdAndUpdate(counselling.studentId, { $set: updateSet });
             }

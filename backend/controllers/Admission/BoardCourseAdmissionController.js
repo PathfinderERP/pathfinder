@@ -9,6 +9,7 @@ import Centre from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import BoardCourseSubject from "../../models/Master_data/BoardCourseSubject.js";
 import Class from "../../models/Master_data/Class.js";
+import ExamTag from "../../models/Master_data/ExamTag.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -24,6 +25,7 @@ export const createBoardAdmission = async (req, res) => {
             studentName,
             mobileNum,
             boardId,
+            examTag,
             selectedSubjectIds,
             totalDurationMonths,
             totalWaiver,
@@ -48,6 +50,23 @@ export const createBoardAdmission = async (req, res) => {
             receivedDate,
             bankAccount
         } = req.body;
+
+        // Resolve ExamTag ID and Name
+        let resolvedExamTagId = null;
+        let examTagName = "";
+        if (examTag) {
+            if (mongoose.Types.ObjectId.isValid(examTag)) {
+                resolvedExamTagId = examTag;
+                const tagDoc = await ExamTag.findById(examTag);
+                if (tagDoc) examTagName = tagDoc.name;
+            } else {
+                const tagDoc = await ExamTag.findOne({ name: { $regex: new RegExp(`^${examTag}$`, 'i') } });
+                if (tagDoc) {
+                    resolvedExamTagId = tagDoc._id;
+                    examTagName = tagDoc.name;
+                }
+            }
+        }
 
         // Normalize payment method to match Payment schema enum
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
@@ -259,6 +278,7 @@ export const createBoardAdmission = async (req, res) => {
             studentName,
             mobileNum,
             boardId,
+            examTag: resolvedExamTagId,
             selectedSubjects: activeSubjects.map(s => ({
                 subjectId: s.subjectId._id,
                 priceAtAdmission: s.amount
@@ -339,11 +359,27 @@ export const createBoardAdmission = async (req, res) => {
         }
 
         // Update student enrollment status if needed
-        await Students.findByIdAndUpdate(studentId, { 
+        const studentUpdatePayload = { 
             isEnrolled: true,
             updatedBy: req.user?.name || "System",
             updatedByUserId: req.user?._id
-        });
+        };
+
+        if (examTagName) {
+            studentUpdatePayload.sessionExamCourse = [{
+                examTag: examTagName,
+                session: academicSession || student.sessionExamCourse?.[0]?.session || "",
+                targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
+            }];
+        } else if (academicSession) {
+            studentUpdatePayload.sessionExamCourse = [{
+                examTag: student.sessionExamCourse?.[0]?.examTag || "",
+                session: academicSession,
+                targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
+            }];
+        }
+
+        await Students.findByIdAndUpdate(studentId, studentUpdatePayload);
 
         // Mark matching leads as counselled/admitted (so they move out of All Leads)
         try {

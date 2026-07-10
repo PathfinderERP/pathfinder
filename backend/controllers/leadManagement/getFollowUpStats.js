@@ -179,7 +179,8 @@ export const getFollowUpStats = async (req, res) => {
                                 className: 1,
                                 board: 1,
                                 course: 1,
-                                source: 1
+                                source: 1,
+                                centre: 1
                             }
                         },
                         { $unwind: "$followUp" },
@@ -195,6 +196,7 @@ export const getFollowUpStats = async (req, res) => {
                         { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
                         { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
                         { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
+                        { $lookup: { from: "centreschemas", localField: "centre", foreignField: "_id", as: "centreInfo" } },
                         {
                             $project: {
                                 leadId: "$_id",
@@ -211,6 +213,7 @@ export const getFollowUpStats = async (req, res) => {
                                 className: { $arrayElemAt: ["$classInfo.name", 0] },
                                 board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
                                 course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                centreName: { $arrayElemAt: ["$centreInfo.centreName", 0] },
                                 source: "$source"
                             }
                         }
@@ -231,6 +234,7 @@ export const getFollowUpStats = async (req, res) => {
                         { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
                         { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
                         { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
+                        { $lookup: { from: "centreschemas", localField: "centre", foreignField: "_id", as: "centreInfo" } },
                         {
                             $project: {
                                 leadId: "$_id",
@@ -244,6 +248,7 @@ export const getFollowUpStats = async (req, res) => {
                                 className: { $arrayElemAt: ["$classInfo.name", 0] },
                                 board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
                                 course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                centreName: { $arrayElemAt: ["$centreInfo.centreName", 0] },
                                 source: "$source"
                             }
                         }
@@ -264,6 +269,7 @@ export const getFollowUpStats = async (req, res) => {
                         { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
                         { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
                         { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
+                        { $lookup: { from: "centreschemas", localField: "centre", foreignField: "_id", as: "centreInfo" } },
                         {
                             $project: {
                                 leadId: "$_id",
@@ -277,6 +283,7 @@ export const getFollowUpStats = async (req, res) => {
                                 className: { $arrayElemAt: ["$classInfo.name", 0] },
                                 board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
                                 course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                centreName: { $arrayElemAt: ["$centreInfo.centreName", 0] },
                                 source: "$source"
                             }
                         }

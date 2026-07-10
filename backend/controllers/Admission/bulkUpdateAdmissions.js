@@ -197,9 +197,9 @@ export const bulkUpdateAdmissions = async (req, res) => {
             // Apply updates to the current admission record
             if (Object.keys(admissionUpdates).length > 0) {
                 Object.assign(admission, admissionUpdates);
-                await admission.save();
+                await admission.save({ validateModifiedOnly: true });
             } else if (admission.isModified()) {
-                await admission.save();
+                await admission.save({ validateModifiedOnly: true });
             }
 
             // Delete cached student reports

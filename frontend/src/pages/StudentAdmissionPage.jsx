@@ -509,6 +509,12 @@ const StudentAdmissionPage = () => {
             return;
         }
 
+        if (!formData.examTagId) {
+            toast.error("Please select an Exam Tag.");
+            setLoading(false);
+            return;
+        }
+
         // Basic validation for board admission
         if (admissionType === "BOARD" && (!selectedBoard || selectedSubjectIds.length === 0)) {
             toast.error("Please select a board and at least one subject for Board Admission.");
@@ -702,22 +708,6 @@ const StudentAdmissionPage = () => {
                             {/* Normal Flow Specifics */}
                             {admissionType === "NORMAL" && (
                                 <>
-                                    <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Exam Tag *</label>
-                                        <select
-                                            name="examTagId"
-                                            value={formData.examTagId}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            required={admissionType === "NORMAL"}
-                                        >
-                                            <option value="">Select Exam Tag</option>
-                                            {examTags.map(tag => (
-                                                <option key={tag._id} value={tag._id}>{tag.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
                                             <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
@@ -915,6 +905,22 @@ const StudentAdmissionPage = () => {
                                     <option value="">Select Session</option>
                                     {sessions.map(session => (
                                         <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Exam Tag *</label>
+                                <select
+                                    name="examTagId"
+                                    value={formData.examTagId}
+                                    onChange={handleInputChange}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                    required
+                                >
+                                    <option value="">Select Exam Tag</option>
+                                    {examTags.map(tag => (
+                                        <option key={tag._id} value={tag._id}>{tag.name}</option>
                                     ))}
                                 </select>
                             </div>

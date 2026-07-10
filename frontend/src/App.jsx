@@ -108,6 +108,7 @@ import SectionLeaderBoard from "./pages/Academics/SectionLeaderBoard";
 import ExamLeaderBoard from "./pages/Academics/ExamLeaderBoard";
 import TeacherRoutineSchedule from "./pages/Academics/TeacherRoutineSchedule";
 import TeacherSchedulePage from "./pages/LeadManagement/TeacherSchedulePage";
+import ConversionReportPage from "./pages/LeadManagement/ConversionReportPage";
 import Campaigns from "./pages/LeadManagement/Campaigns";
 import CampaignUploadLeads from "./pages/LeadManagement/CampaignUploadLeads";
 import TeacherStudentSchedule from "./pages/Academics/TeacherStudentSchedule";
@@ -206,6 +207,7 @@ function App() {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
+        <Route path="/lead-management/conversion-report" element={<ProtectedRoute><ConversionReportPage /></ProtectedRoute>} />
         <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
         <Route path="/ceo-control-tower/lead-analytics" element={<ProtectedRoute><CEOLeadAnalytics /></ProtectedRoute>} />
 

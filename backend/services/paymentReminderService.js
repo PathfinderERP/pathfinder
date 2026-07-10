@@ -73,7 +73,7 @@ export const checkOverduePayments = async () => {
                         p.paymentMethod = null;
                     }
                 }
-                await admission.save();
+                await admission.save({ validateModifiedOnly: true });
             }
         }
 

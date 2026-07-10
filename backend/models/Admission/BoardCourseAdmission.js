@@ -19,6 +19,11 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         ref: "Boards",
         required: true
     },
+    examTag: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ExamTag",
+        required: false
+    },
     centre: {
         type: String,
         required: true

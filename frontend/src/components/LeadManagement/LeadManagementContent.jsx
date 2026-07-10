@@ -292,6 +292,8 @@ const LeadManagementContent = () => {
         clearSelection();
     }, [filters, searchTerm, dashboardFilters.fromDate, dashboardFilters.toDate, sortField, sortDirection]);
 
+
+
     const fetchAllowedCentres = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
@@ -1384,6 +1386,8 @@ const LeadManagementContent = () => {
                     </div>
                 )}
 
+
+
                 {/* Status Quick Filters */}
                 <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
                     <button
@@ -2166,6 +2170,8 @@ const LeadManagementContent = () => {
                     setShowFollowUpModal(true);
                 }}
             />
+
+
 
             {
                 showCentreAnalysisModal && (

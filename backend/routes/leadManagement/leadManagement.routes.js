@@ -14,6 +14,8 @@ import { bulkUploadLeads } from "../../controllers/leadManagement/bulkUploadLead
 import uploadRecording from "../../controllers/leadManagement/uploadRecording.js";
 import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadDashboard.js";
 import { getFollowUpStats } from "../../controllers/leadManagement/getFollowUpStats.js";
+import { getLeadConversionReport } from "../../controllers/leadManagement/getLeadConversionReport.js";
+import { getAdmittedLeadDetails } from "../../controllers/leadManagement/getAdmittedLeadDetails.js";
 import { exportLeadsExcel } from "../../controllers/leadManagement/exportLeadsExcel.js";
 import { exportTelecallerLogs } from "../../controllers/leadManagement/exportTelecallerLogs.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -40,6 +42,8 @@ router.get("/uploaders", requireAuth, getLeadUploaders);
 router.get("/follow-ups", requireAuth, getFollowUpLeads);
 router.get("/stats/dashboard", requireAuth, getLeadDashboardStats);
 router.get("/stats/today-followups", requireAuth, getFollowUpStats);
+router.get("/stats/conversion-report", requireAuth, getLeadConversionReport);
+router.get("/stats/conversion-report/admitted-leads", requireAuth, getAdmittedLeadDetails);
 router.get("/export/excel", requireAuth, exportLeadsExcel);
 router.get("/export/telecaller-logs", requireAuth, exportTelecallerLogs);
 router.get("/analytics-all", requireAuth, getAllTelecallerAnalytics);

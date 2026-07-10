@@ -4,7 +4,7 @@ import {
     FaHistory, FaTimesCircle, FaCheckCircle, FaExclamationCircle,
     FaCommentAlt, FaChevronDown, FaChevronUp, FaSearch,
     FaUser, FaFilter, FaGraduationCap, FaTimes as FaClear,
-    FaBook, FaAward, FaInfoCircle
+    FaBook, FaAward, FaInfoCircle, FaBuilding
 } from 'react-icons/fa';
 
 const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAddFollowUp }) => {
@@ -288,6 +288,12 @@ const FollowUpActivityModal = ({ isOpen, onClose, title, data, isDarkMode, onAdd
                                                         <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border
                                                             ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-600'}`}>
                                                             <FaInfoCircle className="inline mr-1" size={8} />Source: {item.source}
+                                                        </span>
+                                                    )}
+                                                    {item.centreName && (
+                                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border
+                                                            ${isDarkMode ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' : 'bg-teal-50 border-teal-200 text-teal-600'}`}>
+                                                            <FaBuilding className="inline mr-1" size={8} />Centre: {item.centreName}
                                                         </span>
                                                     )}
                                                 </div>

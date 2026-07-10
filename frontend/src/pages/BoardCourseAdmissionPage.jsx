@@ -43,6 +43,8 @@ const BoardCourseAdmissionPage = () => {
     const [bankAccount, setBankAccount] = useState("");
     const [masterAccounts, setMasterAccounts] = useState([]);
     const [sessions, setSessions] = useState([]); // Master data sessions
+    const [examTags, setExamTags] = useState([]);
+    const [selectedExamTag, setSelectedExamTag] = useState("");
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -85,6 +87,7 @@ const BoardCourseAdmissionPage = () => {
             let targetSubjectIds = [];
             let fetchedProgramme = "";
             let startingClass = ""; // must be outer scope so it's accessible in all branches
+            let prefilledTag = "";
 
             if (counselRes.ok) {
                 const counselRecord = await counselRes.json();
@@ -92,6 +95,13 @@ const BoardCourseAdmissionPage = () => {
                 targetStudentId = counselRecord.studentId?._id || counselRecord.studentId;
                 fetchedProgramme = counselRecord.programme || "";
                 startingClass = counselRecord.lastClass || ""; // assign to outer-scope var
+                
+                if (counselRecord.examTag?.name) {
+                    prefilledTag = counselRecord.examTag.name;
+                } else if (counselRecord.examTag) {
+                    prefilledTag = counselRecord.examTag;
+                }
+
                 // Pre-fill from counselling
                 if (counselRecord.boardId) {
                     targetBoardId = counselRecord.boardId?._id || counselRecord.boardId;
@@ -101,13 +111,14 @@ const BoardCourseAdmissionPage = () => {
                 }
             }
 
-            // 2. Fetch Student, Boards, Classes, and Sessions
+            // 2. Fetch Student, Boards, Classes, Sessions and ExamTags
             const fetchPromises = [
                 fetch(`${apiUrl}/board`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/class`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/board-course-subject`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/master-data/account`, { headers: { "Authorization": `Bearer ${token}` } }),
-                fetch(`${apiUrl}/session/list`, { headers: { "Authorization": `Bearer ${token}` } })
+                fetch(`${apiUrl}/session/list`, { headers: { "Authorization": `Bearer ${token}` } }),
+                fetch(`${apiUrl}/examTag`, { headers: { "Authorization": `Bearer ${token}` } })
             ];
 
             // Only fetch student if we have a valid-looking ID
@@ -120,11 +131,11 @@ const BoardCourseAdmissionPage = () => {
 
             const results = await Promise.all(fetchPromises);
 
-            let studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes;
+            let studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes;
             if (isValidStudentId) {
-                [studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes] = results;
+                [studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes] = results;
             } else {
-                [boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes] = results;
+                [boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes] = results;
                 studentRes = { ok: false }; // Mock failure if ID was invalid
             }
 
@@ -139,8 +150,15 @@ const BoardCourseAdmissionPage = () => {
             const sessionsData = await (sessionsRes?.ok ? sessionsRes.json() : Promise.resolve([]));
             setSessions(sessionsData);
 
+            // Load exam tags
+            const examTagsData = await (examTagsRes?.ok ? examTagsRes.json() : Promise.resolve([]));
+            setExamTags(examTagsData);
+
             if (studentRes.ok) {
                 setStudent(studentData);
+                if (!prefilledTag) {
+                    prefilledTag = studentData?.sessionExamCourse?.[0]?.examTag || "";
+                }
                 // Priority: console session > student details session > active master session
                 const sessionFromConsole = studentData?.sessionExamCourse?.[0]?.session;
                 const sessionFromDetails = studentData?.studentsDetails?.[0]?.academicSession;
@@ -165,6 +183,11 @@ const BoardCourseAdmissionPage = () => {
                 }
                 setLastClass(startingClass);
             }
+
+            if (prefilledTag) {
+                setSelectedExamTag(prefilledTag);
+            }
+
             if (classesRes.ok) {
                 setClasses(classesData);
             }
@@ -214,7 +237,7 @@ const BoardCourseAdmissionPage = () => {
                                 const counselSubIds = subData.subjects
                                     .filter(s => targetSubjectIds.some(tid => tid === (s.subjectId?._id?.toString() || s.subjectId?.toString())))
                                     .map(s => s.subjectId?._id?.toString() || s.subjectId?.toString());
-                                setSelectedSubjectIds(counselSubIds);
+                                  setSelectedSubjectIds(counselSubIds);
                             }
                         }
                     }
@@ -320,6 +343,9 @@ const BoardCourseAdmissionPage = () => {
         if (!lastClass) {
             return toast.error("Please select the student's last class");
         }
+        if (!selectedExamTag) {
+            return toast.error("Please select an Exam Tag (Exam Identifier)");
+        }
 
         if (paymentMethod === "CHEQUE") {
             if (!bankName || !transactionId || !accountHolderName || !chequeDate || !bankAccount) {
@@ -372,6 +398,7 @@ const BoardCourseAdmissionPage = () => {
                     academicSession,
                     programme,
                     lastClass,
+                    examTag: selectedExamTag,
                     centre: counselData?.centre || student?.studentsDetails?.[0]?.centre
                 })
             });
@@ -506,6 +533,23 @@ const BoardCourseAdmissionPage = () => {
                                 {sessions.filter(s => s.isGlobalActive).length === 0 && (
                                     <p className="text-[9px] text-amber-500 font-bold mt-1 uppercase tracking-wider">⚠ No active session found. Set an active session via Master Data → Session.</p>
                                 )}
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Exam Tag *</label>
+                                <select
+                                    value={selectedExamTag}
+                                    onChange={(e) => setSelectedExamTag(e.target.value)}
+                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                    required
+                                >
+                                    <option value="">-- Select Exam Tag --</option>
+                                    {[...examTags].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((tag) => (
+                                        <option key={tag._id} value={tag.name}>
+                                            {tag.name.toUpperCase()}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>
