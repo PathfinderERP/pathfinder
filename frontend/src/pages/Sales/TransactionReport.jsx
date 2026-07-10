@@ -290,7 +290,7 @@ const TransactionReport = () => {
             p.name,
             p.value,
             p.count,
-            p.count > 0 ? (p.value / p.count).toFixed(2) : "0"
+            p.count > 0 ? Number((p.value / p.count).toFixed(2)) : 0
         ]);
         // Add Total
         const totalPayRev = paymentMethodData.reduce((acc, p) => acc + p.value, 0);
@@ -328,9 +328,9 @@ const TransactionReport = () => {
             item.transactionId || "-",
             item.centre,
             item.method,
-            item.revenueWithoutGst ? item.revenueWithoutGst.toFixed(2) : "-",
-            item.gstAmount ? item.gstAmount.toFixed(2) : "-",
-            item.amount,
+            item.revenueWithoutGst !== undefined && item.revenueWithoutGst !== null ? Number(Number(item.revenueWithoutGst).toFixed(2)) : null,
+            item.gstAmount !== undefined && item.gstAmount !== null ? Number(Number(item.gstAmount).toFixed(2)) : null,
+            item.amount !== undefined && item.amount !== null ? Number(Number(item.amount).toFixed(2)) : null,
             item.status,
             item.takenBy || "System",
             item.totalClasses,

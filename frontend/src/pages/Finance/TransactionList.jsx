@@ -85,6 +85,11 @@ const TransactionList = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [pageInput, setPageInput] = useState("1");
 
+    // Hold selection totals state during loads & prevent race conditions
+    const fetchIdRef = useRef(0);
+    const [displaySelectionTotalWithGst, setDisplaySelectionTotalWithGst] = useState(0);
+    const [displaySelectionTotalBase, setDisplaySelectionTotalBase] = useState(0);
+
     // Dropdown Refs
     const centreDropdownRef = useRef(null);
     const paymentDropdownRef = useRef(null);
@@ -168,6 +173,7 @@ const TransactionList = () => {
     };
 
     const fetchReportData = async () => {
+        const currentFetchId = ++fetchIdRef.current;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -239,17 +245,24 @@ const TransactionList = () => {
 
             if (response.ok) {
                 const result = await response.json();
+                if (currentFetchId !== fetchIdRef.current) return;
                 setDetailedReport(result.detailedReport || []);
                 if (result.stats) {
                     setStats(result.stats);
                 }
             } else {
-                setDetailedReport([]);
+                if (currentFetchId === fetchIdRef.current) {
+                    setDetailedReport([]);
+                }
             }
         } catch (error) {
-            console.error("Error fetching report", error);
+            if (currentFetchId === fetchIdRef.current) {
+                console.error("Error fetching report", error);
+            }
         } finally {
-            setLoading(false);
+            if (currentFetchId === fetchIdRef.current) {
+                setLoading(false);
+            }
         }
     };
 
@@ -307,6 +320,14 @@ const TransactionList = () => {
     const dynamicSelectionTotalWithGst = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
     const dynamicSelectionTotalBase = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0) : 0;
 
+    // Hold selection totals while a background fetch is running to prevent intermediate flickering
+    useEffect(() => {
+        if (!loading) {
+            setDisplaySelectionTotalWithGst(dynamicSelectionTotalWithGst);
+            setDisplaySelectionTotalBase(dynamicSelectionTotalBase);
+        }
+    }, [loading, dynamicSelectionTotalWithGst, dynamicSelectionTotalBase]);
+
     const handleDownloadExcel = () => {
         if (!filteredReport.length) {
             toast.warn("No data to download");
@@ -342,9 +363,9 @@ const TransactionList = () => {
             item.transactionId || "-",
             item.centre,
             item.method,
-            item.revenueWithoutGst ? item.revenueWithoutGst.toFixed(2) : "-",
-            item.gstAmount ? item.gstAmount.toFixed(2) : "-",
-            item.amount,
+            item.revenueWithoutGst !== undefined && item.revenueWithoutGst !== null ? Number(Number(item.revenueWithoutGst).toFixed(2)) : null,
+            item.gstAmount !== undefined && item.gstAmount !== null ? Number(Number(item.gstAmount).toFixed(2)) : null,
+            item.amount !== undefined && item.amount !== null ? Number(Number(item.amount).toFixed(2)) : null,
             item.status,
             item.takenBy || "System",
             // item.totalClasses,
@@ -447,11 +468,11 @@ const TransactionList = () => {
                         <div className="text-right flex-1">
                             <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${isDark ? 'text-cyan-400' : 'text-blue-600'} uppercase tracking-tighter`}>Selection Total (With GST)</span>
-                                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'} leading-none`}>Rs.{dynamicSelectionTotalWithGst ? dynamicSelectionTotalWithGst.toLocaleString('en-IN') : 0}</h3>
+                                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'} leading-none`}>Rs.{displaySelectionTotalWithGst ? displaySelectionTotalWithGst.toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <div className="flex flex-col">
                                 <span className={`text-[10px] font-black ${isDark ? 'text-gray-400' : 'text-slate-500'} uppercase tracking-tighter`}>Selection Revenue (Base)</span>
-                                <h3 className={`text-xl font-black ${isDark ? 'text-gray-300' : 'text-slate-700'} leading-none`}>Rs.{dynamicSelectionTotalBase ? Math.round(dynamicSelectionTotalBase).toLocaleString('en-IN') : 0}</h3>
+                                <h3 className={`text-xl font-black ${isDark ? 'text-gray-300' : 'text-slate-700'} leading-none`}>Rs.{displaySelectionTotalBase ? Math.round(displaySelectionTotalBase).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className={`text-[9px] ${isDark ? 'text-cyan-500 bg-cyan-500/10' : 'text-blue-600 bg-blue-50'} uppercase font-black tracking-[0.2em] mt-3 px-2 py-0.5 rounded-full inline-block`}>MATCHED TOTAL</p>
                         </div>
