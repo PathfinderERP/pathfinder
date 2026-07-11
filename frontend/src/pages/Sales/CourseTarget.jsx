@@ -353,7 +353,7 @@ const CourseTarget = () => {
             const row = { "Centre Name": centre.centreName };
             uniqueTagColumns.forEach(tagColumn => {
                 const { target, achieved } = getExamTagStats(centre, tagColumn);
-                if (viewMode === "YEARLY") {
+                if (viewMode === "YEARLY" || viewMode === "WEEKLY") {
                     row[tagColumn] = `${achieved} / ${target > 0 ? target : "-"}`;
                 } else {
                     row[tagColumn] = achieved;
@@ -373,7 +373,7 @@ const CourseTarget = () => {
                 tagAchievedSum += achieved;
                 tagTargetSum += target;
             });
-            if (viewMode === "YEARLY") {
+            if (viewMode === "YEARLY" || viewMode === "WEEKLY") {
                 totalRow[tagColumn] = `${tagAchievedSum} / ${tagTargetSum > 0 ? tagTargetSum : "-"}`;
             } else {
                 totalRow[tagColumn] = tagAchievedSum;
@@ -876,7 +876,7 @@ const CourseTarget = () => {
                                                             <div className="flex flex-col items-center gap-1">
                                                                 <span className={`text-xl font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
                                                                     {achieved}
-                                                                    {viewMode === "YEARLY" && (
+                                                                    {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
                                                                         <>
                                                                             <span className="text-gray-500 font-normal mx-1">/</span>
                                                                             <span className={target > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
@@ -887,14 +887,14 @@ const CourseTarget = () => {
                                                                 </span>
 
                                                                 {/* Edit/Add Target Icon on cell hover */}
-                                                                {canCreate && viewMode === "YEARLY" && deptId && (
+                                                                {canCreate && (viewMode === "YEARLY" || viewMode === "WEEKLY") && deptId && (
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             handleOpenTargetModal(centre, deptName, deptId, target);
                                                                         }}
                                                                         className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-cyan-500/20 text-cyan-400"
-                                                                        title={target > 0 ? "Update Target" : "Add Target"}
+                                                                        title={target > 0 ? "Update Weekly Target" : "Set Weekly Target"}
                                                                     >
                                                                         <FaEdit size={12} />
                                                                     </button>

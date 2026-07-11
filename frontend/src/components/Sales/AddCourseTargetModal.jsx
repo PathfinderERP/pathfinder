@@ -191,16 +191,30 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
                             </div>
                         )}
                         {formData.targetType === "WEEKLY" && (
-                            <div>
-                                <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Week Number</label>
-                                <input
-                                    type="number"
-                                    min="1" max="52"
-                                    value={formData.week}
-                                    onChange={(e) => setFormData({ ...formData, week: e.target.value })}
-                                    className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                                />
-                            </div>
+                            <>
+                                <div>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Month</label>
+                                    <select
+                                        value={formData.month}
+                                        onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                                        className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                    >
+                                        {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Week Number</label>
+                                    <input
+                                        type="number"
+                                        min="1" max="6"
+                                        value={formData.week}
+                                        onChange={(e) => setFormData({ ...formData, week: e.target.value })}
+                                        className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                    />
+                                </div>
+                            </>
                         )}
                         <div className={formData.targetType === "YEARLY" ? "col-span-2" : ""}>
                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Goal Count *</label>

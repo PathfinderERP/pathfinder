@@ -40,7 +40,10 @@ export const saveCourseTarget = async (req, res) => {
         const filter = { centre: centreId, department, targetType, year };
         if (targetType === 'MONTHLY') filter.month = month;
         if (targetType === 'QUARTERLY') filter.quarter = quarter;
-        if (targetType === 'WEEKLY') filter.week = week;
+        if (targetType === 'WEEKLY') {
+            filter.week = week;
+            filter.month = month; // required: distinguishes same week number across different months
+        }
 
         const update = { targetCount, examTags: examTags || [], createdBy: req.user._id };
 
@@ -172,7 +175,10 @@ export const getCourseTargetAnalysis = async (req, res) => {
         };
         if (targetType === 'MONTHLY') targetFilter.month = month;
         if (targetType === 'QUARTERLY') targetFilter.quarter = quarter;
-        if (targetType === 'WEEKLY') targetFilter.week = parseInt(week, 10);
+        if (targetType === 'WEEKLY') {
+            targetFilter.week = parseInt(week, 10);
+            targetFilter.month = month; // required: same week number can exist in different months
+        }
 
         const courseTargets = await CourseTarget.find(targetFilter).lean();
         const targetMap = {};
