@@ -519,6 +519,32 @@ const CourseTarget = () => {
         return a.localeCompare(b);
     });
 
+    const getDefaultDeptForTag = (tag) => {
+        const t = (tag || "").toUpperCase().trim();
+        if (t.includes("JEE") || t.includes("NEET") || t === "REPEATER" || t.includes("WBJEE") || t.includes("PNTSE")) {
+            return ["ACADEMIC DEPARTMENT", "ALL INDIA"];
+        }
+        if (t.includes("FOUNDATION")) {
+            return ["FOUNDATION", "ALL-INDIA + FND"];
+        }
+        if (t.includes("WBBSE") || t === "MADHYAMIK") {
+            return ["MADHYAMIK", "MADHYAMIK & HS DEPARTMENT"];
+        }
+        if (t.includes("WBCHSE") || t === "HS") {
+            return ["HS", "MADHYAMIK & HS DEPARTMENT"];
+        }
+        if (t.includes("ISC")) {
+            return ["ISC"];
+        }
+        if (t.includes("ICSE")) {
+            return ["ICSE"];
+        }
+        if (t.includes("CBSE")) {
+            return ["CBSE DEPARTMENT"];
+        }
+        return [];
+    };
+
     const getExamTagStats = (centreData, tagColumn) => {
         let achieved = 0;
         let target = 0;
@@ -536,11 +562,13 @@ const CourseTarget = () => {
 
                 const deptNameUpper = (dept.name || "").toUpperCase().trim();
                 const tagColumnUpper = (tagColumn || "").toUpperCase().trim();
+                const defaultDepts = getDefaultDeptForTag(tagColumn);
                 
                 const isMatch = deptNameUpper.includes(tagColumnUpper) || 
                                 tagColumnUpper.includes(deptNameUpper) ||
                                 (dept.examTagAchieved && dept.examTagAchieved.some(t => t.tagName === tagColumn)) ||
-                                isBoardMatchingDept(tagColumn, dept.name);
+                                isBoardMatchingDept(tagColumn, dept.name) ||
+                                defaultDepts.includes(deptNameUpper);
 
                 if (isMatch) {
                     target = Math.max(target, dept.target || 0);
@@ -797,6 +825,7 @@ const CourseTarget = () => {
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync
                         </button>
 
+
                         {canCreate && viewMode === "YEARLY" && (
                             <button
                                 onClick={() => {
@@ -808,6 +837,27 @@ const CourseTarget = () => {
                                 <FaPlus /> Set Target
                             </button>
                         )}
+
+                        {canCreate && viewMode === "WEEKLY" && (
+                            <button
+                                onClick={() => {
+                                    setTargetModalData({
+                                        targetType: "WEEKLY",
+                                        year: selectedYear,
+                                        month: selectedMonth,
+                                        week: selectedWeek,
+                                        centreId: selectedCentres.length === 1 ? selectedCentres[0] : "",
+                                        departmentId: "",
+                                        targetCount: ""
+                                    });
+                                    setShowTargetModal(true);
+                                }}
+                                className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-blue-600/20"
+                            >
+                                <FaPlus /> Set Weekly Target
+                            </button>
+                        )}
+
                     </div>
                 </div>
 
