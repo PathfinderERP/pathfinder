@@ -154,8 +154,8 @@ const employeeSchema = new mongoose.Schema({
         required: false
     },
     workingHours: {
-        type: Number,
-        default: 0
+        type: [Number],
+        default: [9]
     },
     workingDays: {
         sunday: { type: Boolean, default: false },

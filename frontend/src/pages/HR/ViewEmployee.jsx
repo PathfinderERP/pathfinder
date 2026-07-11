@@ -263,7 +263,7 @@ const ViewEmployee = () => {
                     {/* Work & Salary */}
                     <SectionCard title="Work & Compensation" icon={<FaBriefcase />}>
                         <DataField label="Current Salary" value={`₹${employee.currentSalary?.toLocaleString()}`} subValue="Per Month" />
-                        <DataField label="Working Hours" value={`${employee.workingHours} Hrs`} subValue="Daily Average" />
+                        <DataField label="Working Hours" value={`${Array.isArray(employee.workingHours) ? employee.workingHours.join(", ") : (employee.workingHours || 0)} Hrs`} subValue="Daily Average" />
                         <DataField label="Probation" value={employee.probationPeriod ? "On Probation" : "Confirmed"} />
                         <div className="md:col-span-3">
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Weekly Work Schedule</p>

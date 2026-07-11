@@ -309,6 +309,7 @@ const EmployeeList = () => {
             manager: emp.manager?.name || "",
             dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toLocaleDateString() : "",
             dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : "",
+            workingHours: Array.isArray(emp.workingHours) ? emp.workingHours.join(", ") : (emp.workingHours || ""),
         }));
     };
 

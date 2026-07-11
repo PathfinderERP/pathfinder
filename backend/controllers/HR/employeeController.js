@@ -55,7 +55,7 @@ export const createEmployee = async (req, res) => {
         const employeeData = { ...req.body };
 
         // Parse JSON fields
-        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "subject"];
+        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "subject", "workingHours"];
         jsonFields.forEach(field => {
             if (typeof employeeData[field] === "string") {
                 try {
@@ -434,7 +434,7 @@ export const updateEmployee = async (req, res) => {
         });
 
         // Parse arrays if they're strings
-        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "letters", "subject"];
+        const jsonFields = ["children", "centres", "workingDays", "salaryStructure", "letters", "subject", "workingHours"];
         jsonFields.forEach(field => {
             if (typeof updateData[field] === "string") {
                 try {

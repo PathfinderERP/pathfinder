@@ -107,7 +107,12 @@ export const getTeacherScheduleForTelecaller = async (req, res) => {
         // 6. Compute FREE gap slots for each teacher per day
         for (const [teacherId, data] of groupedMap.entries()) {
             const empRecord = employeeMap[teacherId];
-            const workingHours = (empRecord && empRecord.workingHours && empRecord.workingHours > 0) ? empRecord.workingHours : 9;
+            const workingHours = (empRecord && empRecord.workingHours)
+                ? (Array.isArray(empRecord.workingHours)
+                    ? (empRecord.workingHours.length > 0 ? Math.max(...empRecord.workingHours) : 9)
+                    : (empRecord.workingHours > 0 ? empRecord.workingHours : 9)
+                  )
+                : 9;
 
             for (const day of DAYS) {
                 const sessions = data.days[day].classSessions;

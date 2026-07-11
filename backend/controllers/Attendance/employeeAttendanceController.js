@@ -7,6 +7,38 @@ import Regularization from "../../models/Attendance/Regularization.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear, isToday, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 
+// Helper to safely extract single numeric working hours from array or number field
+const getTargetWorkingHours = (wh) => {
+    if (Array.isArray(wh)) {
+        return wh.length > 0 ? Math.max(...wh) : 9;
+    }
+    return (wh && wh > 0) ? wh : 9;
+};
+
+// Helper to safely resolve role-aware dynamic shift target hours
+const getShiftTargetHours = (emp, roleStr, worked) => {
+    if (!emp) return 9;
+    const role = roleStr || emp.role || "";
+    const isTeacher = role === "teacher";
+    if (isTeacher) {
+        const wh = emp.workingHours;
+        if (Array.isArray(wh) && wh.length > 0) {
+            let closest = wh[0];
+            let minDiff = Math.abs(worked - closest);
+            for (let i = 1; i < wh.length; i++) {
+                const diff = Math.abs(worked - wh[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = wh[i];
+                }
+            }
+            return closest;
+        }
+        if (wh && wh > 0) return wh;
+    }
+    return 9; // For normal staff, HODs, etc. always 9 hours
+};
+
 // Helper function to calculate distance between two coordinates in meters
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3; // Earth radius in meters
@@ -178,7 +210,8 @@ export const markAttendance = async (req, res) => {
             const checkInTime = new Date(attendance.checkIn.time);
             const diffMs = checkOutTime - checkInTime;
             const workedHours = diffMs / (1000 * 60 * 60);
-            const targetHours = employee.workingHours || 9; // Default to 9 if not set
+
+            const targetHours = getShiftTargetHours(employee, userRole, workedHours);
 
             let finalStatus = "Present";
             let earlyCheckoutWarning = null;
@@ -371,7 +404,7 @@ export const getMyAttendance = async (req, res) => {
         const today = new Date();
         const startOfMarkWeek = startOfWeek(today, { weekStartsOn: 1 });
         const endOfMarkWeek = endOfWeek(today, { weekStartsOn: 1 });
-        const targetHours = employee.workingHours || 9;
+        const targetHours = getTargetWorkingHours(employee.workingHours);
 
         const thisWeekRecords = attendances.filter(rec => 
             rec.date >= startOfMarkWeek && rec.date <= today && rec.status !== "Week Off"
@@ -548,7 +581,7 @@ export const getAllAttendance = async (req, res) => {
                 if (statuses.length > 0) {
                     const hours = att.workingHours || 0;
                     const s = att.status;
-                    const target = emp?.workingHours || 9;
+                    const target = getTargetWorkingHours(emp?.workingHours);
                     
                     const matchesAnyStatus = statuses.some(st => {
                         if (st === 'Short Leave') return (hours >= (target - 0.5) && hours < target);
@@ -875,7 +908,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
         let totalTargetHours = 0;
         attendances.forEach(a => {
-            totalTargetHours += (a.employeeId?.workingHours || 9);
+            totalTargetHours += getTargetWorkingHours(a.employeeId?.workingHours);
         });
 
         const efficiency = totalTargetHours > 0
@@ -887,19 +920,19 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
         const statusSummary = {
             overtime: attendances.filter(a => {
-                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                const target = getTargetWorkingHours(a.employeeId?.workingHours);
                 return a.status === 'Overtime' || (a.workingHours > target + 0.05);
             }).length,
             earlyLeave: attendances.filter(a => {
-                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                const target = getTargetWorkingHours(a.employeeId?.workingHours);
                 return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 0.5);
             }).length,
             halfDay: attendances.filter(a => {
-                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                const target = getTargetWorkingHours(a.employeeId?.workingHours);
                 return a.status === 'Half Day' || (a.workingHours >= 4 && a.workingHours < target / 2);
             }).length,
             shortLeave: attendances.filter(a => {
-                const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                const target = getTargetWorkingHours(a.employeeId?.workingHours);
                 return a.workingHours >= (target - 0.5) && a.workingHours < target;
             }).length,
             forgotCheckout: attendances.filter(a => {
@@ -945,19 +978,19 @@ export const getAttendanceDashboardStats = async (req, res) => {
                 date: format(day, 'dd'),
                 fullDate: format(day, 'dd MMM'),
                 overtime: dailyAtts.filter(a => {
-                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    const target = getTargetWorkingHours(a.employeeId?.workingHours);
                     return a.status === 'Overtime' || (a.workingHours > target + 0.05);
                 }).length,
                 earlyLeave: dailyAtts.filter(a => {
-                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    const target = getTargetWorkingHours(a.employeeId?.workingHours);
                     return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 0.5);
                 }).length,
                 halfDay: dailyAtts.filter(a => {
-                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    const target = getTargetWorkingHours(a.employeeId?.workingHours);
                     return a.status === 'Half Day' || (a.workingHours >= 4 && a.workingHours < target / 2);
                 }).length,
                 shortLeave: dailyAtts.filter(a => {
-                    const target = (a.employeeId?.workingHours > 0) ? a.employeeId.workingHours : 9;
+                    const target = getTargetWorkingHours(a.employeeId?.workingHours);
                     return a.workingHours >= (target - 0.5) && a.workingHours < target;
                 }).length,
                 forgotCheckout: dailyAtts.filter(a => {
@@ -1217,7 +1250,18 @@ export const checkDateAttendance = async (req, res) => {
         
         // Find employee to get shift details
         const employee = await Employee.findOne({ user: userId });
-        const targetHours = employee?.workingHours || 9;
+        
+        let calculatedWorked = 0;
+        if (attendance) {
+            if (attendance.workingHours > 0) {
+                calculatedWorked = attendance.workingHours;
+            } else if (attendance.checkIn?.time) {
+                const diffMs = Date.now() - new Date(attendance.checkIn.time);
+                calculatedWorked = diffMs / (1000 * 60 * 60);
+            }
+        }
+        
+        const targetHours = getShiftTargetHours(employee, req.user?.role, calculatedWorked);
         
         if (attendance) {
             return res.status(200).json({

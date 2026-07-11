@@ -40,7 +40,7 @@ const AddEmployee = () => {
 
         // Work Details
         typeOfEmployment: "",
-        workingHours: 0,
+        workingHours: [],
         workingDays: {
             sunday: false,
             monday: false,
@@ -151,7 +151,9 @@ const AddEmployee = () => {
                     subject: data.user?.subject ? (Array.isArray(data.user.subject) ? data.user.subject : [data.user.subject]) : [],
                     role: data.user?.role || "",
                     manager: data.manager?._id || "",
-                    workingHours: data.workingHours || 0,
+                    workingHours: Array.isArray(data.workingHours)
+                        ? data.workingHours
+                        : (data.workingHours ? [data.workingHours] : []),
                     specialAllowance: data.specialAllowance || 0,
                     salaryStructure: data.salaryStructure?.map(s => {
                         const isDeductions = data.isDeductions || false;
@@ -550,6 +552,16 @@ const AddEmployee = () => {
 
         setLoading(true);
 
+        // Enforce fixed 9 hours for normal staff (not teacher/HOD) if not selected
+        const submittingRole = formData.role;
+        const submittingIsTeacher = submittingRole === 'teacher';
+        const submittingIsHOD     = submittingRole === 'HOD';
+        if (!submittingIsTeacher && !submittingIsHOD) {
+            if (!formData.workingHours || formData.workingHours.length === 0) {
+                formData.workingHours = [9];
+            }
+        }
+
         try {
             const token = localStorage.getItem("token");
             const formDataToSend = new FormData();
@@ -567,7 +579,7 @@ const AddEmployee = () => {
             Object.keys(formData).forEach(key => {
                 if (excludeFields.includes(key)) return;
 
-                if (key === "children" || key === "centres" || key === "workingDays" || key === "salaryStructure") {
+                if (key === "children" || key === "centres" || key === "workingDays" || key === "salaryStructure" || key === "workingHours") {
                     formDataToSend.append(key, JSON.stringify(formData[key]));
                 } else if (!fileFields.includes(key)) {
                     formDataToSend.append(key, formData[key] ?? "");
@@ -682,6 +694,11 @@ const AddEmployee = () => {
             color: isDarkMode ? "white" : "black"
         })
     };
+
+    /* ── Working Hours: role-aware options ── */
+    const isTeacher = formData.role === 'teacher';
+    const isHOD     = formData.role === 'HOD';
+    const isNormalStaff = !isTeacher && !isHOD;
 
     return (
         <Layout activePage="HR & Manpower">
@@ -1273,14 +1290,34 @@ const AddEmployee = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Working Hours
+                                    <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-blue-500 dark:text-blue-400">
+                                        · Select Hours
+                                    </span>
                                 </label>
-                                <input
-                                    type="number"
+                                <CustomSelect
                                     name="workingHours"
                                     value={formData.workingHours}
+                                    isMulti={true}
+                                    options={
+                                        (isTeacher || isHOD)
+                                            ? [
+                                                { value: 6, label: "6 Hours" },
+                                                { value: 7, label: "7 Hours" },
+                                                { value: 8, label: "8 Hours" },
+                                                { value: 9, label: "9 Hours" }
+                                              ]
+                                            : [
+                                                { value: 3, label: "3 Hours" },
+                                                { value: 4, label: "4 Hours" },
+                                                { value: 5, label: "5 Hours" },
+                                                { value: 6, label: "6 Hours" },
+                                                { value: 7, label: "7 Hours" },
+                                                { value: 8, label: "8 Hours" },
+                                                { value: 9, label: "9 Hours" }
+                                              ]
+                                    }
                                     onChange={handleInputChange}
-                                    placeholder="0"
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                    placeholder="Select Working Hours..."
                                 />
                             </div>
                         </div>
