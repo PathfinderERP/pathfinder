@@ -103,6 +103,11 @@ const pntseStudentSchema = new mongoose.Schema({
         ref: 'Payment',
         default: null,
     },
+    studentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Student',
+        default: null,
+    },
     rollNo: {
         type: String,
         required: true,

@@ -15,7 +15,8 @@ export const createPNTSEStudent = async (req, res) => {
             class: classId, centre: centreId, session: sessionId, examTag: examTagId,
             course, paymentType, school, guardianName, guardianMobile, examDate, remarks, status, score, rank,
             // Payment fields (only used when paymentType === 'paid')
-            paymentMethod, transactionId, accountHolderName, chequeDate, receivedDate, waiver
+            paymentMethod, transactionId, accountHolderName, chequeDate, receivedDate, waiver,
+            studentId, rollNo: customRollNo
         } = req.body;
 
         if (!name || !mobile || !classId || !centreId || !sessionId || !examTagId || !course) {
@@ -25,14 +26,18 @@ export const createPNTSEStudent = async (req, res) => {
         // Check for duplicate mobile
         const duplicateMobile = await PNTSEStudent.findOne({ mobile });
         if (duplicateMobile) {
-            return res.status(400).json({ message: "Mobile number is already registered" });
+            if (!sanitizedStudentId || String(duplicateMobile.studentId) !== String(sanitizedStudentId)) {
+                return res.status(400).json({ message: "Mobile number is already registered" });
+            }
         }
 
         // Check for duplicate email
         if (email) {
             const duplicateEmail = await PNTSEStudent.findOne({ email });
             if (duplicateEmail) {
-                return res.status(400).json({ message: "Email ID is already registered" });
+                if (!sanitizedStudentId || String(duplicateEmail.studentId) !== String(sanitizedStudentId)) {
+                    return res.status(400).json({ message: "Email ID is already registered" });
+                }
             }
         }
 
@@ -47,22 +52,28 @@ export const createPNTSEStudent = async (req, res) => {
             return res.status(400).json({ message: "Class not found" });
         }
 
-        // Generate roll number: PATH{centreCode}{4-digit seq per centre}
-        // Use the 2-digit unique centreCode (e.g. "01"), fallback to enterCode first 2 digits
-        const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
+        // Sanitize: empty string studentId/rollNo causes ObjectId cast errors
+        const sanitizedStudentId = studentId && studentId.trim() !== '' ? studentId : undefined;
+        const sanitizedCustomRollNo = customRollNo && customRollNo.trim() !== '' ? customRollNo : undefined;
 
-        // Count all students for this centre to get next sequential number
-        const count = await PNTSEStudent.countDocuments({ centre: centreId });
-        let nextIndex = count + 1;
-        let rollNo;
-        let isUnique = false;
-        while (!isUnique) {
-            rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(4, '0')}`;
-            const existing = await PNTSEStudent.findOne({ rollNo });
-            if (!existing) {
-                isUnique = true;
-            } else {
-                nextIndex++;
+        let rollNo = sanitizedCustomRollNo;
+        if (!rollNo) {
+            // Generate roll number: PATH{centreCode}{6-digit seq per centre}
+            // Use the 2-digit unique centreCode (e.g. "01"), fallback to enterCode first 2 digits
+            const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
+
+            // Count all students for this centre to get next sequential number
+            const count = await PNTSEStudent.countDocuments({ centre: centreId });
+            let nextIndex = count + 1;
+            let isUnique = false;
+            while (!isUnique) {
+                rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(6, '0')}`;
+                const existing = await PNTSEStudent.findOne({ rollNo });
+                if (!existing) {
+                    isUnique = true;
+                } else {
+                    nextIndex++;
+                }
             }
         }
 
@@ -90,7 +101,8 @@ export const createPNTSEStudent = async (req, res) => {
             remarks,
             status: status || 'Appeared',
             score: score || 0,
-            rank
+            rank,
+            studentId: sanitizedStudentId
         });
 
         await newStudent.save();
@@ -107,7 +119,7 @@ export const createPNTSEStudent = async (req, res) => {
                 const cgst = parseFloat((gstPool / 2).toFixed(2));
                 const sgst = parseFloat((gstPool - cgst).toFixed(2));
 
-                const billId = await generateBillId(centreCode, receivedDate || new Date());
+                const billId = await generateBillId(centreObj.centreCode || centreObj.enterCode, receivedDate || new Date());
 
                 const paymentRecord = new Payment({
                     admission: newStudent._id,          // PNTSE student _id stored as admission ref
@@ -381,6 +393,7 @@ export const importExcel = async (req, res) => {
                 const state = String(row["State"] ?? "").trim() || undefined;
                 const pincode = String(row["Pincode"] ?? "").trim() || undefined;
                 const remarks = String(row["Remarks"] ?? "").trim() || undefined;
+                const studentId = row["studentId"] || undefined;
 
                 // Validate required
                 if (!name || !mobile || !className || !centreName || !sessionName || !examTagName || !course) {
@@ -423,7 +436,7 @@ export const importExcel = async (req, res) => {
 
                 // Check duplicate mobile
                 const dupMobile = await PNTSEStudent.findOne({ mobile });
-                if (dupMobile) {
+                if (dupMobile && (!studentId || String(dupMobile.studentId) !== String(studentId))) {
                     results.failed++;
                     results.errors.push(`Row ${rowNum}: Mobile ${mobile} already registered`);
                     continue;
@@ -432,14 +445,14 @@ export const importExcel = async (req, res) => {
                 // Check duplicate email
                 if (email) {
                     const dupEmail = await PNTSEStudent.findOne({ email });
-                    if (dupEmail) {
+                    if (dupEmail && (!studentId || String(dupEmail.studentId) !== String(studentId))) {
                         results.failed++;
                         results.errors.push(`Row ${rowNum}: Email ${email} already registered`);
                         continue;
                     }
                 }
 
-                // Generate roll number: PATH{centreCode}{4-digit seq per centre}
+                // Generate roll number: PATH{centreCode}{6-digit seq per centre}
                 const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
 
                 const count = await PNTSEStudent.countDocuments({ centre: centreObj._id });
@@ -447,7 +460,7 @@ export const importExcel = async (req, res) => {
                 let rollNo;
                 let isUnique = false;
                 while (!isUnique) {
-                    rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(4, '0')}`;
+                    rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(6, '0')}`;
                     const existing = await PNTSEStudent.findOne({ rollNo });
                     if (!existing) {
                         isUnique = true;
@@ -471,7 +484,8 @@ export const importExcel = async (req, res) => {
                     status: 'Appeared',
                     score: 0,
                     isImported: true,
-                    isPaymentPending: true
+                    isPaymentPending: true,
+                    studentId
                 });
 
                 await newStudent.save();
@@ -533,7 +547,7 @@ export const processStudentPayment = async (req, res) => {
             return res.status(400).json({ message: "Centre not found" });
         }
 
-        const centreCode = (centreObj.enterCode || "XX").toUpperCase();
+        const centreCode = (centreObj.centreCode || centreObj.enterCode || "XX").toUpperCase();
         
         const waiverAmt = Math.max(0, Math.min(100, Number(waiver) || 0));
         const grossFee = 100;
@@ -675,7 +689,7 @@ export const updatePNTSEStudent = async (req, res) => {
             const centreObj = await CentreSchema.findById(centreId);
             const classObj = await Class.findById(classId);
             if (centreObj && classObj) {
-                // Generate roll number: PATH{centreCode}{4-digit seq per centre}
+                // Generate roll number: PATH{centreCode}{6-digit seq per centre}
                 const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
 
                 const count = await PNTSEStudent.countDocuments({ centre: centreId });
@@ -683,7 +697,7 @@ export const updatePNTSEStudent = async (req, res) => {
                 let rollNo;
                 let isUnique = false;
                 while (!isUnique) {
-                    rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(4, '0')}`;
+                    rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(6, '0')}`;
                     const existing = await PNTSEStudent.findOne({ rollNo });
                     if (!existing) {
                         isUnique = true;

@@ -427,6 +427,13 @@ const CarryForward = () => {
                                         >
                                             Enroll Board Course <FaArrowRight />
                                         </button>
+                                        <button
+                                            onClick={() => navigate(`/pntse/add-student`, { state: { student: searchedStudent, rollNo: searchedStudentAdmissions?.[0]?.admissionNumber || '' } })}
+                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                            title="Carry Forward to PNTSE Course"
+                                        >
+                                            Carry Forward PNTSE <FaArrowRight />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -504,6 +511,13 @@ const CarryForward = () => {
                                         title="Enroll in a Board Course"
                                     >
                                         Enroll Board Course <FaArrowRight />
+                                    </button>
+                                    <button
+                                        onClick={() => navigate(`/pntse/add-student`, { state: { student: selectedStudent, rollNo: studentAdmissions?.[0]?.admissionNumber || '' } })}
+                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                                        title="Carry Forward to PNTSE Course"
+                                    >
+                                        Carry Forward PNTSE <FaArrowRight />
                                     </button>
                                     <button
                                         onClick={closeStudentModal}

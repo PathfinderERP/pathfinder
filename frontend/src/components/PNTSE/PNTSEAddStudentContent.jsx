@@ -5,6 +5,7 @@ import {
     FaMoneyBillWave, FaCreditCard, FaUniversity, FaFileInvoice, FaTag
 } from 'react-icons/fa';
 import BillGenerator from '../Finance/BillGenerator';
+import { useLocation } from 'react-router-dom';
 
 const INITIAL_FORM = {
     name: '',
@@ -27,6 +28,8 @@ const INITIAL_FORM = {
     pincode: '',
     examDate: '',
     remarks: '',
+    studentId: '',
+    rollNo: '',
 };
 
 const INITIAL_PAYMENT = {
@@ -49,6 +52,7 @@ const PAYMENT_METHODS = [
 const GROSS_FEE = 100;
 
 const PNTSEAddStudentContent = () => {
+    const location = useLocation();
     const [form, setForm] = useState(INITIAL_FORM);
     const [paymentForm, setPaymentForm] = useState(INITIAL_PAYMENT);
     const [errors, setErrors] = useState({});
@@ -105,6 +109,57 @@ const PNTSEAddStudentContent = () => {
         };
         fetchMasterData();
     }, []);
+
+    useEffect(() => {
+        if (location.state?.student && dbCentres.length > 0 && dbClasses.length > 0) {
+            const s = location.state.student;
+            const details = s.studentsDetails?.[0] || {};
+            
+            // Match Centre by Name
+            let matchedCentreId = "";
+            if (details.centre) {
+                const matched = dbCentres.find(c => c.centreName?.toLowerCase().trim() === details.centre?.toLowerCase().trim());
+                if (matched) matchedCentreId = matched._id;
+            }
+
+            // Match Class by Name
+            let matchedClassId = "";
+            const studentClassStr = s.examSchema?.[0]?.class || "";
+            if (studentClassStr) {
+                const studentClassDigit = studentClassStr.replace(/\D/g, "");
+                const matched = dbClasses.find(c => c.name?.replace(/\D/g, "") === studentClassDigit);
+                if (matched) matchedClassId = matched._id;
+            }
+
+            // Match Course based on Class
+            let matchedCourse = "";
+            const studentClassDigit = studentClassStr.replace(/\D/g, "");
+            if (studentClassDigit) {
+                matchedCourse = `PNTSE CLASS ${studentClassDigit}`;
+            }
+
+            setForm(prev => ({
+                ...prev,
+                name: details.studentName || '',
+                mobile: details.mobileNum || '',
+                email: details.studentEmail || '',
+                dob: details.dateOfBirth || '',
+                gender: details.gender || '',
+                address: details.address || '',
+                city: details.city || '',
+                state: details.state || '',
+                pincode: details.pincode || '',
+                school: details.schoolName || '',
+                guardianName: details.guardians?.[0]?.guardianName || s.guardians?.[0]?.guardianName || '',
+                guardianMobile: details.guardians?.[0]?.guardianMobile || s.guardians?.[0]?.guardianMobile || '',
+                centre: matchedCentreId || prev.centre,
+                class: matchedClassId || prev.class,
+                course: matchedCourse || prev.course,
+                studentId: s._id,
+                rollNo: location.state.rollNo || ''
+            }));
+        }
+    }, [location.state, dbCentres, dbClasses]);
 
     const debounceTimeout = React.useRef({});
 
@@ -405,9 +460,16 @@ const PNTSEAddStudentContent = () => {
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No. Status</label>
-                                    <input type="text" disabled placeholder="e.g. PATH010001 — auto-generated on save"
-                                        className="px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-500 cursor-not-allowed" />
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No.</label>
+                                    <input 
+                                        type="text" 
+                                        name="rollNo"
+                                        value={form.rollNo} 
+                                        disabled={!!form.studentId}
+                                        onChange={handleChange}
+                                        placeholder="e.g. PATH01000001 — auto-generated on save"
+                                        className={`px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm ${form.studentId ? 'text-cyan-400 font-bold cursor-not-allowed' : 'text-gray-500 cursor-not-allowed'}`} 
+                                    />
                                 </div>
                             </div>
                         </div>
