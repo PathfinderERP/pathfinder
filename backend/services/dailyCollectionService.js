@@ -3,6 +3,8 @@ import Centre from "../models/Master_data/Centre.js";
 import mongoose from "mongoose";
 import CentreTarget from "../models/Sales/CentreTarget.js";
 import DailyTarget from "../models/Sales/DailyTarget.js";
+import Zone from "../models/Zone.js";
+import User from "../models/User.js";
 
 const getDailyAchievedForMonth = async (startDate, endDate) => {
     try {
@@ -745,12 +747,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         }
     });
 
+    // Fetch all zones with populated centres
+    const zones = await Zone.find({ isActive: true }).populate("centres", "centreName").lean();
+
+    // Fetch all users with role 'zonalManager'
+    const zonalManagers = await User.find({ role: { $regex: /zonalManager/i } }).select("name centres").lean();
+
     return {
         date: selectedDate.toISOString().split("T")[0],
         totalCollection: summary.totalCollection || 0,
         transactionCount: summary.transactionCount || 0,
         paymentMethods,
         details,
-        centreTargets
+        centreTargets,
+        zones,
+        zonalManagers
     };
 };

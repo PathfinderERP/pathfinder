@@ -21,6 +21,9 @@ const DailyCollection = () => {
     const [centreTargets, setCentreTargets] = useState({});
     const [editingCentre, setEditingCentre] = useState(null);
     const [editTargetValue, setEditTargetValue] = useState("");
+    const [zones, setZones] = useState([]);
+    const [zonalManagers, setZonalManagers] = useState([]);
+    const [selectedZone, setSelectedZone] = useState("");
 
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -163,6 +166,8 @@ const DailyCollection = () => {
                 setPaymentMethods(data.paymentMethods || []);
                 setDailyDetails(sortedDetails);
                 setCentreTargets(data.centreTargets || {});
+                setZones(data.zones || []);
+                setZonalManagers(data.zonalManagers || []);
                 setCurrentPage(1);
                 setPageInput("1");
                 // Extract unique payment methods and merge with default methods
@@ -229,6 +234,7 @@ const DailyCollection = () => {
         setPaymentMethodSearch("");
         setSearchText("");
         setDate(new Date().toISOString().split("T")[0]);
+        setSelectedZone("");
         toast.info("Filters reset");
     };
 
@@ -460,7 +466,20 @@ const DailyCollection = () => {
         );
     };
 
-    const filteredCenters = centres.filter((c) =>
+    // Zone wise filtering
+    const selectedZoneObj = zones.find(z => z._id === selectedZone);
+    const zoneCentreNames = selectedZoneObj ? selectedZoneObj.centres.map(c => c.centreName) : [];
+    const zoneCentreIds = selectedZoneObj ? selectedZoneObj.centres.map(c => c._id || c) : [];
+
+    const activeCentres = selectedZone
+        ? centres.filter(c => zoneCentreIds.includes(c._id))
+        : centres;
+
+    const activeDetails = selectedZone
+        ? dailyDetails.filter(d => zoneCentreNames.includes(d.centre))
+        : dailyDetails;
+
+    const filteredCenters = activeCentres.filter((c) =>
         c.centreName?.toLowerCase().includes(centreSearch.toLowerCase())
     );
 
@@ -480,8 +499,8 @@ const DailyCollection = () => {
         method.toLowerCase().includes(paymentMethodSearch.toLowerCase())
     );
 
-    const pageCount = Math.max(1, Math.ceil(dailyDetails.length / pageSize));
-    const paginatedDetails = dailyDetails.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const pageCount = Math.max(1, Math.ceil(activeDetails.length / pageSize));
+    const paginatedDetails = activeDetails.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     React.useEffect(() => {
         if (currentPage > pageCount) {
@@ -534,18 +553,18 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Total Collected</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 <div className="flex items-baseline justify-between">
-                                    <span className={`text-2xl font-bold ${cardTextClass}`}>{formatAmount(totalCollection)}</span>
+                                    <span className={`text-2xl font-bold ${cardTextClass}`}>{formatAmount(activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0))}</span>
                                     <span className="text-[9px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">With GST</span>
                                 </div>
                                 <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
-                                    <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(totalCollection / 1.18)}</span>
+                                    <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0) / 1.18)}</span>
                                     <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Without GST</span>
                                 </div>
                             </div>
                         </div>
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                             <span>Transactions Count</span>
-                            <span className="font-bold text-gray-700 dark:text-gray-300">{transactionCount}</span>
+                            <span className="font-bold text-gray-700 dark:text-gray-300">{activeDetails.length}</span>
                         </div>
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm flex flex-col justify-between`}>
@@ -553,10 +572,7 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Daily Total Target</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const computedTarget = (selectedCentres.length > 0
-                                        ? centres.filter(c => selectedCentres.includes(c._id))
-                                        : centres
-                                    ).reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
+                                    const computedTarget = activeCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
 
                                     return (
                                         <>
@@ -576,27 +592,68 @@ const DailyCollection = () => {
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                             <span>Active Centres</span>
                             <span className="font-bold text-gray-700 dark:text-gray-300">
-                                {selectedCentres.length > 0 ? selectedCentres.length : centres.length}
+                                {selectedCentres.length > 0 ? selectedCentres.length : activeCentres.length}
                             </span>
                         </div>
+                        {selectedZone && (
+                            <div className={`${secondaryTextClass} text-xs mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
+                                {/* <span>Zonal Manager</span>
+                                <span className="font-bold text-cyan-400">
+                                    {(() => {
+                                        const managersOfZone = zonalManagers.filter(manager => 
+                                            manager.centres && manager.centres.some(cId => zoneCentreIds.includes(cId))
+                                        );
+                                        return managersOfZone.map(m => m.name).join(", ") || "N/A";
+                                    })()}
+                                </span> */}
+                            </div>
+                        )}
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm`}>
                         <div className={`${secondaryTextClass} font-semibold mb-3`}>Payment Methods</div>
                         <div className="space-y-2">
-                            {paymentMethods.length ? paymentMethods.map((method) => (
-                                <div key={method._id} className={`flex justify-between text-sm ${secondaryTextClass}`}>
-                                    <span>{method._id || "Unknown"}</span>
-                                    <span>{formatAmount(method.totalAmount)} ({method.count})</span>
-                                </div>
-                            )) : (
-                                <div className="text-gray-500">No payment method data available.</div>
-                            )}
+                            {(() => {
+                                const dynamicPaymentMethods = Object.entries(
+                                    activeDetails.reduce((acc, curr) => {
+                                        const pm = curr.paymentMethod || "Unknown";
+                                        if (!acc[pm]) acc[pm] = { totalAmount: 0, count: 0 };
+                                        acc[pm].totalAmount += (curr.paidAmount || 0);
+                                        acc[pm].count += 1;
+                                        return acc;
+                                    }, {})
+                                ).map(([method, data]) => ({ _id: method, totalAmount: data.totalAmount, count: data.count }));
+
+                                return dynamicPaymentMethods.length ? dynamicPaymentMethods.map((method) => (
+                                    <div key={method._id} className={`flex justify-between text-sm ${secondaryTextClass}`}>
+                                        <span>{method._id || "Unknown"}</span>
+                                        <span>{formatAmount(method.totalAmount)} ({method.count})</span>
+                                    </div>
+                                )) : (
+                                    <div className="text-gray-500">No payment method data available.</div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
 
                 <div className={`${cardBgClass} ${cardBorderClass} rounded-[4px] p-4 mb-6`}>
-                    <div className="grid gap-4 lg:grid-cols-3">
+                    <div className="grid gap-4 lg:grid-cols-4 md:grid-cols-2">
+                        <div className="relative">
+                            <label className={`block mb-2 text-sm ${secondaryTextClass}`}>Zone</label>
+                            <select
+                                value={selectedZone}
+                                onChange={(e) => {
+                                    setSelectedZone(e.target.value);
+                                    setSelectedCentres([]); // reset centre selection on zone change
+                                }}
+                                className={`w-full rounded-[4px] p-3 outline-none ${filterButtonClass}`}
+                            >
+                                <option value="">All Zones</option>
+                                {zones.map((zone) => (
+                                    <option key={zone._id} value={zone._id}>{zone.name}</option>
+                                ))}
+                            </select>
+                        </div>
                         <div className="relative">
                             <label className={`block mb-2 text-sm ${secondaryTextClass}`}>Centre</label>
                             <button
@@ -887,32 +944,29 @@ const DailyCollection = () => {
 
                 <div className={`${cardBgClass} ${cardBorderClass} rounded-[4px] p-4`}>
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-                        <div className={`flex items-center gap-2 p-1 rounded-lg border ${
-                            isDarkMode 
-                                ? "bg-gray-900/40 border-gray-800" 
+                        <div className={`flex items-center gap-2 p-1 rounded-lg border ${isDarkMode
+                                ? "bg-gray-900/40 border-gray-800"
                                 : "bg-slate-100 border-gray-200"
-                        }`}>
+                            }`}>
                             <button
                                 onClick={() => setActiveTab("centers")}
-                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
-                                    activeTab === "centers"
+                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "centers"
                                         ? "bg-blue-600 text-white shadow-lg"
-                                        : isDarkMode 
-                                            ? "text-gray-400 hover:text-gray-200" 
+                                        : isDarkMode
+                                            ? "text-gray-400 hover:text-gray-200"
                                             : "text-slate-600 hover:text-slate-950"
-                                }`}
+                                    }`}
                             >
                                 Centers Collection
                             </button>
                             <button
                                 onClick={() => setActiveTab("details")}
-                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
-                                    activeTab === "details"
+                                className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "details"
                                         ? "bg-blue-600 text-white shadow-lg"
-                                        : isDarkMode 
-                                            ? "text-gray-400 hover:text-gray-200" 
+                                        : isDarkMode
+                                            ? "text-gray-400 hover:text-gray-200"
                                             : "text-slate-600 hover:text-slate-950"
-                                }`}
+                                    }`}
                             >
                                 Details with Bill
                             </button>
@@ -927,7 +981,7 @@ const DailyCollection = () => {
                                     <tr>
                                         <th className="px-4 py-3">Centre Name</th>
                                         <th className="px-4 py-3 text-right font-bold text-amber-500">
-                                            Daily Target 
+                                            Daily Target
                                             {(() => {
                                                 const d = new Date(date);
                                                 const day = d.getDay();
@@ -944,7 +998,7 @@ const DailyCollection = () => {
                                     </tr>
                                 </thead>
                                 {(() => {
-                                    const aggregatedData = dailyDetails.reduce((acc, curr) => {
+                                    const aggregatedData = activeDetails.reduce((acc, curr) => {
                                         const c = curr.centre || "N/A";
                                         if (!acc[c]) acc[c] = { total: 0 };
                                         acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
@@ -953,8 +1007,8 @@ const DailyCollection = () => {
                                     }, (() => {
                                         const initialAcc = {};
                                         const targetCentres = selectedCentres.length > 0
-                                            ? centres.filter(c => selectedCentres.includes(c._id))
-                                            : centres;
+                                            ? activeCentres.filter(c => selectedCentres.includes(c._id))
+                                            : activeCentres;
                                         targetCentres.forEach(c => {
                                             if (c.centreName) {
                                                 initialAcc[c.centreName] = { total: 0 };
@@ -1020,8 +1074,8 @@ const DailyCollection = () => {
                                                                         </button>
                                                                     </div>
                                                                 ) : (
-                                                                    <div 
-                                                                        className="flex items-center justify-end gap-2 group/target cursor-pointer select-none" 
+                                                                    <div
+                                                                        className="flex items-center justify-end gap-2 group/target cursor-pointer select-none"
                                                                         onClick={() => {
                                                                             setEditingCentre(centre);
                                                                             setEditTargetValue(centreTargets[centre] || 0);
@@ -1064,8 +1118,8 @@ const DailyCollection = () => {
                         </div>
                     ) : (
                         <>
-                             <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-                                 <table className={`min-w-[1400px] divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
+                            <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                                <table className={`min-w-[1400px] divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
                                     <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                         <tr>
                                             <th className="px-4 py-3">Date</th>
