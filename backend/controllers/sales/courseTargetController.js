@@ -23,6 +23,63 @@ const isBoardMatchingDept = (boardCourse, deptName) => {
     return false;
 };
 
+const getBaseExamTag = (tagName) => {
+    if (!tagName) return "Uncategorized";
+    const name = tagName.toUpperCase().trim();
+    if (name.includes("WBBSE") || name === "MADHYAMIK") return "WBBSE";
+    if (name.includes("WBCHSE") || name === "HS" || name.includes("HIGHER SECONDARY")) return "WBCHSE";
+    if (name.includes("CBSE")) return "CBSE";
+    if (name.includes("ICSE")) return "ICSE";
+    if (name.includes("ISC")) return "ISC";
+    return tagName.trim();
+};
+
+const getDeptForBoard = (boardName, departments) => {
+    const bName = (boardName || "").toUpperCase().trim();
+    let targetDeptName = "";
+    if (bName === "WBBSE" || bName === "MADHYAMIK") {
+        targetDeptName = "MADHYAMIK";
+    } else if (bName === "WBCHSE" || bName === "HS") {
+        targetDeptName = "HS";
+    } else if (bName === "CBSE") {
+        targetDeptName = "CBSE DEPARTMENT";
+    } else if (bName === "ICSE") {
+        targetDeptName = "ICSE";
+    } else if (bName === "ISC") {
+        targetDeptName = "ISC";
+    }
+
+    if (targetDeptName) {
+        const dept = departments.find(d => d.departmentName.toUpperCase().trim() === targetDeptName);
+        if (dept) return dept._id.toString();
+    }
+    
+    // Fallback to isBoardMatchingDept
+    const matched = departments.find(d => isBoardMatchingDept(boardName, d.departmentName));
+    return matched ? matched._id.toString() : null;
+};
+
+const getStudentSessionExamTag = (studentDoc, academicSession) => {
+    if (!studentDoc || !studentDoc.sessionExamCourse || !Array.isArray(studentDoc.sessionExamCourse)) return null;
+    const match = studentDoc.sessionExamCourse.find(sec => 
+        sec && sec.session === academicSession
+    );
+    return match ? match.examTag : null;
+};
+
+const getNormalizedExamTagName = (tagName, masterExamTags) => {
+    if (!tagName) return "Uncategorized";
+    const upperName = tagName.toUpperCase().trim();
+    const match = masterExamTags.find(t => 
+        (t.name || "").toUpperCase().trim() === upperName ||
+        (t.tagName || "").toUpperCase().trim() === upperName
+    );
+    return match ? (match.name || match.tagName) : tagName.trim();
+};
+
+
+
+
 const monthNames = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -219,106 +276,116 @@ export const getCourseTargetAnalysis = async (req, res) => {
             }
 
             const [normalAdmissions, boardAdmissions] = await Promise.all([
-                Admission.aggregate([
-                    {
-                        $match: normalMatch
-                    },
-                    {
-                        $lookup: {
-                            from: "students",
-                            localField: "student",
-                            foreignField: "_id",
-                            as: "studentInfo"
-                        }
-                    },
-                    { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
-                    ...(programList.length > 0 ? [{
-                        $match: {
-                            "studentInfo.studentsDetails.programme": { $in: programList }
-                        }
-                    }] : []),
-                    {
-                        $group: {
-                            _id: { department: "$department", examTag: "$examTag" },
-                            count: { $sum: 1 }
-                        }
-                    }
-                ]),
-                BoardCourseAdmission.aggregate([
-                    {
-                        $match: boardMatch
-                    },
-                    {
-                        $lookup: {
-                            from: "students",
-                            localField: "studentId",
-                            foreignField: "_id",
-                            as: "studentInfo"
-                        }
-                    },
-                    { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
-                    ...(programList.length > 0 ? [{
-                        $match: {
-                            "studentInfo.studentsDetails.programme": { $in: programList }
-                        }
-                    }] : []),
-                    {
-                        $lookup: {
-                            from: "boards",
-                            localField: "boardId",
-                            foreignField: "_id",
-                            as: "boardInfo"
-                        }
-                    },
-                    { $unwind: { path: "$boardInfo", preserveNullAndEmptyArrays: true } },
-                    {
-                        $group: {
-                            _id: "$boardInfo.boardCourse",
-                            count: { $sum: 1 }
-                        }
-                    }
-                ])
+                Admission.find(normalMatch)
+                    .populate('examTag')
+                    .populate('student')
+                    .lean(),
+                BoardCourseAdmission.find(boardMatch)
+                    .populate('boardId')
+                    .populate('studentId')
+                    .populate('examTag')
+                    .lean()
             ]);
 
-            console.log(`Centre: ${centreName} | Normal: ${normalAdmissions.length} | Board: ${boardAdmissions.length}`);
+            // Filter in memory by programme list
+            let filteredNormal = normalAdmissions;
+            if (programList.length > 0) {
+                filteredNormal = normalAdmissions.filter(a => {
+                    const prog = a.student?.studentsDetails?.[0]?.programme;
+                    return prog && programList.includes(prog);
+                });
+            }
+
+            let filteredBoard = boardAdmissions;
+            if (programList.length > 0) {
+                filteredBoard = boardAdmissions.filter(a => {
+                    const prog = a.studentId?.studentsDetails?.[0]?.programme || a.programme;
+                    return prog && programList.includes(prog);
+                });
+            }
+
+            // Combine and Deduplicate
+            const combinedAdmissions = [];
+
+            filteredNormal.forEach(a => {
+                const sId = a.student?._id?.toString() || a.student?.toString();
+                const studentTag = getStudentSessionExamTag(a.student, a.academicSession);
+                let origTagName = studentTag || a.examTag?.name || a.examTag?.tagName || "NORMAL";
+                origTagName = getNormalizedExamTagName(origTagName, allExamTags);
+                const baseTagName = getBaseExamTag(origTagName);
+                combinedAdmissions.push({
+                    type: "normal",
+                    studentId: sId,
+                    baseTagName,
+                    originalTagName: origTagName,
+                    departmentId: a.department?.toString(),
+                    admissionDate: new Date(a.admissionDate),
+                    tagId: a.examTag?._id?.toString(),
+                    raw: a
+                });
+            });
+
+            filteredBoard.forEach(a => {
+                const sId = a.studentId?._id?.toString() || a.studentId?.toString();
+                const studentTag = getStudentSessionExamTag(a.studentId, a.academicSession);
+                let origTagName = studentTag || a.examTag?.name || a.examTag?.tagName || a.boardId?.boardCourse || "BOARD";
+                origTagName = getNormalizedExamTagName(origTagName, allExamTags);
+                const baseTagName = getBaseExamTag(origTagName);
+                const deptId = getDeptForBoard(baseTagName, masterDepartments);
+                combinedAdmissions.push({
+                    type: "board",
+                    studentId: sId,
+                    baseTagName,
+                    originalTagName: origTagName,
+                    departmentId: deptId,
+                    admissionDate: new Date(a.admissionDate),
+                    tagId: a.examTag?._id?.toString() || "board-tag",
+                    raw: a
+                });
+            });
+
+            // Deduplicate by (studentId, baseTagName)
+            const uniqueMap = new Map();
+            combinedAdmissions.forEach(item => {
+                if (!item.studentId) return;
+                const key = `${item.studentId}_${item.baseTagName.toUpperCase()}`;
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, item);
+                } else {
+                    const existing = uniqueMap.get(key);
+                    if (item.admissionDate < existing.admissionDate) {
+                        uniqueMap.set(key, item);
+                    }
+                }
+            });
+
+            const uniqueAdmissions = Array.from(uniqueMap.values());
+
+            console.log(`Centre: ${centreName} | Normal raw: ${normalAdmissions.length} | Board raw: ${boardAdmissions.length} | Unique combined: ${uniqueAdmissions.length}`);
 
             const deptAdmissionMap = {};
             const deptExamTagBreakdown = {};
 
-            normalAdmissions.forEach(a => {
-                if (a._id && a._id.department) {
-                    const dId = a._id.department.toString();
-                    deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + a.count;
+            uniqueAdmissions.forEach(item => {
+                if (item.departmentId) {
+                    const dId = item.departmentId;
+                    deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + 1;
 
                     if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
-                    deptExamTagBreakdown[dId].push({
-                        tagId: a._id.examTag,
-                        tagName: a._id.examTag ? (examTagMap[a._id.examTag.toString()] || "Other") : "Uncategorized",
-                        count: a.count
-                    });
-                }
-            });
-
-            boardAdmissions.forEach(a => {
-                if (a._id) {
-                    const boardName = a._id.toString();
-                    const matchingDepts = masterDepartments.filter(d =>
-                        isBoardMatchingDept(boardName, d.departmentName)
-                    );
-
-                    matchingDepts.forEach(dept => {
-                        const dId = dept._id.toString();
-                        deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + a.count;
-
-                        if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
-                        deptExamTagBreakdown[dId].push({
-                            tagId: "board-tag",
-                            tagName: boardName,
-                            count: a.count
+                    const breakdown = deptExamTagBreakdown[dId];
+                    const existing = breakdown.find(t => t.tagName === item.originalTagName);
+                    if (existing) {
+                        existing.count += 1;
+                    } else {
+                        breakdown.push({
+                            tagId: item.tagId,
+                            tagName: item.originalTagName,
+                            count: 1
                         });
-                    });
+                    }
                 }
             });
+
 
             const finalDeptStats = masterDepartments.map(dept => {
                 const dId = dept._id.toString();
@@ -352,7 +419,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 // GET /sales/course-target/admissions
 export const getAdmissionDetails = async (req, res) => {
     try {
-        const { centreName, departmentId, startDate, endDate, programme, sessions } = req.query;
+        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName } = req.query;
 
         if (!centreName || !departmentId || !startDate || !endDate) {
             return res.status(400).json({ message: "Missing required parameters" });
@@ -367,14 +434,22 @@ export const getAdmissionDetails = async (req, res) => {
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
 
+        // Check if we need to filter by a specific exam tag/board name (across all departments in the centre)
+        const isTagFiltered = tagName && tagName !== "All";
+
+        const allExamTags = await ExamTag.find({}).lean();
+
         // Fetch Normal Admissions
         const normalQuery = {
             centre: centreRegex,
-            department: departmentId,
             admissionDate: { $gte: start, $lte: end },
             admissionStatus: "ACTIVE",
             admissionType: "NORMAL"
         };
+        // If not specific tag filtering, query only for requested departmentId
+        if (!isTagFiltered) {
+            normalQuery.department = departmentId;
+        }
         if (sessionList.length > 0) {
             normalQuery.academicSession = { $in: sessionList };
         }
@@ -382,74 +457,114 @@ export const getAdmissionDetails = async (req, res) => {
         const admissions = await Admission.find(normalQuery)
             .populate('course', 'courseName programme')
             .populate('examTag', 'name tagName')
-            .populate('student', 'studentsDetails mobileNum')
+            .populate('student', 'studentsDetails mobileNum sessionExamCourse')
             .lean();
 
-        let normalResults = admissions.map(a => ({
-            _id: a._id,
-            admissionNumber: a.admissionNumber,
-            studentName: a.student?.studentsDetails?.[0]?.studentName || "N/A",
-            phone: a.student?.studentsDetails?.[0]?.mobileNum || a.student?.mobileNum || "N/A",
-            admissionDate: a.admissionDate,
-            examTag: a.examTag?.name || a.examTag?.tagName || "NORMAL",
-            course: a.course?.courseName || "N/A",
-            programme: a.student?.studentsDetails?.[0]?.programme || a.course?.programme || "",
-            downPayment: a.downPayment || 0,
-            totalFees: a.totalFees || 0
-        }));
+        let normalResults = admissions.map(a => {
+            const studentTag = getStudentSessionExamTag(a.student, a.academicSession);
+            let origTagName = studentTag || a.examTag?.name || a.examTag?.tagName || "NORMAL";
+            origTagName = getNormalizedExamTagName(origTagName, allExamTags);
+            return {
+                _id: a._id,
+                studentId: a.student?._id?.toString() || a.student?.toString(),
+                admissionNumber: a.admissionNumber,
+                studentName: a.student?.studentsDetails?.[0]?.studentName || "N/A",
+                phone: a.student?.studentsDetails?.[0]?.mobileNum || a.student?.mobileNum || "N/A",
+                admissionDate: a.admissionDate,
+                examTag: origTagName,
+                course: a.course?.courseName || "N/A",
+                programme: a.student?.studentsDetails?.[0]?.programme || a.course?.programme || "",
+                downPayment: a.downPayment || 0,
+                totalFees: a.totalFees || 0
+            };
+        });
 
         if (programList.length > 0) {
             normalResults = normalResults.filter(a => programList.includes(a.programme));
         }
 
-        // Fetch Board Course Admissions matching this department
+        // Fetch Board Course Admissions matching
         let boardResults = [];
-        const dept = await Department.findById(departmentId).lean();
-        if (dept) {
-            const deptName = dept.departmentName;
-            const allBoards = await Boards.find({}).lean();
-            const matchingBoardIds = allBoards
-                .filter(b => isBoardMatchingDept(b.boardCourse, deptName))
-                .map(b => b._id);
+        const masterDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
 
-            if (matchingBoardIds.length > 0) {
-                const boardQuery = {
-                    centre: centreRegex,
-                    boardId: { $in: matchingBoardIds },
-                    admissionDate: { $gte: start, $lte: end },
-                    status: "ACTIVE"
-                };
-                if (sessionList.length > 0) {
-                    boardQuery.academicSession = { $in: sessionList };
-                }
+        const boardQuery = {
+            centre: centreRegex,
+            admissionDate: { $gte: start, $lte: end },
+            status: "ACTIVE"
+        };
+        if (sessionList.length > 0) {
+            boardQuery.academicSession = { $in: sessionList };
+        }
 
-                const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
-                    .populate('studentId')
-                    .populate('boardId')
-                    .lean();
+        const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
+            .populate('studentId')
+            .populate('boardId')
+            .populate('examTag')
+            .lean();
 
-                boardResults = boardAdmissions.map(a => ({
-                    _id: a._id,
-                    admissionNumber: a.admissionNumber,
-                    studentName: a.studentName || a.studentId?.studentsDetails?.[0]?.studentName || "N/A",
-                    phone: a.mobileNum || a.studentId?.studentsDetails?.[0]?.mobileNum || a.studentId?.mobileNum || "N/A",
-                    admissionDate: a.admissionDate,
-                    examTag: a.boardId?.boardCourse || "BOARD",
-                    course: a.boardId?.boardCourse || "N/A",
-                    programme: a.studentId?.studentsDetails?.[0]?.programme || a.programme || "",
-                    downPayment: a.totalPaidAmount || a.admissionFee || 0,
-                    totalFees: a.totalExpectedAmount || 0
-                }));
+        boardResults = boardAdmissions.map(a => {
+            const studentTag = getStudentSessionExamTag(a.studentId, a.academicSession);
+            let origTagName = studentTag || a.examTag?.name || a.examTag?.tagName || a.boardId?.boardCourse || "BOARD";
+            origTagName = getNormalizedExamTagName(origTagName, allExamTags);
+            return {
+                _id: a._id,
+                studentId: a.studentId?._id?.toString() || a.studentId?.toString(),
+                admissionNumber: a.admissionNumber,
+                studentName: a.studentName || a.studentId?.studentsDetails?.[0]?.studentName || "N/A",
+                phone: a.mobileNum || a.studentId?.studentsDetails?.[0]?.mobileNum || a.studentId?.mobileNum || "N/A",
+                admissionDate: a.admissionDate,
+                examTag: origTagName,
+                course: a.boardCourseName || a.boardId?.boardCourse || "N/A",
+                programme: a.studentId?.studentsDetails?.[0]?.programme || a.programme || "",
+                downPayment: a.totalPaidAmount || a.admissionFee || 0,
+                totalFees: a.totalExpectedAmount || 0
+            };
+        });
 
-                if (programList.length > 0) {
-                    boardResults = boardResults.filter(a => programList.includes(a.programme));
-                }
-            }
+        if (programList.length > 0) {
+            boardResults = boardResults.filter(a => programList.includes(a.programme));
+        }
+
+        // Filter board results by matching tag column or department mapping
+        if (isTagFiltered) {
+            const filterBase = getBaseExamTag(tagName).toUpperCase();
+            boardResults = boardResults.filter(a => getBaseExamTag(a.examTag).toUpperCase() === filterBase);
+        } else {
+            boardResults = boardResults.filter(a => 
+                getDeptForBoard(getBaseExamTag(a.examTag), masterDepartments) === departmentId
+            );
         }
 
         const combinedResults = [...normalResults, ...boardResults];
 
-        res.status(200).json({ success: true, data: combinedResults });
+        // Deduplicate combined results by student ID and base exam tag name
+        const uniqueResultsMap = new Map();
+        combinedResults.forEach(item => {
+            if (!item.studentId) return;
+            const baseTag = getBaseExamTag(item.examTag);
+            const key = `${item.studentId}_${baseTag.toUpperCase()}`;
+            if (!uniqueResultsMap.has(key)) {
+                uniqueResultsMap.set(key, item);
+            } else {
+                const existing = uniqueResultsMap.get(key);
+                if (new Date(item.admissionDate) < new Date(existing.admissionDate)) {
+                    uniqueResultsMap.set(key, item);
+                }
+            }
+        });
+
+        let uniqueCombinedResults = Array.from(uniqueResultsMap.values());
+
+        // If specific tag filtering, filter the deduplicated list to only keep matching tags
+        if (isTagFiltered) {
+            uniqueCombinedResults = uniqueCombinedResults.filter(item => 
+                (item.examTag || "").toLowerCase() === tagName.toLowerCase()
+            );
+        }
+
+        res.status(200).json({ success: true, data: uniqueCombinedResults });
+
+
 
     } catch (error) {
         console.error("getAdmissionDetails error:", error);
