@@ -406,7 +406,7 @@ const PNTSEAddStudentContent = () => {
 
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No. Status</label>
-                                    <input type="text" disabled placeholder="Auto-generated on save"
+                                    <input type="text" disabled placeholder="e.g. PATH010001 — auto-generated on save"
                                         className="px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-500 cursor-not-allowed" />
                                 </div>
                             </div>
