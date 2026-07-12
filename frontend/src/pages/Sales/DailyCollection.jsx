@@ -23,7 +23,9 @@ const DailyCollection = () => {
     const [editTargetValue, setEditTargetValue] = useState("");
     const [zones, setZones] = useState([]);
     const [zonalManagers, setZonalManagers] = useState([]);
-    const [selectedZone, setSelectedZone] = useState("");
+    const [selectedZones, setSelectedZones] = useState([]);
+    const [isZoneOpen, setIsZoneOpen] = useState(false);
+    const [zoneSearch, setZoneSearch] = useState("");
 
     const [centres, setCentres] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -234,7 +236,8 @@ const DailyCollection = () => {
         setPaymentMethodSearch("");
         setSearchText("");
         setDate(new Date().toISOString().split("T")[0]);
-        setSelectedZone("");
+        setSelectedZones([]);
+        setZoneSearch("");
         toast.info("Filters reset");
     };
 
@@ -467,17 +470,31 @@ const DailyCollection = () => {
     };
 
     // Zone wise filtering
-    const selectedZoneObj = zones.find(z => z._id === selectedZone);
-    const zoneCentreNames = selectedZoneObj ? selectedZoneObj.centres.map(c => c.centreName) : [];
-    const zoneCentreIds = selectedZoneObj ? selectedZoneObj.centres.map(c => c._id || c) : [];
+    const activeZones = zones.filter(z => selectedZones.includes(z._id));
+    const zoneCentreNames = new Set();
+    const zoneCentreIds = new Set();
+    activeZones.forEach(z => {
+        if (z.centres) {
+            z.centres.forEach(c => {
+                const name = c && typeof c === 'object' ? c.centreName : null;
+                const id = c && typeof c === 'object' ? (c._id || c.id) : c;
+                if (name) zoneCentreNames.add(name);
+                if (id) zoneCentreIds.add(id.toString().toLowerCase().trim());
+            });
+        }
+    });
 
-    const activeCentres = selectedZone
-        ? centres.filter(c => zoneCentreIds.includes(c._id))
+    const activeCentres = selectedZones.length > 0
+        ? centres.filter(c => c._id && zoneCentreIds.has(c._id.toString().toLowerCase().trim()))
         : centres;
 
-    const activeDetails = selectedZone
-        ? dailyDetails.filter(d => zoneCentreNames.includes(d.centre))
+    const activeDetails = selectedZones.length > 0
+        ? dailyDetails.filter(d => d.centre && zoneCentreNames.has(d.centre))
         : dailyDetails;
+
+    const filteredZones = zones.filter((z) =>
+        z.name?.toLowerCase().includes(zoneSearch.toLowerCase())
+    );
 
     const filteredCenters = activeCentres.filter((c) =>
         c.centreName?.toLowerCase().includes(centreSearch.toLowerCase())
@@ -595,7 +612,7 @@ const DailyCollection = () => {
                                 {selectedCentres.length > 0 ? selectedCentres.length : activeCentres.length}
                             </span>
                         </div>
-                        {selectedZone && (
+                        {selectedZones.length > 0 && (
                             <div className={`${secondaryTextClass} text-xs mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                                 {/* <span>Zonal Manager</span>
                                 <span className="font-bold text-cyan-400">
@@ -640,25 +657,69 @@ const DailyCollection = () => {
                     <div className="grid gap-4 lg:grid-cols-4 md:grid-cols-2">
                         <div className="relative">
                             <label className={`block mb-2 text-sm ${secondaryTextClass}`}>Zone</label>
-                            <select
-                                value={selectedZone}
-                                onChange={(e) => {
-                                    setSelectedZone(e.target.value);
-                                    setSelectedCentres([]); // reset centre selection on zone change
+                            <button
+                                onClick={() => {
+                                    setIsZoneOpen(!isZoneOpen);
+                                    setIsCentreOpen(false);
+                                    setIsCourseOpen(false);
+                                    setIsDepartmentOpen(false);
+                                    setIsExamTagOpen(false);
+                                    setIsPaymentMethodOpen(false);
                                 }}
-                                className={`w-full rounded-[4px] p-3 outline-none ${filterButtonClass}`}
+                                className={`w-full rounded-[4px] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
-                                <option value="">All Zones</option>
-                                {zones.map((zone) => (
-                                    <option key={zone._id} value={zone._id}>{zone.name}</option>
-                                ))}
-                            </select>
+                                <span>{selectedZones.length === 0 ? "All Zones" : `${selectedZones.length} selected`}</span>
+                                <FaChevronDown className={`transform transition ${isZoneOpen ? "rotate-180" : ""}`} />
+                            </button>
+                            {isZoneOpen && (
+                                <div className={`absolute top-full left-0 right-0 mt-1 rounded-[4px] shadow-lg z-50 ${filterPopupClass}`}>
+                                    <div className="flex items-center justify-between px-4 py-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search zone..."
+                                            value={zoneSearch}
+                                            onChange={(e) => setZoneSearch(e.target.value)}
+                                            className={`w-full rounded-t-[4px] p-2 text-sm ${filterInputClass}`}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedZones([]);
+                                                setZoneSearch("");
+                                                setSelectedCentres([]); // reset centre selection
+                                            }}
+                                            className={`ml-2 text-xs font-medium ${clearButtonClass}`}
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                    <div className="max-h-56 overflow-y-auto">
+                                        {filteredZones.length > 0 ? filteredZones.map((zone) => (
+                                            <label key={zone._id} className={`flex items-center px-4 py-2 cursor-pointer ${filterOptionClass}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedZones.includes(zone._id)}
+                                                    onChange={() => {
+                                                        toggleSelection(zone._id, selectedZones, setSelectedZones);
+                                                        setSelectedCentres([]); // reset centre selection
+                                                    }}
+                                                    className="mr-2 w-4 h-4"
+                                                />
+                                                <span>{zone.name}</span>
+                                            </label>
+                                        )) : (
+                                            <div className="px-4 py-2 text-gray-500 text-sm">No zones found</div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="relative">
                             <label className={`block mb-2 text-sm ${secondaryTextClass}`}>Centre</label>
                             <button
                                 onClick={() => {
                                     setIsCentreOpen(!isCentreOpen);
+                                    setIsZoneOpen(false);
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
@@ -714,6 +775,7 @@ const DailyCollection = () => {
                             <button
                                 onClick={() => {
                                     setIsCourseOpen(!isCourseOpen);
+                                    setIsZoneOpen(false);
                                     setIsCentreOpen(false);
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
@@ -769,6 +831,7 @@ const DailyCollection = () => {
                             <button
                                 onClick={() => {
                                     setIsDepartmentOpen(!isDepartmentOpen);
+                                    setIsZoneOpen(false);
                                     setIsCentreOpen(false);
                                     setIsCourseOpen(false);
                                     setIsExamTagOpen(false);
@@ -823,6 +886,7 @@ const DailyCollection = () => {
                             <button
                                 onClick={() => {
                                     setIsExamTagOpen(!isExamTagOpen);
+                                    setIsZoneOpen(false);
                                     setIsCentreOpen(false);
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
@@ -877,6 +941,7 @@ const DailyCollection = () => {
                             <button
                                 onClick={() => {
                                     setIsPaymentMethodOpen(!isPaymentMethodOpen);
+                                    setIsZoneOpen(false);
                                     setIsCentreOpen(false);
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
