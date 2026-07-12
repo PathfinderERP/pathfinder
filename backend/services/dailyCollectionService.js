@@ -228,8 +228,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         }
     } else {
-        const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name));
-        const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name));
+        const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
+        const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
         if (user.role !== 'superAdmin') {
             admissionMatch["admissionInfo.centre"] = defaultAllowedCentreNames.length > 0 ? { $in: defaultAllowedCentreNames } : "__NO_MATCH__";
         } else {

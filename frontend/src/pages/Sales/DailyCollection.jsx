@@ -112,7 +112,7 @@ const DailyCollection = () => {
             if (cRes.ok) {
                 const centreData = await cRes.json();
                 let centreList = Array.isArray(centreData) ? centreData : centreData.centres || [];
-                centreList = centreList.filter(c => c.status !== "deactive" && c.centreName && !/franchise/i.test(c.centreName) && !/phsps/i.test(c.centreName));
+                centreList = centreList.filter(c => c.status !== "deactive" && c.centreName && !/franchise/i.test(c.centreName));
                 const storedUser = localStorage.getItem("user");
                 if (storedUser) {
                     const user = JSON.parse(storedUser);
@@ -296,7 +296,9 @@ const DailyCollection = () => {
                         row.push(data[method] || 0);
                     });
                     row.push(data.total || 0);
-                    row.push(Number((data.total / 1.18).toFixed(2)) || 0);
+                    const isPhsps = /phsps/i.test(centre);
+                    const withoutGst = isPhsps ? data.total : (data.total / 1.18);
+                    row.push(Number(withoutGst.toFixed(2)) || 0);
                     return row;
                 });
 
@@ -569,14 +571,26 @@ const DailyCollection = () => {
                         <div>
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Total Collected</div>
                             <div className="flex flex-col gap-1.5 mt-1">
-                                <div className="flex items-baseline justify-between">
-                                    <span className={`text-2xl font-bold ${cardTextClass}`}>{formatAmount(activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0))}</span>
-                                    <span className="text-[9px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">With GST</span>
-                                </div>
-                                <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
-                                    <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0) / 1.18)}</span>
-                                    <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Without GST</span>
-                                </div>
+                                {(() => {
+                                    const totalWithGst = activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+                                    const totalWithoutGst = activeDetails.reduce((sum, d) => {
+                                        const isPhsps = d.centre && /phsps/i.test(d.centre);
+                                        const withoutGst = isPhsps ? (d.paidAmount || 0) : ((d.paidAmount || 0) / 1.18);
+                                        return sum + withoutGst;
+                                    }, 0);
+                                    return (
+                                        <>
+                                            <div className="flex items-baseline justify-between">
+                                                <span className={`text-2xl font-bold ${cardTextClass}`}>{formatAmount(totalWithGst)}</span>
+                                                <span className="text-[9px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">With GST</span>
+                                            </div>
+                                            <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
+                                                <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(totalWithoutGst)}</span>
+                                                <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Without GST</span>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
@@ -589,16 +603,22 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Daily Total Target</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const computedTarget = activeCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
+                                    const computedTargetWithoutGst = activeCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
+                                    const computedTargetWithGst = activeCentres.reduce((sum, c) => {
+                                        const target = centreTargets[c.centreName] || 0;
+                                        const isPhsps = c.centreName && /phsps/i.test(c.centreName);
+                                        const withGst = isPhsps ? target : (target * 1.18);
+                                        return sum + withGst;
+                                    }, 0);
 
                                     return (
                                         <>
                                             <div className="flex items-baseline justify-between">
-                                                <span className={`text-2xl font-bold ${cardTextClass}`}>{formatAmount(computedTarget * 1.18)}</span>
+                                                <span className={`text-2xl font-bold ${cardTextClass}`}>{formatAmount(computedTargetWithGst)}</span>
                                                 <span className="text-[9px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">With GST</span>
                                             </div>
                                             <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
-                                                <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(computedTarget)}</span>
+                                                <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(computedTargetWithoutGst)}</span>
                                                 <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Without GST</span>
                                             </div>
                                         </>
@@ -1080,10 +1100,8 @@ const DailyCollection = () => {
                                             }
                                         });
                                         return initialAcc;
-                                    })());
-
-                                    const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
-
+                                    })());                                    const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
+ 
                                     // Column Totals
                                     const totalTarget = sortedData.reduce((sum, [centre]) => sum + (centreTargets[centre] || 0), 0);
                                     const totalPaymentMethods = paymentMethodsList.reduce((acc, method) => {
@@ -1091,79 +1109,87 @@ const DailyCollection = () => {
                                         return acc;
                                     }, {});
                                     const totalWithGst = sortedData.reduce((sum, [_, data]) => sum + (data.total || 0), 0);
-                                    const totalWithoutGst = sortedData.reduce((sum, [_, data]) => sum + (data.total / 1.18 || 0), 0);
-
+                                    const totalWithoutGst = sortedData.reduce((sum, [centre, data]) => {
+                                        const isPhsps = /phsps/i.test(centre);
+                                        const withoutGst = isPhsps ? data.total : (data.total / 1.18);
+                                        return sum + (withoutGst || 0);
+                                    }, 0);
+ 
                                     return (
                                         <>
                                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
-                                                {sortedData.map(([centre, data]) => (
-                                                    <tr key={centre} className={tableRowHoverClass}>
-                                                        <td className={`px-4 py-4 font-bold ${cardTextClass}`}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{centre}</span>
-                                                                {(data.total / 1.18) < (centreTargets[centre] || 0) && (
-                                                                    <span className="inline-flex items-center text-red-500 hover:scale-110 transition-transform cursor-help" title="Total (without GST) is less than daily target (without GST)">
-                                                                        <FaFlag className="animate-pulse text-red-500" size={14} />
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className={`px-4 py-4 text-right font-semibold text-amber-500`}>
-                                                            {isSuperAdmin ? (
-                                                                editingCentre === centre ? (
-                                                                    <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
-                                                                        <input
-                                                                            type="number"
-                                                                            value={editTargetValue}
-                                                                            onChange={e => setEditTargetValue(e.target.value)}
-                                                                            className={`w-24 px-2 py-1 text-xs text-right border rounded outline-none ${isDarkMode ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500" : "bg-white border-gray-300 text-gray-900 focus:border-blue-500"}`}
-                                                                            autoFocus
-                                                                            onKeyDown={e => {
-                                                                                if (e.key === 'Enter') handleSaveTarget(centre);
-                                                                                if (e.key === 'Escape') setEditingCentre(null);
-                                                                            }}
-                                                                        />
-                                                                        <button
-                                                                            onClick={() => handleSaveTarget(centre)}
-                                                                            className="p-1 text-green-500 hover:text-green-400 transition-colors"
-                                                                            title="Save"
-                                                                        >
-                                                                            <FaSave size={14} />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => setEditingCentre(null)}
-                                                                            className="p-1 text-red-500 hover:text-red-400 transition-colors"
-                                                                            title="Cancel"
-                                                                        >
-                                                                            <FaTimes size={14} />
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div
-                                                                        className="flex items-center justify-end gap-2 group/target cursor-pointer select-none"
-                                                                        onClick={() => {
-                                                                            setEditingCentre(centre);
-                                                                            setEditTargetValue(centreTargets[centre] || 0);
-                                                                        }}
-                                                                        title="Click to edit daily target"
-                                                                    >
-                                                                        <span>{formatAmount(centreTargets[centre] || 0)}</span>
-                                                                        <FaEdit size={12} className="text-amber-500 opacity-0 group-hover/target:opacity-100 transition-opacity" />
-                                                                    </div>
-                                                                )
-                                                            ) : (
-                                                                <span>{formatAmount(centreTargets[centre] || 0)}</span>
-                                                            )}
-                                                        </td>
-                                                        {paymentMethodsList.map(method => (
-                                                            <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>
-                                                                {data[method] ? formatAmount(data[method]) : "0"}
+                                                {sortedData.map(([centre, data]) => {
+                                                    const isPhsps = /phsps/i.test(centre);
+                                                    const rowWithoutGst = isPhsps ? data.total : (data.total / 1.18);
+                                                    return (
+                                                        <tr key={centre} className={tableRowHoverClass}>
+                                                            <td className={`px-4 py-4 font-bold ${cardTextClass}`}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{centre}</span>
+                                                                    {rowWithoutGst < (centreTargets[centre] || 0) && (
+                                                                        <span className="inline-flex items-center text-red-500 hover:scale-110 transition-transform cursor-help" title="Total (without GST) is less than daily target (without GST)">
+                                                                            <FaFlag className="animate-pulse text-red-500" size={14} />
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </td>
-                                                        ))}
-                                                        <td className={`px-4 py-4 text-right font-black text-green-500`}>{formatAmount(data.total)}</td>
-                                                        <td className={`px-4 py-4 text-right font-bold text-amber-500`}>{formatAmount(data.total / 1.18)}</td>
-                                                    </tr>
-                                                ))}
+                                                            <td className={`px-4 py-4 text-right font-semibold text-amber-500`}>
+                                                                {isSuperAdmin ? (
+                                                                    editingCentre === centre ? (
+                                                                        <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={editTargetValue}
+                                                                                onChange={e => setEditTargetValue(e.target.value)}
+                                                                                className={`w-24 px-2 py-1 text-xs text-right border rounded outline-none ${isDarkMode ? "bg-gray-800 border-gray-700 text-white focus:border-blue-500" : "bg-white border-gray-300 text-gray-900 focus:border-blue-500"}`}
+                                                                                autoFocus
+                                                                                onKeyDown={e => {
+                                                                                    if (e.key === 'Enter') handleSaveTarget(centre);
+                                                                                    if (e.key === 'Escape') setEditingCentre(null);
+                                                                                }}
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => handleSaveTarget(centre)}
+                                                                                className="p-1 text-green-500 hover:text-green-400 transition-colors"
+                                                                                title="Save"
+                                                                            >
+                                                                                <FaSave size={14} />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => setEditingCentre(null)}
+                                                                                className="p-1 text-red-500 hover:text-red-400 transition-colors"
+                                                                                title="Cancel"
+                                                                            >
+                                                                                <FaTimes size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div
+                                                                            className="flex items-center justify-end gap-2 group/target cursor-pointer select-none"
+                                                                            onClick={() => {
+                                                                                setEditingCentre(centre);
+                                                                                setEditTargetValue(centreTargets[centre] || 0);
+                                                                            }}
+                                                                            title="Click to edit daily target"
+                                                                        >
+                                                                            <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                                            <FaEdit size={12} className="text-amber-500 opacity-0 group-hover/target:opacity-100 transition-opacity" />
+                                                                        </div>
+                                                                    )
+                                                                ) : (
+                                                                    <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                                )}
+                                                            </td>
+                                                            {paymentMethodsList.map(method => (
+                                                                <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>
+                                                                    {data[method] ? formatAmount(data[method]) : "0"}
+                                                                </td>
+                                                            ))}
+                                                            <td className={`px-4 py-4 text-right font-black text-green-500`}>{formatAmount(data.total)}</td>
+                                                            <td className={`px-4 py-4 text-right font-bold text-amber-500`}>{formatAmount(rowWithoutGst)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                             <tfoot className={`${tableHeaderBgClass} font-bold ${cardTextClass} border-t-2 ${isDarkMode ? "border-gray-800" : "border-gray-300"}`}>
                                                 <tr>
