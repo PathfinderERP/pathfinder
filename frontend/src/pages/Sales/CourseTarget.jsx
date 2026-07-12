@@ -127,10 +127,25 @@ const CourseTarget = () => {
     const fetchStudentAdmissions = async (centreName, deptId, deptName, tagName) => {
         setShowStudentModal(true);
         setStudentModalData({ centreName, deptName, tagName, students: [], loading: true });
+        
+        const localGetBaseExamTag = (tag) => {
+            if (!tag) return "Uncategorized";
+            const name = tag.toUpperCase().trim();
+            if (name.includes("WBBSE") || name === "MADHYAMIK") return "WBBSE";
+            if (name.includes("WBCHSE") || name === "HS" || name.includes("HIGHER SECONDARY")) return "WBCHSE";
+            if (name.includes("CBSE")) return "CBSE";
+            if (name.includes("ICSE")) return "ICSE";
+            if (name.includes("ISC")) return "ISC";
+            return tag.trim();
+        };
+
         try {
             const token = localStorage.getItem("token");
             const { startDate, endDate } = getDateRange();
             const params = new URLSearchParams({ centreName, departmentId: deptId, startDate, endDate });
+            if (tagName) {
+                params.append("tagName", tagName);
+            }
             if (selectedProgrammes && selectedProgrammes.length > 0) {
                 params.append("programme", selectedProgrammes.join(','));
             }
@@ -145,7 +160,9 @@ const CourseTarget = () => {
                 // Filter by tagName if provided (not "All")
                 let students = json.data || [];
                 if (tagName && tagName !== "All") {
-                    students = students.filter(s => (s.examTag || "").toLowerCase() === tagName.toLowerCase());
+                    students = students.filter(s => 
+                        (s.examTag || "").toLowerCase() === tagName.toLowerCase()
+                    );
                 }
                 setStudentModalData({ centreName, deptName, tagName, students, loading: false });
             } else {
@@ -158,6 +175,7 @@ const CourseTarget = () => {
             setStudentModalData(prev => ({ ...prev, loading: false }));
         }
     };
+
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);

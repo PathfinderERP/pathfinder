@@ -70,10 +70,36 @@ export const updateAdmission = async (req, res) => {
             );
         }
 
+        // Sync examTag updates to student's sessionExamCourse
+        if (updates.examTag) {
+            const examTagDoc = await ExamTag.findById(updates.examTag);
+            if (examTagDoc) {
+                const newTagName = examTagDoc.tagName || examTagDoc.name;
+                const student = await Student.findById(studentId);
+                if (student) {
+                    const session = updates.academicSession || currentAdmission.academicSession;
+                    if (!student.sessionExamCourse) student.sessionExamCourse = [];
+                    const matchIdx = student.sessionExamCourse.findIndex(sec => sec.session === session);
+                    if (matchIdx !== -1) {
+                        student.sessionExamCourse[matchIdx].examTag = newTagName;
+                    } else {
+                        student.sessionExamCourse.push({
+                            session: session,
+                            examTag: newTagName,
+                            targetExams: ""
+                        });
+                    }
+                    student.markModified('sessionExamCourse');
+                    await student.save();
+                }
+            }
+        }
+
         let admission;
         if (isBoard) {
             const boardUpdates = { centre: updates.centre };
             if (updates.academicSession) boardUpdates.academicSession = updates.academicSession;
+            if (updates.examTag) boardUpdates.examTag = updates.examTag;
             
             if (updates.class) {
                 const classDoc = await Class.findById(updates.class);
