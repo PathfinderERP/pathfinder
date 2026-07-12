@@ -568,13 +568,19 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                             </div>
                             <div>
                                 <label className={labelClass}>CURRENT CLASS</label>
-                                <input
-                                    type="text"
+                                <select
                                     name="class"
                                     value={formData.class}
                                     onChange={handleChange}
                                     className={inputClass}
-                                />
+                                >
+                                    <option value="">SELECT CLASS</option>
+                                    {[...classes].sort((a, b) => (a.name || a.className || "").localeCompare(b.name || b.className || "")).map((c) => (
+                                        <option key={c._id} value={c.name || c.className}>
+                                            {(c.name || c.className)?.toUpperCase()}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label className={labelClass}>STATE JURISDICTION *</label>
