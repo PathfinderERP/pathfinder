@@ -27,9 +27,23 @@ const CourseTarget = () => {
     // Student drill-down modal
     const [showStudentModal, setShowStudentModal] = useState(false);
     const [studentModalData, setStudentModalData] = useState({ centreName: "", deptName: "", tagName: "", students: [], loading: false });
-    const [selectedProgrammes, setSelectedProgrammes] = useState([]);
+    const [selectedProgrammes, setSelectedProgrammes] = useState(() => {
+        try {
+            const saved = localStorage.getItem("courseTarget_selectedProgrammes");
+            return saved ? JSON.parse(saved) : ["CRP", "NCRP"];
+        } catch {
+            return ["CRP", "NCRP"];
+        }
+    });
     const [sessions, setSessions] = useState([]);
-    const [selectedSessions, setSelectedSessions] = useState([]);
+    const [selectedSessions, setSelectedSessions] = useState(() => {
+        try {
+            const saved = localStorage.getItem("courseTarget_selectedSessions");
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
     const [activeCardModal, setActiveCardModal] = useState(null);
 
     const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
@@ -178,14 +192,51 @@ const CourseTarget = () => {
 
 
     // Filters
-    const [selectedCentres, setSelectedCentres] = useState([]);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-    const [viewMode, setViewMode] = useState("MONTHLY");
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
-    const [selectedQuarter, setSelectedQuarter] = useState("Q1");
-    const [selectedWeek, setSelectedWeek] = useState(1);
-    const [customStartDate, setCustomStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
-    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedCentres, setSelectedCentres] = useState(() => {
+        try {
+            const saved = localStorage.getItem("courseTarget_selectedCentres");
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [zones, setZones] = useState([]);
+    const [selectedZones, setSelectedZones] = useState(() => {
+        try {
+            const saved = localStorage.getItem("courseTarget_selectedZones");
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [selectedYear, setSelectedYear] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_selectedYear");
+        return saved ? parseInt(saved, 10) : new Date().getFullYear();
+    });
+    const [viewMode, setViewMode] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_viewMode");
+        return saved || "MONTHLY";
+    });
+    const [selectedMonth, setSelectedMonth] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_selectedMonth");
+        return saved || new Date().toLocaleString('default', { month: 'long' });
+    });
+    const [selectedQuarter, setSelectedQuarter] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_selectedQuarter");
+        return saved || "Q1";
+    });
+    const [selectedWeek, setSelectedWeek] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_selectedWeek");
+        return saved ? parseInt(saved, 10) : 1;
+    });
+    const [customStartDate, setCustomStartDate] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_customStartDate");
+        return saved || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    });
+    const [customEndDate, setCustomEndDate] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_customEndDate");
+        return saved || new Date().toISOString().split('T')[0];
+    });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = hasPermission(user, 'sales', 'centreTarget', 'create'); // Reusing centreTarget permission for now
@@ -194,11 +245,61 @@ const CourseTarget = () => {
     const quarters = ["Q1", "Q2", "Q3", "Q4"];
     const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
+    // Save filters to localStorage on changes
+    useEffect(() => {
+        if (selectedCentres.length > 0) {
+            localStorage.setItem("courseTarget_selectedCentres", JSON.stringify(selectedCentres));
+        }
+    }, [selectedCentres]);
+
+    useEffect(() => {
+        if (selectedZones.length > 0) {
+            localStorage.setItem("courseTarget_selectedZones", JSON.stringify(selectedZones));
+        }
+    }, [selectedZones]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_selectedYear", selectedYear);
+    }, [selectedYear]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_viewMode", viewMode);
+    }, [viewMode]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_selectedMonth", selectedMonth);
+    }, [selectedMonth]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_selectedQuarter", selectedQuarter);
+    }, [selectedQuarter]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_selectedWeek", selectedWeek);
+    }, [selectedWeek]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_customStartDate", customStartDate);
+    }, [customStartDate]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_customEndDate", customEndDate);
+    }, [customEndDate]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_selectedProgrammes", JSON.stringify(selectedProgrammes));
+    }, [selectedProgrammes]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_selectedSessions", JSON.stringify(selectedSessions));
+    }, [selectedSessions]);
+
     useEffect(() => {
         fetchCentres();
         fetchDepartments();
         fetchExamTags();
         fetchSessions();
+        fetchZones();
     }, []);
 
     useEffect(() => {
@@ -227,11 +328,84 @@ const CourseTarget = () => {
             centerList = centerList.sort((a, b) => (a.centreName || "").localeCompare((b.centreName || ""), undefined, { sensitivity: 'base' }));
             setCentres(centerList);
             if (centerList.length > 0) {
+                const saved = localStorage.getItem("courseTarget_selectedCentres");
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            const validIds = parsed.filter(id => centerList.some(c => c._id === id));
+                            if (validIds.length > 0) {
+                                setSelectedCentres(validIds);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
                 const allIds = centerList.map(c => c._id);
                 setSelectedCentres(allIds);
             }
         } catch (e) {
             console.error(e);
+        }
+    };
+
+    const fetchZones = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/zone`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const zoneList = res.data?.data || [];
+            setZones(zoneList);
+            const saved = localStorage.getItem("courseTarget_selectedZones");
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        const validIds = parsed.filter(id => zoneList.some(z => z._id === id));
+                        if (validIds.length > 0) {
+                            setSelectedZones(validIds);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            setSelectedZones(zoneList.map(z => z._id));
+        } catch (e) {
+            console.error("Error fetching zones:", e);
+        }
+    };
+
+    const handleZoneChange = (selected) => {
+        let newSelectedZones = [];
+        if (selected && selected.some(o => o.value === 'all')) {
+            newSelectedZones = zones.map(z => z._id);
+        } else {
+            newSelectedZones = selected ? selected.map(o => o.value) : [];
+        }
+        setSelectedZones(newSelectedZones);
+
+        if (newSelectedZones.length === 0 || newSelectedZones.length === zones.length) {
+            setSelectedCentres(centres.map(c => c._id));
+        } else {
+            const activeZones = zones.filter(z => newSelectedZones.includes(z._id));
+            const zoneCentreIds = new Set();
+            activeZones.forEach(z => {
+                if (z.centres) {
+                    z.centres.forEach(zc => {
+                        const id = zc && typeof zc === 'object' ? (zc._id || zc.id) : zc;
+                        if (id) zoneCentreIds.add(id.toString().trim().toLowerCase());
+                    });
+                }
+            });
+            const allowedInZones = centres
+                .filter(c => c._id && zoneCentreIds.has(c._id.toString().trim().toLowerCase()))
+                .map(c => c._id);
+            setSelectedCentres(allowedInZones);
         }
     };
 
@@ -276,7 +450,21 @@ const CourseTarget = () => {
                 .filter(s => s.isGlobalActive)
                 .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
             setSessions(sessionList);
-            // Select all sessions by default
+            const saved = localStorage.getItem("courseTarget_selectedSessions");
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        const validSessions = parsed.filter(name => sessionList.some(s => s.sessionName === name));
+                        if (validSessions.length > 0) {
+                            setSelectedSessions(validSessions);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
             setSelectedSessions(sessionList.map(s => s.sessionName));
         } catch (e) {
             console.error("Error fetching sessions:", e);
@@ -424,8 +612,38 @@ const CourseTarget = () => {
         toast.success("Excel report exported successfully!");
     };
 
+    let filteredCentreOptions = centres;
+    if (selectedZones.length > 0 && selectedZones.length < zones.length) {
+        const activeZones = zones.filter(z => selectedZones.includes(z._id));
+        const zoneCentreIds = new Set();
+        activeZones.forEach(z => {
+            if (z.centres) {
+                z.centres.forEach(zc => {
+                    const id = zc && typeof zc === 'object' ? (zc._id || zc.id) : zc;
+                    if (id) zoneCentreIds.add(id.toString().trim().toLowerCase());
+                });
+            }
+        });
+        filteredCentreOptions = centres.filter(c => c._id && zoneCentreIds.has(c._id.toString().trim().toLowerCase()));
+    }
+
+    // Calculate visible data for table and dynamic flash cards
+    const visibleData = data.filter(centre => {
+        const name = (centre.centreName || "").toLowerCase();
+        const isSpecial = name.includes("phsps") || name.includes("rkm") || name.includes("franchise");
+        if (isSpecial) {
+            // Only hide if BOTH all zones and all centres are selected (i.e. default dashboard view)
+            const isAllZonesSelected = selectedZones.length === zones.length;
+            const isAllCentresSelected = selectedCentres.length === filteredCentreOptions.length;
+            if (isAllZonesSelected && isAllCentresSelected) {
+                return false;
+            }
+        }
+        return true;
+    });
+
     // Calculate stats dynamically for cards
-    const totalAdmissionsCount = data.reduce((sum, centre) => {
+    const totalAdmissionsCount = visibleData.reduce((sum, centre) => {
         return sum + (centre.departments ? centre.departments.reduce((dSum, d) => dSum + (d.achieved || 0), 0) : 0);
     }, 0);
 
@@ -434,7 +652,7 @@ const CourseTarget = () => {
     const deptsMapObj = {};
     const admissionsBreakdownList = [];
 
-    data.forEach(centre => {
+    visibleData.forEach(centre => {
         let centreTotal = 0;
         if (centre.departments) {
             centre.departments.forEach(dept => {
@@ -496,7 +714,7 @@ const CourseTarget = () => {
 
     // Calculate unique tag columns dynamically
     const allTagNamesSet = new Set(allExamTags.map(t => t.name || t.tagName).filter(Boolean));
-    data.forEach(centre => {
+    visibleData.forEach(centre => {
         if (centre.departments) {
             centre.departments.forEach(dept => {
                 if (dept.examTagAchieved) {
@@ -598,6 +816,7 @@ const CourseTarget = () => {
 
         return { achieved, target, deptId: matchingDeptId, deptName: matchingDeptName };
     };
+
 
     return (
         <Layout activePage="Sales">
@@ -701,17 +920,39 @@ const CourseTarget = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+                        {/* Zone Filter */}
+                        <div className="min-w-[180px] z-20 w-full sm:w-56">
+                            <CustomMultiSelect
+                                options={[
+                                    { value: 'all', label: 'All Zones' },
+                                    ...zones.map(z => ({ value: z._id, label: z.name }))
+                                ]}
+                                value={
+                                    selectedZones.length === zones.length && zones.length > 0
+                                        ? [{ value: 'all', label: 'All Zones' }]
+                                        : zones.map(z => ({ value: z._id, label: z.name })).filter(opt => selectedZones.includes(opt.value))
+                                }
+                                onChange={(selected) => handleZoneChange(selected)}
+                                placeholder="Select Zones"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        {/* Centres Dropdown */}
                         <div className="min-w-[200px] z-20 w-full sm:w-64">
                             <CustomMultiSelect
-                                options={[{ value: 'all', label: 'All Centres' }, ...centres.map(c => ({ value: c._id, label: c.centreName }))]}
+                                options={[
+                                    { value: 'all', label: 'All Centres' },
+                                    ...filteredCentreOptions.map(c => ({ value: c._id, label: c.centreName }))
+                                ]}
                                 value={
-                                    selectedCentres.length === centres.length && centres.length > 0
+                                    selectedCentres.length === filteredCentreOptions.length && filteredCentreOptions.length > 0
                                         ? [{ value: 'all', label: 'All Centres' }]
-                                        : centres.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))
+                                        : filteredCentreOptions.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))
                                 }
                                 onChange={(selected) => {
                                     if (selected && selected.some(o => o.value === 'all')) {
-                                        setSelectedCentres(centres.map(c => c._id));
+                                        setSelectedCentres(filteredCentreOptions.map(c => c._id));
                                     } else {
                                         setSelectedCentres(selected ? selected.map(o => o.value) : []);
                                     }
@@ -910,14 +1151,14 @@ const CourseTarget = () => {
                                             Aggregating Course Intelligence Data...
                                         </td>
                                     </tr>
-                                ) : data.length === 0 ? (
+                                ) : visibleData.length === 0 ? (
                                     <tr>
                                         <td colSpan={uniqueTagColumns.length + 3} className="px-6 py-12 text-center text-gray-500 font-medium">
                                             No admission data found for the selected period.
                                         </td>
                                     </tr>
                                 ) : (
-                                    data.map((centre) => {
+                                    visibleData.map((centre) => {
                                         return (
                                             <tr key={centre.centreId} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
                                                 <td className="px-6 py-5 sticky left-0 z-10 bg-inherit border-r border-inherit">
