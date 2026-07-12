@@ -1,6 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import { getCache, setCache, generateCacheKey } from "../../utils/redisCache.js";
 
 export const getAdmissions = async (req, res) => {
     try {
@@ -46,6 +47,16 @@ export const getAdmissions = async (req, res) => {
         if (req.query.class) query.class = { $in: req.query.class.split(',') };
         if (req.query.examTag) query.examTag = { $in: req.query.examTag.split(',') };
 
+        // Restrict to globally active sessions by default to optimize initial load
+        if (!req.query.startDate && !req.query.endDate) {
+            const Session = (await import("../../models/Master_data/Session.js")).default;
+            const activeSessions = await Session.find({ isGlobalActive: true }).select('sessionName').lean();
+            const activeSessionNames = activeSessions.map(s => s.sessionName);
+            if (activeSessionNames.length > 0) {
+                query.academicSession = { $in: activeSessionNames };
+            }
+        }
+
         // Date range filtering
         if (req.query.startDate || req.query.endDate) {
             query.admissionDate = {};
@@ -55,6 +66,20 @@ export const getAdmissions = async (req, res) => {
                 end.setHours(23, 59, 59, 999);
                 query.admissionDate.$lte = end;
             }
+        }
+
+        const cacheKey = generateCacheKey("admissions:list", {
+            role: req.user.role,
+            userId: req.user._id ? req.user._id.toString() : "public",
+            query: {
+                ...req.query,
+                resolvedQuery: query
+            }
+        });
+
+        const cachedAdmissions = await getCache(cacheKey);
+        if (cachedAdmissions) {
+            return res.status(200).json(cachedAdmissions);
         }
 
         // Fetch Normal Admissions
@@ -173,7 +198,9 @@ export const getAdmissions = async (req, res) => {
                     { secondPhoneNumber: { $in: phoneNumbers } },
                     { email: { $in: emails } }
                 ]
-            }).populate('createdBy', 'name').lean();
+            })
+            .select('phoneNumber secondPhoneNumber email createdBy createdAt updatedAt')
+            .populate('createdBy', 'name').lean();
 
             leads.forEach(l => {
                 if (l.phoneNumber) leadMap[l.phoneNumber.toString().trim()] = l;
@@ -265,6 +292,7 @@ export const getAdmissions = async (req, res) => {
             return admission;
         });
 
+        await setCache(cacheKey, finalAdmissions, 300); // cache for 5 minutes
         res.status(200).json(finalAdmissions);
     } catch (err) {
         console.error("getAdmissions error:", err);

@@ -235,5 +235,9 @@ boardCourseAdmissionSchema.pre('save', async function () {
     }
 });
 
+boardCourseAdmissionSchema.index({ studentId: 1 });
+boardCourseAdmissionSchema.index({ academicSession: 1 });
+boardCourseAdmissionSchema.index({ centre: 1 });
+
 const BoardCourseAdmission = mongoose.model("BoardCourseAdmission", boardCourseAdmissionSchema);
 export default BoardCourseAdmission;

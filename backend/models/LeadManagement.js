@@ -175,5 +175,9 @@ const leadManagementSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+leadManagementSchema.index({ phoneNumber: 1 });
+leadManagementSchema.index({ secondPhoneNumber: 1 });
+leadManagementSchema.index({ email: 1 });
+
 const LeadManagement = new mongoose.model("LeadManagement", leadManagementSchema);
 export default LeadManagement;

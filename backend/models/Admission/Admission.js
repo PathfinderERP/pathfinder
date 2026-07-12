@@ -307,5 +307,9 @@ admissionSchema.pre('save', async function () {
     }
 });
 
+admissionSchema.index({ student: 1 });
+admissionSchema.index({ academicSession: 1 });
+admissionSchema.index({ centre: 1 });
+
 const Admission = mongoose.model("Admission", admissionSchema);
 export default Admission;

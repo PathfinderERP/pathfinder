@@ -459,6 +459,7 @@ export const createAdmission = async (req, res) => {
         }
 
         // Invalidate admissions list and finance report cache
+        await clearCachePattern("admissions:list:*");
         await clearCachePattern("finance:transaction_report:*");
 
         const populatedAdmission = await Admission.findById(admission._id)

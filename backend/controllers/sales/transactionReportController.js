@@ -12,6 +12,14 @@ export const getTransactionReport = async (req, res) => {
         const userRole = (req.user.role || "").toLowerCase();
         const isSuperAdmin = userRole === 'superadmin' || userRole === 'super admin';
 
+        const amountWithoutGstExpr = {
+            $cond: {
+                if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
+                then: "$paidAmount",
+                else: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+            }
+        };
+
         // REDIS CACHING LOGIC START
         // Bypassed for instant live view updates
         // REDIS CACHING LOGIC END
@@ -138,8 +146,8 @@ export const getTransactionReport = async (req, res) => {
                 }
             }
         } else {
-            // Default: Exclude franchise, PHSPS, and RKM
-            const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name));
+            // Default: Exclude franchise and RKM
+            const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
             admissionMatch["admissionInfo.centre"] = { $in: defaultCentreNames.length > 0 ? defaultCentreNames : ["__NO_MATCH__"] };
         }
 
@@ -211,8 +219,7 @@ export const getTransactionReport = async (req, res) => {
             { $match: baseAttributesMatch },
             {
                 $addFields: {
-                    reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] },
-                    revenueBase: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                    reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
                 }
             },
         ];
@@ -254,11 +261,17 @@ export const getTransactionReport = async (req, res) => {
         }
 
         chartPipeline.push({
+            $addFields: {
+                revenueBase: amountWithoutGstExpr
+            }
+        });
+
+        chartPipeline.push({
             $facet: {
                 monthlyRevenue: [{ $group: { _id: { $month: "$reportDate" }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }],
                 paymentMethods: [{ $group: { _id: "$paymentMethod", value: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }],
-                centreRevenue: needsAdmissionLookup ? [{ $group: { _id: "$admissionInfo.centre", revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }],
-                courseRevenue: needsAdmissionLookup ? [{ $group: { _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: { $divide: ["$paidAmount", 1.18] } }, count: { $sum: 1 } } }, { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "courseDetails" } }, { $project: { name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] }, revenue: 1, revenueWithoutGst: 1, count: 1 } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }]
+                centreRevenue: needsAdmissionLookup ? [{ $group: { _id: "$admissionInfo.centre", revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }],
+                courseRevenue: needsAdmissionLookup ? [{ $group: { _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "courseDetails" } }, { $project: { name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] }, revenue: 1, revenueWithoutGst: 1, count: 1 } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }]
             }
         });
 
@@ -498,8 +511,14 @@ export const getTransactionReport = async (req, res) => {
                     receivedDate: "$receivedDate",
                     receiptNo: "$billId",
                     installmentNumber: "$installmentNumber",
-                    revenueWithoutGst: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] },
-                    gstAmount: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] },
+                    revenueWithoutGst: amountWithoutGstExpr,
+                    gstAmount: {
+                        $cond: {
+                            if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
+                            then: 0,
+                            else: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] }
+                        }
+                    },
                     takenBy: {
                         $ifNull: [
                             { $arrayElemAt: ["$collectorInfo.name", 0] },
@@ -598,15 +617,15 @@ export const getTransactionReport = async (req, res) => {
             $group: {
                 _id: null,
                 currentYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, "$paidAmount", 0] } },
-                currentYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                currentYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, amountWithoutGstExpr, 0] } },
                 previousYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, "$paidAmount", 0] } },
-                previousYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                previousYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, amountWithoutGstExpr, 0] } },
                 currentMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, "$paidAmount", 0] } },
-                currentMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                currentMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, amountWithoutGstExpr, 0] } },
                 previousMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, "$paidAmount", 0] } },
-                previousMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } },
+                previousMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, amountWithoutGstExpr, 0] } },
                 todayWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }] }, "$paidAmount", 0] } },
-                todayWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }] }, { $divide: ["$paidAmount", 1.18] }, 0] } }
+                todayWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }] }, amountWithoutGstExpr, 0] } }
             }
         });
 

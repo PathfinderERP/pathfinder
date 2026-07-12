@@ -406,6 +406,16 @@ export const createBoardAdmission = async (req, res) => {
             { status: "ENROLLED" }
         );
 
+        // Invalidate admissions list and finance report cache
+        try {
+            const { clearCachePattern } = await import("../../utils/redisCache.js");
+            await clearCachePattern("admissions:list:*");
+            await clearCachePattern("finance:transaction_report:*");
+            await clearCachePattern("finance:daily_collection:*");
+        } catch (cacheErr) {
+            console.error("Cache invalidation error on createBoardAdmission:", cacheErr);
+        }
+
         res.status(201).json({
             message: "Board Course Admission created successfully",
             admission: newAdmission

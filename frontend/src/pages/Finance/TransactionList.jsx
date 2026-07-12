@@ -155,8 +155,10 @@ const TransactionList = () => {
                 const data = await cRes.json();
                 const filteredCentres = Array.isArray(data)
                     ? data.filter(c =>
-                        user.role === 'superAdmin' ||
-                        (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
+                        (!c.status || c.status === 'active') && (
+                            user.role === 'superAdmin' ||
+                            (user.centres && user.centres.some(uc => uc._id === c._id || uc.centreName === c.centreName))
+                        )
                     )
                     : [];
                 const sortedCentres = filteredCentres.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
