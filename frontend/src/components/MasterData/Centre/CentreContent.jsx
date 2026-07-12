@@ -103,6 +103,7 @@ const CentreContent = () => {
     const centreColumns = [
         { header: "Centre Name", key: "centreName" },
         { header: "Centre Code", key: "enterCode" },
+        { header: "2-Digit Code", key: "centreCode" },
         { header: "State", key: "state" },
         { header: "Email", key: "email" },
         { header: "Phone Number", key: "phoneNumber" },
@@ -119,6 +120,7 @@ const CentreContent = () => {
     const centreMapping = {
         "Centre Name": "centreName",
         "Centre Code": "enterCode",
+        "2-Digit Code": "centreCode",
         "State": "state",
         "Email": "email",
         "Phone Number": "phoneNumber",
@@ -135,7 +137,8 @@ const CentreContent = () => {
     const filteredCentres = centres.filter(centre =>
         centre.centreName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         centre.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        centre.enterCode.toLowerCase().includes(searchQuery.toLowerCase())
+        centre.enterCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (centre.centreCode && centre.centreCode.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     return (
@@ -202,7 +205,14 @@ const CentreContent = () => {
                                             {centre.status || 'active'}
                                         </span>
                                     </div>
-                                    <span className="text-cyan-400 text-sm font-mono">{centre.enterCode}</span>
+                                    <div className="flex gap-2 items-center mt-1">
+                                        <span className="text-cyan-400 text-sm font-mono">{centre.enterCode}</span>
+                                        {centre.centreCode && (
+                                            <span className="text-xs text-cyan-300 font-mono bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/30">
+                                                Code: {centre.centreCode}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     {canEdit && (

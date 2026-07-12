@@ -28,7 +28,8 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
 
         locationAddress: "",
         locations: [],
-        status: "active"
+        status: "active",
+        centreCode: ""
     });
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
@@ -61,7 +62,8 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
 
                 locationAddress: centre.locationAddress || "",
                 locations: centre.locations || [],
-                status: centre.status || "active"
+                status: centre.status || "active",
+                centreCode: centre.centreCode || ""
             });
         }
     }, [centre]);
@@ -201,6 +203,27 @@ const EditCentreModal = ({ centre, onClose, onSuccess }) => {
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">Centre Code</label>
                             <input type="text" name="enterCode" value={formData.enterCode} onChange={handleChange} className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 text-sm mb-1">
+                                2-Digit Unique Code
+                                <span className="ml-2 text-xs text-gray-500">(unique number 01–99)</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="centreCode"
+                                value={formData.centreCode}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === "" || (parseInt(val, 10) >= 1 && parseInt(val, 10) <= 99)) {
+                                        setFormData({ ...formData, centreCode: val });
+                                    }
+                                }}
+                                min="1"
+                                max="99"
+                                placeholder="e.g. 01"
+                                className="w-full bg-[#131619] border border-cyan-700/40 rounded-lg p-2 text-cyan-300 font-mono focus:outline-none focus:border-cyan-500 placeholder:text-gray-600"
+                            />
                         </div>
                         <div>
                             <label className="block text-gray-400 text-sm mb-1">Account Number</label>

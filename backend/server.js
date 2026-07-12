@@ -17,6 +17,7 @@ import { initSocket } from "./utils/socket.js";
 import protect from "./middleware/authMiddleware.js"; // Direct import
 // import loggingMiddleware from "./middleware/loggingMiddleware.js";
 import connectDB from "./db/connect.js";
+import { migrateCentres } from "./utils/centreMigration.js";
 import adminRoutes from "./routes/superAdmin/superAdminControllers.routes.js";
 import normalAdmin from "./routes/admin/createStudentByAdmin.routes.js";
 import studentRoutes from "./routes/admin/students.routes.js";
@@ -114,7 +115,9 @@ app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 // Global Logging Middleware (must be before routes)
 // app.use(loggingMiddleware);
 
-connectDB();
+connectDB().then(() => {
+    migrateCentres();
+});
 
 // Start automated payment reminder cron jobs
 // Start automated payment reminder cron jobs

@@ -72,6 +72,57 @@ const centreSchema = mongoose.Schema({
         type: String,
         enum: ["active", "deactive"],
         default: "active"
+    },
+    centreCode: {
+        type: String,
+        unique: true,
+        sparse: true
+    }
+});
+
+async function getNextCentreCode(model) {
+    const centres = await model.find({}, 'centreCode');
+    const codes = centres
+        .map(c => c.centreCode)
+        .filter(code => code && /^\d+$/.test(code))
+        .map(code => parseInt(code, 10));
+    
+    let nextNum = 1;
+    if (codes.length > 0) {
+        nextNum = Math.max(...codes) + 1;
+    }
+    
+    return nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+}
+
+centreSchema.pre('save', async function (next) {
+    if (!this.centreCode) {
+        try {
+            this.centreCode = await getNextCentreCode(this.constructor);
+        } catch (err) {
+            return next(err);
+        }
+    }
+    next();
+});
+
+centreSchema.pre('insertMany', async function (next, docs) {
+    try {
+        let nextNum = null;
+        for (const doc of docs) {
+            if (!doc.centreCode) {
+                if (nextNum === null) {
+                    const nextCode = await getNextCentreCode(mongoose.model("CentreSchema"));
+                    nextNum = parseInt(nextCode, 10);
+                } else {
+                    nextNum++;
+                }
+                doc.centreCode = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+            }
+        }
+        next();
+    } catch (err) {
+        next(err);
     }
 });
 

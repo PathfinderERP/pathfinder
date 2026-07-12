@@ -16,11 +16,28 @@ export const createCentre = async (req, res) => {
             enterCorporateOfficeAddress,
             enterCorporateOfficePhoneNumber,
             locations, // New field
-            status
+            status,
+            centreCode
         } = req.body;
 
         if (!centreName || !enterCode || !state || !email || !phoneNumber || !salesPassword) {
             return res.status(400).json({ message: "Required fields are missing." });
+        }
+
+        // Normalize centreCode: convert "1" -> "01", "12" -> "12"
+        let normalizedCode = undefined;
+        if (centreCode !== undefined && centreCode !== "") {
+            const num = parseInt(centreCode, 10);
+            if (isNaN(num) || num < 1 || num > 99) {
+                return res.status(400).json({ message: "2-Digit Code must be a number between 1 and 99." });
+            }
+            normalizedCode = num < 10 ? `0${num}` : `${num}`;
+
+            // Check uniqueness
+            const existing = await CentreSchema.findOne({ centreCode: normalizedCode });
+            if (existing) {
+                return res.status(400).json({ message: `Code ${normalizedCode} is already assigned to "${existing.centreName}".` });
+            }
         }
 
         const newCentre = new CentreSchema({
@@ -36,8 +53,9 @@ export const createCentre = async (req, res) => {
             enterGstNo,
             enterCorporateOfficeAddress,
             enterCorporateOfficePhoneNumber,
-            locations, // Save locations
-            status
+            locations,
+            status,
+            ...(normalizedCode !== undefined && { centreCode: normalizedCode })
         });
 
         await newCentre.save();
