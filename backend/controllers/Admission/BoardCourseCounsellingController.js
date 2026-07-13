@@ -14,8 +14,16 @@ export const createBoardCourseCounselling = async (req, res) => {
             class: studentClass, examTag, programme, 
             guardianName, guardianMobile, guardianEmail, relation, occupation,
             examName, lastClass, examStatus, markAgregate, scienceMathParcent,
-            boardId, selectedSubjectIds, remarks 
+            boardId, selectedSubjectIds, remarks, department, counselledBy
         } = req.body;
+
+        if (!department) {
+            return res.status(400).json({ message: "Department is required" });
+        }
+
+        if (!counselledBy) {
+            return res.status(400).json({ message: "Counselled by selection is required" });
+        }
 
         // Server-side duplicate validation BEFORE creating
         if (mobileNum) {
@@ -171,10 +179,11 @@ export const createBoardCourseCounselling = async (req, res) => {
                         session: ""
                     }],
                     isEnrolled: false,
-                    counselledBy: req.user?._id,
+                    counselledBy: counselledBy || req.user?._id,
                     createdBy: req.user?.name || "System",
                     updatedBy: req.user?.name || "System",
-                    updatedByUserId: req.user?._id
+                    updatedByUserId: req.user?._id,
+                    department: department
                 });
                 await student.save();
             } else {
@@ -224,7 +233,8 @@ export const createBoardCourseCounselling = async (req, res) => {
             examTag: resolvedExamTagId,
             selectedSubjects: selectedSubjectIds.map(id => ({ subjectId: id })),
             remarks,
-            counselledBy: req.user._id,
+            counselledBy: counselledBy || req.user._id,
+            department
         });
 
         await counselling.save();
@@ -268,7 +278,8 @@ export const getBoardCourseCounselling = async (req, res) => {
                 .populate('boardId')
                 .populate('examTag')
                 .populate('selectedSubjects.subjectId')
-                .populate('counselledBy', 'name email');
+                .populate('counselledBy', 'name email')
+                .populate('department');
             
             if (!record) return res.status(404).json({ message: "Counselling record not found" });
             return res.status(200).json(record);
@@ -295,6 +306,7 @@ export const getBoardCourseCounselling = async (req, res) => {
             .populate('examTag')
             .populate('selectedSubjects.subjectId')
             .populate('counselledBy', 'name email')
+            .populate('department')
             .sort({ counselledDate: -1, createdAt: -1 });
 
         res.status(200).json(counselling);
@@ -311,11 +323,15 @@ export const updateBoardCourseCounselling = async (req, res) => {
             dateOfBirth, gender, centre, board, state, schoolName, pincode, address,
             guardianName, guardianMobile, guardianEmail, occupation,
             programme, lastClass, examName, examStatus, markAgregate, scienceMathParcent,
-            boardId, selectedSubjectIds, remarks
+            boardId, selectedSubjectIds, remarks, department, counselledBy
         } = req.body;
 
         const counselling = await BoardCourseCounselling.findById(id);
         if (!counselling) return res.status(404).json({ message: "Counselling record not found" });
+
+        if (counselledBy === "") {
+            return res.status(400).json({ message: "Counselled by selection is required" });
+        }
 
         // Update fields
         if (studentName) counselling.studentName = studentName;
@@ -326,6 +342,8 @@ export const updateBoardCourseCounselling = async (req, res) => {
         if (lastClass) counselling.lastClass = lastClass;
         if (boardId) counselling.boardId = boardId;
         if (remarks !== undefined) counselling.remarks = remarks;
+        if (department) counselling.department = department;
+        if (counselledBy) counselling.counselledBy = counselledBy;
         if (selectedSubjectIds) {
             counselling.selectedSubjects = selectedSubjectIds.map(subId => ({ subjectId: subId }));
         }
@@ -365,6 +383,12 @@ export const updateBoardCourseCounselling = async (req, res) => {
                     session: currentSession,
                     targetExams: studentObj?.sessionExamCourse?.[0]?.targetExams || ""
                 }];
+            }
+            if (department) {
+                updateSet["department"] = department;
+            }
+            if (counselledBy) {
+                updateSet["counselledBy"] = counselledBy;
             }
 
             if (Object.keys(updateSet).length > 0) {

@@ -45,6 +45,10 @@ const BoardCourseAdmissionPage = () => {
     const [sessions, setSessions] = useState([]); // Master data sessions
     const [examTags, setExamTags] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState("");
+    const [admittedByOptions, setAdmittedByOptions] = useState([]);
+    const [selectedAdmittedBy, setSelectedAdmittedBy] = useState("");
 
     const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -71,6 +75,41 @@ const BoardCourseAdmissionPage = () => {
     useEffect(() => {
         fetchInitialData();
     }, []);
+
+    useEffect(() => {
+        const fetchAdmittedByOptions = async () => {
+            const centreName = student?.studentsDetails?.[0]?.centre || counselData?.centre;
+            if (!centreName) return;
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${apiUrl}/superAdmin/getAllUsers`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.users) {
+                        const userList = Array.isArray(data.users) ? data.users : [];
+                        const filtered = userList.filter(u =>
+                            u.primaryCentre &&
+                            u.primaryCentre.centreName &&
+                            u.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&
+                            !["teacher", "accounts", "hr"].includes((u.role || "").toLowerCase())
+                        );
+                        setAdmittedByOptions(filtered);
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading admissions staff", err);
+            }
+        };
+
+        setSelectedAdmittedBy("");
+        if (student || counselData) {
+            fetchAdmittedByOptions();
+        } else {
+            setAdmittedByOptions([]);
+        }
+    }, [student, counselData]);
 
     const fetchInitialData = async () => {
         setLoading(true);
@@ -109,16 +148,20 @@ const BoardCourseAdmissionPage = () => {
                         targetSubjectIds = counselRecord.selectedSubjects.map(s => s.subjectId?._id || s.subjectId);
                     }
                 }
+                if (counselRecord.department) {
+                    setSelectedDepartment(counselRecord.department?._id || counselRecord.department);
+                }
             }
 
-            // 2. Fetch Student, Boards, Classes, Sessions and ExamTags
+            // 2. Fetch Student, Boards, Classes, Sessions, ExamTags, and Departments
             const fetchPromises = [
                 fetch(`${apiUrl}/board`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/class`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/board-course-subject`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/master-data/account`, { headers: { "Authorization": `Bearer ${token}` } }),
                 fetch(`${apiUrl}/session/list`, { headers: { "Authorization": `Bearer ${token}` } }),
-                fetch(`${apiUrl}/examTag`, { headers: { "Authorization": `Bearer ${token}` } })
+                fetch(`${apiUrl}/examTag`, { headers: { "Authorization": `Bearer ${token}` } }),
+                fetch(`${apiUrl}/department`, { headers: { "Authorization": `Bearer ${token}` } })
             ];
 
             // Only fetch student if we have a valid-looking ID
@@ -131,11 +174,11 @@ const BoardCourseAdmissionPage = () => {
 
             const results = await Promise.all(fetchPromises);
 
-            let studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes;
+            let studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes, departmentsRes;
             if (isValidStudentId) {
-                [studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes] = results;
+                [studentRes, boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes, departmentsRes] = results;
             } else {
-                [boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes] = results;
+                [boardsRes, classesRes, allBCSRes, accountsRes, sessionsRes, examTagsRes, departmentsRes] = results;
                 studentRes = { ok: false }; // Mock failure if ID was invalid
             }
 
@@ -153,6 +196,11 @@ const BoardCourseAdmissionPage = () => {
             // Load exam tags
             const examTagsData = await (examTagsRes?.ok ? examTagsRes.json() : Promise.resolve([]));
             setExamTags(examTagsData);
+
+            // Load departments
+            const departmentsData = await (departmentsRes?.ok ? departmentsRes.json() : Promise.resolve([]));
+            const visibleDepts = Array.isArray(departmentsData) ? departmentsData.filter(d => d.showInAdmission !== false) : [];
+            setDepartments(visibleDepts);
 
             if (studentRes.ok) {
                 setStudent(studentData);
@@ -362,6 +410,23 @@ const BoardCourseAdmissionPage = () => {
         }
 
 
+        if (!billingStartDate) {
+            return toast.error("Please select a billing start date");
+        }
+        if (!receivedDate) {
+            return toast.error("Please select a received date");
+        }
+        if (!academicSession) {
+            return toast.error("Please select an academic session");
+        }
+        if (!selectedDepartment) {
+            return toast.error("Please select a department");
+        }
+
+        if (!selectedAdmittedBy) {
+            return toast.error("Please select an admitting officer");
+        }
+
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -399,7 +464,9 @@ const BoardCourseAdmissionPage = () => {
                     programme,
                     lastClass,
                     examTag: selectedExamTag,
-                    centre: counselData?.centre || student?.studentsDetails?.[0]?.centre
+                    centre: counselData?.centre || student?.studentsDetails?.[0]?.centre,
+                    department: selectedDepartment,
+                    admittedBy: selectedAdmittedBy || undefined
                 })
             });
 
@@ -478,7 +545,22 @@ const BoardCourseAdmissionPage = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                             <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Select Board</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Select Department <span className="text-red-500">*</span></label>
+                                <select
+                                    value={selectedDepartment}
+                                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                    required
+                                >
+                                    <option value="">-- Choose Department --</option>
+                                    {departments.map((d) => (
+                                        <option key={d._id} value={d._id}>{d.departmentName.toUpperCase()}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Select Board <span className="text-red-500">*</span></label>
                                 <select
                                     value={selectedBoard?._id || ""}
                                     onChange={handleBoardChange}
@@ -493,7 +575,7 @@ const BoardCourseAdmissionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Billing Start Date</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Billing Start Date <span className="text-red-500">*</span></label>
                                 <input
                                     type="date"
                                     value={billingStartDate}
@@ -504,7 +586,7 @@ const BoardCourseAdmissionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Received Date (Actual Payment)</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Received Date (Actual Payment) <span className="text-red-500">*</span></label>
                                 <input
                                     type="date"
                                     value={receivedDate}
@@ -516,7 +598,7 @@ const BoardCourseAdmissionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Academic Session</label>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Academic Session <span className="text-red-500">*</span></label>
                                 <select
                                     value={academicSession}
                                     onChange={(e) => setAcademicSession(e.target.value)}
@@ -581,6 +663,23 @@ const BoardCourseAdmissionPage = () => {
                                             (bcs.classId?._id === c._id || (bcs.classId?.name || bcs.classId?.className) === (c.name || c.className))
                                         ))
                                         .map(c => <option key={c._id} value={c.name || c.className}>{(c.name || c.className).toUpperCase()}</option>)}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Admitted By <span className="text-red-500">*</span></label>
+                                <select
+                                    required
+                                    value={selectedAdmittedBy}
+                                    onChange={(e) => setSelectedAdmittedBy(e.target.value)}
+                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                >
+                                    <option value="">-- CHOOSE ADMITTING OFFICER --</option>
+                                    {admittedByOptions.map(u => (
+                                        <option key={u._id} value={u._id}>
+                                            {u.name.toUpperCase()} ({u.role.toUpperCase()})
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

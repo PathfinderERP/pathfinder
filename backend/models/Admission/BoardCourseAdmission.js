@@ -28,6 +28,11 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    department: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Department",
+        required: true
+    },
     programme: {
         type: String,
         enum: ['CRP', 'NCRP']

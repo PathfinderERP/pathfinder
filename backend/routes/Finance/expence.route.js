@@ -3,7 +3,8 @@ import {
     getAllExpence,
     getSingleExpence,
     updateExpence,
-    bulkImportExpenses
+    bulkImportExpenses,
+    deleteExpense
 } from "../../controllers/Finance/expense.js";
 
 import express from "express";
@@ -19,5 +20,7 @@ router.get("/",getAllExpence);
 router.get("/:id",getSingleExpence);
 
 router.put("/:id",updateExpence);
+
+router.delete("/:id",deleteExpense);
 
 export default router;

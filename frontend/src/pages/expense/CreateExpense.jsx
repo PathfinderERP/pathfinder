@@ -27,6 +27,7 @@ const EMPTY_FORM = {
     expenseDate: "",
     accountNumber: "",
     ifscCode: "",
+    modeOfPayment: "Bank",
 };
 
 const CreateExpense = () => {
@@ -80,8 +81,6 @@ const CreateExpense = () => {
         if (!formData.months) { toast.error("Month is required."); return; }
         if (!formData.week) { toast.error("Week is required."); return; }
         if (!formData.amount || Number(formData.amount) <= 0) { toast.error("A valid Amount is required."); return; }
-        if (!formData.accountNumber.trim()) { toast.error("Bank Account No. is required."); return; }
-        if (!formData.ifscCode.trim()) { toast.error("IFSC Code is required."); return; }
 
         const payload = {
             name: formData.name.trim(),
@@ -89,8 +88,9 @@ const CreateExpense = () => {
             months: formData.months,
             week: formData.week,
             amount: Number(formData.amount),
-            accountNumber: formData.accountNumber.trim(),
-            ifscCode: formData.ifscCode.trim(),
+            accountNumber: formData.accountNumber ? formData.accountNumber.trim() : "N/A",
+            ifscCode: formData.ifscCode ? formData.ifscCode.trim() : "N/A",
+            modeOfPayment: formData.modeOfPayment || "Bank",
             createdBy: user._id || user.id || "",
             ...(formData.expenseDate && { expenseDate: formData.expenseDate }),
         };
@@ -268,10 +268,10 @@ const CreateExpense = () => {
                                     />
                                 </FieldWrapper>
 
-                                {/* Bank Account No. — Required */}
+                                {/* Bank Account No. */}
                                 <FieldWrapper>
                                     <label className={labelClass}>
-                                        Bank Account No. <RequiredBadge />
+                                        Bank Account No.
                                     </label>
                                     <input
                                         type="text"
@@ -280,14 +280,13 @@ const CreateExpense = () => {
                                         onChange={handleInputChange}
                                         placeholder="Enter bank account number"
                                         className={inputClass}
-                                        required
                                     />
                                 </FieldWrapper>
 
-                                {/* IFSC Code — Required */}
+                                {/* IFSC Code */}
                                 <FieldWrapper>
                                     <label className={labelClass}>
-                                        IFSC Code <RequiredBadge />
+                                        IFSC Code
                                     </label>
                                     <input
                                         type="text"
@@ -296,8 +295,25 @@ const CreateExpense = () => {
                                         onChange={handleInputChange}
                                         placeholder="Enter IFSC code"
                                         className={inputClass}
-                                        required
                                     />
+                                </FieldWrapper>
+
+                                {/* Mode of Payment — Required */}
+                                <FieldWrapper>
+                                    <label className={labelClass}>
+                                        Mode of Payment <RequiredBadge />
+                                    </label>
+                                    <select
+                                        name="modeOfPayment"
+                                        value={formData.modeOfPayment}
+                                        onChange={handleInputChange}
+                                        className={inputClass}
+                                        required
+                                    >
+                                        <option value="Bank">Bank</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank+Cash">Bank+Cash</option>
+                                    </select>
                                 </FieldWrapper>
                             </div>
                         </div>

@@ -16,13 +16,14 @@ const createExpense = async (req, res) => {
             expenseDate,
             createdBy,
             accountNumber,
-            ifscCode
+            ifscCode,
+            modeOfPayment
         } = req.body;
 
-        if (!name || !category || !months || !week || !amount || !createdBy || !accountNumber || !ifscCode) {
+        if (!name || !category || !months || !week || !amount || !createdBy) {
             return res.status(400).json({
                 success: false,
-                message: "Expense Name, Category, Month, Week, Amount, Created By, Bank Account No., and IFSC Code fields are required",
+                message: "Expense Name, Category, Month, Week, Amount, and Created By fields are required",
             });
         }
 
@@ -36,8 +37,9 @@ const createExpense = async (req, res) => {
             approvedDate,
             expenseDate,
             createdBy,
-            accountNumber,
-            ifscCode
+            accountNumber: accountNumber || "N/A",
+            ifscCode: ifscCode || "N/A",
+            modeOfPayment: modeOfPayment || "Bank"
         };
 
         const expense = await Expense.create(data);
@@ -132,7 +134,10 @@ const updateExpence = async (req,res) => {
             financeApprovedDate,
             givenBy,
             reason,
-            amount
+            amount,
+            accountNumber,
+            ifscCode,
+            modeOfPayment
         } = req.body;
 
         const data = await Expense.findById(id);
@@ -158,7 +163,10 @@ const updateExpence = async (req,res) => {
             financeApprovedDate,
             givenBy,
             reason,
-            amount
+            amount,
+            accountNumber,
+            ifscCode,
+            modeOfPayment
         };
 
         if (financeStatus === 'Approved') {
@@ -274,15 +282,6 @@ const bulkImportExpenses = async (req, res) => {
                 continue;
             }
 
-            if (!accountNumber || !accountNumber.toString().trim()) {
-                errors.push(`Row ${i + 2}: Bank Account No. is required.`);
-                continue;
-            }
-            if (!ifscCode || !ifscCode.toString().trim()) {
-                errors.push(`Row ${i + 2}: IFSC Code is required.`);
-                continue;
-            }
-
             // Month enum validation
             const validMonths = [
                 "January", "February", "March", "April", "May", "June",
@@ -336,6 +335,9 @@ const bulkImportExpenses = async (req, res) => {
             const expenseDate = parseExcelDate(expenseDateVal) || new Date();
             const approvedDate = parseExcelDate(approvedDateVal);
 
+            const modeOfPaymentVal = row["Mode of Payment"] || row["Mode Of Payment"] || row["modeOfPayment"] || "Bank";
+            const finalModeOfPayment = ['Bank', 'Cash', 'Bank+Cash'].includes(modeOfPaymentVal) ? modeOfPaymentVal : "Bank";
+
             expensesToCreate.push({
                 expenseType: 'General',
                 name,
@@ -346,8 +348,9 @@ const bulkImportExpenses = async (req, res) => {
                 approvedBy,
                 approvedDate,
                 amount,
-                accountNumber: accountNumber.toString().trim(),
-                ifscCode: ifscCode.toString().trim(),
+                accountNumber: accountNumber ? accountNumber.toString().trim() : "N/A",
+                ifscCode: ifscCode ? ifscCode.toString().trim() : "N/A",
+                modeOfPayment: finalModeOfPayment,
                 createdBy
             });
         }
@@ -374,4 +377,28 @@ const bulkImportExpenses = async (req, res) => {
     }
 };
 
-export { createExpense, getAllExpence ,getSingleExpence,updateExpence, bulkImportExpenses};
+const deleteExpense = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const expense = await Expense.findByIdAndDelete(id);
+
+        if (!expense) {
+            return res.status(404).json({
+                success: false,
+                message: "Expense not found",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Expense deleted successfully",
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};
+
+export { createExpense, getAllExpence ,getSingleExpence,updateExpence, bulkImportExpenses, deleteExpense};

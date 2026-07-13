@@ -91,9 +91,12 @@ const BoardAdmissionsContent = () => {
         examName: "",
         boardId: "",
         selectedSubjectIds: [],
-        remarks: ""
+        remarks: "",
+        department: "",
+        counselledBy: ""
     });
 
+    const [counselledByOptions, setCounselledByOptions] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [classes, setClasses] = useState([]);
     const [boardCourseSubjects, setBoardCourseSubjects] = useState([]);
@@ -152,6 +155,41 @@ const BoardAdmissionsContent = () => {
             console.error("Error fetching boards:", error);
         }
     };
+
+    const fetchCounselledByOptions = async (centreName) => {
+        if (!centreName) {
+            setCounselledByOptions([]);
+            return;
+        }
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok && data.users) {
+                const userList = Array.isArray(data.users) ? data.users : [];
+                const filtered = userList.filter((user) =>
+                    user.primaryCentre &&
+                    user.primaryCentre.centreName &&
+                    user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&
+                    !["teacher", "accounts", "hr"].includes((user.role || "").toLowerCase())
+                );
+                setCounselledByOptions(filtered);
+            }
+        } catch (error) {
+            console.error("Error fetching users for centre:", error);
+        }
+    };
+
+    useEffect(() => {
+        setCounsellingForm(prev => ({ ...prev, counselledBy: "" }));
+        if (counsellingForm.centre) {
+            fetchCounselledByOptions(counsellingForm.centre);
+        } else {
+            setCounselledByOptions([]);
+        }
+    }, [counsellingForm.centre]);
 
     const fetchCounselledStudents = async () => {
         setCounsellingLoading(true);
@@ -727,7 +765,8 @@ const BoardAdmissionsContent = () => {
             examName: "",
             boardId: "",
             selectedSubjectIds: [],
-            remarks: ""
+            remarks: "",
+            department: ""
         });
         setEditingCounsellingId(null);
         setMobileCheck({ checking: false, taken: false, name: "" });
@@ -767,7 +806,8 @@ const BoardAdmissionsContent = () => {
             examName: "",
             boardId: item.boardId?._id || "",
             selectedSubjectIds: item.selectedSubjects?.map(s => s.subjectId?._id || s.subjectId).filter(Boolean) || [],
-            remarks: item.remarks || ""
+            remarks: item.remarks || "",
+            department: item.department?._id || item.department || ""
         });
         setShowCounsellingModal(true);
     };
@@ -803,7 +843,9 @@ const BoardAdmissionsContent = () => {
             examName: sessionExam.examTag || exam.examName || details.programme || "",
             boardId: "",
             selectedSubjectIds: [],
-            remarks: ""
+            remarks: "",
+            department: student.department?._id || student.department || "",
+            counselledBy: student.counselledBy?._id || student.counselledBy || ""
         });
         setShowCounsellingModal(true);
     };
@@ -814,7 +856,7 @@ const BoardAdmissionsContent = () => {
             centre, programme, board, state, schoolName, pincode, address,
             guardianName, guardianMobile, guardianEmail, occupation,
             lastClass, examStatus, markAggregate, scienceMathPercent, examName,
-            boardId, selectedSubjectIds, remarks
+            boardId, selectedSubjectIds, remarks, department, counselledBy
         } = counsellingForm;
 
         if (!studentId && (!studentName || !mobileNum || !centre)) {
@@ -822,6 +864,8 @@ const BoardAdmissionsContent = () => {
         }
         if (!studentEmail) return toast.error("Please provide an email address");
         if (!programme) return toast.error("Please select a programme (CRP/NCRP)");
+        if (!department) return toast.error("Please select a department");
+        if (!counselledBy) return toast.error("Please select a counsellor");
         if (!lastClass) return toast.error("Please specify the student's last class");
         if (!examName) return toast.error("Please select an Exam Identifier (Exam Tag)");
         if (!boardId) return toast.error("Please select a board");
@@ -854,7 +898,7 @@ const BoardAdmissionsContent = () => {
                     centre, programme, board, state, schoolName, pincode, address,
                     guardianName, guardianMobile, guardianEmail, occupation,
                     lastClass, examStatus, markAggregate, scienceMathPercent, examName,
-                    boardId, selectedSubjectIds, remarks
+                    boardId, selectedSubjectIds, remarks, department, counselledBy
                 })
             });
 
@@ -1678,6 +1722,20 @@ const BoardAdmissionsContent = () => {
                                         </select>
                                     </div>
                                     <div>
+                                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                        <select
+                                            required
+                                            className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            value={counsellingForm.department || ""}
+                                            onChange={(e) => setCounsellingForm({ ...counsellingForm, department: e.target.value })}
+                                        >
+                                            <option value="">SELECT DEPARTMENT</option>
+                                            {departments.map(d => (
+                                                <option key={d._id} value={d._id}>{d.departmentName.toUpperCase()}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1.5">State</label>
                                         <select
                                             className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
@@ -1908,6 +1966,20 @@ const BoardAdmissionsContent = () => {
                                                         );
                                                     })
                                                 }
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[9px] font-black uppercase tracking-widest text-cyan-600 mb-1.5">Counselled By *</label>
+                                            <select
+                                                required
+                                                className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                value={counsellingForm.counselledBy || ""}
+                                                onChange={(e) => setCounsellingForm({ ...counsellingForm, counselledBy: e.target.value })}
+                                            >
+                                                <option value="">CHOOSE COUNSELLOR...</option>
+                                                {counselledByOptions.map(u => (
+                                                    <option key={u._id} value={u._id}>{u.name.toUpperCase()} ({u.role.toUpperCase()})</option>
+                                                ))}
                                             </select>
                                         </div>
                                     </div>

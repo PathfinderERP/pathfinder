@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { FaPlus, FaSearch, FaCheck, FaDownload, FaEraser, FaFilter, FaFileImport, FaFileExport, FaSpinner, FaTimes } from "react-icons/fa";
+import { FaPlus, FaSearch, FaCheck, FaDownload, FaEraser, FaFilter, FaFileImport, FaFileExport, FaSpinner, FaTimes, FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
@@ -165,6 +165,7 @@ const GetAllExpense = () => {
     const [nameFilter, setNameFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [modeOfPaymentFilter, setModeOfPaymentFilter] = useState("all");
     const [categories, setCategories] = useState([]);
     const { theme } = useTheme();
     const isDarkMode = theme === "dark";
@@ -198,6 +199,24 @@ const GetAllExpense = () => {
     const [importErrors, setImportErrors] = useState([]);
     const [showErrorsModal, setShowErrorsModal] = useState(false);
     const fileInputRef = useRef(null);
+
+    // View Modal State
+    const [showViewModal, setShowViewModal] = useState(false);
+    const [viewExpense, setViewExpense] = useState(null);
+
+    // Edit Modal State
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editExpense, setEditExpense] = useState(null);
+    const [editFormData, setEditFormData] = useState({
+        name: "",
+        category: "",
+        months: "",
+        week: "",
+        amount: "",
+        accountNumber: "",
+        ifscCode: "",
+        modeOfPayment: "Bank",
+    });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = hasPermission(user, "financeFees", "expense", "create") || hasPermission(user, "financeFees", "addExpense", "create");
@@ -265,6 +284,75 @@ const GetAllExpense = () => {
             toast.error("Unable to load expenses.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleViewClick = (expense) => {
+        setViewExpense(expense);
+        setShowViewModal(true);
+    };
+
+    const handleEditClick = (expense) => {
+        setEditExpense(expense);
+        setEditFormData({
+            name: expense.name || "",
+            category: expense.category?._id || expense.category || "",
+            months: expense.months || "",
+            week: expense.week || "",
+            amount: expense.originalAmount !== undefined ? expense.originalAmount : (expense.amount || ""),
+            accountNumber: expense.accountNumber === "N/A" ? "" : (expense.accountNumber || ""),
+            ifscCode: expense.ifscCode === "N/A" ? "" : (expense.ifscCode || ""),
+            modeOfPayment: expense.modeOfPayment || "Bank",
+        });
+        setShowEditModal(true);
+    };
+
+    const handleEditInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        if (!editFormData.name.trim()) { toast.error("Expense Name is required"); return; }
+        if (!editFormData.category) { toast.error("Category is required"); return; }
+        if (!editFormData.months) { toast.error("Month is required"); return; }
+        if (!editFormData.week) { toast.error("Week is required"); return; }
+        if (!editFormData.amount || Number(editFormData.amount) <= 0) { toast.error("Amount is required"); return; }
+
+        try {
+            const token = localStorage.getItem("token");
+            const payload = {
+                ...editFormData,
+                amount: Number(editFormData.amount),
+                accountNumber: editFormData.accountNumber.trim() || "N/A",
+                ifscCode: editFormData.ifscCode.trim() || "N/A",
+            };
+            const response = await axios.put(`${API_URL}/finance/expense/${editExpense._id}`, payload, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success(response.data?.message || "Expense updated successfully");
+            setShowEditModal(false);
+            fetchExpenses();
+        } catch (err) {
+            console.error("Update expense error:", err);
+            toast.error(err.response?.data?.message || "Failed to update expense");
+        }
+    };
+
+    const handleDeleteClick = async (expense) => {
+        if (window.confirm(`Are you sure you want to delete the expense: "${expense.name || 'Salary Expense'}"?`)) {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await axios.delete(`${API_URL}/finance/expense/${expense._id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                toast.success(response.data?.message || "Expense deleted successfully");
+                fetchExpenses();
+            } catch (err) {
+                console.error("Delete expense error:", err);
+                toast.error(err.response?.data?.message || "Failed to delete expense");
+            }
         }
     };
 
@@ -418,12 +506,13 @@ const GetAllExpense = () => {
                 }
             }
             if (statusFilter !== "all" && getExpenseStatusLabel(expense) !== statusFilter) return false;
+            if (modeOfPaymentFilter !== "all" && (expense.modeOfPayment || "Bank") !== modeOfPaymentFilter) return false;
             return true;
         });
-    }, [expenses, searchTerm, nameFilter, fromDate, toDate, typeFilter, statusFilter]);
+    }, [expenses, searchTerm, nameFilter, fromDate, toDate, typeFilter, statusFilter, modeOfPaymentFilter]);
 
     const hasActiveFilters =
-        Boolean(searchTerm || nameFilter || fromDate || toDate || typeFilter !== "all" || statusFilter !== "all");
+        Boolean(searchTerm || nameFilter || fromDate || toDate || typeFilter !== "all" || statusFilter !== "all" || modeOfPaymentFilter !== "all");
 
     const clearFilters = () => {
         setSearchTerm("");
@@ -432,6 +521,7 @@ const GetAllExpense = () => {
         setToDate("");
         setTypeFilter("all");
         setStatusFilter("all");
+        setModeOfPaymentFilter("all");
     };
 
     const handleExportToExcel = () => {
@@ -458,6 +548,7 @@ const GetAllExpense = () => {
                 "Paid Amount": expense.paidAmount || 0,
                 "Remaining Amount": expense.remainingAmount ?? "",
                 Status: getExpenseStatusLabel(expense),
+                "Mode of Payment": expense.modeOfPayment || "Bank",
             };
         });
 
@@ -689,7 +780,7 @@ const GetAllExpense = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
                                 <div>
                                     <label className={labelClass}>Name / Employee</label>
                                     <input
@@ -749,6 +840,19 @@ const GetAllExpense = () => {
                                         <option value="N/A">N/A (General)</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label className={labelClass}>Mode of Payment</label>
+                                    <select
+                                        value={modeOfPaymentFilter}
+                                        onChange={(e) => setModeOfPaymentFilter(e.target.value)}
+                                        className={inputClass}
+                                    >
+                                        <option value="all">All modes</option>
+                                        <option value="Bank">Bank</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank+Cash">Bank+Cash</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -778,6 +882,7 @@ const GetAllExpense = () => {
                                         <th className={thClass}>Amount</th>
                                         <th className={thClass}>Status</th>
                                         <th className={`${thClass} min-w-[200px]`}>Approved By (HR/Gen)</th>
+                                        <th className={thClass}>Mode of Payment</th>
                                         <th className={thClass}>Date</th>
                                         <th className={`${thClass} w-28 text-center`}>Action</th>
                                     </tr>
@@ -946,6 +1051,18 @@ const GetAllExpense = () => {
                                                 <td className={tdClass}>{renderApprovedBy(expense)}</td>
 
                                                 <td className={tdClass}>
+                                                    <span className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${
+                                                        expense.modeOfPayment === "Cash"
+                                                            ? (isDarkMode ? "bg-amber-500/15 text-amber-300 border border-amber-500/30" : "bg-amber-100 text-amber-800 border border-amber-200")
+                                                            : expense.modeOfPayment === "Bank+Cash"
+                                                            ? (isDarkMode ? "bg-purple-500/15 text-purple-300 border border-purple-500/30" : "bg-purple-100 text-purple-800 border border-purple-200")
+                                                            : (isDarkMode ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30" : "bg-blue-100 text-blue-800 border border-blue-200")
+                                                    }`}>
+                                                        {expense.modeOfPayment || "Bank"}
+                                                    </span>
+                                                </td>
+
+                                                <td className={tdClass}>
                                                     <div
                                                         className={`space-y-0.5 text-xs min-w-[110px] ${
                                                             isDarkMode ? "text-slate-400" : "text-slate-600"
@@ -968,21 +1085,44 @@ const GetAllExpense = () => {
                                                     </div>
                                                 </td>
 
-                                                <td className={`${tdClass} text-center`}>
-                                                    {expense.financeStatus === "Pending" || (expense.remainingAmount !== undefined && expense.remainingAmount > 0) ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleApproveClick(expense)}
-                                                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
-                                                        >
-                                                            <FaCheck /> Approve
-                                                        </button>
-                                                    ) : (
-                                                        <span className={isDarkMode ? "text-slate-600" : "text-slate-300"}>
-                                                            —
-                                                        </span>
-                                                    )}
-                                                </td>
+                                                <td className={`${tdClass}`}>
+                                                     <div className="flex items-center justify-center gap-1.5 flex-wrap min-w-[220px]">
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => handleViewClick(expense)}
+                                                             className="inline-flex items-center gap-1 rounded bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-bold transition-all"
+                                                             title="View details"
+                                                         >
+                                                             <FaEye size={10} /> View
+                                                         </button>
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => handleEditClick(expense)}
+                                                             className="inline-flex items-center gap-1 rounded bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 text-[11px] font-bold transition-all"
+                                                             title="Edit expense"
+                                                         >
+                                                             <FaEdit size={10} /> Edit
+                                                         </button>
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => handleDeleteClick(expense)}
+                                                             className="inline-flex items-center gap-1 rounded bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1 text-[11px] font-bold transition-all"
+                                                             title="Delete expense"
+                                                         >
+                                                             <FaTrash size={10} /> Delete
+                                                         </button>
+                                                         {(expense.financeStatus === "Pending" || (expense.remainingAmount !== undefined && expense.remainingAmount > 0)) && (
+                                                             <button
+                                                                 type="button"
+                                                                 onClick={() => handleApproveClick(expense)}
+                                                                 className="inline-flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-[11px] font-bold transition-all"
+                                                                 title="Approve expense"
+                                                             >
+                                                                 <FaCheck size={10} /> Approve
+                                                             </button>
+                                                         )}
+                                                     </div>
+                                                 </td>
                                             </tr>
                                         ))
                                     )}
@@ -1210,6 +1350,255 @@ const GetAllExpense = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* View Details Modal */}
+                {showViewModal && viewExpense && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                        <div className={`w-full max-w-lg rounded-xl p-6 shadow-2xl ${
+                            isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
+                        }`}>
+                            <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-200 dark:border-slate-700">
+                                <h3 className="text-lg font-black uppercase tracking-wider flex items-center gap-2">
+                                    Expense Details
+                                </h3>
+                                <button
+                                    onClick={() => setShowViewModal(false)}
+                                    className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                                        isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500"
+                                    }`}
+                                >
+                                    <FaTimes size={18} />
+                                </button>
+                            </div>
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Expense Type</label>
+                                        <div className="font-semibold text-sm">{viewExpense.expenseType}</div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>{viewExpense.expenseType === "Salary" ? "Employee" : "Expense Name"}</label>
+                                        <div className="font-semibold text-sm">
+                                            {viewExpense.expenseType === "Salary" ? (viewExpense.employeeId?.name || "—") : (viewExpense.name || "—")}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Category</label>
+                                        <div className="font-semibold text-sm">{getCategoryName(viewExpense)}</div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Period</label>
+                                        <div className="font-semibold text-sm">
+                                            {viewExpense.expenseType === "Salary"
+                                                ? [viewExpense.months, viewExpense.salaryPeriod].filter(Boolean).join(" · ")
+                                                : [viewExpense.months, viewExpense.week].filter(Boolean).join(" · ")}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Amount</label>
+                                        <div className="font-bold text-sm text-cyan-500">₹{viewExpense.originalAmount !== undefined ? viewExpense.originalAmount : viewExpense.amount}</div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Status</label>
+                                        <div className="font-semibold text-sm">{getSalaryFinanceStatusLabel(viewExpense)}</div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Bank Account No.</label>
+                                        <div className="font-semibold text-sm">{viewExpense.accountNumber || "—"}</div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>IFSC Code</label>
+                                        <div className="font-semibold text-sm">{viewExpense.ifscCode || "—"}</div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Mode of Payment</label>
+                                        <div className="font-semibold text-sm">{viewExpense.modeOfPayment || "Bank"}</div>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Created By</label>
+                                        <div className="font-semibold text-sm">{viewExpense.createdBy?.name || "—"}</div>
+                                    </div>
+                                </div>
+                                {viewExpense.payments && viewExpense.payments.length > 0 && (
+                                    <div className="mt-4 border-t pt-4 dark:border-slate-700">
+                                        <label className={`block text-xs uppercase tracking-wider mb-2 ${isDarkMode ? "text-slate-500" : "text-slate-400"}`}>Payments Log</label>
+                                        <div className="space-y-2">
+                                            {viewExpense.payments.map((p, idx) => (
+                                                <div key={idx} className={`p-2.5 rounded-lg border text-xs ${isDarkMode ? "bg-slate-800/40 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+                                                    <div className="flex justify-between font-semibold">
+                                                        <span>₹{p.amountPaid}</span>
+                                                        <span className="opacity-70">{p.paidDate ? new Date(p.paidDate).toLocaleDateString() : ""}</span>
+                                                    </div>
+                                                    {p.givenBy && <div className="mt-0.5"><span className="opacity-60">Given By:</span> {p.givenBy}</div>}
+                                                    {p.reason && <div className="mt-0.5"><span className="opacity-60">Reason:</span> {p.reason}</div>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setShowViewModal(false)}
+                                    className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${
+                                        isDarkMode ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Expense Modal */}
+                {showEditModal && editExpense && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                        <form onSubmit={handleEditSubmit} className={`w-full max-w-lg rounded-xl p-6 shadow-2xl ${
+                            isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
+                        }`}>
+                            <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-200 dark:border-slate-700">
+                                <h3 className="text-lg font-black uppercase tracking-wider">
+                                    Edit Expense
+                                </h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditModal(false)}
+                                    className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                                        isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500"
+                                    }`}
+                                >
+                                    <FaTimes size={18} />
+                                </button>
+                            </div>
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                                <div>
+                                    <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Expense Name <span className="text-red-400">*</span></label>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value={editFormData.name}
+                                        onChange={handleEditInputChange}
+                                        className={inputClass}
+                                        required
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Category <span className="text-red-400">*</span></label>
+                                        <select
+                                            name="category"
+                                            value={editFormData.category}
+                                            onChange={handleEditInputChange}
+                                            className={inputClass}
+                                            required
+                                        >
+                                            <option value="">— Select —</option>
+                                            {categories.map((c) => (
+                                                <option key={c._id} value={c._id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Amount (₹) <span className="text-red-400">*</span></label>
+                                        <input
+                                            type="number"
+                                            name="amount"
+                                            value={editFormData.amount}
+                                            onChange={handleEditInputChange}
+                                            className={inputClass}
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Month <span className="text-red-400">*</span></label>
+                                        <select
+                                            name="months"
+                                            value={editFormData.months}
+                                            onChange={handleEditInputChange}
+                                            className={inputClass}
+                                            required
+                                        >
+                                            <option value="">— Select —</option>
+                                            {[
+                                                "January", "February", "March", "April", "May", "June",
+                                                "July", "August", "September", "October", "November", "December"
+                                            ].map((m) => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Week <span className="text-red-400">*</span></label>
+                                        <select
+                                            name="week"
+                                            value={editFormData.week}
+                                            onChange={handleEditInputChange}
+                                            className={inputClass}
+                                            required
+                                        >
+                                            <option value="">— Select —</option>
+                                            {["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"].map((w) => (
+                                                <option key={w} value={w}>{w}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Bank Account No.</label>
+                                        <input
+                                            type="text"
+                                            name="accountNumber"
+                                            value={editFormData.accountNumber}
+                                            onChange={handleEditInputChange}
+                                            className={inputClass}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>IFSC Code</label>
+                                        <input
+                                            type="text"
+                                            name="ifscCode"
+                                            value={editFormData.ifscCode}
+                                            onChange={handleEditInputChange}
+                                            className={inputClass}
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className={`block text-xs uppercase tracking-wider mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Mode of Payment <span className="text-red-400">*</span></label>
+                                        <select
+                                            name="modeOfPayment"
+                                            value={editFormData.modeOfPayment}
+                                            onChange={handleEditInputChange}
+                                            className={inputClass}
+                                            required
+                                        >
+                                            <option value="Bank">Bank</option>
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank+Cash">Bank+Cash</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditModal(false)}
+                                    className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${
+                                        isDarkMode ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg text-sm shadow-lg shadow-cyan-500/20 transition"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 )}
             </div>
