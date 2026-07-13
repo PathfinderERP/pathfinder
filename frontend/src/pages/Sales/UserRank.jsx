@@ -86,8 +86,8 @@ const METRICS = [
 ];
 
 const ROLE_BADGES = {
-    superAdmin: { label: "Super Admin", style: "bg-red-500/15 text-red-400 border border-red-500/20" },
-    admin: { label: "Admin", style: "bg-orange-500/15 text-orange-400 border border-orange-500/20" },
+    // superAdmin: { label: "Super Admin", style: "bg-red-500/15 text-red-400 border border-red-500/20" },
+    // admin: { label: "Admin", style: "bg-orange-500/15 text-orange-400 border border-orange-500/20" },
     centerIncharge: { label: "CI", style: "bg-purple-500/15 text-purple-400 border border-purple-500/20" },
     zonalManager: { label: "ZM", style: "bg-blue-500/15 text-blue-400 border border-blue-500/20" },
     counsellor: { label: "Counsellor", style: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/20" },
@@ -109,8 +109,8 @@ const ROLE_BADGES = {
 };
 
 const ROLE_OPTIONS = [
-    { value: "superAdmin", label: "Super Admin" },
-    { value: "admin", label: "Admin" },
+    // { value: "superAdmin", label: "Super Admin" },
+    // { value: "admin", label: "Admin" },
     { value: "centerIncharge", label: "Center Incharge" },
     { value: "zonalManager", label: "Zonal Manager" },
     { value: "counsellor", label: "Counsellor" },
@@ -385,9 +385,8 @@ const UserRank = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                             <div
                                 onClick={() => setSelectedRoles([])}
-                                className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${
-                                    selectedRoles.length === 0 ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
-                                }`}
+                                className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${selectedRoles.length === 0 ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
+                                    }`}
                             >
                                 <div className={`inline-flex p-2 rounded-lg ${isDark ? "bg-cyan-500/10 text-cyan-400" : "bg-cyan-50 text-cyan-600"} mb-2`}>
                                     <FaUser size={14} />
@@ -404,7 +403,7 @@ const UserRank = () => {
                                 const badgeStyle = badge.style.split(' ');
                                 const bgClass = badgeStyle.find(c => c.startsWith('bg-')) || (isDark ? "bg-gray-800" : "bg-gray-100");
                                 const textClass = badgeStyle.find(c => c.startsWith('text-')) || (isDark ? "text-gray-300" : "text-gray-700");
-                                
+
                                 return (
                                     <div
                                         key={role.value}
@@ -415,9 +414,8 @@ const UserRank = () => {
                                                 setSelectedRoles([...selectedRoles, role.value]);
                                             }
                                         }}
-                                        className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${
-                                            isSelected ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
-                                        } ${count === 0 ? "opacity-40" : ""}`}
+                                        className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${isSelected ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
+                                            } ${count === 0 ? "opacity-40" : ""}`}
                                     >
                                         <div className={`inline-flex p-2 rounded-lg ${bgClass} ${textClass} mb-2`}>
                                             <FaUser size={14} />
