@@ -21,11 +21,11 @@ const test = async () => {
         const jwtToken = loginData.token;
         console.log("Logged in successfully.");
 
-        const today = new Date().toISOString().split('T')[0];
+        const testDate = "2026-07-12";
 
         // Test JSON report
         console.log("1. Fetching calls-report JSON...");
-        const reportRes = await fetch(`http://localhost:5000/api/operations/daily-tracking/calls-report?fromDate=${today}&toDate=${today}`, {
+        const reportRes = await fetch(`http://localhost:5000/api/operations/daily-tracking/calls-report?fromDate=${testDate}&toDate=${testDate}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${jwtToken}` }
         });
@@ -33,14 +33,15 @@ const test = async () => {
         if (reportRes.ok) {
             const data = await reportRes.json();
             console.log("JSON response data length:", data.length);
-            console.log("First item:", data[0]);
+            const bagnanRows = data.filter(d => d.centreName.toUpperCase() === "BAGNAN");
+            console.log("Bagnan rows for yesterday:", bagnanRows);
         } else {
             console.log("Error JSON:", await reportRes.text());
         }
 
         // Test Export Summary
         console.log("2. Fetching summary export...");
-        const summaryRes = await fetch(`http://localhost:5000/api/operations/daily-tracking/calls-report/export?fromDate=${today}&toDate=${today}`, {
+        const summaryRes = await fetch(`http://localhost:5000/api/operations/daily-tracking/calls-report/export?fromDate=${testDate}&toDate=${testDate}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${jwtToken}` }
         });
@@ -55,7 +56,7 @@ const test = async () => {
 
         // Test Export Bulk
         console.log("3. Fetching bulk details export...");
-        const bulkRes = await fetch(`http://localhost:5000/api/operations/daily-tracking/calls-report/export-bulk?fromDate=${today}&toDate=${today}`, {
+        const bulkRes = await fetch(`http://localhost:5000/api/operations/daily-tracking/calls-report/export-bulk?fromDate=${testDate}&toDate=${testDate}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${jwtToken}` }
         });

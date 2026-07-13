@@ -40,9 +40,13 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         batches: (admission.student?.batches || []).map(b => typeof b === 'object' ? b._id : b) || [],
         admissionNumber: admission.admissionNumber || '',
         uid: admission.student?.uid || admission.student?._id || '',
+        leadBy: admission.student?.leadBy?._id || admission.student?.leadBy || admission.leadBy?._id || admission.leadBy || '',
+        counselledBy: admission.student?.counselledByDetails?._id || admission.student?.counselledBy || '',
+        createdBy: admission.createdBy?._id || admission.createdBy || '',
     });
 
     const [loading, setLoading] = useState(false);
+    const [centreUsers, setCentreUsers] = useState([]);
     const [centres, setCentres] = useState([]);
     const [masterDepartments, setMasterDepartments] = useState([]);
     const [masterCourses, setMasterCourses] = useState([]);
@@ -80,6 +84,53 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         fetchCentres();
         fetchMasterData();
     }, []);
+
+    useEffect(() => {
+        if (formData.centre) {
+            fetchCentreUsers(formData.centre);
+        }
+    }, [formData.centre]);
+
+    useEffect(() => {
+        if (centreUsers.length > 0) {
+            setFormData(prev => {
+                const updates = {};
+                if (prev.leadBy && typeof prev.leadBy === 'string' && prev.leadBy.length > 0 && !prev.leadBy.match(/^[0-9a-fA-F]{24}$/)) {
+                    const match = centreUsers.find(u => u.name.toLowerCase() === prev.leadBy.toLowerCase());
+                    if (match) updates.leadBy = match._id;
+                }
+                if (prev.counselledBy && typeof prev.counselledBy === 'string' && prev.counselledBy.length > 0 && !prev.counselledBy.match(/^[0-9a-fA-F]{24}$/)) {
+                    const match = centreUsers.find(u => u.name.toLowerCase() === prev.counselledBy.toLowerCase());
+                    if (match) updates.counselledBy = match._id;
+                }
+                if (prev.createdBy && typeof prev.createdBy === 'string' && prev.createdBy.length > 0 && !prev.createdBy.match(/^[0-9a-fA-F]{24}$/)) {
+                    const match = centreUsers.find(u => u.name.toLowerCase() === prev.createdBy.toLowerCase());
+                    if (match) updates.createdBy = match._id;
+                }
+                if (Object.keys(updates).length > 0) {
+                    return { ...prev, ...updates };
+                }
+                return prev;
+            });
+        }
+    }, [centreUsers]);
+
+    const fetchCentreUsers = async (centreName) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/centre-users?centreName=${encodeURIComponent(centreName)}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setCentreUsers(data);
+            }
+        } catch (error) {
+            console.error('Error fetching centre users:', error);
+        }
+    };
 
     useEffect(() => {
         if (admission && admission.admissionType === 'BOARD') {
@@ -238,6 +289,8 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                     },
                     body: JSON.stringify({
                         batches: dataToSave.batches,
+                        leadBy: dataToSave.leadBy,
+                        counselledBy: dataToSave.counselledBy,
                         studentsDetails: [{
                             studentName: dataToSave.studentName,
                             studentEmail: dataToSave.studentEmail,
@@ -300,7 +353,8 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                         course: dataToSave.course,
                         class: dataToSave.class,
                         academicSession: dataToSave.academicSession,
-                        examTag: dataToSave.examTag
+                        examTag: dataToSave.examTag,
+                        createdBy: dataToSave.createdBy
                     })
                 }
             );
@@ -953,7 +1007,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         ))}
                                     </select>
                                 </div>
-                                <div>
+                                 <div>
                                     <label className={labelClass}>ACADEMIC CYCLE (SESSION)</label>
                                     <select
                                         name="academicSession"
@@ -965,6 +1019,54 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                         {masterSessions.map((session) => (
                                             <option key={session._id} value={session.sessionName || session.name}>
                                                 {(session.sessionName || session.name)?.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>LEAD BY</label>
+                                    <select
+                                        name="leadBy"
+                                        value={formData.leadBy}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    >
+                                        <option value="">SELECT LEAD OWNER</option>
+                                        {centreUsers.map((user) => (
+                                            <option key={user._id} value={user._id}>
+                                                {user.name.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>COUNSELLED BY</label>
+                                    <select
+                                        name="counselledBy"
+                                        value={formData.counselledBy}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    >
+                                        <option value="">SELECT COUNSELLOR</option>
+                                        {centreUsers.map((user) => (
+                                            <option key={user._id} value={user._id}>
+                                                {user.name.toUpperCase()}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>ADMITTED BY</label>
+                                    <select
+                                        name="createdBy"
+                                        value={formData.createdBy}
+                                        onChange={handleChange}
+                                        className={inputClass}
+                                    >
+                                        <option value="">SELECT ADMISSION USER</option>
+                                        {centreUsers.map((user) => (
+                                            <option key={user._id} value={user._id}>
+                                                {user.name.toUpperCase()}
                                             </option>
                                         ))}
                                     </select>

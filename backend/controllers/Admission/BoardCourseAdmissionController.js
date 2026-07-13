@@ -501,11 +501,19 @@ export const getBoardAdmissions = async (req, res) => {
             console.error("Error fetching board counsellings in getBoardAdmissions:", counsErr);
         }
 
-        // Standardize counselledBy names lookup
+        // Standardize counselledBy & leadBy names lookup
         const mongoose = (await import("mongoose")).default;
-        const userIds = admissions
-            .map(a => a.studentId && a.studentId.counselledBy)
-            .filter(id => id && mongoose.Types.ObjectId.isValid(id));
+        const userIds = [];
+        admissions.forEach(a => {
+            if (a.studentId) {
+                if (a.studentId.counselledBy && mongoose.Types.ObjectId.isValid(a.studentId.counselledBy)) {
+                    userIds.push(a.studentId.counselledBy);
+                }
+                if (a.studentId.leadBy && mongoose.Types.ObjectId.isValid(a.studentId.leadBy)) {
+                    userIds.push(a.studentId.leadBy);
+                }
+            }
+        });
         const uniqueUserIds = [...new Set(userIds)];
         
         const User = (await import("../../models/User.js")).default;
@@ -523,6 +531,11 @@ export const getBoardAdmissions = async (req, res) => {
                 admissionObj.studentId.counselledBy = userMap[idLower] || admissionObj.studentId.counselledBy;
             }
 
+            if (admissionObj.studentId && admissionObj.studentId.leadBy && mongoose.Types.ObjectId.isValid(admissionObj.studentId.leadBy)) {
+                const idLower = admissionObj.studentId.leadBy.toString().toLowerCase();
+                admissionObj.studentId.leadBy = userMap[idLower] || admissionObj.studentId.leadBy;
+            }
+
             let leadBy = { name: "System", createdAt: admissionObj.createdAt || new Date() };
             let counselledByDetails = {
                 name: (admissionObj.studentId && admissionObj.studentId.counselledBy) || "N/A",
@@ -530,29 +543,36 @@ export const getBoardAdmissions = async (req, res) => {
             };
 
             if (admissionObj.studentId) {
-                // 1. Find matching lead
-                let matchedLead = null;
-                if (admissionObj.studentId.studentsDetails && admissionObj.studentId.studentsDetails[0]) {
-                    const det = admissionObj.studentId.studentsDetails[0];
-                    if (det.mobileNum && leadMap[det.mobileNum.toString().trim()]) {
-                        matchedLead = leadMap[det.mobileNum.toString().trim()];
-                    } else if (det.whatsappNumber && leadMap[det.whatsappNumber.toString().trim()]) {
-                        matchedLead = leadMap[det.whatsappNumber.toString().trim()];
-                    } else if (det.studentEmail && leadMap[det.studentEmail.toString().trim().toLowerCase()]) {
-                        matchedLead = leadMap[det.studentEmail.toString().trim().toLowerCase()];
-                    }
-                }
-
-                if (matchedLead) {
+                if (admissionObj.studentId.leadBy) {
                     leadBy = {
-                        name: matchedLead.createdBy?.name || "System",
-                        createdAt: matchedLead.createdAt || matchedLead.updatedAt || admissionObj.studentId.createdAt
-                    };
-                } else {
-                    leadBy = {
-                        name: admissionObj.studentId.createdBy || "System",
+                        name: admissionObj.studentId.leadBy,
                         createdAt: admissionObj.studentId.createdAt || admissionObj.createdAt
                     };
+                } else {
+                    // 1. Find matching lead
+                    let matchedLead = null;
+                    if (admissionObj.studentId.studentsDetails && admissionObj.studentId.studentsDetails[0]) {
+                        const det = admissionObj.studentId.studentsDetails[0];
+                        if (det.mobileNum && leadMap[det.mobileNum.toString().trim()]) {
+                            matchedLead = leadMap[det.mobileNum.toString().trim()];
+                        } else if (det.whatsappNumber && leadMap[det.whatsappNumber.toString().trim()]) {
+                            matchedLead = leadMap[det.whatsappNumber.toString().trim()];
+                        } else if (det.studentEmail && leadMap[det.studentEmail.toString().trim().toLowerCase()]) {
+                            matchedLead = leadMap[det.studentEmail.toString().trim().toLowerCase()];
+                        }
+                    }
+
+                    if (matchedLead) {
+                        leadBy = {
+                            name: matchedLead.createdBy?.name || "System",
+                            createdAt: matchedLead.createdAt || matchedLead.updatedAt || admissionObj.studentId.createdAt
+                        };
+                    } else {
+                        leadBy = {
+                            name: admissionObj.studentId.createdBy || "System",
+                            createdAt: admissionObj.studentId.createdAt || admissionObj.createdAt
+                        };
+                    }
                 }
 
                 // 2. Counselled By Details

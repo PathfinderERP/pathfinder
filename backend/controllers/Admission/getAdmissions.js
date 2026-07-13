@@ -157,11 +157,19 @@ export const getAdmissions = async (req, res) => {
             return admission;
         });
 
-        // Manually resolve counselledBy if it's an ObjectID for students
+        // Manually resolve counselledBy & leadBy if they are ObjectIDs for students
         const mongoose = (await import("mongoose")).default;
-        const userIds = populatedAdmissions
-            .map(a => a.student && a.student.counselledBy)
-            .filter(id => id && mongoose.Types.ObjectId.isValid(id));
+        const userIds = [];
+        populatedAdmissions.forEach(a => {
+            if (a.student) {
+                if (a.student.counselledBy && mongoose.Types.ObjectId.isValid(a.student.counselledBy)) {
+                    userIds.push(a.student.counselledBy);
+                }
+                if (a.student.leadBy && mongoose.Types.ObjectId.isValid(a.student.leadBy)) {
+                    userIds.push(a.student.leadBy);
+                }
+            }
+        });
 
         const uniqueUserIds = [...new Set(userIds)];
         
@@ -234,6 +242,11 @@ export const getAdmissions = async (req, res) => {
                 admission.student.counselledBy = userMap[idLower] || admission.student.counselledBy;
             }
 
+            if (admission.student && admission.student.leadBy && mongoose.Types.ObjectId.isValid(admission.student.leadBy)) {
+                const idLower = admission.student.leadBy.toString().toLowerCase();
+                admission.student.leadBy = userMap[idLower] || admission.student.leadBy;
+            }
+
             let leadBy = { name: "System", createdAt: admission.createdAt || new Date() };
             let counselledByDetails = {
                 name: (admission.student && admission.student.counselledBy) || "N/A",
@@ -241,29 +254,36 @@ export const getAdmissions = async (req, res) => {
             };
 
             if (admission.student) {
-                // 1. Find matching lead
-                let matchedLead = null;
-                if (admission.student.studentsDetails && admission.student.studentsDetails[0]) {
-                    const det = admission.student.studentsDetails[0];
-                    if (det.mobileNum && leadMap[det.mobileNum.toString().trim()]) {
-                        matchedLead = leadMap[det.mobileNum.toString().trim()];
-                    } else if (det.whatsappNumber && leadMap[det.whatsappNumber.toString().trim()]) {
-                        matchedLead = leadMap[det.whatsappNumber.toString().trim()];
-                    } else if (det.studentEmail && leadMap[det.studentEmail.toString().trim().toLowerCase()]) {
-                        matchedLead = leadMap[det.studentEmail.toString().trim().toLowerCase()];
-                    }
-                }
-
-                if (matchedLead) {
+                if (admission.student.leadBy) {
                     leadBy = {
-                        name: matchedLead.createdBy?.name || "System",
-                        createdAt: matchedLead.createdAt || matchedLead.updatedAt || admission.student.createdAt
-                    };
-                } else {
-                    leadBy = {
-                        name: admission.student.createdBy || "System",
+                        name: admission.student.leadBy,
                         createdAt: admission.student.createdAt || admission.createdAt
                     };
+                } else {
+                    // 1. Find matching lead
+                    let matchedLead = null;
+                    if (admission.student.studentsDetails && admission.student.studentsDetails[0]) {
+                        const det = admission.student.studentsDetails[0];
+                        if (det.mobileNum && leadMap[det.mobileNum.toString().trim()]) {
+                            matchedLead = leadMap[det.mobileNum.toString().trim()];
+                        } else if (det.whatsappNumber && leadMap[det.whatsappNumber.toString().trim()]) {
+                            matchedLead = leadMap[det.whatsappNumber.toString().trim()];
+                        } else if (det.studentEmail && leadMap[det.studentEmail.toString().trim().toLowerCase()]) {
+                            matchedLead = leadMap[det.studentEmail.toString().trim().toLowerCase()];
+                        }
+                    }
+
+                    if (matchedLead) {
+                        leadBy = {
+                            name: matchedLead.createdBy?.name || "System",
+                            createdAt: matchedLead.createdAt || matchedLead.updatedAt || admission.student.createdAt
+                        };
+                    } else {
+                        leadBy = {
+                            name: admission.student.createdBy || "System",
+                            createdAt: admission.student.createdAt || admission.createdAt
+                        };
+                    }
                 }
 
                 // 2. Counselled By Details
@@ -349,6 +369,49 @@ export const getActiveEmployees = async (req, res) => {
         res.status(200).json(activeEmployees);
     } catch (err) {
         console.error("getActiveEmployees error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+export const getCentreUsers = async (req, res) => {
+    try {
+        const { centreName } = req.query;
+        if (!centreName) {
+            return res.status(400).json({ message: "Centre name is required" });
+        }
+
+        const CentreSchema = (await import("../../models/Master_data/Centre.js")).default;
+        const Employee = (await import("../../models/HR/Employee.js")).default;
+        const User = (await import("../../models/User.js")).default;
+
+        // Find centre by name (case-insensitive)
+        const centre = await CentreSchema.findOne({
+            centreName: { $regex: new RegExp(`^${centreName.trim()}$`, "i") }
+        }).lean();
+
+        if (!centre) {
+            return res.status(200).json([]);
+        }
+
+        // Query active users whose primaryCentre matches
+        const employees = await Employee.find({
+            primaryCentre: centre._id
+        }).select("user").lean();
+
+        const userIds = employees.map(emp => emp.user).filter(Boolean);
+
+        const users = await User.find({
+            isActive: true,
+            role: { $ne: "teacher" },
+            _id: { $in: userIds }
+        })
+        .select("name")
+        .sort({ name: 1 })
+        .lean();
+
+        res.status(200).json(users);
+    } catch (err) {
+        console.error("getCentreUsers error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

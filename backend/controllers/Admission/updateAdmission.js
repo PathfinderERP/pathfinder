@@ -100,6 +100,7 @@ export const updateAdmission = async (req, res) => {
             const boardUpdates = { centre: updates.centre };
             if (updates.academicSession) boardUpdates.academicSession = updates.academicSession;
             if (updates.examTag) boardUpdates.examTag = updates.examTag;
+            if (updates.createdBy) boardUpdates.createdBy = updates.createdBy;
             
             if (updates.class) {
                 const classDoc = await Class.findById(updates.class);

@@ -1279,7 +1279,7 @@ const BoardAdmissionsContent = () => {
                                     </>
                                 )}
                                 {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Admitted By</th>}
-                                <th className="p-4 text-right">Actions</th>
+                                <th className="p-4 text-right min-w-[200px]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
@@ -1478,7 +1478,7 @@ const BoardAdmissionsContent = () => {
                                                             </button>
                                                         </>
                                                     ) : (
-                                                        <div className="flex gap-2">
+                                                        <>
                                                             <button
                                                                 onClick={() => handleViewStudent(item.studentId)}
                                                                 title="View Details"
@@ -1513,7 +1513,7 @@ const BoardAdmissionsContent = () => {
                                                                      {item.studentId?.status === 'Deactivated' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
                                                                  </button>
                                                              )}
-                                                        </div>
+                                                        </>
                                                     )}
                                                 </div>
                                             </td>

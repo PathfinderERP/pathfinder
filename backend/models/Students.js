@@ -71,6 +71,7 @@ const StudentSchema = new mongoose.Schema({
   carryForwardBalance: { type: Number, default: 0 },
   markedForCarryForward: { type: Boolean, default: false },
   counselledBy: { type: String },
+  leadBy: { type: String },
   allocatedItems: [{
     itemName: String,
     quantity: { type: Number, default: 1 },

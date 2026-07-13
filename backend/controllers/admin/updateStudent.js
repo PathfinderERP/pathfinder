@@ -1,4 +1,5 @@
 import Student from "../../models/Students.js";
+import mongoose from "mongoose";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Boards from "../../models/Master_data/Boards.js";
 import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
@@ -38,6 +39,19 @@ export const updateStudent = async (req, res) => {
 
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
+        }
+
+        // If counselledBy is updated and contains a valid ObjectId, sync it to BoardCourseCounselling
+        if (cleanedData.counselledBy && mongoose.Types.ObjectId.isValid(cleanedData.counselledBy)) {
+            try {
+                const BoardCourseCounselling = (await import("../../models/Admission/BoardCourseCounselling.js")).default;
+                await BoardCourseCounselling.findOneAndUpdate(
+                    { studentId: studentId },
+                    { counselledBy: cleanedData.counselledBy }
+                );
+            } catch (counsErr) {
+                console.error("Error syncing BoardCourseCounselling in updateStudent:", counsErr);
+            }
         }
 
         // Synchronize changes to BoardCourseAdmission documents

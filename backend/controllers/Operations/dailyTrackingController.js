@@ -27,6 +27,374 @@ const checkRestrictIndividual = (role) => {
     return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'admin', 'centreincharge', 'centerincharge', 'assistantcenterincharge'].includes(r);
 };
 
+const parseDateRangeIST = (fromDateStr, toDateStr) => {
+    const now = new Date();
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const istNow = new Date(utcTime + (3600000 * 5.5));
+
+    let start = new Date(istNow);
+    let end = new Date(istNow);
+
+    if (fromDateStr && toDateStr) {
+        const [fY, fM, fD] = fromDateStr.split('-').map(Number);
+        const [tY, tM, tD] = toDateStr.split('-').map(Number);
+        
+        start = new Date(Date.UTC(fY, fM - 1, fD, 0, 0, 0, 0) - (5.5 * 3600 * 1000));
+        end = new Date(Date.UTC(tY, tM - 1, tD, 23, 59, 59, 999) - (5.5 * 3600 * 1000));
+    } else {
+        const y = istNow.getFullYear();
+        const m = istNow.getMonth();
+        const d = istNow.getDate();
+        start = new Date(Date.UTC(y, m, d, 0, 0, 0, 0) - (5.5 * 3600 * 1000));
+        end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - (5.5 * 3600 * 1000));
+    }
+    return { start, end };
+};
+
+const buildCallsReportData = async (dateFilter, startDate, endDate, centres, actualCenterIds, isRestrictIndividual, reqUser) => {
+    // 1. Fetch aggregated calls
+    const matchStage = {
+        centre: { $in: actualCenterIds }
+    };
+
+    const followUpMatchStage = {
+        "followUps.date": dateFilter
+    };
+
+    if (isRestrictIndividual && reqUser) {
+        followUpMatchStage["followUps.updatedBy"] = reqUser.name;
+    }
+
+    const aggregatedCalls = await LeadManagement.aggregate([
+        { $match: matchStage },
+        { $unwind: "$followUps" },
+        { $match: followUpMatchStage },
+        {
+            $addFields: {
+                "followUps.updatedByLower": { $toLower: "$followUps.updatedBy" }
+            }
+        },
+        { $group: {
+            _id: {
+                centre: "$centre",
+                userName: "$followUps.updatedByLower"
+            },
+            originalUserName: { $first: "$followUps.updatedBy" },
+            totalCalls: { $sum: 1 },
+            hot: {
+                $sum: {
+                    $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /hot/i } }, 1, 0]
+                }
+            },
+            warm: {
+                $sum: {
+                    $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /warm/i } }, 1, 0]
+                }
+            },
+            cold: {
+                $sum: {
+                    $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /cold/i } }, 1, 0]
+                }
+            },
+            neutral: {
+                $sum: {
+                    $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /neutral/i } }, 1, 0]
+                }
+            },
+            invalid: {
+                $sum: {
+                    $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /invalid|inactive/i } }, 1, 0]
+                }
+            }
+        } }
+    ]);
+
+    // 2. Fetch active users of the selected centres
+    const activeUsers = await User.find({
+        isActive: true,
+        centres: { $in: actualCenterIds },
+        role: { $ne: 'teacher' }
+    }).select('name role employeeId centres').lean();
+
+    // 3. Gather other usernames that had activity
+    const allUserNames = new Set(activeUsers.map(u => u.name.toLowerCase().trim()));
+    
+    // Fetch walk-ins and admissions in the date filter
+    const walkInMap = {};
+    const walkIns = await LeadManagement.find({
+        isWalkIn: true,
+        walkInDate: dateFilter,
+        walkInBy: { $exists: true, $ne: null }
+    }).select('walkInBy centre').lean();
+
+    walkIns.forEach(wi => {
+        const uId = wi.walkInBy.toString();
+        const cId = wi.centre?.toString();
+        if (uId && cId) {
+            const key = `${uId}_${cId}`;
+            walkInMap[key] = (walkInMap[key] || 0) + 1;
+        }
+    });
+
+    const centreNameToIdMap = {};
+    const centreMap = {};
+    centres.forEach(c => {
+        centreMap[c._id.toString()] = c.centreName;
+        centreNameToIdMap[c.centreName.toLowerCase()] = c._id.toString();
+    });
+
+    const admissionMap = {};
+    const [admissions, boardAdmissions] = await Promise.all([
+        Admission.find({
+            createdAt: dateFilter,
+            createdBy: { $exists: true, $ne: null }
+        }).select('createdBy centre').lean(),
+        BoardCourseAdmission.find({
+            createdAt: dateFilter,
+            createdBy: { $exists: true, $ne: null }
+        }).select('createdBy centre').lean()
+    ]);
+
+    const addAdmissionToMap = (adm) => {
+        const uId = adm.createdBy.toString();
+        const cName = adm.centre;
+        if (uId && cName) {
+            const cId = centreNameToIdMap[cName.toLowerCase()];
+            if (cId) {
+                const key = `${uId}_${cId}`;
+                admissionMap[key] = (admissionMap[key] || 0) + 1;
+            }
+        }
+    };
+
+    admissions.forEach(addAdmissionToMap);
+    boardAdmissions.forEach(addAdmissionToMap);
+
+    // Fetch follow ups scheduled for the specific date range
+    const todaysFollowUps = await LeadManagement.aggregate([
+        {
+            $match: {
+                centre: { $in: actualCenterIds },
+                nextFollowUpDate: dateFilter,
+                leadResponsibility: { $exists: true, $ne: null }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    centre: "$centre",
+                    userName: { $toLower: "$leadResponsibility" }
+                },
+                count: { $sum: 1 }
+            }
+        }
+    ]);
+
+    // Fetch backlog follow ups (nextFollowUpDate < startDate)
+    const previousFollowUps = await LeadManagement.aggregate([
+        {
+            $match: {
+                centre: { $in: actualCenterIds },
+                nextFollowUpDate: { $lt: startDate },
+                leadResponsibility: { $exists: true, $ne: null }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    centre: "$centre",
+                    userName: { $toLower: "$leadResponsibility" }
+                },
+                count: { $sum: 1 }
+            }
+        }
+    ]);
+
+    const todaysFollowUpMap = {};
+    todaysFollowUps.forEach(item => {
+        if (item._id && item._id.userName && item._id.centre) {
+            const key = `${item._id.userName.trim()}_${item._id.centre.toString()}`;
+            todaysFollowUpMap[key] = item.count;
+        }
+    });
+
+    const previousFollowUpMap = {};
+    previousFollowUps.forEach(item => {
+        if (item._id && item._id.userName && item._id.centre) {
+            const key = `${item._id.userName.trim()}_${item._id.centre.toString()}`;
+            previousFollowUpMap[key] = item.count;
+        }
+    });
+
+    // Populate userNames from other activities
+    aggregatedCalls.forEach(item => {
+        if (item.originalUserName) allUserNames.add(item.originalUserName.toLowerCase().trim());
+    });
+    todaysFollowUps.forEach(item => {
+        if (item._id && item._id.userName) allUserNames.add(item._id.userName.toLowerCase().trim());
+    });
+    previousFollowUps.forEach(item => {
+        if (item._id && item._id.userName) allUserNames.add(item._id.userName.toLowerCase().trim());
+    });
+
+    // Find any other users who had activity but aren't in activeUsers list
+    const escapeRegex = (string) => {
+        return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    };
+    const extraUserNames = Array.from(allUserNames).filter(name => !activeUsers.some(u => u.name.toLowerCase().trim() === name));
+    if (extraUserNames.length > 0) {
+        const extraUsers = await User.find({
+            name: { $in: extraUserNames.map(n => new RegExp(`^${escapeRegex(n)}$`, 'i')) }
+        }).select('name role employeeId centres').lean();
+        extraUsers.forEach(u => {
+            activeUsers.push(u);
+        });
+    }
+
+    // Map all users by lowercase name
+    const userMap = {};
+    activeUsers.forEach(u => {
+        userMap[u.name.toLowerCase().trim()] = { id: u._id, role: u.role, employeeId: u.employeeId, name: u.name, centres: u.centres };
+    });
+
+    const rowsMap = new Map();
+
+    const addRowKey = (uName, cId, uId, uRole, uEmpId) => {
+        if (!uName || !cId) return;
+        const uNameLower = uName.toLowerCase().trim();
+        const key = `${uNameLower}_${cId.toString()}`;
+        if (!rowsMap.has(key)) {
+            rowsMap.set(key, {
+                userNameLower: uNameLower,
+                userName: uName,
+                centreId: cId.toString(),
+                userId: uId || null,
+                role: uRole || "N/A",
+                employeeId: uEmpId || "N/A"
+            });
+        } else if (uId) {
+            const existing = rowsMap.get(key);
+            if (!existing.userId) {
+                existing.userId = uId;
+                existing.role = uRole || existing.role;
+                existing.employeeId = uEmpId || existing.employeeId;
+            }
+        }
+    };
+
+    // Initialize rows for all active users under their assigned centres
+    activeUsers.forEach(u => {
+        (u.centres || []).forEach(c => {
+            const cIdStr = c.toString();
+            if (centreMap[cIdStr]) {
+                addRowKey(u.name, cIdStr, u._id, u.role, u.employeeId);
+            }
+        });
+    });
+
+    // Add rows from aggregated calls
+    aggregatedCalls.forEach(item => {
+        const cId = item._id.centre?.toString();
+        const uNameLower = (item._id.userName || "").trim();
+        const uDetails = userMap[uNameLower] || {};
+        const originalName = item.originalUserName || uDetails.name || uNameLower;
+        addRowKey(originalName, cId, uDetails.id, uDetails.role, uDetails.employeeId);
+    });
+
+    // Add rows from todays follow ups
+    todaysFollowUps.forEach(item => {
+        if (item._id && item._id.userName && item._id.centre) {
+            const cId = item._id.centre.toString();
+            const uNameLower = item._id.userName.trim();
+            const uDetails = userMap[uNameLower] || {};
+            const originalName = uDetails.name || uNameLower;
+            addRowKey(originalName, cId, uDetails.id, uDetails.role, uDetails.employeeId);
+        }
+    });
+
+    // Add rows from previous follow ups
+    previousFollowUps.forEach(item => {
+        if (item._id && item._id.userName && item._id.centre) {
+            const cId = item._id.centre.toString();
+            const uNameLower = item._id.userName.trim();
+            const uDetails = userMap[uNameLower] || {};
+            const originalName = uDetails.name || uNameLower;
+            addRowKey(originalName, cId, uDetails.id, uDetails.role, uDetails.employeeId);
+        }
+    });
+
+    // Add rows from walk-ins
+    walkIns.forEach(wi => {
+        const uId = wi.walkInBy.toString();
+        const cId = wi.centre?.toString();
+        if (uId && cId) {
+            const uDetails = activeUsers.find(u => u._id.toString() === uId) || {};
+            if (uDetails.name) {
+                addRowKey(uDetails.name, cId, uDetails._id, uDetails.role, uDetails.employeeId);
+            }
+        }
+    });
+
+    // Add rows from admissions
+    const addAdmRow = (adm) => {
+        const uId = adm.createdBy.toString();
+        const cName = adm.centre;
+        if (uId && cName) {
+            const cId = centreNameToIdMap[cName.toLowerCase()];
+            if (cId) {
+                const uDetails = activeUsers.find(u => u._id.toString() === uId) || {};
+                if (uDetails.name) {
+                    addRowKey(uDetails.name, cId, uDetails._id, uDetails.role, uDetails.employeeId);
+                }
+            }
+        }
+    };
+    admissions.forEach(addAdmRow);
+    boardAdmissions.forEach(addAdmRow);
+
+    const reportData = Array.from(rowsMap.values()).map(row => {
+        const cId = row.centreId;
+        const cName = centreMap[cId] || "Unknown Centre";
+        const uNameLower = row.userNameLower;
+        const uName = row.userName;
+        const uDetails = userMap[uNameLower] || {};
+
+        const isMatchLoggedInUser = reqUser && uNameLower === reqUser.name.toLowerCase().trim();
+        const finalUserId = isMatchLoggedInUser ? reqUser._id : (row.userId || uDetails.id || null);
+        const finalRole = isMatchLoggedInUser ? reqUser.role : (row.role || uDetails.role || "N/A");
+        const finalEmployeeId = isMatchLoggedInUser ? reqUser.employeeId : (row.employeeId || uDetails.employeeId || "N/A");
+
+        const aggCall = aggregatedCalls.find(ac => ac._id.centre?.toString() === cId && ac._id.userName === uNameLower) || {};
+        
+        const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
+        const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;
+        const admissionCount = lookupKey ? (admissionMap[lookupKey] || 0) : 0;
+        const todaysFollowUpCount = todaysFollowUpMap[`${uNameLower}_${cId}`] || 0;
+        const previousFollowUpCount = previousFollowUpMap[`${uNameLower}_${cId}`] || 0;
+
+        return {
+            centreId: cId,
+            centreName: cName,
+            userId: finalUserId,
+            userName: uName,
+            role: finalRole,
+            employeeId: finalEmployeeId,
+            totalCalls: aggCall.totalCalls || 0,
+            hot: aggCall.hot || 0,
+            warm: aggCall.warm || 0,
+            cold: aggCall.cold || 0,
+            neutral: aggCall.neutral || 0,
+            invalid: aggCall.invalid || 0,
+            todaysFollowUp: todaysFollowUpCount,
+            previousFollowUp: previousFollowUpCount,
+            walkInCount,
+            admissionCount
+        };
+    });
+
+    return reportData;
+};
+
 export const getDailyTracking = async (req, res) => {
     try {
         const { date, startDate, endDate, leadType, agentIds } = req.query;
@@ -490,20 +858,16 @@ export const getDailyCenterDetails = async (req, res) => {
         const { centerId } = req.params;
         const { date, fromDate, toDate } = req.query;
         
-        let startDate = new Date();
-        let endDate = new Date();
-
+        let startDate, endDate;
         if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        } else if (date) {
-            startDate = new Date(date);
-            endDate = new Date(date);
+            const parsed = parseDateRangeIST(fromDate, toDate);
+            startDate = parsed.start;
+            endDate = parsed.end;
+        } else {
+            const parsed = parseDateRangeIST(date, date);
+            startDate = parsed.start;
+            endDate = parsed.end;
         }
-
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-        
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         // 1. Fetch center info
@@ -778,20 +1142,16 @@ export const getDailyUserActivity = async (req, res) => {
             }
         }
         
-        let startDate = new Date();
-        let endDate = new Date();
-
+        let startDate, endDate;
         if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        } else if (date) {
-            startDate = new Date(date);
-            endDate = new Date(date);
+            const parsed = parseDateRangeIST(fromDate, toDate);
+            startDate = parsed.start;
+            endDate = parsed.end;
+        } else {
+            const parsed = parseDateRangeIST(date, date);
+            startDate = parsed.start;
+            endDate = parsed.end;
         }
-
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-        
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         // 1. Fetch User Info
@@ -1298,15 +1658,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
         const { centerId } = req.params;
         const { fromDate, toDate, role } = req.query;
         
-        let startDate = new Date();
-        let endDate = new Date();
-
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         const center = await CentreSchema.findById(centerId).lean();
@@ -2285,14 +2637,7 @@ export const getDailyTrackingDetails = async (req, res) => {
 export const getDailyCallsReport = async (req, res) => {
     try {
         const { fromDate, toDate, centerIds } = req.query;
-        let startDate = new Date();
-        let endDate = new Date();
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         const isRestrictCentres = checkRestrictCentres(req.user?.role);
@@ -2318,222 +2663,16 @@ export const getDailyCallsReport = async (req, res) => {
         }
 
         const actualCenterIds = centres.map(c => c._id);
-        const centreMap = {};
-        centres.forEach(c => {
-            centreMap[c._id.toString()] = c.centreName;
-        });
 
-        const matchStage = {
-            centre: { $in: actualCenterIds }
-        };
-
-        const followUpMatchStage = {
-            "followUps.date": dateFilter
-        };
-
-        if (isRestrictIndividual) {
-            followUpMatchStage["followUps.updatedBy"] = req.user.name;
-        }
-
-        const aggregatedCalls = await LeadManagement.aggregate([
-            { $match: matchStage },
-            { $unwind: "$followUps" },
-            { $match: followUpMatchStage },
-            {
-                $addFields: {
-                    "followUps.updatedByLower": { $toLower: "$followUps.updatedBy" }
-                }
-            },
-            { $group: {
-                _id: {
-                    centre: "$centre",
-                    userName: "$followUps.updatedByLower"
-                },
-                originalUserName: { $first: "$followUps.updatedBy" },
-                totalCalls: { $sum: 1 },
-                hot: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /hot/i } }, 1, 0]
-                    }
-                },
-                warm: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /warm/i } }, 1, 0]
-                    }
-                },
-                cold: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /cold/i } }, 1, 0]
-                    }
-                },
-                neutral: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /neutral/i } }, 1, 0]
-                    }
-                },
-                invalid: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /invalid|inactive/i } }, 1, 0]
-                    }
-                }
-            } }
-        ]);
-
-        // _id.userName is lowercase key; originalUserName is the first-seen raw-case name
-        const userNames = aggregatedCalls.map(item => item.originalUserName).filter(Boolean);
-        const users = await User.find({ name: { $in: userNames } }).select('name role employeeId isActive').lean();
-        
-        // Sort users so that active users come last, meaning they overwrite inactive ones in the map.
-        users.sort((a, b) => (a.isActive === b.isActive) ? 0 : a.isActive ? 1 : -1);
-
-        const userMap = {};
-        users.forEach(u => {
-            userMap[u.name.toLowerCase()] = { id: u._id, role: u.role, employeeId: u.employeeId };
-        });
-
-        // Fetch walk-ins and admissions in the date filter
-        const walkInMap = {};
-        const walkIns = await LeadManagement.find({
-            isWalkIn: true,
-            walkInDate: dateFilter,
-            walkInBy: { $exists: true, $ne: null }
-        }).select('walkInBy centre').lean();
-
-        walkIns.forEach(wi => {
-            const uId = wi.walkInBy.toString();
-            const cId = wi.centre?.toString();
-            if (uId && cId) {
-                const key = `${uId}_${cId}`;
-                walkInMap[key] = (walkInMap[key] || 0) + 1;
-            }
-        });
-
-        const centreNameToIdMap = {};
-        centres.forEach(c => {
-            centreNameToIdMap[c.centreName.toLowerCase()] = c._id.toString();
-        });
-
-        const admissionMap = {};
-        const [admissions, boardAdmissions] = await Promise.all([
-            Admission.find({
-                createdAt: dateFilter,
-                createdBy: { $exists: true, $ne: null }
-            }).select('createdBy centre').lean(),
-            BoardCourseAdmission.find({
-                createdAt: dateFilter,
-                createdBy: { $exists: true, $ne: null }
-            }).select('createdBy centre').lean()
-        ]);
-
-        const addAdmissionToMap = (adm) => {
-            const uId = adm.createdBy.toString();
-            const cName = adm.centre;
-            if (uId && cName) {
-                const cId = centreNameToIdMap[cName.toLowerCase()];
-                if (cId) {
-                    const key = `${uId}_${cId}`;
-                    admissionMap[key] = (admissionMap[key] || 0) + 1;
-                }
-            }
-        };
-
-        admissions.forEach(addAdmissionToMap);
-        boardAdmissions.forEach(addAdmissionToMap);
-
-        // Fetch follow ups scheduled for the specific date range
-        const todaysFollowUps = await LeadManagement.aggregate([
-            {
-                $match: {
-                    centre: { $in: actualCenterIds },
-                    nextFollowUpDate: dateFilter,
-                    leadResponsibility: { $exists: true, $ne: null }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        centre: "$centre",
-                        userName: { $toLower: "$leadResponsibility" }
-                    },
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        // Fetch backlog follow ups (nextFollowUpDate < startDate)
-        const previousFollowUps = await LeadManagement.aggregate([
-            {
-                $match: {
-                    centre: { $in: actualCenterIds },
-                    nextFollowUpDate: { $lt: startDate },
-                    leadResponsibility: { $exists: true, $ne: null }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        centre: "$centre",
-                        userName: { $toLower: "$leadResponsibility" }
-                    },
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        const todaysFollowUpMap = {};
-        todaysFollowUps.forEach(item => {
-            if (item._id && item._id.userName && item._id.centre) {
-                const key = `${item._id.userName}_${item._id.centre.toString()}`;
-                todaysFollowUpMap[key] = item.count;
-            }
-        });
-
-        const previousFollowUpMap = {};
-        previousFollowUps.forEach(item => {
-            if (item._id && item._id.userName && item._id.centre) {
-                const key = `${item._id.userName}_${item._id.centre.toString()}`;
-                previousFollowUpMap[key] = item.count;
-            }
-        });
-
-        const reportData = aggregatedCalls.map(item => {
-            const cId = item._id.centre?.toString();
-            const cName = centreMap[cId] || "Unknown Centre";
-            // Use lowercase key for userMap lookup; display name from originalUserName
-            const uNameLower = item._id.userName || "";
-            const uName = item.originalUserName || uNameLower || "System";
-            const uDetails = userMap[uNameLower] || {};
-
-            const isMatchLoggedInUser = req.user && uNameLower === req.user.name.toLowerCase();
-            const finalUserId = isMatchLoggedInUser ? req.user._id : (uDetails.id || null);
-            const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || "N/A");
-            const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || "N/A");
-
-            const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
-            const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;
-            const admissionCount = lookupKey ? (admissionMap[lookupKey] || 0) : 0;
-            const todaysFollowUpCount = todaysFollowUpMap[`${uNameLower}_${cId}`] || 0;
-            const previousFollowUpCount = previousFollowUpMap[`${uNameLower}_${cId}`] || 0;
-
-            return {
-                centreId: cId,
-                centreName: cName,
-                userId: finalUserId,
-                userName: uName,
-                role: finalRole,
-                employeeId: finalEmployeeId,
-                totalCalls: item.totalCalls,
-                hot: item.hot,
-                warm: item.warm,
-                cold: item.cold,
-                neutral: item.neutral,
-                invalid: item.invalid,
-                todaysFollowUp: todaysFollowUpCount,
-                previousFollowUp: previousFollowUpCount,
-                walkInCount,
-                admissionCount
-            };
-        });
+        const reportData = await buildCallsReportData(
+            dateFilter,
+            startDate,
+            endDate,
+            centres,
+            actualCenterIds,
+            isRestrictIndividual,
+            req.user
+        );
 
         reportData.sort((a, b) => {
             if (a.centreName.localeCompare(b.centreName) !== 0) {
@@ -2552,14 +2691,7 @@ export const getDailyCallsReport = async (req, res) => {
 export const exportDailyCallsReportSummaryExcel = async (req, res) => {
     try {
         const { fromDate, toDate, centerIds } = req.query;
-        let startDate = new Date();
-        let endDate = new Date();
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         const isRestrictCentres = checkRestrictCentres(req.user?.role);
@@ -2585,215 +2717,31 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
         }
 
         const actualCenterIds = centres.map(c => c._id);
-        const centreMap = {};
-        centres.forEach(c => {
-            centreMap[c._id.toString()] = c.centreName;
-        });
+        const reportData = await buildCallsReportData(
+            dateFilter,
+            startDate,
+            endDate,
+            centres,
+            actualCenterIds,
+            isRestrictIndividual,
+            req.user
+        );
 
-        const matchStage = {
-            centre: { $in: actualCenterIds }
-        };
-
-        const followUpMatchStage = {
-            "followUps.date": dateFilter
-        };
-
-        if (isRestrictIndividual) {
-            followUpMatchStage["followUps.updatedBy"] = req.user.name;
-        }
-
-        const aggregatedCalls = await LeadManagement.aggregate([
-            { $match: matchStage },
-            { $unwind: "$followUps" },
-            { $match: followUpMatchStage },
-            {
-                $addFields: {
-                    "followUps.updatedByLower": { $toLower: "$followUps.updatedBy" }
-                }
-            },
-            { $group: {
-                _id: {
-                    centre: "$centre",
-                    userName: "$followUps.updatedByLower"
-                },
-                originalUserName: { $first: "$followUps.updatedBy" },
-                totalCalls: { $sum: 1 },
-                hot: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /hot/i } }, 1, 0]
-                    }
-                },
-                warm: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /warm/i } }, 1, 0]
-                    }
-                },
-                cold: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /cold/i } }, 1, 0]
-                    }
-                },
-                neutral: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /neutral/i } }, 1, 0]
-                    }
-                },
-                invalid: {
-                    $sum: {
-                        $cond: [{ $regexMatch: { input: { $ifNull: ["$followUps.status", "$leadType"] }, regex: /invalid|inactive/i } }, 1, 0]
-                    }
-                }
-            } }
-        ]);
-
-        const userNames = aggregatedCalls.map(item => item.originalUserName).filter(Boolean);
-        const users = await User.find({ name: { $in: userNames } }).select('name role employeeId isActive').lean();
-        
-        // Sort users so that active users come last, meaning they overwrite inactive ones in the map.
-        users.sort((a, b) => (a.isActive === b.isActive) ? 0 : a.isActive ? 1 : -1);
-
-        const userMap = {};
-        users.forEach(u => {
-            userMap[u.name.toLowerCase()] = { id: u._id, role: u.role, employeeId: u.employeeId };
-        });
-
-        // Fetch walk-ins and admissions in the date filter
-        const walkInMap = {};
-        const walkIns = await LeadManagement.find({
-            isWalkIn: true,
-            walkInDate: dateFilter,
-            walkInBy: { $exists: true, $ne: null }
-        }).select('walkInBy centre').lean();
-
-        walkIns.forEach(wi => {
-            const uId = wi.walkInBy.toString();
-            const cId = wi.centre?.toString();
-            if (uId && cId) {
-                const key = `${uId}_${cId}`;
-                walkInMap[key] = (walkInMap[key] || 0) + 1;
-            }
-        });
-
-        const centreNameToIdMap = {};
-        centres.forEach(c => {
-            centreNameToIdMap[c.centreName.toLowerCase()] = c._id.toString();
-        });
-
-        const admissionMap = {};
-        const [admissions, boardAdmissions] = await Promise.all([
-            Admission.find({
-                createdAt: dateFilter,
-                createdBy: { $exists: true, $ne: null }
-            }).select('createdBy centre').lean(),
-            BoardCourseAdmission.find({
-                createdAt: dateFilter,
-                createdBy: { $exists: true, $ne: null }
-            }).select('createdBy centre').lean()
-        ]);
-
-        const addAdmissionToMap = (adm) => {
-            const uId = adm.createdBy.toString();
-            const cName = adm.centre;
-            if (uId && cName) {
-                const cId = centreNameToIdMap[cName.toLowerCase()];
-                if (cId) {
-                    const key = `${uId}_${cId}`;
-                    admissionMap[key] = (admissionMap[key] || 0) + 1;
-                }
-            }
-        };
-
-        admissions.forEach(addAdmissionToMap);
-        boardAdmissions.forEach(addAdmissionToMap);
-
-        // Fetch follow ups scheduled for the specific date range
-        const todaysFollowUps = await LeadManagement.aggregate([
-            {
-                $match: {
-                    centre: { $in: actualCenterIds },
-                    nextFollowUpDate: dateFilter,
-                    leadResponsibility: { $exists: true, $ne: null }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        centre: "$centre",
-                        userName: { $toLower: "$leadResponsibility" }
-                    },
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        // Fetch backlog follow ups (nextFollowUpDate < startDate)
-        const previousFollowUps = await LeadManagement.aggregate([
-            {
-                $match: {
-                    centre: { $in: actualCenterIds },
-                    nextFollowUpDate: { $lt: startDate },
-                    leadResponsibility: { $exists: true, $ne: null }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        centre: "$centre",
-                        userName: { $toLower: "$leadResponsibility" }
-                    },
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        const todaysFollowUpMap = {};
-        todaysFollowUps.forEach(item => {
-            if (item._id && item._id.userName && item._id.centre) {
-                const key = `${item._id.userName}_${item._id.centre.toString()}`;
-                todaysFollowUpMap[key] = item.count;
-            }
-        });
-
-        const previousFollowUpMap = {};
-        previousFollowUps.forEach(item => {
-            if (item._id && item._id.userName && item._id.centre) {
-                const key = `${item._id.userName}_${item._id.centre.toString()}`;
-                previousFollowUpMap[key] = item.count;
-            }
-        });
-
-        const sheetData = aggregatedCalls.map(item => {
-            const cId = item._id.centre?.toString();
-            const cName = centreMap[cId] || "Unknown Centre";
-            const uNameLower = item._id.userName || "";
-            const uName = item.originalUserName || uNameLower || "System";
-            const uDetails = userMap[uNameLower] || {};
-
-            const isMatchLoggedInUser = req.user && uNameLower === req.user.name.toLowerCase();
-            const finalUserId = isMatchLoggedInUser ? req.user._id : (uDetails.id || null);
-            const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || "N/A");
-            const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || "N/A");
-
-            const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
-            const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;
-            const admissionCount = lookupKey ? (admissionMap[lookupKey] || 0) : 0;
-            const todaysFollowUpCount = todaysFollowUpMap[`${uNameLower}_${cId}`] || 0;
-            const previousFollowUpCount = previousFollowUpMap[`${uNameLower}_${cId}`] || 0;
-
+        const sheetData = reportData.map(item => {
             return {
-                "Centre": cName,
-                "Staff Name": uName,
-                "Employee ID": finalEmployeeId,
-                "Role": finalRole.toUpperCase(),
+                "Centre": item.centreName,
+                "Staff Name": item.userName,
+                "Employee ID": item.employeeId,
+                "Role": item.role.toUpperCase(),
                 "Hot Leads": item.hot,
                 "Warm Leads": item.warm,
                 "Cold Leads": item.cold,
                 "Neutral Leads": item.neutral,
                 "Inactive/Invalid Leads": item.invalid,
-                "Todays Follow Up": todaysFollowUpCount,
-                "Previous Follow Up": previousFollowUpCount,
-                "Walk Ins": walkInCount,
-                "Admissions": admissionCount,
+                "Todays Follow Up": item.todaysFollowUp,
+                "Previous Follow Up": item.previousFollowUp,
+                "Walk Ins": item.walkInCount,
+                "Admissions": item.admissionCount,
                 "Total Calls": item.totalCalls
             };
         });
@@ -2805,13 +2753,13 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
             return a["Staff Name"].localeCompare(b["Staff Name"]);
         });
 
-        const reportData = sheetData.map((row, idx) => ({
+        const reportDataWithSl = sheetData.map((row, idx) => ({
             "Sl No": idx + 1,
             ...row
         }));
 
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(reportData);
+        const ws = XLSX.utils.json_to_sheet(reportDataWithSl);
         XLSX.utils.book_append_sheet(wb, ws, "Calls Summary Report");
 
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -2828,14 +2776,7 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
 export const exportDailyCallsReportBulkExcel = async (req, res) => {
     try {
         const { fromDate, toDate, centerIds } = req.query;
-        let startDate = new Date();
-        let endDate = new Date();
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         const isRestrictCentres = checkRestrictCentres(req.user?.role);
@@ -2964,14 +2905,7 @@ export const getDailyUserWalkIns = async (req, res) => {
         const { userId } = req.params;
         const { fromDate, toDate, centerId } = req.query;
 
-        let startDate = new Date();
-        let endDate = new Date();
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         const query = {
@@ -3015,14 +2949,7 @@ export const getDailyUserAdmissions = async (req, res) => {
         const { userId } = req.params;
         const { fromDate, toDate, centerId } = req.query;
 
-        let startDate = new Date();
-        let endDate = new Date();
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         let center = null;
@@ -3103,14 +3030,7 @@ export const getDailyUserTodaysFollowUps = async (req, res) => {
         const { userId } = req.params;
         const { fromDate, toDate, centerId } = req.query;
 
-        let startDate = new Date();
-        let endDate = new Date();
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
         const dateFilter = { $gte: startDate, $lte: endDate };
 
         const user = await User.findById(userId).select('name').lean();
@@ -3158,14 +3078,7 @@ export const getDailyUserPreviousFollowUps = async (req, res) => {
         const { userId } = req.params;
         const { fromDate, toDate, centerId } = req.query;
 
-        let startDate = new Date();
-        let endDate = new Date();
-        if (fromDate && toDate) {
-            startDate = new Date(fromDate);
-            endDate = new Date(toDate);
-        }
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
 
         const user = await User.findById(userId).select('name').lean();
         if (!user) {

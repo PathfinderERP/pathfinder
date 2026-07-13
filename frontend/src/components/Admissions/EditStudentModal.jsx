@@ -33,10 +33,14 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
         qualification: student.guardians?.[0]?.qualification || '',
         course: student.course?._id || student.course || '',
         batches: student.batches ? student.batches.map(b => b._id || b) : [],
-        department: student.department?._id || student.department || ''
+        department: student.department?._id || student.department || '',
+        leadBy: student.leadBy?._id || student.leadBy || admission?.leadBy?._id || admission?.leadBy || '',
+        counselledBy: student.counselledByDetails?._id || student.counselledBy || '',
+        createdBy: admission?.createdBy?._id || admission?.createdBy || ''
     });
 
     const [availableBatches, setAvailableBatches] = useState([]);
+    const [centreUsers, setCentreUsers] = useState([]);
 
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
@@ -65,6 +69,53 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
         fetchDepartments();
         fetchBoards();
     }, []);
+
+    useEffect(() => {
+        if (formData.centre) {
+            fetchCentreUsers(formData.centre);
+        }
+    }, [formData.centre]);
+
+    useEffect(() => {
+        if (centreUsers.length > 0) {
+            setFormData(prev => {
+                const updates = {};
+                if (prev.leadBy && typeof prev.leadBy === 'string' && prev.leadBy.length > 0 && !prev.leadBy.match(/^[0-9a-fA-F]{24}$/)) {
+                    const match = centreUsers.find(u => u.name.toLowerCase() === prev.leadBy.toLowerCase());
+                    if (match) updates.leadBy = match._id;
+                }
+                if (prev.counselledBy && typeof prev.counselledBy === 'string' && prev.counselledBy.length > 0 && !prev.counselledBy.match(/^[0-9a-fA-F]{24}$/)) {
+                    const match = centreUsers.find(u => u.name.toLowerCase() === prev.counselledBy.toLowerCase());
+                    if (match) updates.counselledBy = match._id;
+                }
+                if (prev.createdBy && typeof prev.createdBy === 'string' && prev.createdBy.length > 0 && !prev.createdBy.match(/^[0-9a-fA-F]{24}$/)) {
+                    const match = centreUsers.find(u => u.name.toLowerCase() === prev.createdBy.toLowerCase());
+                    if (match) updates.createdBy = match._id;
+                }
+                if (Object.keys(updates).length > 0) {
+                    return { ...prev, ...updates };
+                }
+                return prev;
+            });
+        }
+    }, [centreUsers]);
+
+    const fetchCentreUsers = async (centreName) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/centre-users?centreName=${encodeURIComponent(centreName)}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setCentreUsers(data);
+            }
+        } catch (error) {
+            console.error('Error fetching centre users:', error);
+        }
+    };
 
     const fetchBoards = async () => {
         try {
@@ -238,6 +289,8 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
             // Construct the update payload matching the Student schema structure
             const updatePayload = {
                 uid: formData.uid || null,
+                leadBy: formData.leadBy || null,
+                counselledBy: formData.counselledBy || null,
                 studentsDetails: [{
                     studentName: formData.studentName || null,
                     studentEmail: formData.studentEmail || null,
@@ -298,8 +351,17 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                 toast.success('Student updated successfully!');
                 success = true;
 
-                if (admission?._id && formData.admissionNumber !== (admission.admissionNumber || '')) {
+                if (admission?._id) {
                     try {
+                        const admissionUpdates = {
+                            centre: formData.centre,
+                            academicSession: formData.session,
+                            createdBy: formData.createdBy || null
+                        };
+                        if (formData.admissionNumber !== (admission.admissionNumber || '')) {
+                            admissionUpdates.admissionNumber = formData.admissionNumber;
+                        }
+
                         const admissionResponse = await fetch(
                             `${apiUrl}/admission/${admission._id}`,
                             {
@@ -308,17 +370,15 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${token}`
                                 },
-                                body: JSON.stringify({
-                                    admissionNumber: formData.admissionNumber
-                                })
+                                body: JSON.stringify(admissionUpdates)
                             }
                         );
                         if (!admissionResponse.ok) {
                             const errData = await admissionResponse.json();
-                            toast.error(errData.message || 'Failed to update admission number');
+                            toast.error(errData.message || 'Failed to update admission system data');
                         }
                     } catch (admissionErr) {
-                        console.error('Error updating admission number:', admissionErr);
+                        console.error('Error updating admission system data:', admissionErr);
                     }
                 }
             } else {
@@ -671,6 +731,54 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                                     {[...sessions].sort((a, b) => (a.sessionName || a.name || "").localeCompare(b.sessionName || b.name || "")).map((session) => (
                                         <option key={session._id} value={session.sessionName || session.name}>
                                             {(session.sessionName || session.name)?.toUpperCase()}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>LEAD BY</label>
+                                <select
+                                    name="leadBy"
+                                    value={formData.leadBy}
+                                    onChange={handleChange}
+                                    className={inputClass}
+                                >
+                                    <option value="">SELECT LEAD OWNER</option>
+                                    {centreUsers.map((user) => (
+                                        <option key={user._id} value={user._id}>
+                                            {user.name.toUpperCase()}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>COUNSELLED BY</label>
+                                <select
+                                    name="counselledBy"
+                                    value={formData.counselledBy}
+                                    onChange={handleChange}
+                                    className={inputClass}
+                                >
+                                    <option value="">SELECT COUNSELLOR</option>
+                                    {centreUsers.map((user) => (
+                                        <option key={user._id} value={user._id}>
+                                            {user.name.toUpperCase()}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>ADMITTED BY</label>
+                                <select
+                                    name="createdBy"
+                                    value={formData.createdBy}
+                                    onChange={handleChange}
+                                    className={inputClass}
+                                >
+                                    <option value="">SELECT ADMISSION USER</option>
+                                    {centreUsers.map((user) => (
+                                        <option key={user._id} value={user._id}>
+                                            {user.name.toUpperCase()}
                                         </option>
                                     ))}
                                 </select>

@@ -95,18 +95,17 @@ async function getNextCentreCode(model) {
     return nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
 }
 
-centreSchema.pre('save', async function (next) {
+centreSchema.pre('save', async function () {
     if (!this.centreCode) {
         try {
             this.centreCode = await getNextCentreCode(this.constructor);
         } catch (err) {
-            return next(err);
+            throw err;
         }
     }
-    next();
 });
 
-centreSchema.pre('insertMany', async function (next, docs) {
+centreSchema.pre('insertMany', async function (docs) {
     try {
         let nextNum = null;
         for (const doc of docs) {
@@ -120,9 +119,8 @@ centreSchema.pre('insertMany', async function (next, docs) {
                 doc.centreCode = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
             }
         }
-        next();
     } catch (err) {
-        next(err);
+        throw err;
     }
 });
 

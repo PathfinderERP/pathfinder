@@ -1,6 +1,6 @@
 import express from "express";
 import { createAdmission } from "../../controllers/Admission/createAdmission.js";
-import { getAdmissions, getActiveEmployees } from "../../controllers/Admission/getAdmissions.js";
+import { getAdmissions, getActiveEmployees, getCentreUsers } from "../../controllers/Admission/getAdmissions.js";
 import { getAdmissionById } from "../../controllers/Admission/getAdmissionById.js";
 import { updateAdmission } from "../../controllers/Admission/updateAdmission.js";
 import { bulkUpdateAdmissions } from "../../controllers/Admission/bulkUpdateAdmissions.js";
@@ -25,6 +25,7 @@ const router = express.Router();
 // Read routes - Accessible to authenticated users
 router.get("/", requireAuth, getAdmissions);
 router.get("/active-employees", requireAuth, getActiveEmployees);
+router.get("/centre-users", requireAuth, getCentreUsers);
 router.get("/section-allotment", requireGranularPermission("admissions", "sectionAllotment", "view"), getStudentSections); // Section Allotment List
 router.get("/portal-sections-proxy", requireAuth, getPortalSections); // Proxy for external sections
 router.get("/search", requireAuth, searchAdmission); // New Search Route
