@@ -19,12 +19,20 @@ export const login = async (req, res) => {
 
         const email = username; // Map username to email for existing logic
 
-        // 1. Find the admission by Enrollment Number (Password)
-        // Admission number is unique enough for login credential
-        const admission = await Admission.findOne({ admissionNumber: password });
+        // 1. Find all admissions by Enrollment Number (Password)
+        const admissions = await Admission.find({ admissionNumber: password });
 
-        if (!admission) {
+        if (admissions.length === 0) {
             return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // Prioritize finding an active admission first
+        let admission = admissions.find(adm => adm.admissionStatus === "ACTIVE");
+
+        // If no active admission is found, fall back to the first available admission
+        // (which allows checking and returning the correct deactivated status error)
+        if (!admission) {
+            admission = admissions[0];
         }
 
         // 2. Find the student associated with this admission
