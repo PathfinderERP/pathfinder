@@ -109,11 +109,35 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
         } }
     ]);
 
-    // 2. Fetch active users of the selected centres
+    const isCallReportRole = (roleStr) => {
+        const rClean = (roleStr || '').toLowerCase().trim().replace(/\s+/g, '');
+        return [
+            'counsellor',
+            'telecaller',
+            'marketing',
+            'centreincharge',
+            'centerincharge',
+            'assistantcenterincharge',
+            'assistantcentreincharge',
+            'zonalmanager',
+            'assistantzonalmanager',
+            'centralizedtelecaller'
+        ].includes(rClean);
+    };
+
+    // 2. Fetch active users of the selected centres with calling roles
     const activeUsers = await User.find({
         isActive: true,
         centres: { $in: actualCenterIds },
-        role: { $ne: 'teacher' }
+        role: { $in: [
+            /counsellor/i,
+            /telecaller/i,
+            /marketing/i,
+            /centerincharge/i,
+            /centreincharge/i,
+            /zonalmanager/i,
+            /assistant/i
+        ] }
     }).select('name role employeeId centres').lean();
 
     // 3. Gather other usernames that had activity
@@ -392,7 +416,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
         };
     });
 
-    return reportData;
+    return reportData.filter(row => isCallReportRole(row.role));
 };
 
 export const getDailyTracking = async (req, res) => {
