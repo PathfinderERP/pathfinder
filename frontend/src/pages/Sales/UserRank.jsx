@@ -9,7 +9,6 @@ import {
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import MultiSelectFilter from "../../components/common/MultiSelectFilter";
 
 const METRICS = [
     {
@@ -227,9 +226,6 @@ const UserRank = () => {
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({ metric: activeMetric, fromDate, toDate });
-            if (selectedRoles.length > 0) {
-                params.append("roles", selectedRoles.join(","));
-            }
             const res = await fetch(`${apiUrl}/sales/user-rank?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -244,16 +240,24 @@ const UserRank = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeMetric, fromDate, toDate, selectedRoles, apiUrl]);
+    }, [activeMetric, fromDate, toDate, apiUrl]);
 
     useEffect(() => {
         fetchRankings();
     }, [fetchRankings]);
 
-    const filtered = rankings.filter(r =>
-        r.name.toLowerCase().includes(search.toLowerCase()) ||
-        (r.role || "").toLowerCase().includes(search.toLowerCase())
-    );
+    const roleCounts = {};
+    rankings.forEach(r => {
+        const role = r.role || "default";
+        roleCounts[role] = (roleCounts[role] || 0) + 1;
+    });
+
+    const filtered = rankings
+        .filter(r => selectedRoles.length === 0 || selectedRoles.includes(r.role))
+        .filter(r =>
+            r.name.toLowerCase().includes(search.toLowerCase()) ||
+            (r.role || "").toLowerCase().includes(search.toLowerCase())
+        );
 
     const activeMetricDef = METRICS.find(m => m.key === activeMetric);
 
@@ -372,17 +376,66 @@ const UserRank = () => {
                             </div>
                         </>
                     )}
-                    <div>
-                        <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>Filter Roles</p>
-                        <MultiSelectFilter
-                            options={ROLE_OPTIONS}
-                            selectedValues={selectedRoles}
-                            onChange={setSelectedRoles}
-                            placeholder="All Roles"
-                            label="Roles"
-                            theme={isDark ? "dark" : "light"}
-                            useAbsolute={false}
-                        />
+                    <div className="w-full mt-2">
+                        <div className="flex items-center justify-between mb-2">
+                            <p className={`text-[9px] font-black uppercase tracking-widest ${subText}`}>Filter Roles</p>
+                            {selectedRoles.length > 0 && (
+                                <button
+                                    onClick={() => setSelectedRoles([])}
+                                    className={`text-[9px] font-bold underline ${isDark ? "text-red-400" : "text-red-500"}`}
+                                >
+                                    Clear All
+                                </button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+                            <div
+                                onClick={() => setSelectedRoles([])}
+                                className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${
+                                    selectedRoles.length === 0 ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
+                                }`}
+                            >
+                                <div className={`inline-flex p-2 rounded-lg ${isDark ? "bg-cyan-500/10 text-cyan-400" : "bg-cyan-50 text-cyan-600"} mb-2`}>
+                                    <FaUser size={14} />
+                                </div>
+                                <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-0.5 truncate`}>All Roles</p>
+                                <p className={`text-lg font-black ${mainText}`}>
+                                    {rankings.length}
+                                </p>
+                            </div>
+                            {ROLE_OPTIONS.map((role) => {
+                                const isSelected = selectedRoles.includes(role.value);
+                                const count = roleCounts[role.value] || 0;
+                                const badge = getRoleBadge(role.value);
+                                const badgeStyle = badge.style.split(' ');
+                                const bgClass = badgeStyle.find(c => c.startsWith('bg-')) || (isDark ? "bg-gray-800" : "bg-gray-100");
+                                const textClass = badgeStyle.find(c => c.startsWith('text-')) || (isDark ? "text-gray-300" : "text-gray-700");
+                                
+                                return (
+                                    <div
+                                        key={role.value}
+                                        onClick={() => {
+                                            if (isSelected) {
+                                                setSelectedRoles(selectedRoles.filter(r => r !== role.value));
+                                            } else {
+                                                setSelectedRoles([...selectedRoles, role.value]);
+                                            }
+                                        }}
+                                        className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${
+                                            isSelected ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
+                                        } ${count === 0 ? "opacity-40" : ""}`}
+                                    >
+                                        <div className={`inline-flex p-2 rounded-lg ${bgClass} ${textClass} mb-2`}>
+                                            <FaUser size={14} />
+                                        </div>
+                                        <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-0.5 truncate`} title={role.label}>{role.label}</p>
+                                        <p className={`text-lg font-black ${mainText}`}>
+                                            {count}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                     <div className="flex-1 min-w-[200px]">
                         <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-1.5`}>Search User</p>
