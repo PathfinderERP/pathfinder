@@ -35,7 +35,7 @@ export const getUserRankings = async (req, res) => {
             }
         }
 
-        const users = await User.find(userQuery).select("_id name role").lean();
+        const users = await User.find(userQuery).populate("centres", "centreName").select("_id name role centres").lean();
         if (!users || users.length === 0) {
             return res.status(200).json({ rankings: [] });
         }
@@ -220,10 +220,15 @@ export const getUserRankings = async (req, res) => {
             const followUps = followUpMap[nameLower] || 0;
             const revenue = revenueMap[uid] || 0;
 
+            const center = user.centres && user.centres.length > 0
+                ? user.centres.map(c => c.centreName).join(", ")
+                : "—";
+
             return {
                 userId: uid,
                 name: user.name || "Unknown",
                 role: user.role || "—",
+                center,
                 counselling,
                 admissions,
                 leadUploads,

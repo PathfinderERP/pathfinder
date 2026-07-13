@@ -116,18 +116,11 @@ const ROLE_OPTIONS = [
     { value: "counsellor", label: "Counsellor" },
     { value: "telecaller", label: "Telecaller" },
     { value: "marketing", label: "Marketing" },
-    { value: "hr", label: "HR" },
     { value: "teacher", label: "Teacher" },
-    { value: "centralizedTelecaller", label: "Centralized Telecaller" },
-    { value: "RM", label: "RM" },
-    { value: "Class_Coordinator", label: "Class Coordinator" },
-    { value: "HOD", label: "HOD" },
     { value: "accounts", label: "Accounts" },
-    { value: "coordinator", label: "Coordinator" },
     { value: "digital", label: "Digital" },
     { value: "assistantZonalManager", label: "Assistant Zonal Manager" },
-    { value: "assistantCenterIncharge", label: "Assistant Center Incharge" },
-    { value: "supportStaff", label: "Support Staff" }
+    { value: "assistantCenterIncharge", label: "Assistant Center Incharge" }
 ];
 
 const getRoleBadge = (role) => ROLE_BADGES[role] || { label: role || "Staff", style: ROLE_BADGES.default.style };
@@ -266,6 +259,7 @@ const UserRank = () => {
             Rank: r.rank,
             Name: r.name,
             Role: r.role,
+            Center: r.center || "-",
             Counselling: r.counselling,
             Admissions: r.admissions,
             // "Lead Uploads": r.leadUploads,
@@ -520,6 +514,7 @@ const UserRank = () => {
                                     <tr className={`text-[9px] font-black uppercase tracking-widest ${subText} ${isDark ? "bg-[#131619]" : "bg-gray-50"} border-b ${isDark ? "border-gray-700/50" : "border-gray-200"}`}>
                                         <th className="px-5 py-3 w-16">Rank</th>
                                         <th className="px-5 py-3">User</th>
+                                        <th className="px-5 py-3">Center</th>
                                         <th className="px-5 py-3 text-right">Counselling</th>
                                         <th className="px-5 py-3 text-right">Admissions</th>
                                         {/* <th className="px-5 py-3 text-right">Uploads</th>
@@ -564,6 +559,13 @@ const UserRank = () => {
                                                             </span>
                                                         </div>
                                                     </div>
+                                                </td>
+
+                                                {/* Center */}
+                                                <td className="px-5 py-3.5">
+                                                    <span className={`text-[11px] font-bold ${subText}`}>
+                                                        {user.center || "-"}
+                                                    </span>
                                                 </td>
 
                                                 {/* Metrics */}
