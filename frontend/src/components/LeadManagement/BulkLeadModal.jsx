@@ -26,8 +26,8 @@ const COL_MAP = {
     "Source":             "source",
     "LeadType":           "leadType",
     "Lead Type":          "leadType",
-    "LeadResponse":       "leadResponse",
-    "Lead Response":      "leadResponse",
+    "LeadResponse":       "leadResponsibility",
+    "Lead Response":      "leadResponsibility",
     "Marks":              "marks",
 };
 
@@ -386,8 +386,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                     <table className="w-full text-left border-collapse min-w-[1100px]">
                                         <thead className={`sticky top-0 z-10 ${d ? "bg-[#1a1f24]" : "bg-white"}`}>
                                             <tr className={`border-b ${d ? "border-gray-800" : "border-gray-100"}`}>
-                                                {["#", "Name *", "PhoneNumber", "SecondPhone", "School Name *", "Class", "Board", "Centre", "Course", "Source", "LeadType", "LeadResponse 🔒", "Actions"].map(h => (
-                                                    <th key={h} className={`px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap ${h.includes("🔒") ? "text-emerald-500" : "text-gray-500"}`}>{h}</th>
+                                                {["#", "Name *", "PhoneNumber", "SecondPhone", "School Name *", "Class", "Board", "Centre", "Course", "Source", "LeadType", "Marks", "LeadResponse", "Actions"].map(h => (
+                                                    <th key={h} className={`px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-gray-500`}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
@@ -413,10 +413,16 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                                             {LEAD_TYPE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                                         </select>
                                                     </td>
+                                                    <td className="px-2 py-2 min-w-[85px]">
+                                                        <input className={inp} type="number" value={row.marks || ""} onChange={e => updateRow(idx, "marks", e.target.value)} placeholder="—" />
+                                                    </td>
                                                     <td className="px-2 py-2 min-w-[130px]">
-                                                        <div className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wide border ${d ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
-                                                            🔒 {currentUser.name || "You"}
-                                                        </div>
+                                                        <input
+                                                            className={inp}
+                                                            value={row.leadResponsibility || ""}
+                                                            onChange={e => updateRow(idx, "leadResponsibility", e.target.value)}
+                                                            placeholder={currentUser.name || "You"}
+                                                        />
                                                     </td>
                                                     <td className="px-2 py-2">
                                                         <button onClick={() => removeRow(idx)} className="p-1.5 rounded text-red-400 hover:bg-red-500/10 transition-colors" title="Remove row">
@@ -434,8 +440,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                             <div className={`flex items-center gap-3 p-3 rounded-[4px] border ${d ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-200"}`}>
                                 <FaShieldAlt className="text-emerald-500 shrink-0" size={13} />
                                 <p className={`text-xs font-semibold ${d ? "text-emerald-300" : "text-emerald-700"}`}>
-                                    All {parsedRows.length} lead(s) will be assigned to <b>{currentUser.name || "you"}</b> as the responsible person.
-                                    They will appear in the Lead Management table immediately after upload.
+                                    Leads will be assigned to the respective agent specified in the <b>LeadResponse</b> column, defaulting to <b>{currentUser.name || "you"}</b> if blank.
                                 </p>
                             </div>
                         </div>

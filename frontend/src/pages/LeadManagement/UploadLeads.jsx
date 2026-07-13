@@ -29,6 +29,11 @@ const COL_MAP = {
     "Source":             "source",
     "LeadType":           "leadType",
     "Lead Type":          "leadType",
+    "LeadResponse":       "leadResponsibility",
+    "Lead Response":      "leadResponsibility",
+    "LeadResponsibility": "leadResponsibility",
+    "Lead Responsibility": "leadResponsibility",
+    "Agent":              "leadResponsibility",
 };
 
 const REQUIRED_COLS = ["name", "schoolName"];
@@ -357,7 +362,7 @@ const UploadLeads = () => {
                             <p className={`text-sm font-black uppercase tracking-tight ${txt}`}>
                                 {currentUser.name || currentUser.email || "You (logged-in user)"}
                             </p>
-                            <p className={`text-[9px] font-bold ${sub}`}>Auto-assigned · cannot be changed</p>
+                            <p className={`text-[9px] font-bold ${sub}`}>Defaults to uploader if not in file</p>
                         </div>
                     </div>
                 </div>
@@ -549,10 +554,12 @@ const UploadLeads = () => {
                                                     </select>
                                                 </td>
                                                 <td className="px-2 py-2 min-w-[130px]">
-                                                    <div className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border
-                                                        ${isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
-                                                        🔒 {currentUser.name || "You"}
-                                                    </div>
+                                                    <input
+                                                        className={inp}
+                                                        value={row.leadResponsibility || ""}
+                                                        onChange={e => updateRow(idx, "leadResponsibility", e.target.value)}
+                                                        placeholder={currentUser.name || "You"}
+                                                    />
                                                 </td>
                                                 <td className="px-2 py-2">
                                                     <button onClick={() => removeRow(idx)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors" title="Remove row">
@@ -570,8 +577,7 @@ const UploadLeads = () => {
                         <div className={`flex items-center gap-3 p-4 rounded-xl border ${isDark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-200"}`}>
                             <FaShieldAlt className="text-emerald-500 shrink-0" size={14} />
                             <p className={`text-xs font-semibold ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>
-                                All {parsedRows.length} lead(s) will be assigned to <b>{currentUser.name || "you"}</b> as the responsible person.
-                                They will appear in the Lead Management table immediately after upload.
+                                Leads will be assigned to the respective agent specified in the <b>LeadResponse</b> column, defaulting to <b>{currentUser.name || "you"}</b> if blank.
                             </p>
                         </div>
                     </div>

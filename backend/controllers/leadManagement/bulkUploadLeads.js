@@ -7,6 +7,7 @@ import CentreSchema from "../../models/Master_data/Centre.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Course from "../../models/Master_data/Courses.js";
 import Sources from "../../models/Master_data/Sources.js";
+import User from "../../models/User.js";
 
 /**
  * POST /lead-management/bulk-upload
@@ -28,13 +29,21 @@ export const bulkUploadLeads = async (req, res) => {
         const uploaderId   = req.user?.id;
 
         // Fetch all master data for resolution
-        const [allClasses, allCentres, allCourses, allBoards, allSources] = await Promise.all([
+        const [allClasses, allCentres, allCourses, allBoards, allSources, allUsers] = await Promise.all([
             Class.find().lean(),
             CentreSchema.find().lean(),
             Course.find().lean(),
             Boards.find().lean(),
-            Sources.find().lean()
+            Sources.find().lean(),
+            User.find({ isActive: true }).select('name').lean()
         ]);
+
+        const userByNameMap = {};
+        allUsers.forEach(u => {
+            if (u.name) {
+                userByNameMap[u.name.toLowerCase().trim()] = u.name;
+            }
+        });
 
         // Validate campaignId if provided
         let resolvedCampaignId = null;
@@ -86,6 +95,13 @@ export const bulkUploadLeads = async (req, res) => {
 
 
         const prepared = leads.map((row) => {
+            const excelResponsibility = row.leadResponsibility || row.leadResponse;
+            let resolvedResponsibility = uploaderName;
+            if (excelResponsibility && String(excelResponsibility).trim()) {
+                const searchName = String(excelResponsibility).toLowerCase().trim();
+                resolvedResponsibility = userByNameMap[searchName] || String(excelResponsibility).trim();
+            }
+
             const doc = {
                 name:               (row.name || "").trim(),
                 email:              row.email || "",
@@ -93,7 +109,7 @@ export const bulkUploadLeads = async (req, res) => {
                 secondPhoneNumber:  row.secondPhoneNumber ? String(row.secondPhoneNumber).trim() : "",
                 schoolName:         row.schoolName || "",
                 targetExam:         row.targetExam || "",
-                leadResponsibility: uploaderName,
+                leadResponsibility: resolvedResponsibility,
                 createdBy:          uploaderId,
                 marketingBy:        uploaderName,
                 assignedAt:         new Date(),

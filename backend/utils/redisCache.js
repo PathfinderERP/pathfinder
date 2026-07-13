@@ -61,12 +61,23 @@ export const deleteCache = async (key) => {
 };
 
 /**
- * Deletes all cache keys matching a pattern.
+ * Deletes all cache keys matching a pattern. Supports Redis Standalone and Cluster mode.
  * @param {string} pattern 
  */
 export const clearCachePattern = async (pattern) => {
     try {
-        const keys = await redis.keys(pattern);
+        let keys = [];
+        if (redis.nodes && typeof redis.nodes === 'function') {
+            // Cluster mode: scan all master nodes for keys
+            const masters = redis.nodes('master');
+            const keysPromises = masters.map(node => node.keys(pattern).catch(() => []));
+            const results = await Promise.all(keysPromises);
+            keys = Array.from(new Set(results.flat()));
+        } else {
+            // Standalone mode
+            keys = await redis.keys(pattern);
+        }
+
         if (keys.length > 0) {
             await redis.del(...keys);
         }
