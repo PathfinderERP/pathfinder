@@ -557,12 +557,12 @@ const CourseTarget = () => {
 
         const rows = data.map(centre => {
             const row = { "Centre Name": centre.centreName };
-            uniqueTagColumns.forEach(tagColumn => {
-                const { target, achieved } = getExamTagStats(centre, tagColumn);
+            uniqueDeptColumns.forEach(deptName => {
+                const { target, achieved } = getDeptStatsByName(centre, deptName);
                 if (viewMode === "YEARLY" || viewMode === "WEEKLY") {
-                    row[tagColumn] = `${achieved} / ${target > 0 ? target : "-"}`;
+                    row[deptName] = `${achieved} / ${target > 0 ? target : "-"}`;
                 } else {
-                    row[tagColumn] = achieved;
+                    row[deptName] = achieved;
                 }
             });
             row["Grand Total"] = getCentreTotalAchieved(centre);
@@ -571,18 +571,18 @@ const CourseTarget = () => {
 
         // Add a Total row at the bottom
         const totalRow = { "Centre Name": "TOTAL" };
-        uniqueTagColumns.forEach(tagColumn => {
-            let tagAchievedSum = 0;
-            let tagTargetSum = 0;
+        uniqueDeptColumns.forEach(deptName => {
+            let deptAchievedSum = 0;
+            let deptTargetSum = 0;
             data.forEach(centre => {
-                const { target, achieved } = getExamTagStats(centre, tagColumn);
-                tagAchievedSum += achieved;
-                tagTargetSum += target;
+                const { target, achieved } = getDeptStatsByName(centre, deptName);
+                deptAchievedSum += achieved;
+                deptTargetSum += target;
             });
             if (viewMode === "YEARLY" || viewMode === "WEEKLY") {
-                totalRow[tagColumn] = `${tagAchievedSum} / ${tagTargetSum > 0 ? tagTargetSum : "-"}`;
+                totalRow[deptName] = `${deptAchievedSum} / ${deptTargetSum > 0 ? deptTargetSum : "-"}`;
             } else {
-                totalRow[tagColumn] = tagAchievedSum;
+                totalRow[deptName] = deptAchievedSum;
             }
         });
         totalRow["Grand Total"] = data.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0);
@@ -712,109 +712,35 @@ const CourseTarget = () => {
         return false;
     };
 
-    // Calculate unique tag columns dynamically
-    const allTagNamesSet = new Set(allExamTags.map(t => t.name || t.tagName).filter(Boolean));
+    // Calculate unique department columns dynamically from the fetched data
+    // Only show departments that actually have at least one admission in the selected period
+    const activeDeptNamesSet = new Set();
     visibleData.forEach(centre => {
         if (centre.departments) {
             centre.departments.forEach(dept => {
-                if (dept.examTagAchieved) {
-                    dept.examTagAchieved.forEach(tag => {
-                        if (tag.tagName) {
-                            allTagNamesSet.add(tag.tagName);
-                        }
-                    });
+                if ((dept.achieved || 0) > 0) {
+                    activeDeptNamesSet.add(dept.name);
                 }
             });
         }
     });
 
-    const CUSTOM_ORDER = [
-        "JEE 1 YEAR",
-        "JEE 2 YEAR",
-        "NEET 1 YEAR",
-        "NEET 2 YEAR",
-        "REPEATER",
-        "FOUNDATION CLASS 10",
-        "FOUNDATION CLASS 9",
-        "FOUNDATION CLASS 8",
-        "FOUNDATION CLASS 7",
-        "FOUNDATION CLASS 6",
-        "FOUNDATION CLASS 5",
-        "HS",
-        "ISC",
-        "ICSE",
-        "MADHYAMIK"
-    ];
+    // Sort departments alphabetically (they come from the master departments list)
+    const uniqueDeptColumns = Array.from(activeDeptNamesSet).sort((a, b) => a.localeCompare(b));
 
-    const uniqueTagColumns = Array.from(allTagNamesSet).sort((a, b) => {
-        const aIdx = CUSTOM_ORDER.indexOf(a.trim().toUpperCase());
-        const bIdx = CUSTOM_ORDER.indexOf(b.trim().toUpperCase());
-        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-        if (aIdx !== -1) return -1;
-        if (bIdx !== -1) return 1;
-        return a.localeCompare(b);
-    });
-
-    const getDefaultDeptForTag = (tag) => {
-        const t = (tag || "").toUpperCase().trim();
-        if (t.includes("JEE") || t.includes("NEET") || t === "REPEATER" || t.includes("WBJEE") || t.includes("PNTSE")) {
-            return ["ACADEMIC DEPARTMENT", "ALL INDIA"];
-        }
-        if (t.includes("FOUNDATION")) {
-            return ["FOUNDATION", "ALL-INDIA + FND"];
-        }
-        if (t.includes("WBBSE") || t === "MADHYAMIK") {
-            return ["MADHYAMIK", "MADHYAMIK & HS DEPARTMENT"];
-        }
-        if (t.includes("WBCHSE") || t === "HS") {
-            return ["HS", "MADHYAMIK & HS DEPARTMENT"];
-        }
-        if (t.includes("ISC")) {
-            return ["ISC"];
-        }
-        if (t.includes("ICSE")) {
-            return ["ICSE"];
-        }
-        if (t.includes("CBSE")) {
-            return ["CBSE DEPARTMENT"];
-        }
-        return [];
-    };
-
-    const getExamTagStats = (centreData, tagColumn) => {
-        let achieved = 0;
-        let target = 0;
-        let matchingDeptId = null;
-        let matchingDeptName = "";
-
-        if (centreData && centreData.departments) {
-            centreData.departments.forEach(dept => {
-                if (dept.examTagAchieved) {
-                    const found = dept.examTagAchieved.find(t => t.tagName === tagColumn);
-                    if (found) {
-                        achieved += found.count || 0;
-                    }
-                }
-
-                const deptNameUpper = (dept.name || "").toUpperCase().trim();
-                const tagColumnUpper = (tagColumn || "").toUpperCase().trim();
-                const defaultDepts = getDefaultDeptForTag(tagColumn);
-                
-                const isMatch = deptNameUpper.includes(tagColumnUpper) || 
-                                tagColumnUpper.includes(deptNameUpper) ||
-                                (dept.examTagAchieved && dept.examTagAchieved.some(t => t.tagName === tagColumn)) ||
-                                isBoardMatchingDept(tagColumn, dept.name) ||
-                                defaultDepts.includes(deptNameUpper);
-
-                if (isMatch) {
-                    target = Math.max(target, dept.target || 0);
-                    matchingDeptId = dept.id;
-                    matchingDeptName = dept.name;
-                }
-            });
-        }
-
-        return { achieved, target, deptId: matchingDeptId, deptName: matchingDeptName };
+    // Look up stats for a specific department name within a centre's data
+    const getDeptStatsByName = (centreData, deptName) => {
+        if (!centreData || !centreData.departments) return { achieved: 0, target: 0, id: null };
+        const dept = centreData.departments.find(
+            d => (d.name || "").trim().toLowerCase() === (deptName || "").trim().toLowerCase()
+        );
+        if (!dept) return { achieved: 0, target: 0, id: null };
+        return {
+            achieved: dept.achieved || 0,
+            target: dept.target || 0,
+            id: dept.id,
+            examTagAchieved: dept.examTagAchieved || []
+        };
     };
 
 
@@ -1127,10 +1053,10 @@ const CourseTarget = () => {
                             <thead>
                                 <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                     <th className="px-6 py-4 sticky left-0 z-10 bg-inherit border-r border-inherit">Centre Name</th>
-                                    {uniqueTagColumns.map(tag => (
-                                        <th key={tag} className="px-6 py-4 text-center border-r border-inherit min-w-[160px]">
+                                    {uniqueDeptColumns.map(deptName => (
+                                        <th key={deptName} className="px-6 py-4 text-center border-r border-inherit min-w-[160px]">
                                             <div className="flex flex-col items-center">
-                                                <span className="text-cyan-500 mb-1">{tag}</span>
+                                                <span className="text-cyan-500 mb-1">{deptName}</span>
                                                 <div className="flex gap-4 text-[9px] opacity-60">
                                                     <span>ADMISSIONS</span>
                                                 </div>
@@ -1147,13 +1073,13 @@ const CourseTarget = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={uniqueTagColumns.length + 3} className="px-6 py-12 text-center text-cyan-400 font-bold animate-pulse">
+                                        <td colSpan={uniqueDeptColumns.length + 3} className="px-6 py-12 text-center text-cyan-400 font-bold animate-pulse">
                                             Aggregating Course Intelligence Data...
                                         </td>
                                     </tr>
                                 ) : visibleData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={uniqueTagColumns.length + 3} className="px-6 py-12 text-center text-gray-500 font-medium">
+                                        <td colSpan={uniqueDeptColumns.length + 3} className="px-6 py-12 text-center text-gray-500 font-medium">
                                             No admission data found for the selected period.
                                         </td>
                                     </tr>
@@ -1170,15 +1096,15 @@ const CourseTarget = () => {
                                                     </div>
                                                 </td>
 
-                                                {uniqueTagColumns.map(tagColumn => {
-                                                    const { achieved, target, deptId, deptName } = getExamTagStats(centre, tagColumn);
+                                                {uniqueDeptColumns.map(deptName => {
+                                                    const { achieved, target, id: deptId, examTagAchieved } = getDeptStatsByName(centre, deptName);
                                                     return (
                                                         <td
-                                                            key={tagColumn}
+                                                            key={deptName}
                                                             className="px-6 py-5 text-center border-r border-inherit relative group/cell cursor-pointer hover:bg-cyan-500/5 transition-colors"
                                                             onClick={() => {
                                                                 if (achieved > 0) {
-                                                                    fetchStudentAdmissions(centre.centreName, deptId, deptName, tagColumn);
+                                                                    fetchStudentAdmissions(centre.centreName, deptId, deptName, null);
                                                                 }
                                                             }}
                                                         >
