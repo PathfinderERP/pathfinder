@@ -2012,18 +2012,18 @@ const EnrolledStudentsContent = () => {
 
                                         // Lead By Data
                                         const leadBy = studentItem.student?.leadBy || latestAdmission?.leadBy;
-                                        const leadByName = leadBy?.name || "System";
+                                        const leadByName = typeof leadBy?.name === 'string' ? leadBy.name : (typeof leadBy === 'string' ? leadBy : "System");
                                         const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
                                         const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
 
                                         // Counselled By Data
                                         const counselBy = studentItem.student?.counselledByDetails || latestAdmission?.counselledByDetails;
-                                        const counselByName = counselBy?.name || studentItem.student?.counselledBy || "N/A";
+                                        const counselByName = typeof counselBy?.name === 'string' ? counselBy.name : (typeof studentItem.student?.counselledBy === 'string' ? studentItem.student.counselledBy : "N/A");
                                         const counselByDate = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleDateString('en-GB') : "";
                                         const counselByTime = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
 
                                         // Admitted By Data
-                                        const admittedByName = latestAdmission?.createdBy?.name || (latestAdmission?.createdBy ? "Unknown" : "System");
+                                        const admittedByName = typeof latestAdmission?.createdBy?.name === 'string' ? latestAdmission.createdBy.name : (latestAdmission?.createdBy ? "Unknown" : "System");
                                         const admittedDate = latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleDateString('en-GB') : "";
                                         const admittedTime = latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "");
 
@@ -2194,7 +2194,7 @@ const EnrolledStudentsContent = () => {
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
-                                                            {leadByName.charAt(0).toUpperCase()}
+                                                            {typeof leadByName === 'string' && leadByName.length > 0 ? leadByName.charAt(0).toUpperCase() : ''}
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -2210,7 +2210,7 @@ const EnrolledStudentsContent = () => {
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
-                                                            {counselByName.charAt(0).toUpperCase()}
+                                                            {typeof counselByName === 'string' && counselByName.length > 0 ? counselByName.charAt(0).toUpperCase() : ''}
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -2228,7 +2228,7 @@ const EnrolledStudentsContent = () => {
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
-                                                            {admittedByName.charAt(0).toUpperCase()}
+                                                            {typeof admittedByName === 'string' && admittedByName.length > 0 ? admittedByName.charAt(0).toUpperCase() : ''}
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>

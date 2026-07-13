@@ -536,16 +536,30 @@ export const getBoardAdmissions = async (req, res) => {
                 admissionObj.studentId.leadBy = userMap[idLower] || admissionObj.studentId.leadBy;
             }
 
-            let leadBy = { name: "System", createdAt: admissionObj.createdAt || new Date() };
+            let counselName = "N/A";
+            if (admissionObj.studentId && admissionObj.studentId.counselledBy) {
+                if (typeof admissionObj.studentId.counselledBy === 'object') {
+                    counselName = admissionObj.studentId.counselledBy.name || "N/A";
+                } else if (typeof admissionObj.studentId.counselledBy === 'string') {
+                    counselName = admissionObj.studentId.counselledBy;
+                }
+            }
             let counselledByDetails = {
-                name: (admissionObj.studentId && admissionObj.studentId.counselledBy) || "N/A",
+                name: counselName,
                 createdAt: (admissionObj.studentId && admissionObj.studentId.createdAt) || admissionObj.createdAt || new Date()
             };
 
+            let leadBy = { name: "System", createdAt: admissionObj.createdAt || new Date() };
             if (admissionObj.studentId) {
                 if (admissionObj.studentId.leadBy) {
+                    let nameVal = "System";
+                    if (typeof admissionObj.studentId.leadBy === 'object') {
+                        nameVal = admissionObj.studentId.leadBy.name || "System";
+                    } else if (typeof admissionObj.studentId.leadBy === 'string') {
+                        nameVal = admissionObj.studentId.leadBy;
+                    }
                     leadBy = {
-                        name: admissionObj.studentId.leadBy,
+                        name: nameVal,
                         createdAt: admissionObj.studentId.createdAt || admissionObj.createdAt
                     };
                 } else {

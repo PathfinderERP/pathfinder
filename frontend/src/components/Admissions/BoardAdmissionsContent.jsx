@@ -1382,33 +1382,33 @@ const BoardAdmissionsContent = () => {
 
                                             {(activeTab === "Enrolled" || activeTab === "Deactivated") && (() => {
                                                 const leadBy = student?.leadBy || item.leadBy;
-                                                const leadByName = leadBy?.name || "System";
+                                                const leadByName = typeof leadBy?.name === 'string' ? leadBy.name : (typeof leadBy === 'string' ? leadBy : "System");
                                                 const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
                                                 const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
 
                                                 const counselledBy = student?.counselledByDetails || item.counselledByDetails;
-                                                const counselledByName = counselledBy?.name || student?.counselledBy || "N/A";
+                                                const counselledByName = typeof counselledBy?.name === 'string' ? counselledBy.name : (typeof student?.counselledBy === 'string' ? student.counselledBy : "N/A");
                                                 const counselledByDate = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleDateString('en-GB') : "N/A";
                                                 const counselledByTime = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
 
                                                 return (
                                                     <>
                                                         <td className="p-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
-                                                                    {leadByName.charAt(0).toUpperCase()}
-                                                                </div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[10px] font-black uppercase text-gray-400">{leadByName}</span>
-                                                                    <span className="text-[8px] font-bold text-gray-500">{leadByDate} {leadByTime && `| ${leadByTime}`}</span>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[10px] text-purple-500 font-black border border-purple-500/20">
-                                                                    {counselledByName.charAt(0).toUpperCase()}
-                                                                </div>
+                                                             <div className="flex items-center gap-2">
+                                                                 <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
+                                                                     {typeof leadByName === 'string' && leadByName.length > 0 ? leadByName.charAt(0).toUpperCase() : ''}
+                                                                 </div>
+                                                                 <div className="flex flex-col">
+                                                                     <span className="text-[10px] font-black uppercase text-gray-400">{leadByName}</span>
+                                                                     <span className="text-[8px] font-bold text-gray-500">{leadByDate} {leadByTime && `| ${leadByTime}`}</span>
+                                                                 </div>
+                                                             </div>
+                                                         </td>
+                                                         <td className="p-4">
+                                                             <div className="flex items-center gap-2">
+                                                                 <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[10px] text-purple-500 font-black border border-purple-500/20">
+                                                                     {typeof counselledByName === 'string' && counselledByName.length > 0 ? counselledByName.charAt(0).toUpperCase() : ''}
+                                                                 </div>
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[10px] font-black uppercase text-gray-400">{counselledByName}</span>
                                                                     <span className="text-[8px] font-bold text-gray-500">{counselledByDate} {counselledByTime && `| ${counselledByTime}`}</span>

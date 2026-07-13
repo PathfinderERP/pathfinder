@@ -23,20 +23,25 @@ const test = async () => {
 
         const testDate = "2026-07-12";
 
-        // Test JSON report
-        console.log("1. Fetching calls-report JSON...");
-        const reportRes = await fetch(`http://localhost:5000/api/operations/daily-tracking/calls-report?fromDate=${testDate}&toDate=${testDate}`, {
+        // Test admissions JSON
+        console.log("0. Fetching admissions...");
+        const admRes = await fetch("http://localhost:5000/api/admission", {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${jwtToken}` }
         });
-        console.log("JSON response status:", reportRes.status);
-        if (reportRes.ok) {
-            const data = await reportRes.json();
-            console.log("JSON response data length:", data.length);
-            const bagnanRows = data.filter(d => d.centreName.toUpperCase() === "BAGNAN");
-            console.log("Bagnan rows for yesterday:", bagnanRows);
+        console.log("Admissions response status:", admRes.status);
+        if (admRes.ok) {
+            const data = await admRes.json();
+            console.log("Admissions count:", data.length);
+            const first = data[0];
+            if (first) {
+                console.log("First admission ID:", first._id);
+                console.log("First admission student.leadBy:", first.student?.leadBy);
+                console.log("First admission leadBy:", first.leadBy);
+                console.log("First admission counselledByDetails:", first.counselledByDetails);
+            }
         } else {
-            console.log("Error JSON:", await reportRes.text());
+            console.log("Error admissions:", await admRes.text());
         }
 
         // Test Export Summary

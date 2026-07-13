@@ -247,16 +247,30 @@ export const getAdmissions = async (req, res) => {
                 admission.student.leadBy = userMap[idLower] || admission.student.leadBy;
             }
 
-            let leadBy = { name: "System", createdAt: admission.createdAt || new Date() };
+            let counselName = "N/A";
+            if (admission.student && admission.student.counselledBy) {
+                if (typeof admission.student.counselledBy === 'object') {
+                    counselName = admission.student.counselledBy.name || "N/A";
+                } else if (typeof admission.student.counselledBy === 'string') {
+                    counselName = admission.student.counselledBy;
+                }
+            }
             let counselledByDetails = {
-                name: (admission.student && admission.student.counselledBy) || "N/A",
+                name: counselName,
                 createdAt: (admission.student && admission.student.createdAt) || admission.createdAt || new Date()
             };
 
+            let leadBy = { name: "System", createdAt: admission.createdAt || new Date() };
             if (admission.student) {
                 if (admission.student.leadBy) {
+                    let nameVal = "System";
+                    if (typeof admission.student.leadBy === 'object') {
+                        nameVal = admission.student.leadBy.name || "System";
+                    } else if (typeof admission.student.leadBy === 'string') {
+                        nameVal = admission.student.leadBy;
+                    }
                     leadBy = {
-                        name: admission.student.leadBy,
+                        name: nameVal,
                         createdAt: admission.student.createdAt || admission.createdAt
                     };
                 } else {
