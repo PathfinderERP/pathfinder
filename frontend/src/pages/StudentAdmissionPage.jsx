@@ -23,6 +23,7 @@ const StudentAdmissionPage = () => {
     const [boards, setBoards] = useState([]);
     const [admissionType, setAdmissionType] = useState("NORMAL"); // "NORMAL" | "BOARD"
     const [isBoardLocked, setIsBoardLocked] = useState(false);
+    const [admittedByOptions, setAdmittedByOptions] = useState([]);
 
     const [selectedBoard, setSelectedBoard] = useState("");
     const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
@@ -62,7 +63,8 @@ const StudentAdmissionPage = () => {
         chequeDate: "",
         receivedDate: new Date().toISOString().split('T')[0],
         customBoardDuration: "", // Manual override for Board duration
-        bankAccount: ""
+        bankAccount: "",
+        admittedBy: ""
     });
 
     const [feeBreakdown, setFeeBreakdown] = useState({
@@ -87,6 +89,43 @@ const StudentAdmissionPage = () => {
 
     // Display helper: always show ceiling (whole rupee) — stored values stay exact
     const fmt = (n) => Math.ceil(Number(n) || 0).toLocaleString('en-IN');
+
+    const fetchAdmittedByOptions = async (centreName) => {
+        if (!centreName) {
+            setAdmittedByOptions([]);
+            return;
+        }
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${apiUrl}/superAdmin/getAllUsers`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.users) {
+                    const userList = Array.isArray(data.users) ? data.users : [];
+                    const filtered = userList.filter(u =>
+                        u.primaryCentre &&
+                        u.primaryCentre.centreName &&
+                        u.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&
+                        !["teacher", "accounts", "hr"].includes((u.role || "").toLowerCase())
+                    );
+                    setAdmittedByOptions(filtered);
+                }
+            }
+        } catch (err) {
+            console.error("Error loading admissions staff", err);
+        }
+    };
+
+    useEffect(() => {
+        setFormData(prev => ({ ...prev, admittedBy: "" }));
+        if (formData.centre) {
+            fetchAdmittedByOptions(formData.centre);
+        } else {
+            setAdmittedByOptions([]);
+        }
+    }, [formData.centre]);
 
     useEffect(() => {
         fetchData();
@@ -528,8 +567,20 @@ const StudentAdmissionPage = () => {
             return;
         }
 
+        if (!formData.departmentId) {
+            toast.error("Please select a department.");
+            setLoading(false);
+            return;
+        }
+
         if (!formData.paymentMethod) {
             toast.error("Please select a payment method.");
+            setLoading(false);
+            return;
+        }
+
+        if (!formData.admittedBy) {
+            toast.error("Please select an admitting officer.");
             setLoading(false);
             return;
         }
@@ -705,33 +756,25 @@ const StudentAdmissionPage = () => {
                                 </select>
                             </div>
 
+                            <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
+                                <select
+                                    required
+                                    name="departmentId"
+                                    value={formData.departmentId}
+                                    onChange={handleInputChange}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                >
+                                    <option value="">Select Department</option>
+                                    {departments.map(dept => (
+                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {/* Normal Flow Specifics */}
                             {admissionType === "NORMAL" && (
                                 <>
-                                    <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowCourseFilters(!showCourseFilters)}
-                                                className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded transition-all ${showCourseFilters ? 'bg-red-500/10 text-red-500' : 'bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500 hover:text-black'}`}
-                                            >
-                                                {showCourseFilters ? "Close Filters" : "Need Filters?"}
-                                            </button>
-                                        </div>
-                                        <select
-                                            name="departmentId"
-                                            value={formData.departmentId}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            required={admissionType === "NORMAL"}
-                                        >
-                                            <option value="">Select Department</option>
-                                            {departments.map(dept => (
-                                                <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
-                                            ))}
-                                        </select>
-                                    </div>
 
                                     {/* Advanced Filters Section */}
                                     {showCourseFilters && (
@@ -820,7 +863,16 @@ const StudentAdmissionPage = () => {
                                     )}
 
                                     <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course *</label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course *</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCourseFilters(!showCourseFilters)}
+                                                className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded transition-all ${showCourseFilters ? 'bg-red-500/10 text-red-500' : 'bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500 hover:text-black'}`}
+                                            >
+                                                {showCourseFilters ? "Close Filters" : "Need Filters?"}
+                                            </button>
+                                        </div>
                                         <div className="relative mb-1">
                                             <input
                                                 type="text"
@@ -1179,6 +1231,23 @@ const StudentAdmissionPage = () => {
                                     <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Includes 1 Down Payment + {Math.max(0, feeBreakdown.courseDurationMonths - 1)} Installments</p>
                                 </div>
                             )}
+                            <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admitted By <span className="text-red-500">*</span></label>
+                                <select
+                                    required
+                                    name="admittedBy"
+                                    value={formData.admittedBy}
+                                    onChange={handleInputChange}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                >
+                                    <option value="">Select Admitting Officer</option>
+                                    {admittedByOptions.map(u => (
+                                        <option key={u._id} value={u._id}>
+                                            {u.name.toUpperCase()} ({u.role.toUpperCase()})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>

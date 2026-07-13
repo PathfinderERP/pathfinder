@@ -49,13 +49,16 @@ const expenseSchema = new mongoose.Schema(
         },
         accountNumber: {
             type: String,
-            required: true,
             default: "N/A"
         },
         ifscCode: {
             type: String,
-            required: true,
             default: "N/A"
+        },
+        modeOfPayment: {
+            type: String,
+            enum: ['Bank', 'Cash', 'Bank+Cash'],
+            default: 'Bank'
         },
         // HR Salary Specific Fields ff
         employeeId: {

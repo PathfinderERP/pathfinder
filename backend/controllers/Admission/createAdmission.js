@@ -38,8 +38,13 @@ export const createAdmission = async (req, res) => {
             receivedDate = "",
             billingMonth = "", // For Board Admissions
             customBoardDuration = "", // New: Custom duration override
-            bankAccount = null
+            bankAccount = null,
+            admittedBy
         } = req.body;
+
+        if (!admittedBy) {
+            return res.status(400).json({ message: "Admitted by selection is required" });
+        }
 
         // Validate required fields (Common)
         if (!studentId || !centre || !academicSession || (downPayment === undefined) || (numberOfInstallments === undefined)) {
@@ -59,11 +64,11 @@ export const createAdmission = async (req, res) => {
 
 
         // Validate Type Specific Fields
-        if (admissionType === "NORMAL" && (!courseId || !examTagId)) {
-            return res.status(400).json({ message: "Course and Exam Tag are required for Normal Admission" });
+        if (admissionType === "NORMAL" && (!courseId || !examTagId || !departmentId)) {
+            return res.status(400).json({ message: "Course, Exam Tag, and Department are required for Normal Admission" });
         }
-        if (admissionType === "BOARD" && (!boardId || !selectedSubjectIds || selectedSubjectIds.length === 0 || !billingMonth || !examTagId)) {
-            return res.status(400).json({ message: "Board, Subjects, Billing Month, and Exam Tag are required for Board Admission" });
+        if (admissionType === "BOARD" && (!boardId || !selectedSubjectIds || selectedSubjectIds.length === 0 || !billingMonth || !examTagId || !departmentId)) {
+            return res.status(400).json({ message: "Board, Subjects, Billing Month, Exam Tag, and Department are required for Board Admission" });
         }
 
         // Fetch student details for carry forward balance
@@ -327,7 +332,7 @@ export const createAdmission = async (req, res) => {
             feeStructureSnapshot: feeSnapshot,
             studentImage: studentImage || null,
             remarks: remarks ? `${remarks} (Prev Balance: ₹${previousBalance})` : (previousBalance > 0 ? `Previous Balance Included: ₹${previousBalance}` : ""),
-            createdBy: req.user._id,
+            createdBy: admittedBy || req.user._id,
             totalPaidAmount: downPayment,
             paymentStatus: (downPayment >= totalFees) ? "COMPLETED" : "PARTIAL",
             downPaymentStatus: (paymentMethod === "CHEQUE") ? "PENDING_CLEARANCE" : "PAID",
@@ -354,7 +359,8 @@ export const createAdmission = async (req, res) => {
             isEnrolled: true,
             carryForwardBalance: 0,
             updatedBy: req.user?.name || "System",
-            updatedByUserId: req.user?._id
+            updatedByUserId: req.user?._id,
+            department: departmentId
         };
 
         if (examTagName) {

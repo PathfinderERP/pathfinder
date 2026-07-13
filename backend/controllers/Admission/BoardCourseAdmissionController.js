@@ -48,8 +48,34 @@ export const createBoardAdmission = async (req, res) => {
             programme,
             lastClass,
             receivedDate,
-            bankAccount
+            bankAccount,
+            department,
+            admittedBy
         } = req.body;
+
+        if (!department) {
+            return res.status(400).json({ message: "Department is required for board course admission" });
+        }
+
+        if (!billingStartDate) {
+            return res.status(400).json({ message: "Billing Start Date is required" });
+        }
+
+        if (!receivedDate) {
+            return res.status(400).json({ message: "Received Date is required" });
+        }
+
+        if (!academicSession) {
+            return res.status(400).json({ message: "Academic Session is required" });
+        }
+
+        if (!admittedBy) {
+            return res.status(400).json({ message: "Admitted by selection is required" });
+        }
+
+        if (!boardId) {
+            return res.status(400).json({ message: "Board is required for board course admission" });
+        }
 
         // Resolve ExamTag ID and Name
         let resolvedExamTagId = null;
@@ -304,7 +330,8 @@ export const createBoardAdmission = async (req, res) => {
             programme,
             lastClass,
             remarks,
-            createdBy: req.user?._id
+            createdBy: admittedBy || req.user?._id,
+            department
         });
 
         await newAdmission.save();
@@ -362,7 +389,8 @@ export const createBoardAdmission = async (req, res) => {
         const studentUpdatePayload = { 
             isEnrolled: true,
             updatedBy: req.user?.name || "System",
-            updatedByUserId: req.user?._id
+            updatedByUserId: req.user?._id,
+            department
         };
 
         if (examTagName) {

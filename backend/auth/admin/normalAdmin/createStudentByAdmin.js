@@ -40,6 +40,20 @@ export const createStudentByAdmin = async (req, res) => {
       });
     }
 
+    if (!studentsDetails[0]?.board) {
+      console.error("❌ Validation failed: Missing board");
+      return res.status(400).json({
+        message: "Educational board is required for student registration.",
+      });
+    }
+
+    if (!counselledBy) {
+      console.error("❌ Validation failed: Missing counselledBy");
+      return res.status(400).json({
+        message: "Counselled by selection is required.",
+      });
+    }
+
     console.log("✅ All required fields validated");
     
     // Auto-map misspelled fields if they come from the old frontend

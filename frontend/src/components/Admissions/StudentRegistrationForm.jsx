@@ -23,6 +23,7 @@ const StudentRegistrationForm = () => {
     const [selectedBatches, setSelectedBatches] = useState([]);
     const [boards, setBoards] = useState([]);
     const [sources, setSources] = useState([]);
+    const [counselledByOptions, setCounselledByOptions] = useState([]);
     // Duplicate contact validation
     const [mobileCheck, setMobileCheck] = useState({ checking: false, taken: false, name: "" });
     const [emailCheck, setEmailCheck] = useState({ checking: false, taken: false, name: "" });
@@ -61,6 +62,7 @@ const StudentRegistrationForm = () => {
         source: "",
         address: "",
         programme: "",
+        counselledBy: "",
 
         // Guardian Details
         guardianName: "",
@@ -280,6 +282,41 @@ const StudentRegistrationForm = () => {
         } catch (error) { console.error("Error fetching departments:", error); }
     };
 
+    const fetchCounselledByOptions = async (centreName) => {
+        if (!centreName) {
+            setCounselledByOptions([]);
+            return;
+        }
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (response.ok && data.users) {
+                const userList = Array.isArray(data.users) ? data.users : [];
+                const filtered = userList.filter((user) =>
+                    user.primaryCentre &&
+                    user.primaryCentre.centreName &&
+                    user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&
+                    !["teacher", "accounts", "hr"].includes((user.role || "").toLowerCase())
+                );
+                setCounselledByOptions(filtered);
+            }
+        } catch (error) {
+            console.error("Error fetching users for centre:", error);
+        }
+    };
+
+    useEffect(() => {
+        setFormData(prev => ({ ...prev, counselledBy: "" }));
+        if (formData.centre) {
+            fetchCounselledByOptions(formData.centre);
+        } else {
+            setCounselledByOptions([]);
+        }
+    }, [formData.centre]);
+
     useEffect(() => {
         fetchCentres();
         fetchBoards();
@@ -415,8 +452,14 @@ const StudentRegistrationForm = () => {
             return;
         }
 
-        if (!formData.studentName || !formData.centre || !formData.mobileNum || !formData.whatsappNumber) {
-            toast.error("Please fill in all required student identification fields (Name, Centre, Mobile, WhatsApp)");
+        if (!formData.studentName || !formData.centre || !formData.mobileNum || !formData.whatsappNumber || !formData.board) {
+            toast.error("Please fill in all required student identification fields (Name, Board, Centre, Mobile, WhatsApp)");
+            setLoading(false);
+            return;
+        }
+
+        if (!formData.counselledBy) {
+            toast.error("Please select a counsellor from the 'COUNSELLED BY' dropdown");
             setLoading(false);
             return;
         }
@@ -651,8 +694,8 @@ const StudentRegistrationForm = () => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className={labelClass}>EDUCATIONAL BOARD</label>
-                                                <select name="board" value={formData.board} onChange={handleChange} className={inputClass}>
+                                                <label className={labelClass}>EDUCATIONAL BOARD <span className="text-red-500">*</span></label>
+                                                <select name="board" required value={formData.board} onChange={handleChange} className={inputClass}>
                                                     <option value="">SELECT BOARD SYSTEM</option>
                                                     {boards.map((b) => (
                                                         <option key={b._id} value={b.boardCourse}>{b.boardCourse.toUpperCase()}</option>
@@ -665,6 +708,15 @@ const StudentRegistrationForm = () => {
                                                     <option value="">SELECT STATE</option>
                                                     {indianStates.map((state) => (
                                                         <option key={state} value={state}>{state.toUpperCase()}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelClass}>COUNSELLED BY <span className="text-red-500">*</span></label>
+                                                <select name="counselledBy" required value={formData.counselledBy} onChange={handleChange} className={inputClass}>
+                                                    <option value="">SELECT COUNSELLOR</option>
+                                                    {counselledByOptions.map((user) => (
+                                                        <option key={user._id} value={user._id}>{user.name.toUpperCase()} ({user.role.toUpperCase()})</option>
                                                     ))}
                                                 </select>
                                             </div>

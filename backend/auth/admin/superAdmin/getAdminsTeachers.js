@@ -129,7 +129,7 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
       }));
     } else {
       const userIds = users.map(u => u._id);
-      const employees = await Employee.find({ user: { $in: userIds } }).lean();
+      const employees = await Employee.find({ user: { $in: userIds } }).populate("primaryCentre", "centreName").lean();
       const employeeMap = {};
       employees.forEach(emp => {
         if (emp.user) {
@@ -166,6 +166,7 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
           ...user,
           profileImage: profileImageUrl,
           mobNum: user.mobNum || employee?.phoneNumber,
+          primaryCentre: employee?.primaryCentre || null,
           createdBy: createdByUser ? { _id: createdByUser._id, name: createdByUser.name } : null,
           updatedBy: updatedByUser ? { _id: updatedByUser._id, name: updatedByUser.name } : null,
           deactivatedBy: deactivatedByUser ? { _id: deactivatedByUser._id, name: deactivatedByUser.name } : null
