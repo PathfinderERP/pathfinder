@@ -818,7 +818,7 @@ export const updateBoardSubjects = async (req, res) => {
         admission.totalPaidAmount = admission.installments.reduce((sum, inst) =>
             sum + (inst.paidAmount || 0), 0) + (Number(admission.examFeePaid) || 0);
 
-        await admission.save();
+        await admission.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: "Subjects updated from month " + startMonth, admission });
 
@@ -917,7 +917,7 @@ export const collectBoardExamFee = async (req, res) => {
 
         // Update total paid amount
         admission.totalPaidAmount += paidAmount;
-        await admission.save();
+        await admission.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: "Exam fee payment collected", admission });
     } catch (error) {
@@ -1138,7 +1138,7 @@ export const collectBoardInstallment = async (req, res) => {
             console.error("Error creating payment record for board admission:", paymentErr);
         }
 
-        await admission.save();
+        await admission.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: "Payment collected", admission });
 
@@ -1235,7 +1235,7 @@ export const collectBoardAdditionalFee = async (req, res) => {
         }
 
         admission.totalPaidAmount += paidAmount;
-        await admission.save();
+        await admission.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: "Additional fee payment collected", admission });
     } catch (error) {
@@ -1360,7 +1360,7 @@ export const collectNcrpFees = async (req, res) => {
         }
 
         admission.totalPaidAmount = (admission.totalPaidAmount || 0) + totalPaidToday;
-        await admission.save();
+        await admission.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: "NCRP fee payment collected successfully", admission });
     } catch (error) {
