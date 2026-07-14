@@ -46,7 +46,12 @@ export const generateBill = async (req, res) => {
 
             // Find the admission - Try standard first, then Board
             let admission = await Admission.findById(admissionId)
-                .populate('student')
+                .populate({
+                    path: 'student',
+                    populate: [
+                        { path: 'department' }
+                    ]
+                })
                 .populate('course')
                 .populate('board')
                 .populate('department')
@@ -57,8 +62,15 @@ export const generateBill = async (req, res) => {
 
             if (!admission) {
                 admission = await BoardCourseAdmission.findById(admissionId)
-                    .populate('studentId')
-                    .populate('boardId');
+                    .populate({
+                        path: 'studentId',
+                        populate: [
+                            { path: 'department' }
+                        ]
+                    })
+                    .populate('boardId')
+                    .populate('department')
+                    .populate('examTag');
                 if (admission) {
                     isBoardAdmission = true;
                     // Normalize Board Admission fields to match logic below
@@ -312,9 +324,9 @@ export const generateBill = async (req, res) => {
                 },
                 course: {
                     name: payment.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
-                    department: admission.department?.departmentName || 'N/A',
-                    examTag: admission.examTag?.name || 'N/A',
-                    class: admission.class?.name || 'N/A',
+                    department: admission.department?.departmentName || admission.student?.department?.departmentName || 'N/A',
+                    examTag: admission.examTag?.name || admission.examTag?.tagName || (admission.student?.sessionExamCourse && admission.student.sessionExamCourse.find(sec => sec.session === admission.academicSession)?.examTag) || 'N/A',
+                    class: admission.class?.name || admission.lastClass || (admission.student?.examSchema && admission.student.examSchema[0]?.class) || 'N/A',
                     session: admission.academicSession || 'N/A'
                 },
                 payment: {

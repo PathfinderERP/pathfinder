@@ -468,7 +468,12 @@ export const getBoardAdmissions = async (req, res) => {
         }
 
         const admissions = await BoardCourseAdmission.find(query)
-            .populate('studentId')
+            .populate({
+                path: 'studentId',
+                populate: [
+                    { path: 'department' }
+                ]
+            })
             .populate('boardId')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId')
@@ -668,7 +673,12 @@ export const getBoardAdmissionById = async (req, res) => {
             return res.status(400).json({ message: "Invalid admission ID format" });
         }
         const admission = await BoardCourseAdmission.findById(req.params.id)
-            .populate('studentId')
+            .populate({
+                path: 'studentId',
+                populate: [
+                    { path: 'department' }
+                ]
+            })
             .populate('boardId')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId');
