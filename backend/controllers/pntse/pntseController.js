@@ -46,6 +46,15 @@ export const createPNTSEStudent = async (req, res) => {
         if (!centreObj) {
             return res.status(400).json({ message: "Centre not found" });
         }
+
+        // Granular check: Only allow creating for assigned centres if not superAdmin
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin) {
+            const assignedCentres = req.user.centres || [];
+            if (!assignedCentres.map(c => c.toString()).includes(centreId.toString())) {
+                return res.status(403).json({ message: "Access denied: you are not assigned to this centre." });
+            }
+        }
         // Validate class exists
         const classObj = await Class.findById(classId);
         if (!classObj) {
@@ -224,6 +233,23 @@ export const getPNTSEStudents = async (req, res) => {
 
         const query = {};
 
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+
+        if (!isSuperAdmin) {
+            const assignedCentres = req.user.centres || [];
+            if (centre) {
+                if (assignedCentres.map(c => c.toString()).includes(centre.toString())) {
+                    query.centre = centre;
+                } else {
+                    query.centre = { $in: assignedCentres };
+                }
+            } else {
+                query.centre = { $in: assignedCentres };
+            }
+        } else {
+            if (centre) query.centre = centre;
+        }
+
         if (search) {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
@@ -232,7 +258,6 @@ export const getPNTSEStudents = async (req, res) => {
             ];
         }
 
-        if (centre) query.centre = centre;
         if (classId) query.class = classId;
         if (session) query.session = session;
         if (examTag) query.examTag = examTag;
@@ -413,6 +438,17 @@ export const importExcel = async (req, res) => {
                     continue;
                 }
 
+                // Granular check: Only allow importing for assigned centres if not superAdmin
+                const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+                if (!isSuperAdmin) {
+                    const assignedCentres = req.user.centres || [];
+                    if (!assignedCentres.map(c => c.toString()).includes(centreObj._id.toString())) {
+                        results.failed++;
+                        results.errors.push(`Row ${rowNum}: You are not assigned to centre "${centreName}"`);
+                        continue;
+                    }
+                }
+
                 const classObj = allClasses.find(c => c.name?.toLowerCase() === className.toLowerCase());
                 if (!classObj) {
                     results.failed++;
@@ -514,6 +550,16 @@ export const setStudentFree = async (req, res) => {
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
+
+        // Granular check: Only allow if center is assigned to the user
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin) {
+            const assignedCentres = req.user.centres || [];
+            if (!assignedCentres.map(c => c.toString()).includes(student.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: you are not assigned to this student's centre." });
+            }
+        }
+
         student.paymentType = 'free';
         student.isPaymentPending = false;
         student.amountPaid = 0;
@@ -536,6 +582,15 @@ export const processStudentPayment = async (req, res) => {
         const student = await PNTSEStudent.findById(id);
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
+        }
+
+        // Granular check: Only allow if center is assigned to the user
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin) {
+            const assignedCentres = req.user.centres || [];
+            if (!assignedCentres.map(c => c.toString()).includes(student.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: you are not assigned to this student's centre." });
+            }
         }
 
         const [centreObj, classObj] = await Promise.all([
@@ -666,6 +721,20 @@ export const updatePNTSEStudent = async (req, res) => {
             return res.status(404).json({ message: "Student not found" });
         }
 
+        // Granular check: Only allow if center is assigned to the user
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin) {
+            const assignedCentres = req.user.centres || [];
+            if (!assignedCentres.map(c => c.toString()).includes(student.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: you are not assigned to this student's centre." });
+            }
+
+            // Also check if they try to update to a center they are not assigned to
+            if (updateData.centre && !assignedCentres.map(c => c.toString()).includes(updateData.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: you are not assigned to the target centre." });
+            }
+        }
+
         if (updateData.mobile && updateData.mobile !== student.mobile) {
             const duplicateMobile = await PNTSEStudent.findOne({ mobile: updateData.mobile });
             if (duplicateMobile) {
@@ -730,6 +799,15 @@ export const deletePNTSEStudent = async (req, res) => {
         const student = await PNTSEStudent.findById(id);
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
+        }
+
+        // Granular check: Only allow if center is assigned to the user
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin) {
+            const assignedCentres = req.user.centres || [];
+            if (!assignedCentres.map(c => c.toString()).includes(student.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: you are not assigned to this student's centre." });
+            }
         }
 
         if (student.paymentId) {

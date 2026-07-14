@@ -5,11 +5,19 @@ import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
     FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus
 } from 'react-icons/fa';
+import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
 
 const PNTSEAllStudentsContent = () => {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'super admin';
+    const canCreate = isSuperAdmin || hasPermission(user, 'pntse', 'addStudent', 'create') || hasPermission(user, 'pntse', 'allStudents', 'create');
+    const canEdit = isSuperAdmin || hasPermission(user, 'pntse', 'allStudents', 'edit');
+    const canDelete = isSuperAdmin || hasPermission(user, 'pntse', 'allStudents', 'delete');
+    const canImport = isSuperAdmin || hasPermission(user, 'pntse', 'allStudents', 'import');
+
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ centre: '', class: '', status: '', session: '' });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -535,20 +543,24 @@ const PNTSEAllStudentsContent = () => {
                 </div>
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => navigate('/pntse/add-student')}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-cyan-500/25 cursor-pointer"
-                    >
-                        <FaPlus />
-                        Add Student
-                    </button>
-                    <button
-                        onClick={() => setShowImportModal(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/25 cursor-pointer"
-                    >
-                        <FaFileImport />
-                        Import Excel
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate('/pntse/add-student')}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-cyan-500/25 cursor-pointer"
+                        >
+                            <FaPlus />
+                            Add Student
+                        </button>
+                    )}
+                    {canImport && (
+                        <button
+                            onClick={() => setShowImportModal(true)}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/25 cursor-pointer"
+                        >
+                            <FaFileImport />
+                            Import Excel
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -688,7 +700,7 @@ const PNTSEAllStudentsContent = () => {
                                     </td>
                                     <td className="px-5 py-4 text-center">
                                         <div className="flex items-center justify-center gap-2">
-                                            {student.isImported && student.isPaymentPending && (
+                                            {student.paymentStatus !== 'Paid' && student.paymentStatus !== 'Free' && canEdit && (
                                                 <>
                                                     <button
                                                         onClick={() => {
@@ -727,20 +739,24 @@ const PNTSEAllStudentsContent = () => {
                                             >
                                                 <FaEye size={14} />
                                             </button>
-                                            <button
-                                                onClick={() => handleEditStudent(student)}
-                                                className="p-1.5 text-gray-400 hover:text-amber-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-                                                title="Edit Student"
-                                            >
-                                                <FaEdit size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteStudent(student)}
-                                                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-                                                title="Delete Student"
-                                            >
-                                                <FaTrash size={14} />
-                                            </button>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => handleEditStudent(student)}
+                                                    className="p-1.5 text-gray-400 hover:text-amber-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+                                                    title="Edit Student"
+                                                >
+                                                    <FaEdit size={14} />
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button
+                                                    onClick={() => handleDeleteStudent(student)}
+                                                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+                                                    title="Delete Student"
+                                                >
+                                                    <FaTrash size={14} />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

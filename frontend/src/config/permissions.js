@@ -587,6 +587,19 @@ export const PERMISSION_MODULES = {
                 operations: ["view", "create", "edit", "delete"]
             }
         }
+    },
+    pntse: {
+        label: "PNTSE",
+        sections: {
+            allStudents: {
+                label: "All Students",
+                operations: ["view", "create", "edit", "delete", "import", "export"]
+            },
+            addStudent: {
+                label: "Add Student",
+                operations: ["view", "create", "edit", "delete"]
+            }
+        }
     }
 };
 

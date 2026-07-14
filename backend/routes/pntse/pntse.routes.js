@@ -1,19 +1,19 @@
 import express from "express";
 import multer from "multer";
-import { requireAuth } from "../../middleware/permissionMiddleware.js";
+import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
 import { createPNTSEStudent, getPNTSEStudents, checkDuplicate, downloadTemplate, importExcel, setStudentFree, processStudentPayment, updatePNTSEStudent, deletePNTSEStudent } from "../../controllers/pntse/pntseController.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post("/create", requireAuth, createPNTSEStudent);
-router.get("/list", requireAuth, getPNTSEStudents);
-router.get("/check-duplicate", requireAuth, checkDuplicate);
-router.get("/template", requireAuth, downloadTemplate);
-router.post("/import-excel", requireAuth, upload.single("file"), importExcel);
-router.patch("/:id/set-free", requireAuth, setStudentFree);
-router.post("/:id/process-payment", requireAuth, processStudentPayment);
-router.put("/:id", requireAuth, updatePNTSEStudent);
-router.delete("/:id", requireAuth, deletePNTSEStudent);
+router.post("/create", requireGranularPermission("pntse", "addStudent", "create"), createPNTSEStudent);
+router.get("/list", requireGranularPermission("pntse", "allStudents", "view"), getPNTSEStudents);
+router.get("/check-duplicate", requireGranularPermission("pntse", "allStudents", "view"), checkDuplicate);
+router.get("/template", requireGranularPermission("pntse", "allStudents", "import"), downloadTemplate);
+router.post("/import-excel", requireGranularPermission("pntse", "allStudents", "import"), upload.single("file"), importExcel);
+router.patch("/:id/set-free", requireGranularPermission("pntse", "allStudents", "edit"), setStudentFree);
+router.post("/:id/process-payment", requireGranularPermission("pntse", "allStudents", "edit"), processStudentPayment);
+router.put("/:id", requireGranularPermission("pntse", "allStudents", "edit"), updatePNTSEStudent);
+router.delete("/:id", requireGranularPermission("pntse", "allStudents", "delete"), deletePNTSEStudent);
 
 export default router;
