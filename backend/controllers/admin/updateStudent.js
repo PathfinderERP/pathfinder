@@ -61,33 +61,38 @@ export const updateStudent = async (req, res) => {
                 const details = student.studentsDetails?.[0] || {};
                 const exam = student.examSchema?.[0] || {};
                 const sessionCourse = student.sessionExamCourse?.[0] || {};
-
+ 
                 for (const admission of boardAdmissions) {
-                    if (details.studentName) admission.studentName = details.studentName;
-                    if (details.mobileNum) admission.mobileNum = details.mobileNum;
-                    if (details.centre) admission.centre = details.centre;
-                    if (details.programme) admission.programme = details.programme;
-                    if (exam.class) admission.lastClass = exam.class;
-                    if (sessionCourse.session) admission.academicSession = sessionCourse.session;
-
+                    const updateFields = {};
+                    if (details.studentName) updateFields.studentName = details.studentName;
+                    if (details.mobileNum) updateFields.mobileNum = details.mobileNum;
+                    if (details.centre) updateFields.centre = details.centre;
+                    if (details.programme) updateFields.programme = details.programme;
+                    if (exam.class) updateFields.lastClass = exam.class;
+                    if (sessionCourse.session) updateFields.academicSession = sessionCourse.session;
+ 
                     if (details.board) {
-                        const boardDoc = await Boards.findOne({
-                            $or: [
-                                { boardName: { $regex: new RegExp(`^${details.board.trim()}$`, "i") } },
-                                { boardCourse: { $regex: new RegExp(`^${details.board.trim()}$`, "i") } }
-                            ]
-                        });
-                        if (boardDoc) {
-                            admission.boardId = boardDoc._id;
-                        }
+                         const boardDoc = await Boards.findOne({
+                             $or: [
+                                 { boardName: { $regex: new RegExp(`^${details.board.trim()}$`, "i") } },
+                                 { boardCourse: { $regex: new RegExp(`^${details.board.trim()}$`, "i") } }
+                             ]
+                         });
+                         if (boardDoc) {
+                             updateFields.boardId = boardDoc._id;
+                         }
                     }
-
-                    const board = await Boards.findById(admission.boardId);
+ 
+                    const board = await Boards.findById(updateFields.boardId || admission.boardId);
                     if (board) {
-                        admission.boardCourseName = `${board.boardCourse} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''}`;
+                        updateFields.boardCourseName = `${board.boardCourse} Class ${updateFields.lastClass || admission.lastClass || ''} ${updateFields.programme || admission.programme || ''} ${updateFields.academicSession || admission.academicSession || ''}`;
                     }
 
-                    await admission.save();
+                    if (!admission.department && student.department) {
+                        updateFields.department = student.department;
+                    }
+ 
+                    await BoardCourseAdmission.updateOne({ _id: admission._id }, { $set: updateFields });
                 }
             }
         } catch (syncErr) {

@@ -88,7 +88,8 @@ export const getAdmissions = async (req, res) => {
                 path: 'student',
                 populate: [
                     { path: 'batches' },
-                    { path: 'allocatedItems.allocatedBy', select: 'name' }
+                    { path: 'allocatedItems.allocatedBy', select: 'name' },
+                    { path: 'department' }
                 ]
             })
             // .populate('course') // Removed automatic populate to handle missing courses manually
@@ -113,10 +114,12 @@ export const getAdmissions = async (req, res) => {
                 path: 'studentId',
                 populate: [
                     { path: 'batches' },
-                    { path: 'allocatedItems.allocatedBy', select: 'name' }
+                    { path: 'allocatedItems.allocatedBy', select: 'name' },
+                    { path: 'department' }
                 ]
             })
             .populate('boardId')
+            .populate('department')
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 })
             .lean();

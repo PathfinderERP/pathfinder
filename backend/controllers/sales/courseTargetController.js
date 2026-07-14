@@ -300,6 +300,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     .populate('boardId')
                     .populate('studentId')
                     .populate('examTag')
+                    .populate('department')
                     .lean()
             ]);
 
@@ -347,7 +348,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 let origTagName = studentTag || a.examTag?.name || a.examTag?.tagName || a.boardId?.boardCourse || "BOARD";
                 origTagName = getNormalizedExamTagName(origTagName, allExamTags);
                 const baseTagName = getBaseExamTag(origTagName);
-                const deptId = getDeptForBoard(baseTagName, masterDepartments);
+                const deptId = (a.department && (a.department._id || a.department).toString()) || getDeptForBoard(baseTagName, masterDepartments);
                 combinedAdmissions.push({
                     type: "board",
                     studentId: sId,
@@ -532,6 +533,7 @@ export const getAdmissionDetails = async (req, res) => {
             .populate('studentId')
             .populate('boardId')
             .populate('examTag')
+            .populate('department')
             .lean();
 
         boardResults = boardAdmissions.map(a => {
@@ -549,7 +551,8 @@ export const getAdmissionDetails = async (req, res) => {
                 course: a.boardCourseName || a.boardId?.boardCourse || "N/A",
                 programme: a.studentId?.studentsDetails?.[0]?.programme || a.programme || "",
                 downPayment: a.totalPaidAmount || a.admissionFee || 0,
-                totalFees: a.totalExpectedAmount || 0
+                totalFees: a.totalExpectedAmount || 0,
+                department: a.department
             };
         });
 
@@ -562,9 +565,10 @@ export const getAdmissionDetails = async (req, res) => {
             const filterBase = getBaseExamTag(tagName).toUpperCase();
             boardResults = boardResults.filter(a => getBaseExamTag(a.examTag).toUpperCase() === filterBase);
         } else {
-            boardResults = boardResults.filter(a => 
-                getDeptForBoard(getBaseExamTag(a.examTag), masterDepartments) === departmentId
-            );
+            boardResults = boardResults.filter(a => {
+                const actualDeptId = (a.department && (a.department._id || a.department).toString()) || getDeptForBoard(getBaseExamTag(a.examTag), masterDepartments);
+                return actualDeptId === departmentId;
+            });
         }
 
         const combinedResults = [...normalResults, ...boardResults];

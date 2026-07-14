@@ -47,10 +47,12 @@ export const getAdmissionById = async (req, res) => {
             .populate({
                 path: 'studentId',
                 populate: [
-                    { path: 'batches' }
+                    { path: 'batches' },
+                    { path: 'department' }
                 ]
             })
             .populate('boardId')
+            .populate('department')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId')
             .populate('createdBy', 'name');

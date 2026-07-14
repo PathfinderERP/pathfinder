@@ -34,8 +34,18 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
         course: student.course?._id || student.course || '',
         batches: student.batches ? student.batches.map(b => b._id || b) : [],
         department: student.department?._id || student.department || '',
-        leadBy: student.leadBy?._id || student.leadBy || admission?.leadBy?._id || admission?.leadBy || '',
-        counselledBy: student.counselledByDetails?._id || student.counselledBy || '',
+        leadBy: (() => {
+            const lb = student.leadBy || admission?.leadBy;
+            if (!lb) return '';
+            if (typeof lb === 'object') return lb._id || lb.name || '';
+            return lb;
+        })(),
+        counselledBy: (() => {
+            const cb = student.counselledByDetails || student.counselledBy;
+            if (!cb) return '';
+            if (typeof cb === 'object') return cb._id || cb.name || '';
+            return cb;
+        })(),
         createdBy: admission?.createdBy?._id || admission?.createdBy || ''
     });
 
@@ -333,6 +343,8 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                 course: formData.course || null,
                 batches: (formData.batches || []).filter(Boolean),
                 department: formData.department || null,
+                leadBy: formData.leadBy || null,
+                counselledBy: formData.counselledBy || null,
                 section: student.section || [],
             };
 
@@ -356,7 +368,8 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                         const admissionUpdates = {
                             centre: formData.centre,
                             academicSession: formData.session,
-                            createdBy: formData.createdBy || null
+                            createdBy: formData.createdBy || null,
+                            department: formData.department || null
                         };
                         if (formData.admissionNumber !== (admission.admissionNumber || '')) {
                             admissionUpdates.admissionNumber = formData.admissionNumber;
@@ -749,6 +762,11 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                                             {user.name.toUpperCase()}
                                         </option>
                                     ))}
+                                    {formData.leadBy && !centreUsers.some(u => u._id === formData.leadBy) && (
+                                        <option value={formData.leadBy}>
+                                            {String(formData.leadBy).toUpperCase()}
+                                        </option>
+                                    )}
                                 </select>
                             </div>
                             <div>
@@ -765,6 +783,11 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                                             {user.name.toUpperCase()}
                                         </option>
                                     ))}
+                                    {formData.counselledBy && !centreUsers.some(u => u._id === formData.counselledBy) && (
+                                        <option value={formData.counselledBy}>
+                                            {String(formData.counselledBy).toUpperCase()}
+                                        </option>
+                                    )}
                                 </select>
                             </div>
                             <div>

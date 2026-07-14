@@ -26,6 +26,11 @@ export const updateAdmission = async (req, res) => {
 
         const studentId = isBoard ? currentAdmission.studentId : currentAdmission.student;
 
+        // Synchronize department to Student document
+        if (updates.department) {
+            await Student.findByIdAndUpdate(studentId, { department: updates.department });
+        }
+
         // If admissionNumber is being updated, perform synchronization and conflict checks
         if (updates.admissionNumber) {
             const trimmedNumber = updates.admissionNumber.trim().toUpperCase();
@@ -101,6 +106,7 @@ export const updateAdmission = async (req, res) => {
             if (updates.academicSession) boardUpdates.academicSession = updates.academicSession;
             if (updates.examTag) boardUpdates.examTag = updates.examTag;
             if (updates.createdBy) boardUpdates.createdBy = updates.createdBy;
+            if (updates.department) boardUpdates.department = updates.department;
             
             if (updates.class) {
                 const classDoc = await Class.findById(updates.class);
@@ -124,10 +130,12 @@ export const updateAdmission = async (req, res) => {
                 path: 'studentId',
                 populate: [
                     { path: 'batches' },
-                    { path: 'allocatedItems.allocatedBy', select: 'name' }
+                    { path: 'allocatedItems.allocatedBy', select: 'name' },
+                    { path: 'department' }
                 ]
             })
             .populate('boardId')
+            .populate('department')
             .populate('createdBy', 'name');
 
             if (updatedBoardDoc) {

@@ -1,44 +1,41 @@
 import mongoose from 'mongoose';
-import Admission from './models/Admission/Admission.js';
-import BoardCourseAdmission from './models/Admission/BoardCourseAdmission.js';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-async function checkData() {
-    try {
-        await mongoose.connect(process.env.MONGO_URL);
-        console.log("Connected to DB");
-
-        const startDate = new Date("2026-04-30T00:00:00Z");
-        const endDate = new Date("2026-05-15T23:59:59Z");
-
-        const normalCount = await Admission.countDocuments({
-            admissionDate: { $gte: startDate, $lte: endDate }
-        });
-
-        const boardCount = await BoardCourseAdmission.countDocuments({
-            admissionDate: { $gte: startDate, $lte: endDate }
-        });
-
-        console.log(`Normal Admissions (all) between ${startDate.toISOString()} and ${endDate.toISOString()}: ${normalCount}`);
-        console.log(`Board Course Admissions: ${boardCount}`);
-
-        if (normalCount > 0) {
-            const sample = await Admission.findOne({
-                admissionDate: { $gte: startDate, $lte: endDate }
-            }).lean();
-            console.log("Sample Normal Admission Centre:", sample.centre);
-            console.log("Sample Normal Admission Status:", sample.admissionStatus);
-            console.log("Sample Normal Admission Type:", sample.admissionType);
-            console.log("Sample Normal Admission Date:", sample.admissionDate);
-        }
-
-        process.exit(0);
-    } catch (error) {
-        console.error(error);
-        process.exit(1);
-    }
+const mongoUri = process.env.MONGO_URL;
+if (!mongoUri) {
+    console.error("MONGO_URL not found in environment!");
+    process.exit(1);
 }
 
-checkData();
+async function run() {
+    await mongoose.connect(mongoUri);
+    console.log("Connected to DB");
+
+    const Dept = mongoose.model("Department", new mongoose.Schema({}, { strict: false }));
+    const depts = await Dept.find({});
+    console.log("All departments in DB:");
+    depts.forEach(d => {
+        console.log(`- ${d.departmentName} (${d._id})`);
+    });
+
+    const BoardAdmission = mongoose.model("BoardCourseAdmission", new mongoose.Schema({}, { strict: false }));
+    const admissions = await BoardAdmission.find({});
+    console.log(`\nTotal Board course admissions: ${admissions.length}`);
+    let missingDept = 0;
+    for (const adm of admissions) {
+        if (!adm.department) {
+            missingDept++;
+            console.log(`Missing dept on BoardAdmission ID: ${adm._id}, Student: ${adm.studentName}`);
+        }
+    }
+    console.log(`Missing dept total: ${missingDept}`);
+
+    const Student = mongoose.model("Student", new mongoose.Schema({}, { strict: false }));
+    const studentsWithMissingDept = await Student.find({ department: { $exists: false } });
+    console.log(`Students missing department field: ${studentsWithMissingDept.length}`);
+
+    await mongoose.disconnect();
+}
+
+run().catch(console.error);

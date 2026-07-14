@@ -40,8 +40,18 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
         batches: (admission.student?.batches || []).map(b => typeof b === 'object' ? b._id : b) || [],
         admissionNumber: admission.admissionNumber || '',
         uid: admission.student?.uid || admission.student?._id || '',
-        leadBy: admission.student?.leadBy?._id || admission.student?.leadBy || admission.leadBy?._id || admission.leadBy || '',
-        counselledBy: admission.student?.counselledByDetails?._id || admission.student?.counselledBy || '',
+        leadBy: (() => {
+            const lb = admission.student?.leadBy || admission.leadBy;
+            if (!lb) return '';
+            if (typeof lb === 'object') return lb._id || lb.name || '';
+            return lb;
+        })(),
+        counselledBy: (() => {
+            const cb = admission.student?.counselledByDetails || admission.student?.counselledBy;
+            if (!cb) return '';
+            if (typeof cb === 'object') return cb._id || cb.name || '';
+            return cb;
+        })(),
         createdBy: admission.createdBy?._id || admission.createdBy || '',
     });
 
@@ -291,6 +301,7 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                         batches: dataToSave.batches,
                         leadBy: dataToSave.leadBy,
                         counselledBy: dataToSave.counselledBy,
+                        department: dataToSave.department,
                         studentsDetails: [{
                             studentName: dataToSave.studentName,
                             studentEmail: dataToSave.studentEmail,
@@ -1037,6 +1048,11 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                                 {user.name.toUpperCase()}
                                             </option>
                                         ))}
+                                        {formData.leadBy && !centreUsers.some(u => u._id === formData.leadBy) && (
+                                            <option value={formData.leadBy}>
+                                                {String(formData.leadBy).toUpperCase()}
+                                            </option>
+                                        )}
                                     </select>
                                 </div>
                                 <div>
@@ -1053,6 +1069,11 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                                 {user.name.toUpperCase()}
                                             </option>
                                         ))}
+                                        {formData.counselledBy && !centreUsers.some(u => u._id === formData.counselledBy) && (
+                                            <option value={formData.counselledBy}>
+                                                {String(formData.counselledBy).toUpperCase()}
+                                            </option>
+                                        )}
                                     </select>
                                 </div>
                                 <div>
