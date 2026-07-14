@@ -149,6 +149,20 @@ const getLast7DaysRange = () => {
     return { start: formatDate(last7), end: formatDate(today) };
 };
 
+const getThisMonthRange = () => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { start: formatDate(start), end: formatDate(end) };
+};
+
+const getLastMonthRange = () => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const end = new Date(today.getFullYear(), today.getMonth(), 0);
+    return { start: formatDate(start), end: formatDate(end) };
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 const AdmissionCourseReport = () => {
     const { theme } = useTheme();
@@ -163,6 +177,8 @@ const AdmissionCourseReport = () => {
     const [selCentres,  setSelCentres]  = useState([]);
     const [selTags,     setSelTags]     = useState([]);
     const [selSessions, setSelSessions] = useState([]);
+    const [classes,     setClasses]     = useState([]);
+    const [selClasses,  setSelClasses]  = useState([]);
     const [selectedProgramme, setSelectedProgramme] = useState("");
     const [timePeriod,  setTimePeriod]  = useState("Today");
     const [startDate,   setStartDate]   = useState("");
@@ -174,7 +190,7 @@ const AdmissionCourseReport = () => {
     // ── data ──────────────────────────────────────────────────────────────────
     // Each row: { examTagId, examTagName, centreName, courseName, month, count }
     const [rows,    setRows]    = useState([]);
-    const [summary, setSummary] = useState({ total: 0, tags: 0, centres: 0, courses: 0 });
+    const [summary, setSummary] = useState({ total: 0, departments: 0, centres: 0, courses: 0 });
     const [loading, setLoading] = useState(false);
 
     // Modal State
@@ -188,10 +204,11 @@ const AdmissionCourseReport = () => {
         const token = localStorage.getItem("token");
         const h     = { Authorization: `Bearer ${token}` };
         try {
-            const [cR, tR, sR] = await Promise.all([
+            const [cR, tR, sR, clR] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`,  { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers: h }),
+                fetch(`${import.meta.env.VITE_API_URL}/class`, { headers: h }),
             ]);
             if (cR.ok) {
                 const d = await cR.json();
@@ -217,6 +234,12 @@ const AdmissionCourseReport = () => {
                     .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
             }
+            if (clR.ok) {
+                const classData = await clR.json();
+                const sortedClasses = (Array.isArray(classData) ? classData : classData.data || [])
+                    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setClasses(sortedClasses);
+            }
         } catch (e) { console.error(e); }
     };
 
@@ -238,6 +261,14 @@ const AdmissionCourseReport = () => {
             const { start, end } = getLast7DaysRange();
             p.append("startDate", start);
             p.append("endDate",   end);
+        } else if (timePeriod === "This Month") {
+            const { start, end } = getThisMonthRange();
+            p.append("startDate", start);
+            p.append("endDate",   end);
+        } else if (timePeriod === "Last Month") {
+            const { start, end } = getLastMonthRange();
+            p.append("startDate", start);
+            p.append("endDate",   end);
         } else {
             const yr = new Date().getFullYear();
             p.append("year", timePeriod === "This Year" ? yr : yr - 1);
@@ -246,6 +277,7 @@ const AdmissionCourseReport = () => {
         if (selectedProgramme) p.append("programme", selectedProgramme);
         if (selTags.length)    p.append("examTagIds", selTags.join(","));
         if (selSessions.length) p.append("sessions", selSessions.join(","));
+        if (selClasses.length) p.append("classIds", selClasses.join(","));
         return p.toString();
     };
 
@@ -262,13 +294,24 @@ const AdmissionCourseReport = () => {
             );
             if (!res.ok) {
                 setRows([]);
-                setSummary({ total: 0, tags: 0, centres: 0, courses: 0 });
+                setSummary({ total: 0, departments: 0, centres: 0, courses: 0 });
                 return;
             }
             const data = await res.json();
 
+            const DEPARTMENTS_LIST = [
+                "ALL INDIA",
+                "ALL-INDIA + FND",
+                "CBSE DEPARTMENT",
+                "FOUNDATION",
+                "HS",
+                "ICSE",
+                "ISC",
+                "MADHYAMIK"
+            ];
+
             const detail = data.detailedTrend || [];
-            const mapped = detail.map(r => ({
+            let mapped = detail.map(r => ({
                 examTagId:   r.examTagId   || "board",
                 examTagName: r.examTagName || "Board Course",
                 centreName:  r.centre      || "—",
@@ -278,15 +321,24 @@ const AdmissionCourseReport = () => {
                 date:        r.date        || "—",
                 count:       r.count       || 0,
                 downPayment: r.downPayment || 0,
+                departmentName: r.departmentName || "Unknown",
+                admissionNumber: r.admissionNumber || "—",
             }));
+
+            if (selCentres.length === 0) {
+                mapped = mapped.filter(r => {
+                    const n = (r.centreName || "").toLowerCase();
+                    return !n.includes("franchise") && !n.includes("rkm") && !n.includes("phsps");
+                });
+            }
 
             setRows(mapped);
 
             const total   = mapped.reduce((a, r) => a + r.count, 0);
-            const tags    = new Set(mapped.map(r => r.examTagId)).size;
+            const depts   = new Set(mapped.map(r => r.departmentName).filter(d => DEPARTMENTS_LIST.includes((d || "").trim().toUpperCase()))).size;
             const cntrs   = new Set(mapped.map(r => r.centreName)).size;
             const courses = new Set(mapped.map(r => r.courseName)).size;
-            setSummary({ total, tags, centres: cntrs, courses });
+            setSummary({ total, departments: depts, centres: cntrs, courses });
         } catch (e) {
             console.error(e);
             setRows([]);
@@ -294,16 +346,16 @@ const AdmissionCourseReport = () => {
         } finally {
             setLoading(false);
         }
-    }, [selCentres, selTags, selSessions, timePeriod, startDate, endDate, selectedProgramme]);
+    }, [selCentres, selTags, selSessions, selClasses, timePeriod, startDate, endDate, selectedProgramme]);
 
     // Trigger fetch on filter changes
     useEffect(() => {
         if (examTags.length > 0) fetchReport();
-    }, [selCentres, selTags, selSessions, timePeriod, startDate, endDate, examTags, selectedProgramme]);
+    }, [selCentres, selTags, selSessions, selClasses, timePeriod, startDate, endDate, examTags, selectedProgramme]);
 
     // ── helpers ───────────────────────────────────────────────────────────────
     const toggle     = setter => id => setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelSessions([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
+    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelSessions([]); setSelClasses([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
 
     // Unique tag → index for stable colour
     const tagIndexMap = {};
@@ -316,7 +368,10 @@ const AdmissionCourseReport = () => {
     const masterCentreNames = (
         selCentres.length > 0
             ? centres.filter(c => selCentres.includes(c._id))
-            : centres
+            : centres.filter(c => {
+                const n = (c.centreName || "").toLowerCase();
+                return !n.includes("franchise") && !n.includes("rkm") && !n.includes("phsps");
+            })
     ).map(c => c.centreName);
 
     const rowCentreNames = rows.map(r => r.centreName);
@@ -327,49 +382,44 @@ const AdmissionCourseReport = () => {
         .filter(c => !search || (c || "").toLowerCase().includes(search.toLowerCase()))
         .sort();
 
+    const DEPARTMENTS_LIST = [
+        "ALL INDIA",
+        "ALL-INDIA + FND",
+        "CBSE DEPARTMENT",
+        "FOUNDATION",
+        "HS",
+        "ICSE",
+        "ISC",
+        "MADHYAMIK"
+    ];
+
     // Pivot Data Structure
-    // pivotData[centreName][examTagName] = { count: 0, details: [] }
+    // pivotData[centreName][departmentName] = { count: 0, details: [] }
     const pivotData = {};
-    const allTagsInPivot = new Set();
     
     rows.forEach(r => {
         if(!pivotData[r.centreName]) pivotData[r.centreName] = {};
-        if(!pivotData[r.centreName][r.examTagName]) pivotData[r.centreName][r.examTagName] = { count: 0, details: [] };
         
-        pivotData[r.centreName][r.examTagName].count += r.count;
-        pivotData[r.centreName][r.examTagName].details.push(r);
-        allTagsInPivot.add(r.examTagName);
-    });
-
-    const CUSTOM_ORDER = [
-        "JEE 1 YEAR",
-        "JEE 2 YEAR",
-        "NEET 1 YEAR",
-        "NEET 2 YEAR",
-        "REPEATER",
-        "FOUNDATION CLASS 10",
-        "FOUNDATION CLASS 9",
-        "FOUNDATION CLASS 8",
-        "FOUNDATION CLASS 7",
-        "FOUNDATION CLASS 6",
-        "FOUNDATION CLASS 5"
-    ];
-
-    const uniqueTags = Array.from(allTagsInPivot).sort((a, b) => {
-        const aIdx = CUSTOM_ORDER.indexOf(a.trim().toUpperCase());
-        const bIdx = CUSTOM_ORDER.indexOf(b.trim().toUpperCase());
-        
-        if (aIdx !== -1 && bIdx !== -1) {
-            return aIdx - bIdx;
+        const dept = (r.departmentName || "").trim().toUpperCase();
+        if (DEPARTMENTS_LIST.includes(dept)) {
+            if(!pivotData[r.centreName][dept]) {
+                pivotData[r.centreName][dept] = { count: 0, details: [] };
+            }
+            pivotData[r.centreName][dept].count += r.count;
+            pivotData[r.centreName][dept].details.push(r);
         }
-        if (aIdx !== -1) return -1;
-        if (bIdx !== -1) return 1;
-        
-        return a.localeCompare(b);
     });
+
+    const uniqueTags = DEPARTMENTS_LIST;
 
     // Grand total for share %
-    const grandTotal = rows.reduce((a, r) => a + r.count, 0);
+    const grandTotal = rows.reduce((a, r) => {
+        const dept = (r.departmentName || "").trim().toUpperCase();
+        if (DEPARTMENTS_LIST.includes(dept)) {
+            return a + r.count;
+        }
+        return a;
+    }, 0);
 
 
     // ── excel export ──────────────────────────────────────────────────────────
@@ -413,7 +463,8 @@ const AdmissionCourseReport = () => {
                     detailExportData.push({
                         "#":               counter++,
                         "Date":            r.date,
-                        "Exam Tag":        r.examTagName,
+                        "Enrollment No.":  r.admissionNumber || "—",
+                        "Department":      r.departmentName || "—",
                         "Centre":          r.centreName,
                         "Course":          r.courseName,
                         "Class":           r.className,
@@ -427,7 +478,8 @@ const AdmissionCourseReport = () => {
                 detailExportData.push({
                     "#":               counter++,
                     "Date":            "—",
-                    "Exam Tag":        "—",
+                    "Enrollment No.":  "—",
+                    "Department":      "—",
                     "Centre":          c,
                     "Course":          "—",
                     "Class":           "—",
@@ -443,7 +495,7 @@ const AdmissionCourseReport = () => {
 
         const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         saveAs(new Blob([buf], { type: "application/octet-stream" }),
-            `ExamTag_Admission_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            `Department_Admission_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
     // ── styles ────────────────────────────────────────────────────────────────
@@ -471,11 +523,14 @@ const AdmissionCourseReport = () => {
     // Derive aggregated data for card detail modals
     const sortedAdmissions = [...rows].sort((a, b) => b.date.localeCompare(a.date));
 
-    const tagsBreakdown = Object.values(
+    const deptsBreakdown = Object.values(
         rows.reduce((acc, r) => {
-            const key = r.examTagName || "Board Course";
-            if (!acc[key]) acc[key] = { name: key, count: 0, tagId: r.examTagId };
-            acc[key].count += r.count;
+            const key = r.departmentName || "Unknown";
+            if (DEPARTMENTS_LIST.includes(key.trim().toUpperCase())) {
+                const normKey = key.trim().toUpperCase();
+                if (!acc[normKey]) acc[normKey] = { name: normKey, count: 0 };
+                acc[normKey].count += r.count;
+            }
             return acc;
         }, {})
     ).sort((a, b) => b.count - a.count);
@@ -533,10 +588,10 @@ const AdmissionCourseReport = () => {
                     />
                     <SummaryCard 
                         icon={<FaTag />}           
-                        label="Exam Tags"        
-                        value={summary.tags}                          
+                        label="Departments"        
+                        value={summary.departments}                          
                         grad="bg-violet-500/15 text-violet-500"
-                        onClick={() => setActiveCardModal("tags")}
+                        onClick={() => setActiveCardModal("departments")}
                     />
                     <SummaryCard 
                         icon={<FaBuilding />}      
@@ -595,6 +650,17 @@ const AdmissionCourseReport = () => {
                             isDarkMode={isDark}
                         />
 
+                        {/* Classes */}
+                        <MultiSelect
+                            placeholder="All Classes"
+                            options={classes}
+                            selected={selClasses}
+                            onToggle={toggle(setSelClasses)}
+                            labelKey="name"
+                            valueKey="_id"
+                            isDarkMode={isDark}
+                        />
+
                         {/* Programme */}
                         <div className="min-w-[120px]">
                             <select
@@ -615,6 +681,8 @@ const AdmissionCourseReport = () => {
                                 ${isDark ? "bg-[#1a1f24] border-gray-700 text-gray-300" : "bg-white border-gray-300 text-gray-700 shadow-sm"}`}>
                             <option value="This Year">This Year</option>
                             <option value="Last Year">Last Year</option>
+                            <option value="This Month">This Month</option>
+                            <option value="Last Month">Last Month</option>
                             <option value="Today">Today</option>
                             <option value="Yesterday">Yesterday</option>
                             <option value="Last 7 Days">Last 7 Days</option>
@@ -700,9 +768,7 @@ const AdmissionCourseReport = () => {
                                         <th className={`${thCls} sticky left-0 z-10 ${isDark ? "bg-[#131619]" : "bg-gray-50"} border-r ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
                                             <FaBuilding className="inline mr-1" />Centre
                                         </th>
-                                        {uniqueTags.map(tag => {
-                                            const tagObj = examTags.find(t => t.name === tag);
-                                            const ci = tagObj ? (tagIndexMap[tagObj._id] ?? 0) : 0;
+                                        {uniqueTags.map((tag, ci) => {
                                             return (
                                                 <th key={tag} className={`${thCls} text-center min-w-[120px]`}>
                                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border ${tagBadge(ci)}`}>
@@ -790,9 +856,11 @@ const AdmissionCourseReport = () => {
                             <thead>
                                 <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
                                     <th className={thCls}>Date</th>
+                                    <th className={thCls}>Enrollment No.</th>
                                     <th className={thCls}>Course Name</th>
                                     <th className={thCls}>Class</th>
                                     <th className={thCls}>Month</th>
+                                    <th className={`${thCls} text-right`}>Down Payment</th>
                                     <th className={`${thCls} text-right`}>Admissions</th>
                                 </tr>
                             </thead>
@@ -801,6 +869,11 @@ const AdmissionCourseReport = () => {
                                     <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
                                         <td className={`${tdCls} text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                                             {detail.date}
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                {detail.admissionNumber}
+                                            </span>
                                         </td>
                                         <td className={tdCls}>
                                             <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
@@ -816,6 +889,9 @@ const AdmissionCourseReport = () => {
                                             {detail.monthName}
                                         </td>
                                         <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {fmt(detail.downPayment)}
+                                        </td>
+                                        <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
                                             {detail.count.toLocaleString("en-IN")}
                                         </td>
                                     </tr>
@@ -823,7 +899,10 @@ const AdmissionCourseReport = () => {
                             </tbody>
                             <tfoot>
                                 <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
-                                    <td colSpan={4} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                    <td colSpan={5} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                    <td className={`${tdCls} text-right text-sm font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                        {fmt(selectedCell.details.reduce((a, d) => a + (d.downPayment || 0), 0))}
+                                    </td>
                                     <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
                                         {selectedCell.details.reduce((a, d) => a + d.count, 0).toLocaleString("en-IN")}
                                     </td>
@@ -846,10 +925,12 @@ const AdmissionCourseReport = () => {
                         <thead>
                             <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
                                 <th className={thCls}>Date</th>
+                                <th className={thCls}>Enrollment No.</th>
                                 <th className={thCls}>Centre</th>
                                 <th className={thCls}>Exam Tag</th>
                                 <th className={thCls}>Course Name</th>
                                 <th className={thCls}>Class</th>
+                                <th className={`${thCls} text-right`}>Down Payment</th>
                                 <th className={`${thCls} text-right`}>Admissions</th>
                             </tr>
                         </thead>
@@ -859,6 +940,11 @@ const AdmissionCourseReport = () => {
                                     <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
                                         <td className={`${tdCls} text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                                             {detail.date}
+                                        </td>
+                                        <td className={tdCls}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                {detail.admissionNumber}
+                                            </span>
                                         </td>
                                         <td className={tdCls}>
                                             <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
@@ -881,13 +967,16 @@ const AdmissionCourseReport = () => {
                                             </span>
                                         </td>
                                         <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {fmt(detail.downPayment)}
+                                        </td>
+                                        <td className={`${tdCls} text-right font-black ${isDark ? "text-white" : "text-gray-900"}`}>
                                             {detail.count.toLocaleString("en-IN")}
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={6} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                    <td colSpan={8} className={`${tdCls} text-center text-gray-500 py-8`}>
                                         No admissions data available.
                                     </td>
                                 </tr>
@@ -895,7 +984,10 @@ const AdmissionCourseReport = () => {
                         </tbody>
                         <tfoot>
                             <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
-                                <td colSpan={5} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td colSpan={6} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td className={`${tdCls} text-right text-sm font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    {fmt(sortedAdmissions.reduce((a, d) => a + (d.downPayment || 0), 0))}
+                                </td>
                                 <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>
                                     {summary.total.toLocaleString("en-IN")}
                                 </td>
@@ -905,24 +997,24 @@ const AdmissionCourseReport = () => {
                 </div>
             </Modal>
 
-            {/* ── Exam Tags Card Modal ───────────────────────────────────────── */}
+            {/* ── Departments Card Modal ─────────────────────────────────────── */}
             <Modal
-                isOpen={activeCardModal === "tags"}
+                isOpen={activeCardModal === "departments"}
                 onClose={() => setActiveCardModal(null)}
-                title="Exam Tags Breakdown"
+                title="Departments Breakdown"
                 isDarkMode={isDark}
             >
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
-                                <th className={thCls}>Exam Tag</th>
+                                <th className={thCls}>Department</th>
                                 <th className={`${thCls} text-right`}>Total Admissions</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
-                            {tagsBreakdown.length > 0 ? (
-                                tagsBreakdown.map((item, idx) => (
+                            {deptsBreakdown.length > 0 ? (
+                                deptsBreakdown.map((item, idx) => (
                                     <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
                                         <td className={tdCls}>
                                             <span className={`font-semibold block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
@@ -937,7 +1029,7 @@ const AdmissionCourseReport = () => {
                             ) : (
                                 <tr>
                                     <td colSpan={2} className={`${tdCls} text-center text-gray-500 py-8`}>
-                                        No exam tags data available.
+                                        No departments data available.
                                     </td>
                                 </tr>
                             )}

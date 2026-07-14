@@ -123,7 +123,7 @@ export const saveCourseTarget = async (req, res) => {
 // GET /sales/course-target/analysis
 export const getCourseTargetAnalysis = async (req, res) => {
     try {
-        const { centre, year, month, quarter, week, targetType, programme, sessions } = req.query;
+        const { centre, year, month, quarter, week, targetType, programme, sessions, classIds } = req.query;
 
         if (!centre || !year || !targetType) {
             return res.status(400).json({ message: "Centre(s), Year, and Target Type are required" });
@@ -246,6 +246,16 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
+        const classIdList = classIds ? classIds.split(',').map(s => s.trim()).filter(id => mongoose.Types.ObjectId.isValid(id)) : [];
+
+        let boardClassMatches = [];
+        if (classIdList.length > 0) {
+            const ClassModel = mongoose.model("Class");
+            const classDocs = await ClassModel.find({ _id: { $in: classIdList } }).select("name");
+            const classNames = classDocs.map(c => c.name);
+            const classDigits = classDocs.map(c => (c.name.match(/\d+/) || [])[0]).filter(Boolean);
+            boardClassMatches = [...new Set([...classNames, ...classDigits])];
+        }
 
         console.log(`Analyzing ${centreIds.length} centres from ${startDate.toISOString()} to ${endDate.toISOString()} | Sessions: ${sessionList} | Programs: ${programList}`);
 
@@ -265,6 +275,9 @@ export const getCourseTargetAnalysis = async (req, res) => {
             if (sessionList.length > 0) {
                 normalMatch.academicSession = { $in: sessionList };
             }
+            if (classIdList.length > 0) {
+                normalMatch.class = { $in: classIdList.map(id => new mongoose.Types.ObjectId(id)) };
+            }
 
             const boardMatch = {
                 centre: centreRegex,
@@ -273,6 +286,9 @@ export const getCourseTargetAnalysis = async (req, res) => {
             };
             if (sessionList.length > 0) {
                 boardMatch.academicSession = { $in: sessionList };
+            }
+            if (classIdList.length > 0) {
+                boardMatch.lastClass = { $in: boardClassMatches };
             }
 
             const [normalAdmissions, boardAdmissions] = await Promise.all([
@@ -419,7 +435,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 // GET /sales/course-target/admissions
 export const getAdmissionDetails = async (req, res) => {
     try {
-        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName } = req.query;
+        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName, classIds } = req.query;
 
         if (!centreName || !departmentId || !startDate || !endDate) {
             return res.status(400).json({ message: "Missing required parameters" });
@@ -433,6 +449,16 @@ export const getAdmissionDetails = async (req, res) => {
 
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
+        const classIdList = classIds ? classIds.split(',').map(s => s.trim()).filter(id => mongoose.Types.ObjectId.isValid(id)) : [];
+
+        let boardClassMatches = [];
+        if (classIdList.length > 0) {
+            const ClassModel = mongoose.model("Class");
+            const classDocs = await ClassModel.find({ _id: { $in: classIdList } }).select("name");
+            const classNames = classDocs.map(c => c.name);
+            const classDigits = classDocs.map(c => (c.name.match(/\d+/) || [])[0]).filter(Boolean);
+            boardClassMatches = [...new Set([...classNames, ...classDigits])];
+        }
 
         // Check if we need to filter by a specific exam tag/board name (across all departments in the centre)
         const isTagFiltered = tagName && tagName !== "All";
@@ -452,6 +478,9 @@ export const getAdmissionDetails = async (req, res) => {
         }
         if (sessionList.length > 0) {
             normalQuery.academicSession = { $in: sessionList };
+        }
+        if (classIdList.length > 0) {
+            normalQuery.class = { $in: classIdList.map(id => new mongoose.Types.ObjectId(id)) };
         }
 
         const admissions = await Admission.find(normalQuery)
@@ -494,6 +523,9 @@ export const getAdmissionDetails = async (req, res) => {
         };
         if (sessionList.length > 0) {
             boardQuery.academicSession = { $in: sessionList };
+        }
+        if (classIdList.length > 0) {
+            boardQuery.lastClass = { $in: boardClassMatches };
         }
 
         const boardAdmissions = await BoardCourseAdmission.find(boardQuery)

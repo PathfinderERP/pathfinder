@@ -44,6 +44,15 @@ const CourseTarget = () => {
             return [];
         }
     });
+    const [classes, setClasses] = useState([]);
+    const [selectedClasses, setSelectedClasses] = useState(() => {
+        try {
+            const saved = localStorage.getItem("courseTarget_selectedClasses");
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
     const [activeCardModal, setActiveCardModal] = useState(null);
 
     const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
@@ -165,6 +174,9 @@ const CourseTarget = () => {
             }
             if (selectedSessions && selectedSessions.length > 0) {
                 params.append("sessions", selectedSessions.join(','));
+            }
+            if (selectedClasses && selectedClasses.length > 0) {
+                params.append("classIds", selectedClasses.join(','));
             }
             const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-target/admissions?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -295,11 +307,16 @@ const CourseTarget = () => {
     }, [selectedSessions]);
 
     useEffect(() => {
+        localStorage.setItem("courseTarget_selectedClasses", JSON.stringify(selectedClasses));
+    }, [selectedClasses]);
+
+    useEffect(() => {
         fetchCentres();
         fetchDepartments();
         fetchExamTags();
         fetchSessions();
         fetchZones();
+        fetchClasses();
     }, []);
 
     useEffect(() => {
@@ -471,6 +488,36 @@ const CourseTarget = () => {
         }
     };
 
+    const fetchClasses = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/class`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const classList = res.data || [];
+            classList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+            setClasses(classList);
+            const saved = localStorage.getItem("courseTarget_selectedClasses");
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        const validClasses = parsed.filter(id => classList.some(c => c._id === id));
+                        if (validClasses.length > 0) {
+                            setSelectedClasses(validClasses);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            setSelectedClasses(classList.map(c => c._id));
+        } catch (e) {
+            console.error("Error fetching classes:", e);
+        }
+    };
+
     const fetchData = useCallback(async () => {
         if (selectedCentres.length === 0) {
             setData([]);
@@ -498,6 +545,9 @@ const CourseTarget = () => {
             if (selectedSessions && selectedSessions.length > 0) {
                 params.sessions = selectedSessions.join(',');
             }
+            if (selectedClasses && selectedClasses.length > 0) {
+                params.classIds = selectedClasses.join(',');
+            }
 
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/course-target/analysis`, {
                 params,
@@ -515,7 +565,7 @@ const CourseTarget = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions]);
+    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses]);
 
     useEffect(() => {
         fetchData();
@@ -935,6 +985,26 @@ const CourseTarget = () => {
                             />
                         </div>
 
+                        <div className="min-w-[180px] z-20 w-full sm:w-56">
+                            <CustomMultiSelect
+                                options={[{ value: 'all', label: 'All Classes' }, ...classes.map(c => ({ value: c._id, label: c.name }))]}
+                                value={
+                                    selectedClasses.length === classes.length && classes.length > 0
+                                        ? [{ value: 'all', label: 'All Classes' }]
+                                        : classes.map(c => ({ value: c._id, label: c.name })).filter(opt => selectedClasses.includes(opt.value))
+                                }
+                                onChange={(selected) => {
+                                    if (selected && selected.some(o => o.value === 'all')) {
+                                        setSelectedClasses(classes.map(c => c._id));
+                                    } else {
+                                        setSelectedClasses(selected ? selected.map(o => o.value) : []);
+                                    }
+                                }}
+                                placeholder="Select Classes"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
                         {(viewMode === "MONTHLY" || viewMode === "WEEKLY") && (
                             <div className="min-w-[120px] z-20">
                                 <select
@@ -1147,6 +1217,45 @@ const CourseTarget = () => {
                                     })
                                 )}
                             </tbody>
+                            {!loading && visibleData.length > 0 && (
+                                <tfoot>
+                                    <tr className={`border-t-2 font-black text-xs uppercase transition-colors ${isDarkMode ? 'bg-black/40 text-white border-gray-700' : 'bg-gray-100 text-gray-900 border-gray-300'}`}>
+                                        <td className="px-6 py-5 sticky left-0 z-10 bg-inherit border-r border-inherit font-black">
+                                            Grand Total
+                                        </td>
+                                        {uniqueDeptColumns.map(deptName => {
+                                            let deptAchievedSum = 0;
+                                            let deptTargetSum = 0;
+                                            visibleData.forEach(centre => {
+                                                const { achieved, target } = getDeptStatsByName(centre, deptName);
+                                                deptAchievedSum += achieved;
+                                                deptTargetSum += target;
+                                            });
+
+                                            return (
+                                                <td key={deptName} className="px-6 py-5 text-center border-r border-inherit">
+                                                    <span className={`text-base font-black ${deptAchievedSum > 0 ? 'text-emerald-500' : 'opacity-40'}`}>
+                                                        {deptAchievedSum}
+                                                        {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
+                                                            <>
+                                                                <span className="text-gray-500 font-normal mx-1">/</span>
+                                                                <span className={deptTargetSum > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
+                                                                    {deptTargetSum > 0 ? deptTargetSum : "-"}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </span>
+                                                </td>
+                                            );
+                                        })}
+                                        <td className="px-6 py-5 text-center border-r border-inherit bg-amber-500/10">
+                                            <span className="text-lg font-black text-amber-500">
+                                                {visibleData.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
                     </div>
                 </div>
