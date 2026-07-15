@@ -341,7 +341,33 @@ export const getPNTSEStudents = async (req, res) => {
     }
 };
 
+// Bulk check if multiple mobiles/emails already exist in DB (for bulk import preview)
+export const checkDuplicatesBulk = async (req, res) => {
+    try {
+        const { mobiles = [], emails = [] } = req.body;
+
+        // Query once for all mobiles and once for all emails
+        const [dupMobileStudents, dupEmailStudents] = await Promise.all([
+            mobiles.length > 0
+                ? PNTSEStudent.find({ mobile: { $in: mobiles } }, "mobile").lean()
+                : [],
+            emails.length > 0
+                ? PNTSEStudent.find({ email: { $in: emails.map(e => e.toLowerCase()) } }, "email").lean()
+                : []
+        ]);
+
+        const foundMobiles = dupMobileStudents.map(s => s.mobile);
+        const foundEmails  = dupEmailStudents.map(s => (s.email || "").toLowerCase());
+
+        res.status(200).json({ foundMobiles, foundEmails });
+    } catch (err) {
+        console.error("Bulk duplicate check error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
 // Check if mobile or email exists
+
 export const checkDuplicate = async (req, res) => {
     try {
         const { mobile, email } = req.query;

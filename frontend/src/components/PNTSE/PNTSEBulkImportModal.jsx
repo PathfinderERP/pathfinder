@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from "react";
 import {
     FaTimes, FaUpload, FaDownload, FaFileExcel, FaSync,
     FaExclamationTriangle, FaCheckCircle, FaEye, FaTrash,
-    FaTimesCircle, FaEdit, FaSave
+    FaTimesCircle, FaEdit, FaSave, FaDatabase, FaSpinner
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
@@ -72,7 +72,12 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
     const [editBuf, setEditBuf]       = useState({});
     const fileInputRef = useRef(null);
 
-    /* detect duplicates within the current rows array */
+    // DB duplicate check state
+    const [dbChecking, setDbChecking]       = useState(false);
+    const [dbDupMobiles, setDbDupMobiles]   = useState(new Set()); // set of mobile strings that exist in DB
+    const [dbDupEmails, setDbDupEmails]     = useState(new Set()); // set of email strings
+
+    /* detect duplicates WITHIN the current rows array */
     const getDuplicateIndices = useCallback((rows) => {
         const seenMob = {}, seenEmail = {};
         const dupMob = new Set(), dupEmail = new Set();
@@ -84,6 +89,33 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
         });
         return { dupMob, dupEmail };
     }, []);
+
+    /* ─── DB bulk duplicate check ─────────────────────────────────────── */
+    const runDbDuplicateCheck = useCallback(async (rows) => {
+        const mobiles = [...new Set(rows.map(r => r.mobile?.trim()).filter(Boolean))];
+        const emails  = [...new Set(rows.map(r => r.email?.trim().toLowerCase()).filter(Boolean))];
+        if (!mobiles.length && !emails.length) return;
+
+        setDbChecking(true);
+        try {
+            const res = await fetch(`${apiUrl}/pntse/check-duplicates-bulk`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ mobiles, emails })
+            });
+            if (!res.ok) throw new Error("DB check failed");
+            const data = await res.json();
+            setDbDupMobiles(new Set(data.foundMobiles || []));
+            setDbDupEmails(new Set((data.foundEmails || []).map(e => e.toLowerCase())));
+        } catch {
+            // Silent — not critical
+        } finally {
+            setDbChecking(false);
+        }
+    }, [apiUrl, token]);
 
     const downloadTemplate = async () => {
         try {
@@ -113,8 +145,12 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                 const rows = raw.map(parseRow).filter(r => r.name?.trim());
                 if (!rows.length) { toast.error("No valid rows found. Ensure 'Name' column exists."); return; }
                 setParsedRows(rows);
+                setDbDupMobiles(new Set());
+                setDbDupEmails(new Set());
                 setStep("preview");
-                toast.success(`${rows.length} row(s) parsed — review before uploading.`);
+                toast.success(`${rows.length} row(s) parsed — checking database for duplicates…`);
+                // Immediately run DB check
+                runDbDuplicateCheck(rows);
             } catch (err) { console.error(err); toast.error("Failed to read file."); }
         };
         reader.readAsBinaryString(file);
@@ -124,14 +160,24 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
     const handleReset = () => {
         setParsedRows([]); setStep("idle"); setFileName(""); setUploadResult(null);
         setEditingIdx(null); setEditBuf({});
+        setDbDupMobiles(new Set()); setDbDupEmails(new Set()); setDbChecking(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
-    const removeRow  = (idx) => setParsedRows(prev => prev.filter((_, i) => i !== idx));
+
+    const removeRow  = (idx) => {
+        const updated = parsedRows.filter((_, i) => i !== idx);
+        setParsedRows(updated);
+        runDbDuplicateCheck(updated);
+    };
     const startEdit  = (idx) => { setEditingIdx(idx); setEditBuf({ ...parsedRows[idx] }); };
     const cancelEdit = ()    => { setEditingIdx(null); setEditBuf({}); };
     const saveEdit   = ()    => {
-        setParsedRows(prev => { const n = [...prev]; n[editingIdx] = { ...editBuf }; return n; });
+        const updated = [...parsedRows];
+        updated[editingIdx] = { ...editBuf };
+        setParsedRows(updated);
         setEditingIdx(null); setEditBuf({});
+        // Re-check DB after edit (mobile/email may have changed)
+        runDbDuplicateCheck(updated);
     };
 
     const handleUpload = async () => {
@@ -188,6 +234,10 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
     const rowErrs    = (i) => validateRow(parsedRows[i]);
     const validCount = parsedRows.filter((_, i) => rowErrs(i).length === 0).length;
     const errCount   = parsedRows.filter((_, i) => rowErrs(i).length > 0).length;
+
+    // Count DB duplicates visible in current rows
+    const dbMobCount   = parsedRows.filter(r => r.mobile && dbDupMobiles.has(r.mobile.trim())).length;
+    const dbEmailCount = parsedRows.filter(r => r.email  && dbDupEmails.has(r.email.trim().toLowerCase())).length;
 
     const inp = "w-full px-2 py-1 rounded border text-[11px] font-semibold outline-none transition-all bg-[#0f1215] border-gray-700 text-gray-200 focus:border-cyan-500/80";
 
@@ -268,38 +318,82 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                     {step === "preview" && (
                         <div className="flex flex-col gap-4 p-4 bg-[#0a0d0f]">
 
-                            {/* Stats */}
-                            <div className="flex flex-wrap items-center gap-3">
+                            {/* Stats bar */}
+                            <div className="flex flex-wrap items-center gap-2">
                                 {[
-                                    { label: "Total",      val: parsedRows.length, color: "text-white bg-gray-800 border-gray-700" },
-                                    { label: "Valid",      val: validCount,         color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-                                    { label: "Dup Mobile", val: dupMob.size,        color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
-                                    { label: "Dup Email",  val: dupEmail.size,      color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
-                                    { label: "Errors",     val: errCount,           color: "text-red-400 bg-red-500/10 border-red-500/20" },
+                                    { label: "Total",      val: parsedRows.length,   color: "text-white bg-gray-800 border-gray-700" },
+                                    { label: "Valid",      val: validCount,           color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+                                    { label: "Dup Mobile (file)", val: dupMob.size,   color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+                                    { label: "Dup Email (file)",  val: dupEmail.size, color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
+                                    { label: "Errors",     val: errCount,             color: "text-red-400 bg-red-500/10 border-red-500/20" },
                                 ].map(s => (
                                     <div key={s.label} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider ${s.color}`}>
                                         <span className="text-[13px] font-black">{s.val}</span>
                                         <span className="opacity-70">{s.label}</span>
                                     </div>
                                 ))}
+
+                                {/* DB check indicator */}
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${
+                                    dbChecking
+                                        ? "text-sky-400 bg-sky-500/10 border-sky-500/20 animate-pulse"
+                                        : (dbMobCount + dbEmailCount) > 0
+                                            ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
+                                            : "text-gray-500 bg-gray-800/50 border-gray-700"
+                                }`}>
+                                    {dbChecking
+                                        ? <><FaSpinner className="animate-spin" size={10} /> Checking DB…</>
+                                        : <><FaDatabase size={9} /> DB Dups: {dbMobCount + dbEmailCount}</>
+                                    }
+                                </div>
+
                                 <div className="ml-auto flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest text-gray-500">
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-orange-500/40 inline-block" /> Dup Mobile</span>
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-purple-500/40 inline-block" /> Dup Email</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-orange-500/40 inline-block" /> File Dup Mobile</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-purple-500/40 inline-block" /> File Dup Email</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose-600/60 inline-block" /> DB Duplicate</span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500/40 inline-block" /> Error</span>
                                 </div>
                             </div>
 
-                            {/* Duplicate warning */}
+                            {/* DB duplicate instant warning */}
+                            {!dbChecking && (dbMobCount > 0 || dbEmailCount > 0) && (
+                                <div className="rounded-xl border border-rose-500/40 bg-rose-500/5 p-3">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <FaDatabase className="text-rose-400 text-xs" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">
+                                            Already Exists in Database
+                                        </span>
+                                        <span className="ml-auto text-[9px] text-rose-400/70 font-bold uppercase">These will be skipped on upload</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                        {parsedRows.map((r, i) => {
+                                            const isMobDup   = r.mobile && dbDupMobiles.has(r.mobile.trim());
+                                            const isEmailDup = r.email  && dbDupEmails.has(r.email.trim().toLowerCase());
+                                            if (!isMobDup && !isEmailDup) return null;
+                                            return (
+                                                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-[10px] font-black text-rose-300">
+                                                    <span className="text-rose-500">#{i+1}</span>
+                                                    {r.name}
+                                                    {isMobDup && <span className="px-1 rounded bg-rose-500/25 text-rose-300 text-[9px]">📱 {r.mobile}</span>}
+                                                    {isEmailDup && <span className="px-1 rounded bg-rose-500/25 text-rose-300 text-[9px]">✉ {r.email}</span>}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* File-level duplicate warning */}
                             {(dupMob.size > 0 || dupEmail.size > 0) && (
                                 <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-3">
                                     <div className="flex items-center gap-2 mb-1">
                                         <FaExclamationTriangle className="text-orange-400 text-xs" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Duplicates Detected</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Duplicates Within File</span>
                                     </div>
                                     <p className="text-xs text-orange-300/70">
-                                        <b className="text-orange-400">Orange</b> rows share a Mobile with another row.&nbsp;
+                                        <b className="text-orange-400">Orange</b> rows share a Mobile with another row in this file.&nbsp;
                                         <b className="text-purple-400">Purple</b> rows share an Email.&nbsp;
-                                        Edit or delete duplicates before uploading — they will be skipped by the server.
+                                        Edit or delete duplicates before uploading.
                                     </p>
                                 </div>
                             )}
@@ -318,6 +412,15 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
 
                             {/* Table */}
                             <div className="rounded-xl border border-gray-800 overflow-hidden bg-[#0f1215]">
+                                {/* DB checking banner */}
+                                {dbChecking && (
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-sky-500/10 border-b border-sky-500/20">
+                                        <FaSpinner className="text-sky-400 animate-spin" size={10} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-sky-400 animate-pulse">
+                                            Checking database for existing records…
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="overflow-x-auto max-h-[50vh] pntse-bulk-scroll">
                                     <table className="w-full text-left border-collapse" style={{ minWidth: "1400px" }}>
                                         <thead className="sticky top-0 z-10 bg-[#131619] border-b border-gray-800">
@@ -329,15 +432,20 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                         </thead>
                                         <tbody className="divide-y divide-gray-800/40">
                                             {parsedRows.map((row, idx) => {
-                                                const errs    = rowErrs(idx);
-                                                const isMob   = dupMob.has(idx);
-                                                const isEmail = dupEmail.has(idx);
-                                                const isEdit  = editingIdx === idx;
-                                                const rowBg   = isEdit   ? "bg-cyan-500/5"
-                                                              : errs.length > 0 ? "bg-red-500/5"
-                                                              : isMob   ? "bg-orange-500/5 border-l-2 border-l-orange-500/60"
-                                                              : isEmail ? "bg-purple-500/5 border-l-2 border-l-purple-500/60"
-                                                              : "hover:bg-white/[0.01]";
+                                                const errs      = rowErrs(idx);
+                                                const isMob     = dupMob.has(idx);
+                                                const isEmail   = dupEmail.has(idx);
+                                                const isDbMob   = !!(row.mobile && dbDupMobiles.has(row.mobile.trim()));
+                                                const isDbEmail = !!(row.email  && dbDupEmails.has(row.email.trim().toLowerCase()));
+                                                const isEdit    = editingIdx === idx;
+
+                                                // Priority: edit > error > DB dup > file dup
+                                                const rowBg = isEdit      ? "bg-cyan-500/5"
+                                                            : errs.length > 0 ? "bg-red-500/5"
+                                                            : (isDbMob || isDbEmail) ? "bg-rose-500/5 border-l-2 border-l-rose-500/70"
+                                                            : isMob    ? "bg-orange-500/5 border-l-2 border-l-orange-500/60"
+                                                            : isEmail  ? "bg-purple-500/5 border-l-2 border-l-purple-500/60"
+                                                            : "hover:bg-white/[0.01]";
 
                                                 const cell = (field, ph = "—", minW = "90px") => isEdit ? (
                                                     <input className={inp} style={{ minWidth: minW }} value={editBuf[field] || ""} placeholder={ph}
@@ -349,28 +457,45 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                                 return (
                                                     <tr key={idx} className={`transition-colors ${rowBg}`}>
                                                         <td className="px-3 py-2.5 text-[10px] font-black text-gray-600 whitespace-nowrap">{idx + 1}</td>
-                                                        <td className="px-2 py-2.5 whitespace-nowrap">
+                                                        <td className="px-2 py-2.5 whitespace-nowrap min-w-[130px]">
                                                             <div className="flex flex-col gap-0.5">
                                                                 {errs.length > 0 && (
                                                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-red-500/20 text-red-400 uppercase" title={errs.join(", ")}>
                                                                         Missing: {errs.map(e => e.replace(" required", "")).join(", ")}
                                                                     </span>
                                                                 )}
-                                                                {isMob   && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-orange-500/20 text-orange-400 uppercase">Dup Mobile</span>}
-                                                                {isEmail && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-500/20 text-purple-400 uppercase">Dup Email</span>}
-                                                                {errs.length === 0 && !isMob && !isEmail && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-400 uppercase">Valid</span>}
+                                                                {/* DB duplicates — shown first, most critical */}
+                                                                {isDbMob   && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/25 text-rose-300 uppercase flex items-center gap-1"><FaDatabase size={7} />DB Dup Mobile</span>}
+                                                                {isDbEmail && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/20 text-rose-400 uppercase flex items-center gap-1"><FaDatabase size={7} />DB Dup Email</span>}
+                                                                {/* File-level duplicates */}
+                                                                {isMob   && !isDbMob   && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-orange-500/20 text-orange-400 uppercase">Dup Mobile</span>}
+                                                                {isEmail && !isDbEmail && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-500/20 text-purple-400 uppercase">Dup Email</span>}
+                                                                {errs.length === 0 && !isMob && !isEmail && !isDbMob && !isDbEmail && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-400 uppercase">Valid</span>
+                                                                )}
+                                                                {dbChecking && !isDbMob && !isDbEmail && errs.length === 0 && !isMob && !isEmail && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-sky-500/10 text-sky-400 uppercase flex items-center gap-1">
+                                                                        <FaSpinner size={7} className="animate-spin" />Checking
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-2 py-2.5 min-w-[130px]">{cell("name", "Required *", "120px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[120px]">
                                                             {isEdit
-                                                                ? <input className={`${inp} ${isMob ? "border-orange-500/60" : ""}`} value={editBuf.mobile || ""} placeholder="Required *" onChange={e => setEditBuf(b => ({ ...b, mobile: e.target.value }))} style={{ minWidth: "110px" }} />
-                                                                : <span className={`text-[11px] font-semibold ${isMob ? "text-orange-300" : !row.mobile ? "text-gray-600 italic" : "text-gray-200"}`}>{row.mobile || "—"}</span>}
+                                                                ? <input className={`${inp} ${(isMob || isDbMob) ? "border-rose-500/60" : ""}`} value={editBuf.mobile || ""} placeholder="Required *" onChange={e => setEditBuf(b => ({ ...b, mobile: e.target.value }))} style={{ minWidth: "110px" }} />
+                                                                : <span className={`text-[11px] font-semibold ${isDbMob ? "text-rose-300 font-black" : isMob ? "text-orange-300" : !row.mobile ? "text-gray-600 italic" : "text-gray-200"}`}>
+                                                                    {row.mobile || "—"}
+                                                                    {isDbMob && <span className="ml-1 text-[8px] text-rose-400 bg-rose-500/20 px-1 py-0.5 rounded">IN DB</span>}
+                                                                  </span>}
                                                         </td>
                                                         <td className="px-2 py-2.5 min-w-[140px]">
                                                             {isEdit
-                                                                ? <input className={`${inp} ${isEmail ? "border-purple-500/60" : ""}`} value={editBuf.email || ""} placeholder="—" onChange={e => setEditBuf(b => ({ ...b, email: e.target.value }))} style={{ minWidth: "130px" }} />
-                                                                : <span className={`text-[11px] font-semibold ${isEmail ? "text-purple-300" : !row.email ? "text-gray-600 italic" : "text-gray-200"}`}>{row.email || "—"}</span>}
+                                                                ? <input className={`${inp} ${(isEmail || isDbEmail) ? "border-purple-500/60" : ""}`} value={editBuf.email || ""} placeholder="—" onChange={e => setEditBuf(b => ({ ...b, email: e.target.value }))} style={{ minWidth: "130px" }} />
+                                                                : <span className={`text-[11px] font-semibold ${isDbEmail ? "text-rose-300 font-black" : isEmail ? "text-purple-300" : !row.email ? "text-gray-600 italic" : "text-gray-200"}`}>
+                                                                    {row.email || "—"}
+                                                                    {isDbEmail && <span className="ml-1 text-[8px] text-rose-400 bg-rose-500/20 px-1 py-0.5 rounded">IN DB</span>}
+                                                                  </span>}
                                                         </td>
                                                         <td className="px-2 py-2.5 min-w-[80px]">{cell("className", "e.g. 6", "70px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[110px]">{cell("centreName", "e.g. Hazra", "100px")}</td>
