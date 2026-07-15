@@ -6,6 +6,9 @@ import ExamTag from "../../models/Master_data/ExamTag.js";
 import Payment from "../../models/Payment/Payment.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import XLSX from "xlsx";
+import Student from "../../models/Students.js";
+import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 
 // Create PNTSE Student
 export const createPNTSEStudent = async (req, res) => {
@@ -23,11 +26,71 @@ export const createPNTSEStudent = async (req, res) => {
             return res.status(400).json({ message: "Required fields are missing" });
         }
 
+        // Sanitize: empty string studentId/rollNo causes ObjectId cast errors
+        const sanitizedStudentId = studentId && studentId.trim() !== '' ? studentId : undefined;
+        const sanitizedCustomRollNo = customRollNo && customRollNo.trim() !== '' ? customRollNo : undefined;
+
+        // Check main ERP for duplicate mobile
+        const erpStudentMobile = await Student.findOne({ "studentsDetails.mobileNum": mobile });
+        if (erpStudentMobile) {
+            if (!sanitizedStudentId || String(erpStudentMobile._id) !== String(sanitizedStudentId)) {
+                const normalAdmission = await Admission.findOne({ student: erpStudentMobile._id }).populate('course class');
+                const boardAdmission = await BoardCourseAdmission.findOne({ studentId: erpStudentMobile._id }).populate('boardId');
+                const details = erpStudentMobile.studentsDetails?.[0] || {};
+                
+                const erpDetails = {
+                    student: erpStudentMobile,
+                    name: details.studentName,
+                    mobile: details.mobileNum,
+                    email: details.studentEmail,
+                    centre: details.centre,
+                    course: normalAdmission?.course?.courseName || boardAdmission?.boardId?.boardName || "Board Course",
+                    admissionType: normalAdmission ? "NORMAL" : (boardAdmission ? "BOARD" : "UNKNOWN"),
+                    rollNo: normalAdmission?.admissionNumber || ""
+                };
+
+                return res.status(400).json({
+                    message: `Student is already registered in Normal/Board Course with mobile ${mobile}. Please use the Carry Forward option.`,
+                    alreadyInERP: true,
+                    erpDetails
+                });
+            }
+        }
+
+        // Check main ERP for duplicate email
+        if (email) {
+            const erpStudentEmail = await Student.findOne({ "studentsDetails.studentEmail": email });
+            if (erpStudentEmail) {
+                if (!sanitizedStudentId || String(erpStudentEmail._id) !== String(sanitizedStudentId)) {
+                    const normalAdmission = await Admission.findOne({ student: erpStudentEmail._id }).populate('course class');
+                    const boardAdmission = await BoardCourseAdmission.findOne({ studentId: erpStudentEmail._id }).populate('boardId');
+                    const details = erpStudentEmail.studentsDetails?.[0] || {};
+                    
+                    const erpDetails = {
+                        student: erpStudentEmail,
+                        name: details.studentName,
+                        mobile: details.mobileNum,
+                        email: details.studentEmail,
+                        centre: details.centre,
+                        course: normalAdmission?.course?.courseName || boardAdmission?.boardId?.boardName || "Board Course",
+                        admissionType: normalAdmission ? "NORMAL" : (boardAdmission ? "BOARD" : "UNKNOWN"),
+                        rollNo: normalAdmission?.admissionNumber || ""
+                    };
+
+                    return res.status(400).json({
+                        message: `Student is already registered in Normal/Board Course with email ${email}. Please use the Carry Forward option.`,
+                        alreadyInERP: true,
+                        erpDetails
+                    });
+                }
+            }
+        }
+
         // Check for duplicate mobile
         const duplicateMobile = await PNTSEStudent.findOne({ mobile });
         if (duplicateMobile) {
             if (!sanitizedStudentId || String(duplicateMobile.studentId) !== String(sanitizedStudentId)) {
-                return res.status(400).json({ message: "Mobile number is already registered" });
+                return res.status(400).json({ message: "Mobile number is already registered in PNTSE" });
             }
         }
 
@@ -36,7 +99,7 @@ export const createPNTSEStudent = async (req, res) => {
             const duplicateEmail = await PNTSEStudent.findOne({ email });
             if (duplicateEmail) {
                 if (!sanitizedStudentId || String(duplicateEmail.studentId) !== String(sanitizedStudentId)) {
-                    return res.status(400).json({ message: "Email ID is already registered" });
+                    return res.status(400).json({ message: "Email ID is already registered in PNTSE" });
                 }
             }
         }
@@ -60,10 +123,6 @@ export const createPNTSEStudent = async (req, res) => {
         if (!classObj) {
             return res.status(400).json({ message: "Class not found" });
         }
-
-        // Sanitize: empty string studentId/rollNo causes ObjectId cast errors
-        const sanitizedStudentId = studentId && studentId.trim() !== '' ? studentId : undefined;
-        const sanitizedCustomRollNo = customRollNo && customRollNo.trim() !== '' ? customRollNo : undefined;
 
         let rollNo = sanitizedCustomRollNo;
         if (!rollNo) {
@@ -299,7 +358,50 @@ export const checkDuplicate = async (req, res) => {
             if (student) emailExists = true;
         }
 
-        res.status(200).json({ mobileExists, emailExists });
+        // Check in main ERP Student database
+        let erpStudent = null;
+        let erpDetails = null;
+
+        if (mobile) {
+            erpStudent = await Student.findOne({
+                "studentsDetails.mobileNum": mobile
+            });
+        }
+
+        if (!erpStudent && email) {
+            erpStudent = await Student.findOne({
+                "studentsDetails.studentEmail": email
+            });
+        }
+
+        if (erpStudent) {
+            // Find admission details
+            const normalAdmission = await Admission.findOne({ student: erpStudent._id })
+                .populate('course class');
+            
+            const boardAdmission = await BoardCourseAdmission.findOne({ studentId: erpStudent._id })
+                .populate('boardId');
+
+            const details = erpStudent.studentsDetails?.[0] || {};
+            
+            erpDetails = {
+                student: erpStudent,
+                name: details.studentName,
+                mobile: details.mobileNum,
+                email: details.studentEmail,
+                centre: details.centre,
+                course: normalAdmission?.course?.courseName || boardAdmission?.boardId?.boardName || "Board Course",
+                admissionType: normalAdmission ? "NORMAL" : (boardAdmission ? "BOARD" : "UNKNOWN"),
+                rollNo: normalAdmission?.admissionNumber || ""
+            };
+        }
+
+        res.status(200).json({
+            mobileExists,
+            emailExists,
+            alreadyInERP: !!erpDetails,
+            erpDetails
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });
@@ -474,20 +576,38 @@ export const importExcel = async (req, res) => {
                     continue;
                 }
 
-                // Check duplicate mobile
-                const dupMobile = await PNTSEStudent.findOne({ mobile });
-                if (dupMobile && (!studentId || String(dupMobile.studentId) !== String(studentId))) {
+                // Check duplicate mobile in Main ERP
+                const erpMobile = await Student.findOne({ "studentsDetails.mobileNum": mobile });
+                if (erpMobile && (!studentId || String(erpMobile._id) !== String(studentId))) {
                     results.failed++;
-                    results.errors.push(`[DUPLICATE_MOBILE] Row ${rowNum}: Mobile "${mobile}" already registered for student "${dupMobile.name}" (Roll: ${dupMobile.rollNo || 'N/A'})`);
+                    results.errors.push(`[DUPLICATE_MOBILE] Row ${rowNum}: Mobile "${mobile}" is already registered in Normal/Board Course. Please carry forward.`);
                     continue;
                 }
 
-                // Check duplicate email
+                // Check duplicate email in Main ERP
+                if (email) {
+                    const erpEmail = await Student.findOne({ "studentsDetails.studentEmail": email });
+                    if (erpEmail && (!studentId || String(erpEmail._id) !== String(studentId))) {
+                        results.failed++;
+                        results.errors.push(`[DUPLICATE_EMAIL] Row ${rowNum}: Email "${email}" is already registered in Normal/Board Course. Please carry forward.`);
+                        continue;
+                    }
+                }
+
+                // Check duplicate mobile in PNTSE
+                const dupMobile = await PNTSEStudent.findOne({ mobile });
+                if (dupMobile && (!studentId || String(dupMobile.studentId) !== String(studentId))) {
+                    results.failed++;
+                    results.errors.push(`[DUPLICATE_MOBILE] Row ${rowNum}: Mobile "${mobile}" already registered for PNTSE student "${dupMobile.name}" (Roll: ${dupMobile.rollNo || 'N/A'})`);
+                    continue;
+                }
+
+                // Check duplicate email in PNTSE
                 if (email) {
                     const dupEmail = await PNTSEStudent.findOne({ email });
                     if (dupEmail && (!studentId || String(dupEmail.studentId) !== String(studentId))) {
                         results.failed++;
-                        results.errors.push(`[DUPLICATE_EMAIL] Row ${rowNum}: Email "${email}" already registered for student "${dupEmail.name}" (Roll: ${dupEmail.rollNo || 'N/A'})`);
+                        results.errors.push(`[DUPLICATE_EMAIL] Row ${rowNum}: Email "${email}" already registered for PNTSE student "${dupEmail.name}" (Roll: ${dupEmail.rollNo || 'N/A'})`);
                         continue;
                     }
                 }

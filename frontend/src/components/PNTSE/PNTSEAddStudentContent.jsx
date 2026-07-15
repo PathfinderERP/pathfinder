@@ -70,6 +70,10 @@ const PNTSEAddStudentContent = () => {
     const [billData, setBillData] = useState(null);
     const [showBill, setShowBill] = useState(false);
 
+    // Carry Forward popup state
+    const [cfModalOpen, setCfModalOpen] = useState(false);
+    const [cfStudentDetails, setCfStudentDetails] = useState(null);
+
     const courses = [
         'PNTSE CLASS 6', 'PNTSE CLASS 7', 'PNTSE CLASS 8',
         'PNTSE CLASS 9', 'PNTSE CLASS 10'
@@ -110,54 +114,57 @@ const PNTSEAddStudentContent = () => {
         fetchMasterData();
     }, []);
 
+    const applyCarryForward = (s, customRollNo) => {
+        const details = s.studentsDetails?.[0] || {};
+        
+        // Match Centre by Name
+        let matchedCentreId = "";
+        if (details.centre) {
+            const matched = dbCentres.find(c => c.centreName?.toLowerCase().trim() === details.centre?.toLowerCase().trim());
+            if (matched) matchedCentreId = matched._id;
+        }
+
+        // Match Class by Name
+        let matchedClassId = "";
+        const studentClassStr = s.examSchema?.[0]?.class || "";
+        if (studentClassStr) {
+            const studentClassDigit = studentClassStr.replace(/\D/g, "");
+            const matched = dbClasses.find(c => c.name?.replace(/\D/g, "") === studentClassDigit);
+            if (matched) matchedClassId = matched._id;
+        }
+
+        // Match Course based on Class
+        let matchedCourse = "";
+        const studentClassDigit = studentClassStr.replace(/\D/g, "");
+        if (studentClassDigit) {
+            matchedCourse = `PNTSE CLASS ${studentClassDigit}`;
+        }
+
+        setForm(prev => ({
+            ...prev,
+            name: details.studentName || '',
+            mobile: details.mobileNum || '',
+            email: details.studentEmail || '',
+            dob: details.dateOfBirth || '',
+            gender: details.gender || '',
+            address: details.address || '',
+            city: details.city || '',
+            state: details.state || '',
+            pincode: details.pincode || '',
+            school: details.schoolName || '',
+            guardianName: details.guardians?.[0]?.guardianName || s.guardians?.[0]?.guardianName || '',
+            guardianMobile: details.guardians?.[0]?.guardianMobile || s.guardians?.[0]?.guardianMobile || '',
+            centre: matchedCentreId || prev.centre,
+            class: matchedClassId || prev.class,
+            course: matchedCourse || prev.course,
+            studentId: s._id,
+            rollNo: customRollNo || ''
+        }));
+    };
+
     useEffect(() => {
         if (location.state?.student && dbCentres.length > 0 && dbClasses.length > 0) {
-            const s = location.state.student;
-            const details = s.studentsDetails?.[0] || {};
-            
-            // Match Centre by Name
-            let matchedCentreId = "";
-            if (details.centre) {
-                const matched = dbCentres.find(c => c.centreName?.toLowerCase().trim() === details.centre?.toLowerCase().trim());
-                if (matched) matchedCentreId = matched._id;
-            }
-
-            // Match Class by Name
-            let matchedClassId = "";
-            const studentClassStr = s.examSchema?.[0]?.class || "";
-            if (studentClassStr) {
-                const studentClassDigit = studentClassStr.replace(/\D/g, "");
-                const matched = dbClasses.find(c => c.name?.replace(/\D/g, "") === studentClassDigit);
-                if (matched) matchedClassId = matched._id;
-            }
-
-            // Match Course based on Class
-            let matchedCourse = "";
-            const studentClassDigit = studentClassStr.replace(/\D/g, "");
-            if (studentClassDigit) {
-                matchedCourse = `PNTSE CLASS ${studentClassDigit}`;
-            }
-
-            setForm(prev => ({
-                ...prev,
-                name: details.studentName || '',
-                mobile: details.mobileNum || '',
-                email: details.studentEmail || '',
-                dob: details.dateOfBirth || '',
-                gender: details.gender || '',
-                address: details.address || '',
-                city: details.city || '',
-                state: details.state || '',
-                pincode: details.pincode || '',
-                school: details.schoolName || '',
-                guardianName: details.guardians?.[0]?.guardianName || s.guardians?.[0]?.guardianName || '',
-                guardianMobile: details.guardians?.[0]?.guardianMobile || s.guardians?.[0]?.guardianMobile || '',
-                centre: matchedCentreId || prev.centre,
-                class: matchedClassId || prev.class,
-                course: matchedCourse || prev.course,
-                studentId: s._id,
-                rollNo: location.state.rollNo || ''
-            }));
+            applyCarryForward(location.state.student, location.state.rollNo);
         }
     }, [location.state, dbCentres, dbClasses]);
 
@@ -175,8 +182,14 @@ const PNTSEAddStudentContent = () => {
             );
             if (response.ok) {
                 const data = await response.json();
-                if (name === 'mobile' && data.mobileExists) setErrors(prev => ({ ...prev, mobile: 'Mobile number is already registered' }));
-                else if (name === 'email' && data.emailExists) setErrors(prev => ({ ...prev, email: 'Email ID is already registered' }));
+                if (data.alreadyInERP && data.erpDetails) {
+                    setCfStudentDetails(data.erpDetails);
+                    setCfModalOpen(true);
+                } else if (name === 'mobile' && data.mobileExists) {
+                    setErrors(prev => ({ ...prev, mobile: 'Mobile number is already registered in PNTSE' }));
+                } else if (name === 'email' && data.emailExists) {
+                    setErrors(prev => ({ ...prev, email: 'Email ID is already registered in PNTSE' }));
+                }
             }
         } catch (err) {
             console.error("Duplicate check failed", err);
@@ -265,7 +278,12 @@ const PNTSEAddStudentContent = () => {
                     setTimeout(() => setSubmitted(false), 3000);
                 }
             } else {
-                alert(data.message || 'Registration failed.');
+                if (data.alreadyInERP && data.erpDetails) {
+                    setCfStudentDetails(data.erpDetails);
+                    setCfModalOpen(true);
+                } else {
+                    alert(data.message || 'Registration failed.');
+                }
             }
         } catch (err) {
             console.error("Error creating student", err);
@@ -323,6 +341,97 @@ const PNTSEAddStudentContent = () => {
                         setTimeout(() => setSubmitted(false), 500);
                     }}
                 />
+            )}
+
+            {/* Carry Forward Modal */}
+            {cfModalOpen && cfStudentDetails && (
+                <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-gray-900 border border-violet-500/40 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden shadow-violet-900/20 transform transition-all scale-100 duration-300">
+                        {/* Header */}
+                        <div className="px-6 py-5 bg-gradient-to-r from-violet-950/80 to-purple-950/80 border-b border-violet-800/40 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
+                                <FaGraduationCap className="text-violet-400 text-xl" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-white leading-tight">Student Already Registered in Course</h3>
+                                <p className="text-xs text-violet-300 mt-0.5">Conflicting mobile/email found in Normal/Board Admissions</p>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-5">
+                            <p className="text-sm text-gray-300 leading-relaxed">
+                                A student is already registered in the Main ERP under a Normal Course or Board Course.
+                                Would you like to <span className="text-violet-400 font-bold">Carry Forward</span> this student to the PNTSE course?
+                                This will pre-populate their profile and link the records together.
+                            </p>
+
+                            {/* Details Panel */}
+                            <div className="bg-gray-950/60 border border-gray-800 rounded-xl p-4 space-y-3 font-sans">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                    <div>
+                                        <span className="text-gray-500 uppercase font-semibold">Student Name</span>
+                                        <p className="text-sm text-gray-200 font-semibold mt-0.5">{cfStudentDetails.name}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-500 uppercase font-semibold">Current Course</span>
+                                        <p className="text-sm text-violet-400 font-semibold mt-0.5">{cfStudentDetails.course}</p>
+                                    </div>
+                                    <div className="mt-2">
+                                        <span className="text-gray-500 uppercase font-semibold">Mobile Number</span>
+                                        <p className="text-sm text-gray-200 font-medium mt-0.5">{cfStudentDetails.mobile}</p>
+                                    </div>
+                                    <div className="mt-2">
+                                        <span className="text-gray-500 uppercase font-semibold">Admission Type</span>
+                                        <div>
+                                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mt-1 uppercase ${
+                                                cfStudentDetails.admissionType === 'NORMAL' 
+                                                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                                                    : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                                            }`}>
+                                                {cfStudentDetails.admissionType} Course
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {cfStudentDetails.email && (
+                                        <div className="col-span-2 mt-2">
+                                            <span className="text-gray-500 uppercase font-semibold">Email ID</span>
+                                            <p className="text-sm text-gray-200 font-medium mt-0.5">{cfStudentDetails.email}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-950/40 border-t border-gray-800/80">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setCfModalOpen(false);
+                                    setCfStudentDetails(null);
+                                    // Clear input error
+                                    setErrors(prev => ({ ...prev, mobile: '', email: '' }));
+                                }}
+                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-medium transition-all duration-200 border border-gray-700"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    applyCarryForward(cfStudentDetails.student, cfStudentDetails.rollNo);
+                                    setCfModalOpen(false);
+                                    setCfStudentDetails(null);
+                                    setErrors(prev => ({ ...prev, mobile: '', email: '' }));
+                                }}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-purple-500/25"
+                            >
+                                Carry Forward Student
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             <form onSubmit={handleSubmit}>
