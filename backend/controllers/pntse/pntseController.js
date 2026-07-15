@@ -474,7 +474,7 @@ export const importExcel = async (req, res) => {
                 const dupMobile = await PNTSEStudent.findOne({ mobile });
                 if (dupMobile && (!studentId || String(dupMobile.studentId) !== String(studentId))) {
                     results.failed++;
-                    results.errors.push(`Row ${rowNum}: Mobile ${mobile} already registered`);
+                    results.errors.push(`[DUPLICATE_MOBILE] Row ${rowNum}: Mobile "${mobile}" already registered for student "${dupMobile.name}" (Roll: ${dupMobile.rollNo || 'N/A'})`);
                     continue;
                 }
 
@@ -483,7 +483,7 @@ export const importExcel = async (req, res) => {
                     const dupEmail = await PNTSEStudent.findOne({ email });
                     if (dupEmail && (!studentId || String(dupEmail.studentId) !== String(studentId))) {
                         results.failed++;
-                        results.errors.push(`Row ${rowNum}: Email ${email} already registered`);
+                        results.errors.push(`[DUPLICATE_EMAIL] Row ${rowNum}: Email "${email}" already registered for student "${dupEmail.name}" (Roll: ${dupEmail.rollNo || 'N/A'})`);
                         continue;
                     }
                 }

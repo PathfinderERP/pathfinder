@@ -769,7 +769,7 @@ const PNTSEAllStudentsContent = () => {
             {/* ==================== IMPORT MODAL ==================== */}
             {showImportModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl">
+                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto">
                         {/* Modal Header */}
                         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
                             <div className="flex items-center gap-3">
@@ -834,31 +834,88 @@ const PNTSEAllStudentsContent = () => {
                             </div>
 
                             {/* Import Result */}
-                            {importResult && (
-                                <div className={`rounded-xl p-4 border ${importResult.failed === 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        {importResult.failed === 0
-                                            ? <FaCheckCircle className="text-emerald-400" />
-                                            : <FaExclamationTriangle className="text-amber-400" />
-                                        }
-                                        <p className="text-sm font-semibold text-white">{importResult.message}</p>
-                                    </div>
-                                    <div className="flex gap-4 text-xs mb-2">
-                                        <span className="text-emerald-400">✓ {importResult.success} imported</span>
-                                        {importResult.failed > 0 && <span className="text-red-400">✗ {importResult.failed} failed</span>}
-                                    </div>
-                                    {importResult.errors && importResult.errors.length > 0 && (
-                                        <div className="max-h-32 overflow-y-auto space-y-1 mt-2">
-                                            {importResult.errors.map((err, i) => (
-                                                <p key={i} className="text-xs text-red-400 flex items-start gap-1">
-                                                    <FaTimesCircle className="mt-0.5 shrink-0" />
-                                                    {err}
-                                                </p>
-                                            ))}
+                            {importResult && (() => {
+                                const dupMobileErrors = (importResult.errors || []).filter(e => e.startsWith('[DUPLICATE_MOBILE]'));
+                                const dupEmailErrors = (importResult.errors || []).filter(e => e.startsWith('[DUPLICATE_EMAIL]'));
+                                const otherErrors = (importResult.errors || []).filter(e => !e.startsWith('[DUPLICATE_MOBILE]') && !e.startsWith('[DUPLICATE_EMAIL]'));
+                                const hasDuplicates = dupMobileErrors.length > 0 || dupEmailErrors.length > 0;
+
+                                const cleanMsg = (msg) => msg.replace(/^\[DUPLICATE_(MOBILE|EMAIL)\]\s*/, '');
+
+                                return (
+                                    <div className="space-y-3">
+                                        {/* Summary */}
+                                        <div className={`rounded-xl p-4 border ${importResult.failed === 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                {importResult.failed === 0
+                                                    ? <FaCheckCircle className="text-emerald-400" />
+                                                    : <FaExclamationTriangle className="text-amber-400" />
+                                                }
+                                                <p className="text-sm font-semibold text-white">{importResult.message}</p>
+                                            </div>
+                                            <div className="flex gap-4 text-xs">
+                                                <span className="text-emerald-400">✓ {importResult.success} imported</span>
+                                                {importResult.failed > 0 && <span className="text-red-400">✗ {importResult.failed} failed</span>}
+                                                {hasDuplicates && <span className="text-orange-400">⚠ {dupMobileErrors.length + dupEmailErrors.length} duplicate(s)</span>}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            )}
+
+                                        {/* Duplicate Mobile Errors */}
+                                        {dupMobileErrors.length > 0 && (
+                                            <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 overflow-hidden">
+                                                <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 border-b border-orange-500/30">
+                                                    <span className="text-orange-400 text-xs">📱</span>
+                                                    <p className="text-xs font-bold text-orange-300 uppercase tracking-wider">Duplicate Mobile Numbers ({dupMobileErrors.length})</p>
+                                                </div>
+                                                <div className="max-h-36 overflow-y-auto divide-y divide-orange-500/20">
+                                                    {dupMobileErrors.map((err, i) => (
+                                                        <div key={i} className="px-4 py-2.5 flex items-start gap-2">
+                                                            <FaTimesCircle className="text-orange-400 mt-0.5 shrink-0 text-xs" />
+                                                            <p className="text-xs text-orange-200 leading-relaxed">{cleanMsg(err)}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Duplicate Email Errors */}
+                                        {dupEmailErrors.length > 0 && (
+                                            <div className="rounded-xl border border-purple-500/40 bg-purple-500/10 overflow-hidden">
+                                                <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 border-b border-purple-500/30">
+                                                    <span className="text-purple-400 text-xs">✉️</span>
+                                                    <p className="text-xs font-bold text-purple-300 uppercase tracking-wider">Duplicate Email IDs ({dupEmailErrors.length})</p>
+                                                </div>
+                                                <div className="max-h-36 overflow-y-auto divide-y divide-purple-500/20">
+                                                    {dupEmailErrors.map((err, i) => (
+                                                        <div key={i} className="px-4 py-2.5 flex items-start gap-2">
+                                                            <FaTimesCircle className="text-purple-400 mt-0.5 shrink-0 text-xs" />
+                                                            <p className="text-xs text-purple-200 leading-relaxed">{cleanMsg(err)}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Other Errors */}
+                                        {otherErrors.length > 0 && (
+                                            <div className="rounded-xl border border-red-500/30 bg-red-500/5 overflow-hidden">
+                                                <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border-b border-red-500/20">
+                                                    <FaExclamationTriangle className="text-red-400 text-xs" />
+                                                    <p className="text-xs font-bold text-red-300 uppercase tracking-wider">Other Errors ({otherErrors.length})</p>
+                                                </div>
+                                                <div className="max-h-36 overflow-y-auto divide-y divide-red-500/10">
+                                                    {otherErrors.map((err, i) => (
+                                                        <div key={i} className="px-4 py-2.5 flex items-start gap-2">
+                                                            <FaTimesCircle className="text-red-400 mt-0.5 shrink-0 text-xs" />
+                                                            <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Modal Footer */}
