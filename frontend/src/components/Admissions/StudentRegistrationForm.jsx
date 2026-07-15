@@ -296,6 +296,7 @@ const StudentRegistrationForm = () => {
             if (response.ok && data.users) {
                 const userList = Array.isArray(data.users) ? data.users : [];
                 const filtered = userList.filter((user) =>
+                    user.isActive !== false &&
                     user.primaryCentre &&
                     user.primaryCentre.centreName &&
                     user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&

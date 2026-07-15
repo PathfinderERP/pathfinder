@@ -90,6 +90,7 @@ const BoardCourseAdmissionPage = () => {
                     if (data.users) {
                         const userList = Array.isArray(data.users) ? data.users : [];
                         const filtered = userList.filter(u =>
+                            u.isActive !== false &&
                             u.primaryCentre &&
                             u.primaryCentre.centreName &&
                             u.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&

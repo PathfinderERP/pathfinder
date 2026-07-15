@@ -348,34 +348,26 @@ export const getActiveEmployees = async (req, res) => {
             role: { $ne: "teacher" }
         };
 
-        // Zonal Manager, Assistant Zonal Manager, and Super Admin:
-        // Filter by the user management tagged centres (req.user.centres)
-        const isZonalOrSuperAdmin = [
-            "superAdmin",
-            "Super Admin",
-            "zonalManager",
-            "assistantZonalManager"
-        ].includes(loggedInUserRole);
+        const rolesToRestrict = [
+            "counsellor",
+            "telecaller",
+            "marketing",
+            "assistant centre incharge",
+            "assistantcentreincharge",
+            "center incharge",
+            "centreincharge",
+            "admin",
+            "zonal manager",
+            "zonalmanager",
+            "assistant zonal manager",
+            "assistantzonalmanager"
+        ];
 
-        if (isZonalOrSuperAdmin) {
+        const normalizedRole = loggedInUserRole.toLowerCase().trim();
+        const shouldRestrict = rolesToRestrict.includes(normalizedRole) || rolesToRestrict.includes(normalizedRole.replace(/\s+/g, ""));
+
+        if (shouldRestrict) {
             query.centres = { $in: loggedInUserCentres };
-        } else {
-            // For other roles, filter by the primary centre tag in their employee profile
-            const Employee = (await import("../../models/HR/Employee.js")).default;
-            const loggedInEmployee = await Employee.findOne({ user: req.user._id }).lean();
-
-            if (loggedInEmployee && loggedInEmployee.primaryCentre) {
-                // Find all employees whose primaryCentre matches
-                const matchingEmployees = await Employee.find({
-                    primaryCentre: loggedInEmployee.primaryCentre
-                }, 'user').lean();
-
-                const userIds = matchingEmployees.map(emp => emp.user).filter(Boolean);
-                query._id = { $in: userIds };
-            } else {
-                // If logged-in user has no primary centre configured, return empty
-                query._id = { $in: [] };
-            }
         }
 
         const activeEmployees = await User.find(query)

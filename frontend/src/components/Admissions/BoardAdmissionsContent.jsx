@@ -97,6 +97,7 @@ const BoardAdmissionsContent = () => {
     });
 
     const [counselledByOptions, setCounselledByOptions] = useState([]);
+    const [activeEmployees, setActiveEmployees] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [classes, setClasses] = useState([]);
     const [boardCourseSubjects, setBoardCourseSubjects] = useState([]);
@@ -128,6 +129,19 @@ const BoardAdmissionsContent = () => {
             const data = await response.json();
             if (response.ok) setClasses(data);
         } catch (error) { console.error("Error fetching classes:", error); }
+    };
+
+    const fetchActiveEmployees = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/active-employees`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setActiveEmployees(data);
+        } catch (error) {
+            console.error("Error fetching active employees:", error);
+        }
     };
 
     const fetchBoardCourseSubjects = React.useCallback(async () => {
@@ -170,6 +184,7 @@ const BoardAdmissionsContent = () => {
             if (response.ok && data.users) {
                 const userList = Array.isArray(data.users) ? data.users : [];
                 const filtered = userList.filter((user) =>
+                    user.isActive !== false &&
                     user.primaryCentre &&
                     user.primaryCentre.centreName &&
                     user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&
@@ -490,6 +505,7 @@ const BoardAdmissionsContent = () => {
         fetchBoardCourseSubjects();
         fetchExamTags();
         fetchClasses();
+        fetchActiveEmployees();
         toast.info("Refreshed data and filters");
     };
 
@@ -517,6 +533,7 @@ const BoardAdmissionsContent = () => {
         fetchBoardCourseSubjects();
         fetchCounselledStudents();
         fetchBoardAdmissions();
+        fetchActiveEmployees();
     }, [fetchAllowedCentres, fetchStudents, fetchDepartments]);
 
     useEffect(() => {
@@ -680,7 +697,22 @@ const BoardAdmissionsContent = () => {
 
                 const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
                 const matchesClass = filterClass.length === 0 || filterClass.includes(cs.lastClass);
-                return matchesSearch && matchesCentre && matchesClass;
+
+                // Lead By Filter
+                const leadBy = cs.studentId?.leadBy || cs.leadBy;
+                const leadByName = leadBy?.name || "System";
+                const matchesLeadBy = filterLeadBy.length === 0 || filterLeadBy.includes(leadByName);
+
+                // Counselled By Filter
+                const counselledBy = cs.studentId?.counselledByDetails || cs.counselledByDetails;
+                const counselledByName = counselledBy?.name || cs.studentId?.counselledBy || "N/A";
+                const matchesCounselledBy = filterCounselledBy.length === 0 || filterCounselledBy.includes(counselledByName);
+
+                // Admitted By Filter
+                const admittedByName = cs.createdBy?.name || (cs.createdBy ? "Unknown" : "System");
+                const matchesAdmissionBy = filterAdmissionBy.length === 0 || filterAdmissionBy.includes(admittedByName);
+
+                return matchesSearch && matchesCentre && matchesClass && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy;
             });
 
     const totalStudents = filteredStudents.length;
@@ -1212,7 +1244,7 @@ const BoardAdmissionsContent = () => {
                                 onChange={setFilterProgramme}
                                 theme={theme}
                             />
-                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
+                            {(activeTab === "Enrolled" || activeTab === "Deactivated" || activeTab === "Counselling") && (
                                 <>
                                     <MultiSelectFilter
                                         label="Lead By"
@@ -1226,17 +1258,14 @@ const BoardAdmissionsContent = () => {
                                     />
                                     <MultiSelectFilter
                                         label="Counselled By"
-                                        options={[...new Set(boardAdmissions.map(a => {
-                                            const cb = a.studentId?.counselledByDetails || a.counselledByDetails;
-                                            return cb?.name || a.studentId?.counselledBy || null;
-                                        }).filter(Boolean))]}
+                                        options={[...new Set(activeEmployees.map(e => e.name).filter(Boolean))].sort((a, b) => a.localeCompare(b))}
                                         selectedValues={filterCounselledBy}
                                         onChange={setFilterCounselledBy}
                                         theme={theme}
                                     />
                                     <MultiSelectFilter
                                         label="Admitted By"
-                                        options={[...new Set(boardAdmissions.map(a => a.createdBy?.name).filter(Boolean))]}
+                                        options={[...new Set(activeEmployees.map(e => e.name).filter(Boolean))].sort((a, b) => a.localeCompare(b))}
                                         selectedValues={filterAdmissionBy}
                                         onChange={setFilterAdmissionBy}
                                         theme={theme}
