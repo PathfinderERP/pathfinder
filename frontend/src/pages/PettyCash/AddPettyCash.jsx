@@ -32,7 +32,7 @@ const AddPettyCash = () => {
         try {
             const token = localStorage.getItem("token");
             const [reqRes, centresRes] = await Promise.all([
-                axios.get(`${import.meta.env.VITE_API_URL}/finance/petty-cash/requests`, {
+                axios.get(`${import.meta.env.VITE_API_URL}/finance/petty-cash/requests?limit=1000`, {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
                 axios.get(`${import.meta.env.VITE_API_URL}/centre`, {

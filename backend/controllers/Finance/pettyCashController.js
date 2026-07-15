@@ -135,7 +135,8 @@ export const getExpenditures = async (req, res) => {
                 const requestedCentres = centreId.split(',').filter(id => id.trim() !== "");
                 const filteredCentres = requestedCentres.filter(id => userCentres.includes(id));
                 if (filteredCentres.length === 0) {
-                    return res.status(200).json({ expenditures: [], totalPages: 0, currentPage: page, totalItems: 0 }); // Better than 403 usually for list filters
+                    const pageVal = parseInt(req.query.page) || 1;
+                    return res.status(200).json({ expenditures: [], totalPages: 0, currentPage: pageVal, totalItems: 0 }); // Better than 403 usually for list filters
                 }
                 query.centre = { $in: filteredCentres };
             } else {
