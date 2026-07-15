@@ -8,6 +8,7 @@ import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
+import PNTSEBulkImportModal from './PNTSEBulkImportModal';
 
 const PNTSEAllStudentsContent = () => {
     const navigate = useNavigate();
@@ -768,172 +769,15 @@ const PNTSEAllStudentsContent = () => {
 
             {/* ==================== IMPORT MODAL ==================== */}
             {showImportModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                                    <FaFileExcel className="text-emerald-400 text-lg" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-white">Import Students via Excel</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">All imported students will be set as <span className="text-emerald-400 font-medium">Free</span></p>
-                                </div>
-                            </div>
-                            <button onClick={handleCloseModal} className="text-gray-500 hover:text-white transition-colors">
-                                <FaTimes className="text-lg" />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-5">
-                            {/* Template Download */}
-                            <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-4">
-                                <p className="text-sm font-semibold text-white mb-1">Step 1 — Download Template</p>
-                                <p className="text-xs text-gray-400 mb-3">Download the Excel template with required column headers and sample data.</p>
-                                <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-3">
-                                    <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">Required Columns</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {['Name*', 'Mobile*', 'Class Name*', 'Centre Name*', 'Session Name*', 'ExamTag Name*', 'Course*'].map(col => (
-                                            <span key={col} className="px-2 py-0.5 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded font-mono">{col}</span>
-                                        ))}
-                                    </div>
-                                    <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mt-3 mb-2">Optional Columns</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {['Email', 'DOB', 'Gender', 'School', 'Guardian Name', 'Guardian Mobile', 'Address', 'City', 'State', 'Pincode', 'Remarks'].map(col => (
-                                            <span key={col} className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded font-mono">{col}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleDownloadTemplate}
-                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium transition-all"
-                                >
-                                    <FaDownload className="text-xs" />
-                                    Download Template
-                                </button>
-                            </div>
-
-                            {/* File Upload */}
-                            <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-4">
-                                <p className="text-sm font-semibold text-white mb-1">Step 2 — Upload Filled Excel</p>
-                                <p className="text-xs text-gray-400 mb-3">Upload your filled Excel file. Roll numbers will be auto-generated per centre and class.</p>
-                                <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-600 hover:border-emerald-500 rounded-xl p-6 cursor-pointer transition-colors group">
-                                    <FaFileExcel className="text-3xl text-gray-500 group-hover:text-emerald-400 transition-colors" />
-                                    <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                                        {importFile ? importFile.name : 'Click to select .xlsx file'}
-                                    </span>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept=".xlsx,.xls"
-                                        className="hidden"
-                                        onChange={e => { setImportFile(e.target.files[0]); setImportResult(null); }}
-                                    />
-                                </label>
-                            </div>
-
-                            {/* Import Result */}
-                            {importResult && (() => {
-                                const dupMobileErrors = (importResult.errors || []).filter(e => e.startsWith('[DUPLICATE_MOBILE]'));
-                                const dupEmailErrors = (importResult.errors || []).filter(e => e.startsWith('[DUPLICATE_EMAIL]'));
-                                const otherErrors = (importResult.errors || []).filter(e => !e.startsWith('[DUPLICATE_MOBILE]') && !e.startsWith('[DUPLICATE_EMAIL]'));
-                                const hasDuplicates = dupMobileErrors.length > 0 || dupEmailErrors.length > 0;
-
-                                const cleanMsg = (msg) => msg.replace(/^\[DUPLICATE_(MOBILE|EMAIL)\]\s*/, '');
-
-                                return (
-                                    <div className="space-y-3">
-                                        {/* Summary */}
-                                        <div className={`rounded-xl p-4 border ${importResult.failed === 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                {importResult.failed === 0
-                                                    ? <FaCheckCircle className="text-emerald-400" />
-                                                    : <FaExclamationTriangle className="text-amber-400" />
-                                                }
-                                                <p className="text-sm font-semibold text-white">{importResult.message}</p>
-                                            </div>
-                                            <div className="flex gap-4 text-xs">
-                                                <span className="text-emerald-400">✓ {importResult.success} imported</span>
-                                                {importResult.failed > 0 && <span className="text-red-400">✗ {importResult.failed} failed</span>}
-                                                {hasDuplicates && <span className="text-orange-400">⚠ {dupMobileErrors.length + dupEmailErrors.length} duplicate(s)</span>}
-                                            </div>
-                                        </div>
-
-                                        {/* Duplicate Mobile Errors */}
-                                        {dupMobileErrors.length > 0 && (
-                                            <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 overflow-hidden">
-                                                <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 border-b border-orange-500/30">
-                                                    <span className="text-orange-400 text-xs">📱</span>
-                                                    <p className="text-xs font-bold text-orange-300 uppercase tracking-wider">Duplicate Mobile Numbers ({dupMobileErrors.length})</p>
-                                                </div>
-                                                <div className="max-h-36 overflow-y-auto divide-y divide-orange-500/20">
-                                                    {dupMobileErrors.map((err, i) => (
-                                                        <div key={i} className="px-4 py-2.5 flex items-start gap-2">
-                                                            <FaTimesCircle className="text-orange-400 mt-0.5 shrink-0 text-xs" />
-                                                            <p className="text-xs text-orange-200 leading-relaxed">{cleanMsg(err)}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Duplicate Email Errors */}
-                                        {dupEmailErrors.length > 0 && (
-                                            <div className="rounded-xl border border-purple-500/40 bg-purple-500/10 overflow-hidden">
-                                                <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 border-b border-purple-500/30">
-                                                    <span className="text-purple-400 text-xs">✉️</span>
-                                                    <p className="text-xs font-bold text-purple-300 uppercase tracking-wider">Duplicate Email IDs ({dupEmailErrors.length})</p>
-                                                </div>
-                                                <div className="max-h-36 overflow-y-auto divide-y divide-purple-500/20">
-                                                    {dupEmailErrors.map((err, i) => (
-                                                        <div key={i} className="px-4 py-2.5 flex items-start gap-2">
-                                                            <FaTimesCircle className="text-purple-400 mt-0.5 shrink-0 text-xs" />
-                                                            <p className="text-xs text-purple-200 leading-relaxed">{cleanMsg(err)}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Other Errors */}
-                                        {otherErrors.length > 0 && (
-                                            <div className="rounded-xl border border-red-500/30 bg-red-500/5 overflow-hidden">
-                                                <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border-b border-red-500/20">
-                                                    <FaExclamationTriangle className="text-red-400 text-xs" />
-                                                    <p className="text-xs font-bold text-red-300 uppercase tracking-wider">Other Errors ({otherErrors.length})</p>
-                                                </div>
-                                                <div className="max-h-36 overflow-y-auto divide-y divide-red-500/10">
-                                                    {otherErrors.map((err, i) => (
-                                                        <div key={i} className="px-4 py-2.5 flex items-start gap-2">
-                                                            <FaTimesCircle className="text-red-400 mt-0.5 shrink-0 text-xs" />
-                                                            <p className="text-xs text-red-300 leading-relaxed">{err}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800">
-                            <button onClick={handleCloseModal} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-medium transition-all border border-gray-700">
-                                Close
-                            </button>
-                            <button
-                                onClick={handleImportSubmit}
-                                disabled={!importFile || importing}
-                                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold transition-all"
-                            >
-                                {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
-                                {importing ? 'Importing...' : 'Import Now'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <PNTSEBulkImportModal
+                    onClose={handleCloseModal}
+                    onSuccess={async () => {
+                        const refreshRes = await fetch(`${import.meta.env.VITE_API_URL}/pntse/list`, { headers: getHeaders() });
+                        if (refreshRes.ok) setStudents(await refreshRes.json());
+                    }}
+                    apiUrl={import.meta.env.VITE_API_URL}
+                    token={getToken()}
+                />
             )}
 
             {/* ==================== BILL GENERATOR MODAL ==================== */}
