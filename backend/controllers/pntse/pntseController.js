@@ -191,7 +191,7 @@ export const createPNTSEStudent = async (req, res) => {
                 const cgst = parseFloat((gstPool / 2).toFixed(2));
                 const sgst = parseFloat((gstPool - cgst).toFixed(2));
 
-                const billId = await generateBillId(centreObj.centreCode || centreObj.enterCode, receivedDate || new Date());
+                const billId = await generateBillId(centreObj.enterCode || centreObj.centreCode, receivedDate || new Date());
 
                 const paymentRecord = new Payment({
                     admission: newStudent._id,          // PNTSE student _id stored as admission ref
@@ -729,7 +729,7 @@ export const processStudentPayment = async (req, res) => {
             return res.status(400).json({ message: "Centre not found" });
         }
 
-        const centreCode = (centreObj.centreCode || centreObj.enterCode || "XX").toUpperCase();
+        const centreCode = (centreObj.enterCode || centreObj.centreCode || "XX").toUpperCase();
 
         const waiverAmt = Math.max(0, Math.min(100, Number(waiver) || 0));
         const grossFee = 100;
