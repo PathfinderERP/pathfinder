@@ -67,16 +67,20 @@ export const createPNTSEStudent = async (req, res) => {
 
         let rollNo = sanitizedCustomRollNo;
         if (!rollNo) {
-            // Generate roll number: PATH{centreCode}{6-digit seq per centre}
+            // Generate roll number: PATH{centreCode}{classCode}{3-digit seq}
             // Use the 2-digit unique centreCode (e.g. "01"), fallback to enterCode first 2 digits
             const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
 
-            // Count all students for this centre to get next sequential number
-            const count = await PNTSEStudent.countDocuments({ centre: centreId });
+            // Extract numeric class code (e.g. "6" or "6th" -> "06")
+            const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
+            const classCode = String(classNum).padStart(2, '0');
+
+            // Count all students for this centre and class to get next sequential number
+            const count = await PNTSEStudent.countDocuments({ centre: centreId, class: classId });
             let nextIndex = count + 1;
             let isUnique = false;
             while (!isUnique) {
-                rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(6, '0')}`;
+                rollNo = `PATH${twoDigitCode}${classCode}${String(nextIndex).padStart(3, '0')}`;
                 const existing = await PNTSEStudent.findOne({ rollNo });
                 if (!existing) {
                     isUnique = true;
@@ -488,15 +492,18 @@ export const importExcel = async (req, res) => {
                     }
                 }
 
-                // Generate roll number: PATH{centreCode}{6-digit seq per centre}
+                // Generate roll number: PATH{centreCode}{classCode}{3-digit seq}
                 const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
 
-                const count = await PNTSEStudent.countDocuments({ centre: centreObj._id });
+                const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
+                const classCode = String(classNum).padStart(2, '0');
+
+                const count = await PNTSEStudent.countDocuments({ centre: centreObj._id, class: classObj._id });
                 let nextIndex = count + 1;
                 let rollNo;
                 let isUnique = false;
                 while (!isUnique) {
-                    rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(6, '0')}`;
+                    rollNo = `PATH${twoDigitCode}${classCode}${String(nextIndex).padStart(3, '0')}`;
                     const existing = await PNTSEStudent.findOne({ rollNo });
                     if (!existing) {
                         isUnique = true;
@@ -758,15 +765,18 @@ export const updatePNTSEStudent = async (req, res) => {
             const centreObj = await CentreSchema.findById(centreId);
             const classObj = await Class.findById(classId);
             if (centreObj && classObj) {
-                // Generate roll number: PATH{centreCode}{6-digit seq per centre}
+                // Generate roll number: PATH{centreCode}{classCode}{3-digit seq}
                 const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
 
-                const count = await PNTSEStudent.countDocuments({ centre: centreId });
+                const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
+                const classCode = String(classNum).padStart(2, '0');
+
+                const count = await PNTSEStudent.countDocuments({ centre: centreId, class: classId });
                 let nextIndex = count + 1;
                 let rollNo;
                 let isUnique = false;
                 while (!isUnique) {
-                    rollNo = `PATH${twoDigitCode}${String(nextIndex).padStart(6, '0')}`;
+                    rollNo = `PATH${twoDigitCode}${classCode}${String(nextIndex).padStart(3, '0')}`;
                     const existing = await PNTSEStudent.findOne({ rollNo });
                     if (!existing) {
                         isUnique = true;
