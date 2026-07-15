@@ -311,10 +311,10 @@ export const downloadTemplate = async (req, res) => {
                 "Email": "aarav@example.com",
                 "DOB (YYYY-MM-DD)": "2012-05-15",
                 "Gender": "Male",
-                "Class Name* (e.g. 6th)": "6th",
-                "Centre Name* (exact)": "Hazra",
-                "Session Name* (e.g. 2025-26)": "2025-26",
-                "ExamTag Name* (e.g. PNTSE)": "PNTSE",
+                "Class Name* (e.g. 6)": "6",
+                "Centre Name* (exact)": "HAZRA H.O",
+                "Session Name* (e.g. 2025-26)": "2025-2026",
+                "ExamTag Name* (e.g. PNTSE)": "PNTSE 6",
                 "Course* (e.g. PNTSE CLASS 6)": "PNTSE CLASS 6",
                 "School": "ABC High School",
                 "Guardian Name": "Rajesh Sharma",
@@ -331,10 +331,10 @@ export const downloadTemplate = async (req, res) => {
                 "Email": "",
                 "DOB (YYYY-MM-DD)": "2011-08-20",
                 "Gender": "Female",
-                "Class Name* (e.g. 6th)": "7th",
-                "Centre Name* (exact)": "Howrah",
-                "Session Name* (e.g. 2025-26)": "2025-26",
-                "ExamTag Name* (e.g. PNTSE)": "PNTSE",
+                "Class Name* (e.g. 6)": "7",
+                "Centre Name* (exact)": "DUMDUM",
+                "Session Name* (e.g. 2025-26)": "2025-2026",
+                "ExamTag Name* (e.g. PNTSE)": "PNTSE 7",
                 "Course* (e.g. PNTSE CLASS 6)": "PNTSE CLASS 7",
                 "School": "XYZ School",
                 "Guardian Name": "Suresh Verma",
@@ -578,7 +578,7 @@ export const processStudentPayment = async (req, res) => {
     try {
         const { id } = req.params;
         const { paymentMethod, transactionId, accountHolderName, chequeDate, receivedDate, waiver } = req.body;
-        
+
         const student = await PNTSEStudent.findById(id);
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
@@ -603,7 +603,7 @@ export const processStudentPayment = async (req, res) => {
         }
 
         const centreCode = (centreObj.centreCode || centreObj.enterCode || "XX").toUpperCase();
-        
+
         const waiverAmt = Math.max(0, Math.min(100, Number(waiver) || 0));
         const grossFee = 100;
         const amountPaid = grossFee - waiverAmt;
@@ -715,7 +715,7 @@ export const updatePNTSEStudent = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
-        
+
         const student = await PNTSEStudent.findById(id);
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
@@ -750,7 +750,7 @@ export const updatePNTSEStudent = async (req, res) => {
         }
 
         // If class or centre changes, regenerate roll number
-        if ((updateData.centre && String(updateData.centre) !== String(student.centre)) || 
+        if ((updateData.centre && String(updateData.centre) !== String(student.centre)) ||
             (updateData.class && String(updateData.class) !== String(student.class))) {
             const centreId = updateData.centre || student.centre;
             const classId = updateData.class || student.class;
