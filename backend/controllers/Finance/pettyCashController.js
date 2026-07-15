@@ -516,10 +516,20 @@ export const requestPettyCash = async (req, res) => {
 
 export const getPettyCashRequests = async (req, res) => {
     try {
-        const { status, centreId, startDate, endDate, page = 1, limit = 10, isExport } = req.query;
+        const { status, centreId, startDate, endDate, page = 1, limit = 10, isExport, search } = req.query;
         let query = {};
         
         if (status) query.status = status;
+
+        // Centre name search
+        if (search && search.trim()) {
+            const matchingCentres = await Centre.find(
+                { centreName: { $regex: search.trim(), $options: "i" } },
+                "_id"
+            );
+            const matchingIds = matchingCentres.map(c => c._id);
+            query.centre = { $in: matchingIds };
+        }
 
         if (req.user.role !== 'superAdmin' && req.user.role !== 'Super Admin') {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
