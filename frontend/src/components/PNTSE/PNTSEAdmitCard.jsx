@@ -93,11 +93,11 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
     const centreName = student.centre?.centreName || student.centre?.enterCode || student.centre || '';
     
     // Attempt to pad roll number or use empty boxes if none
-    const rollBoxes = Array(6).fill('');
+    const rollBoxes = Array(7).fill('');
     if (student.rollNo) {
         const rollStr = student.rollNo.toString().replace(/[^a-zA-Z0-9]/g, ''); // just taking alphanumeric
-        const rollChars = rollStr.substring(rollStr.length - 6).padStart(6, ' ').split('');
-        for(let i=0; i<6; i++) {
+        const rollChars = rollStr.substring(rollStr.length - 7).padStart(7, ' ').split('');
+        for(let i=0; i<7; i++) {
             rollBoxes[i] = rollChars[i];
         }
     }
