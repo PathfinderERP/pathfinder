@@ -222,6 +222,43 @@ FILTERS & DATA TIPS
 - The reset / sync icon button (circular arrows ↺) always clears ALL active filters at once.
 - Stats cards on the Board Course Admission page react LIVE to whatever filters are active.
 - The "Export to Excel" button always exports ONLY the currently filtered/visible data, not all records.
+
+═══════════════════════════════════════════════
+CEO CONTROL TOWER & CRM QA TELEMETRY
+═══════════════════════════════════════════════
+When the user asks any of the CEO control tower or lead management questions, look under the data field "data.leads.qaTelemetry" for pre-computed metrics:
+- "timelineStats" contains lead counts generated "today", "thisWeek", and "thisMonth".
+- "statusStats" contains counts for "total", "assigned", "unassigned", "contacted", "counselled", "converted", "lost", and "dormant" leads.
+- "slaStats" contains "olderThan24HoursNoCall" and "hotLeadsNoSLA" (uncontacted hot leads beyond SLA).
+- "followUpStats" contains counts for leads "missingNextFollowUp" and "duplicateLeadsCount".
+- "pipelineStats" contains estimated "totalPipelineRevenue" and "weightedPipelineRevenue" values of the open pipeline.
+- "objections" contains objections metrics, categorized into: feeObjections, distanceObjections, facultyObjections, timingObjections, and brandObjections.
+- "campaignPerformance" contains lead and conversion telemetry for each platform/ad name.
+- "centreTargetsMap" contains target revenues per centre.
+
+Use these pre-aggregated stats to directly, professionally, and accurately answer the user's CRM and lead management questions with exact numbers and analytical clarity.
+
+═══════════════════════════════════════════════
+CEO CONTROL TOWER RESPONSE STRUCTURE
+═══════════════════════════════════════════════
+For every question asked within the CEO Control Tower / Lead Management context, you MUST structure your response into exactly these 5 distinct sections, each using the specified title prefix:
+
+1. **Answer**: What happened?
+   (Provide the direct, factual answer to the question using the exact data, metrics, counts, and performance records from the database.)
+
+2. **Diagnose**: Why did it happen?
+   (Explain the underlying causes, operational reasons, telecaller bottlenecks, or campaign dynamics driving these metrics.)
+
+3. **Predict**: What is likely to happen?
+   (Project future outcomes, revenue conversions, student attrition, or operational risks based on the current data state.)
+
+4. **Recommend**: What should management do?
+   (Provide concrete, actionable advice or strategic decisions for management to optimize performance, shift resources, or re-train staff.)
+
+5. **Alert**: What needs immediate intervention?
+   (Highlight critical outliers, urgent SLA leaks, target deficits, or severe anomalies requiring instant hands-on action.)
+
+Ensure your response always lists all 5 headings in this exact order with detailed, high-quality, real-data-backed contents for each.
 `;
 
 
@@ -1397,6 +1434,223 @@ export const analyseERP = async (req, res) => {
             });
             const overallAvgDurationSecs = overallDurationCount > 0 ? overallDurationSecs / overallDurationCount : 0;
 
+            let qaTelemetry = {};
+            try {
+                const Course = (await import("../models/Master_data/Courses.js")).default;
+                const CentreTarget = (await import("../models/Sales/CentreTarget.js")).default;
+                const Campaign = (await import("../models/Campaign.js")).default;
+
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const startOfWeek = new Date(startOfToday);
+                startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const startOfLast30Days = new Date(now);
+                startOfLast30Days.setDate(now.getDate() - 30);
+                const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+                // Fetch admitted student phone numbers
+                const admittedStudents = await Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum");
+                const admittedPhonesSet = new Set(admittedStudents.map(p => p?.toString().trim()).filter(Boolean));
+
+                // Fetch course fees mapping to calculate pipeline value
+                const courses = await Course.find({}).select("courseName fees").lean();
+                const courseFeeMap = {};
+                let totalFeeSum = 0;
+                let courseCount = 0;
+                courses.forEach(c => {
+                    if (c.fees) {
+                        const feeVal = Number(c.fees) || 0;
+                        courseFeeMap[c._id.toString()] = feeVal;
+                        totalFeeSum += feeVal;
+                        courseCount++;
+                    }
+                });
+                const avgCourseFee = courseCount > 0 ? totalFeeSum / courseCount : 25000;
+
+                // Fetch campaign costs/revenues mapping
+                const campaigns = await Campaign.find({}).select("adName budget").lean();
+                const campaignCostMap = {};
+                campaigns.forEach(camp => {
+                    campaignCostMap[camp._id.toString()] = { name: camp.adName, cost: camp.budget || 0 };
+                });
+
+                // Fetch targets
+                const currentMonthName = now.toLocaleString('en-US', { month: 'long' });
+                const currentYear = now.getFullYear();
+                const centreTargets = await CentreTarget.find({ year: currentYear, month: currentMonthName }).lean();
+                const centreTargetMap = {};
+                centreTargets.forEach(t => {
+                    centreTargetMap[t.centre.toString()] = t.targetAmount || 0;
+                });
+
+                // 1. Timeframe counts
+                const [leadsToday, leadsThisWeek, leadsThisMonth] = await Promise.all([
+                    LeadManagement.countDocuments({ ...leadQuery, createdAt: { $gte: startOfToday } }),
+                    LeadManagement.countDocuments({ ...leadQuery, createdAt: { $gte: startOfWeek } }),
+                    LeadManagement.countDocuments({ ...leadQuery, createdAt: { $gte: startOfMonth } })
+                ]);
+
+                // 2. Status counts
+                const totalLeadsCount = await LeadManagement.countDocuments(leadQuery);
+                const assignedLeadsCount = await LeadManagement.countDocuments({ ...leadQuery, leadResponsibility: { $ne: null, $ne: "" } });
+                const unassignedLeadsCount = await LeadManagement.countDocuments({ ...leadQuery, $or: [{ leadResponsibility: null }, { leadResponsibility: "" }] });
+                const contactedLeadsCount = await LeadManagement.countDocuments({ ...leadQuery, lastFollowUpDate: { $ne: null } });
+                
+                const leadsForConversionCheck = await LeadManagement.find(leadQuery).select("phoneNumber").lean();
+                let convertedLeadsCount = 0;
+                const convertedLeadsSet = new Set();
+                leadsForConversionCheck.forEach(l => {
+                    const phone = l.phoneNumber?.toString().trim();
+                    if (phone && admittedPhonesSet.has(phone)) {
+                        convertedLeadsCount++;
+                        convertedLeadsSet.add(l._id.toString());
+                    }
+                });
+
+                const lostLeadsCount = await LeadManagement.countDocuments({
+                    ...leadQuery,
+                    $or: [
+                        { leadType: "INVALID LEAD" },
+                        { "followUps.feedback": { $regex: "not interested|lost|closed", $options: "i" } }
+                    ]
+                });
+                
+                const dormantLeadsCount = await LeadManagement.countDocuments({
+                    ...leadQuery,
+                    _id: { $nin: Array.from(convertedLeadsSet) },
+                    $or: [
+                        { lastFollowUpDate: { $lt: startOfLast30Days } },
+                        { lastFollowUpDate: null, createdAt: { $lt: startOfLast30Days } }
+                    ]
+                });
+
+                // 3. SLA Exceptions
+                const olderThan24HoursNoCall = await LeadManagement.countDocuments({
+                    ...leadQuery,
+                    createdAt: { $lt: twentyFourHoursAgo },
+                    lastFollowUpDate: null
+                });
+
+                const hotLeadsNoSLA = await LeadManagement.countDocuments({
+                    ...leadQuery,
+                    leadType: "HOT LEAD",
+                    createdAt: { $lt: twentyFourHoursAgo },
+                    lastFollowUpDate: null
+                });
+
+                // 4. Next follow up missing & duplicate count
+                const missingNextFollowUp = await LeadManagement.countDocuments({
+                    ...leadQuery,
+                    nextFollowUpDate: null,
+                    leadType: { $ne: "INVALID LEAD" }
+                });
+
+                const duplicatePhoneAgg = await LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    { $group: { _id: "$phoneNumber", count: { $sum: 1 } } },
+                    { $match: { count: { $gt: 1 } } }
+                ]);
+                const duplicateLeadsCount = duplicatePhoneAgg.reduce((sum, item) => sum + item.count, 0);
+
+                // 5. Expected pipeline revenue
+                const openLeads = await LeadManagement.find({
+                    ...leadQuery,
+                    _id: { $nin: Array.from(convertedLeadsSet) },
+                    leadType: { $ne: "INVALID LEAD" }
+                }).select("course leadType").lean();
+
+                let totalPipelineRevenue = 0;
+                let weightedPipelineRevenue = 0;
+                openLeads.forEach(l => {
+                    const courseId = l.course?.toString();
+                    const fee = (courseId && courseFeeMap[courseId]) ? courseFeeMap[courseId] : avgCourseFee;
+                    totalPipelineRevenue += fee;
+                    
+                    const weight = l.leadType === "HOT LEAD" ? 0.50 : (l.leadType === "WARM LEAD" ? 0.25 : 0.10);
+                    weightedPipelineRevenue += fee * weight;
+                });
+
+                // 6. Objections analysis
+                const objectionsAgg = await LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    { $unwind: "$followUps" },
+                    {
+                        $group: {
+                            _id: null,
+                            feeObjections: { $sum: { $cond: [{ $regexMatch: { input: "$followUps.feedback", regex: "fee|price|expensive|discount|cost", options: "i" } }, 1, 0] } },
+                            distanceObjections: { $sum: { $cond: [{ $regexMatch: { input: "$followUps.feedback", regex: "distance|far|travel|location|commute", options: "i" } }, 1, 0] } },
+                            facultyObjections: { $sum: { $cond: [{ $regexMatch: { input: "$followUps.feedback", regex: "faculty|teacher|teaching|professor", options: "i" } }, 1, 0] } },
+                            timingObjections: { $sum: { $cond: [{ $regexMatch: { input: "$followUps.feedback", regex: "timing|slot|schedule|hour|time", options: "i" } }, 1, 0] } },
+                            brandObjections: { $sum: { $cond: [{ $regexMatch: { input: "$followUps.feedback", regex: "brand|reputation|competitor|other institute|brand name", options: "i" } }, 1, 0] } }
+                        }
+                    }
+                ]);
+
+                // 7. Campaign performance
+                const campaignConversions = await LeadManagement.aggregate([
+                    { $match: leadQuery },
+                    {
+                        $group: {
+                            _id: "$campaign",
+                            leadsCount: { $sum: 1 },
+                            counselledCount: { $sum: { $cond: ["$isCounseled", 1, 0] } }
+                        }
+                    }
+                ]);
+                const finalCampaignPerformance = campaignConversions.map(c => {
+                    const campInfo = campaignCostMap[c._id?.toString()] || { name: "Organic/Direct", cost: 0 };
+                    return {
+                        campaignName: campInfo.name,
+                        cost: campInfo.cost,
+                        leadsCount: c.leadsCount,
+                        counselledCount: c.counselledCount,
+                        costPerLead: c.leadsCount > 0 ? Math.round(campInfo.cost / c.leadsCount) : 0
+                    };
+                }).sort((a, b) => b.leadsCount - a.leadsCount);
+
+                qaTelemetry = {
+                    timelineStats: {
+                        today: leadsToday,
+                        thisWeek: leadsThisWeek,
+                        thisMonth: leadsThisMonth
+                    },
+                    statusStats: {
+                        total: totalLeadsCount,
+                        assigned: assignedLeadsCount,
+                        unassigned: unassignedLeadsCount,
+                        contacted: contactedLeadsCount,
+                        counselled: basicCounts[0]?.counselledLeads || 0,
+                        converted: convertedLeadsCount,
+                        lost: lostLeadsCount,
+                        dormant: dormantLeadsCount
+                    },
+                    slaStats: {
+                        olderThan24HoursNoCall,
+                        hotLeadsNoSLA
+                    },
+                    followUpStats: {
+                        missingNextFollowUp,
+                        duplicateLeadsCount
+                    },
+                    pipelineStats: {
+                        totalPipelineRevenue: Math.round(totalPipelineRevenue),
+                        weightedPipelineRevenue: Math.round(weightedPipelineRevenue)
+                    },
+                    objections: objectionsAgg[0] || {
+                        feeObjections: 0,
+                        distanceObjections: 0,
+                        facultyObjections: 0,
+                        timingObjections: 0,
+                        brandObjections: 0
+                    },
+                    campaignPerformance: finalCampaignPerformance,
+                    centreTargetsMap: centreTargetMap
+                };
+            } catch (telemetryError) {
+                console.error("Failed to compile QA Telemetry:", telemetryError);
+            }
+
             data.leads = {
                 summary: basicCounts[0] || {
                     totalLeads: 0,
@@ -1418,7 +1672,8 @@ export const analyseERP = async (req, res) => {
                 dailyTrend: dailyTrend,
                 centreBreakdown: finalCentrePerformance,
                 classBreakdown: finalClassPerformance,
-                recentFollowUpNotes: recentFollowUps
+                recentFollowUpNotes: recentFollowUps,
+                qaTelemetry: qaTelemetry
             };
         }
 

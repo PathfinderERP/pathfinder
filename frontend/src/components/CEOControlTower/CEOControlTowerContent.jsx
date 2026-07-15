@@ -158,43 +158,114 @@ const AIMarkdownText = ({ text }) => {
         </div>
     );
 };
+const leadQuestionsCategories = [
+    {
+        category: "Lead Volume & Statuses",
+        questions: [
+            "How many leads were generated today, this week and this month?",
+            "How many leads are assigned, unassigned, contacted, counselled, converted, lost or dormant?",
+            "Which leads have no next follow-up date?",
+            "How many duplicate leads exist across phone numbers, guardians or students?",
+            "Which leads have been reassigned multiple times?"
+        ]
+    },
+    {
+        category: "Conversions & Deficits",
+        questions: [
+            "What is the lead-to-admission conversion rate by centre?",
+            "What is the conversion rate by course, class, board and source?",
+            "Which centres have enough leads to achieve their admission targets?",
+            "Which centres have a lead deficit?",
+            "At which funnel stage are the most leads being lost?"
+        ]
+    },
+    {
+        category: "SLA & Response",
+        questions: [
+            "How many leads are older than 24 hours without a first call?",
+            "How many hot leads have not been contacted within the defined SLA?",
+            "What is the average first-response time by telecaller and centre?",
+            "What is the average time taken from lead generation to admission?"
+        ]
+    },
+    {
+        category: "Objections & Demands",
+        questions: [
+            "Which centres are losing leads due to fee, distance, faculty, timing or brand objections?",
+            "What are the most common guardian objections by course?",
+            "Which PIN codes have high demand but weak Pathfinder presence?",
+            "Which schools or locations produce the highest-converting leads?",
+            "Which leads were marked \"Not Interested\" without a valid reason?",
+            "Which leads were closed unusually quickly?"
+        ]
+    },
+    {
+        category: "Campaigns & Pipeline Revenue",
+        questions: [
+            "What is the expected revenue currently available in the open pipeline?",
+            "What is the weighted pipeline value after conversion probability?",
+            "Which campaigns generated leads that actually converted?",
+            "Which campaign has the lowest cost per lead / Cost per admission?",
+            "Which campaign produces the highest realized revenue?",
+            "Which campaigns produce leads outside Pathfinder's serviceable geography?"
+        ]
+    },
+    {
+        category: "Calling Efficiency & Operations",
+        questions: [
+            "Who is available in each calling window?",
+            "Which hours generate the highest connection rate?",
+            "Which hours generate the highest conversion rate?",
+            "Is lead assignment proportional to staff availability?",
+            "Which employees have more leads than they can meaningfully handle?",
+            "Which centres need evening or weekend coverage?"
+        ]
+    },
+    {
+        category: "Marketing & Strategy",
+        questions: [
+            "Which campaign works best for each centre, course, class and board?",
+            "What is the delay between exposure, lead creation and admission?",
+            "Which creatives generate clicks but not counselling?",
+            "Which campaign's leads are being mishandled by the sales team?",
+            "What is the conversion rate of online versus physical counselling?",
+            "Which course recommendations resulted in admission?",
+            "Are counsellors recommending courses according to need or ticket size?",
+            "What is the fee realization after each counsellor's discounting?",
+            "Which centres have high counselling volume but weak admission closure?",
+            "Is poor campaign performance caused by marketing or follow-up failure?",
+            "What percentage of admissions are unattributed?",
+            "Are campaign tags and UTM parameters being captured correctly?"
+        ]
+    },
+    {
+        category: "Audits & Staff Metrics",
+        questions: [
+            "Which staff members show suspicious bulk status updates?",
+            "Which lead statuses appear manipulated near review dates?",
+            "Which counsellors have the highest conversion after adjusting for lead quality?",
+            "Which telecallers are receiving good leads but converting poorly?",
+            "Which employees are receiving low-quality leads?"
+        ]
+    },
+    {
+        category: "Academics & Faculty Support",
+        questions: [
+            "Which teachers are available for counselling support, demo classes or seminars?",
+            "Which lead-conversion activities require subject experts?",
+            "Do demo class availability and admission conversion correlate?",
+            "Which high-intent leads are waiting for faculty interaction?",
+            "Which teachers generate the strongest conversion after orientation or demo sessions?",
+            "Are sales teams promising academic slots that do not exist?"
+        ]
+    }
+];
+
 const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPrompts = [], isDarkMode, filters = {}, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
     const [question, setQuestion] = useState('');
-    const [hasAnalyzed, setHasAnalyzed] = useState(false);
     const panelRef = useRef(null);
-
-    const handleInitialAnalysis = async () => {
-        if (hasAnalyzed) return;
-        setLoading(true);
-        try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post(`${import.meta.env.VITE_API_URL || '/api'}/ai/analyse`, {
-                question: defaultQuestion || `Analyze this ${title} dataset and highlight key insights, anomalies, and performance metrics.`,
-                module: module || 'all',
-                startDate: filters?.startDate,
-                endDate: filters?.endDate,
-                centre: filters?.centre,
-                contextData
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (res.data?.response) {
-                setMessages([{ role: 'assistant', text: res.data.response }]);
-                setHasAnalyzed(true);
-            }
-        } catch (error) {
-            console.error("AI analysis error:", error);
-            setMessages([{ role: 'assistant', text: "⚠️ Failed to generate AI analysis. Please verify your Gemini API key and backend configuration." }]);
-        }
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        handleInitialAnalysis();
-    }, [contextData, filters?.startDate, filters?.endDate, filters?.centre]);
 
     const handleAskQuestion = async (e, customQ = null) => {
         if (e) e.preventDefault();
@@ -236,10 +307,10 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
         >
             <div 
                 ref={panelRef}
-                className={`w-full max-w-4xl rounded-[8px] border p-6 transition-all duration-300 text-left shadow-2xl flex flex-col max-h-[85vh] ${
+                className={`w-full max-w-6xl rounded-[8px] border p-6 transition-all duration-300 text-left shadow-2xl flex flex-col h-[90vh] max-h-[90vh] ${
                     isDarkMode 
                         ? 'bg-[#0f1115] border-gray-800 shadow-black/60 text-white' 
-                        : 'bg-white border-gray-200 shadow-gray-200/50 text-black'
+                        : 'bg-white border-gray-250 shadow-gray-200/50 text-black'
                 }`}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -273,85 +344,138 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                     </div>
                 </div>
 
-                {/* Chat Messages */}
-                <div className="flex-1 space-y-4 overflow-y-auto pr-1.5 custom-scrollbar mb-4 min-h-[300px]">
-                    {messages.map((msg, idx) => (
-                        <div 
-                            key={idx} 
-                            className={`flex flex-col gap-1.5 p-4 rounded-[4px] border ${
-                                msg.role === 'user' 
-                                    ? (isDarkMode 
-                                        ? 'bg-cyan-500/5 border-cyan-500/10 align-self-end ml-12' 
-                                        : 'bg-cyan-50/50 border-cyan-200/80 align-self-end ml-12')
-                                    : (isDarkMode 
-                                        ? 'bg-black/30 border-gray-850' 
-                                        : 'bg-gray-50/75 border-gray-200/80 shadow-sm')
-                            }`}
-                        >
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-cyan-500' : 'text-purple-500'}`}>
-                                {msg.role === 'user' ? 'You' : 'Pathfinder AI'}
-                            </span>
-                            <AIMarkdownText text={msg.text} />
-                        </div>
-                    ))}
-
-                    {loading && messages.length === 0 && (
-                        <div className="flex flex-col gap-3 py-16 items-center justify-center text-gray-500 font-bold text-sm">
-                            <span className="animate-spin text-cyan-500"><FaSyncAlt size={24} /></span>
-                            <span className="tracking-widest uppercase text-xs animate-pulse">Analyzing section data with Pathfinder AI...</span>
-                        </div>
-                    )}
-
-                    {loading && messages.length > 0 && (
-                        <div className="flex items-center gap-2 pl-3 text-cyan-500 text-xs font-bold">
-                            <span className="animate-pulse">Pathfinder AI is thinking...</span>
+                {/* Main Content Area split into columns */}
+                <div className="flex-1 flex gap-6 overflow-hidden min-h-0 mb-4">
+                    {/* Left Column: Suggested CEO Lead Questions (only shown if module === "leads") */}
+                    {module === "leads" && (
+                        <div className="w-[340px] shrink-0 flex flex-col border-r border-gray-255 dark:border-gray-800 pr-4 overflow-y-auto custom-scrollbar">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500 mb-4 select-none">CEO Control Tower CRM Prompts</h4>
+                            <div className="space-y-4 pr-1">
+                                {leadQuestionsCategories.map((cat, catIdx) => (
+                                    <div key={catIdx} className="space-y-2">
+                                        <h5 className="text-[11px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-1.5">{cat.category}</h5>
+                                        <div className="flex flex-col gap-2">
+                                            {cat.questions.map((q, qIdx) => (
+                                                <button
+                                                    key={qIdx}
+                                                    type="button"
+                                                    disabled={loading}
+                                                    onClick={(e) => handleAskQuestion(e, q)}
+                                                    className={`text-left text-[12px] leading-snug font-bold p-3.5 rounded-[4px] border transition-all ${
+                                                        isDarkMode 
+                                                            ? 'bg-black/30 border-gray-800 hover:border-cyan-500/40 hover:bg-cyan-500/5 text-gray-300 hover:text-white' 
+                                                            : 'bg-gray-50 border-gray-200 hover:border-cyan-450 hover:bg-cyan-50/55 text-gray-750 hover:text-cyan-700 shadow-sm hover:shadow'
+                                                    }`}
+                                                >
+                                                    {q}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
-                </div>
 
-                {/* Footer input and prompts */}
-                <div className="pt-3.5 border-t border-gray-200 dark:border-gray-800/55">
-                    {quickPrompts.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {quickPrompts.map((promptText, pIdx) => (
-                                <button
-                                    key={pIdx}
-                                    type="button"
-                                    onClick={(e) => handleAskQuestion(e, promptText)}
-                                    className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
-                                        isDarkMode 
-                                            ? 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white hover:border-cyan-500/30' 
-                                            : 'bg-white border-gray-250 text-gray-600 hover:text-cyan-600 hover:border-cyan-400 shadow-sm'
+                    {/* Right Column: Chat messages and input */}
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                        {/* Chat Messages */}
+                        <div className="flex-1 space-y-4 overflow-y-auto pr-1.5 custom-scrollbar mb-4 min-h-[300px]">
+                            {messages.length === 0 && !loading && (
+                                <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                                    <div className="p-4 rounded-full bg-cyan-500/10 text-cyan-500 mb-4 animate-bounce">
+                                        <FaRobot size={36} />
+                                    </div>
+                                    <h4 className={`text-base font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
+                                        Pathfinder AI Analyst Ready
+                                    </h4>
+                                    <p className={`text-xs max-w-md leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-650'}`}>
+                                        {module === "leads" 
+                                            ? "Select a suggested CEO Control Tower CRM question from the left sidebar, or type a custom question below to start analyzing live ERP data."
+                                            : "Type a custom analysis question below to analyze this section's live ERP data."}
+                                    </p>
+                                </div>
+                            )}
+
+                            {messages.map((msg, idx) => (
+                                <div 
+                                    key={idx} 
+                                    className={`flex flex-col gap-1.5 p-4 rounded-[4px] border ${
+                                        msg.role === 'user' 
+                                            ? (isDarkMode 
+                                                ? 'bg-cyan-500/5 border-cyan-500/10 align-self-end ml-12' 
+                                                : 'bg-cyan-50/50 border-cyan-200/80 align-self-end ml-12')
+                                            : (isDarkMode 
+                                                ? 'bg-black/30 border-gray-850' 
+                                                : 'bg-gray-50/75 border-gray-200/80 shadow-sm')
                                     }`}
                                 >
-                                    {promptText}
-                                </button>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-cyan-500' : 'text-purple-500'}`}>
+                                        {msg.role === 'user' ? 'You' : 'Pathfinder AI'}
+                                    </span>
+                                    <AIMarkdownText text={msg.text} />
+                                </div>
                             ))}
-                        </div>
-                    )}
 
-                    <form onSubmit={handleAskQuestion} className="flex gap-2.5 items-center">
-                        <input
-                            type="text"
-                            value={question}
-                            onChange={(e) => setQuestion(e.target.value)}
-                            placeholder={`Ask AI about ${title} data...`}
-                            className={`flex-1 text-sm font-medium p-3 rounded-[3px] border outline-none transition-all ${
-                                isDarkMode 
-                                    ? 'bg-black border-gray-800 text-white focus:border-cyan-500' 
-                                    : 'bg-white border-gray-200 text-black focus:border-cyan-500 shadow-sm'
-                            }`}
-                        />
-                        <button
-                            type="submit"
-                            disabled={loading || !question.trim()}
-                            className={`p-3 rounded-[3px] bg-cyan-500 text-black hover:bg-cyan-600 active:scale-95 transition-all font-black flex items-center justify-center ${
-                                (loading || !question.trim()) ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                        >
-                            <FaPaperPlane size={14} />
-                        </button>
-                    </form>
+                            {loading && messages.length === 0 && (
+                                <div className="flex flex-col gap-3 py-16 items-center justify-center text-gray-500 font-bold text-sm">
+                                    <span className="animate-spin text-cyan-500"><FaSyncAlt size={24} /></span>
+                                    <span className="tracking-widest uppercase text-xs animate-pulse">Analyzing section data with Pathfinder AI...</span>
+                                </div>
+                            )}
+
+                            {loading && messages.length > 0 && (
+                                <div className="flex items-center gap-2 pl-3 text-cyan-500 text-xs font-bold">
+                                    <span className="animate-pulse">Pathfinder AI is thinking...</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer input and prompts */}
+                        <div className="pt-3 border-t border-gray-200 dark:border-gray-800/55">
+                            {quickPrompts.length > 0 && module !== "leads" && (
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {quickPrompts.map((promptText, pIdx) => (
+                                        <button
+                                            key={pIdx}
+                                            type="button"
+                                            onClick={(e) => handleAskQuestion(e, promptText)}
+                                            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
+                                                isDarkMode 
+                                                    ? 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white hover:border-cyan-500/30' 
+                                                    : 'bg-white border-gray-250 text-gray-600 hover:text-cyan-600 hover:border-cyan-400 shadow-sm'
+                                            }`}
+                                        >
+                                            {promptText}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleAskQuestion} className="flex gap-2.5 items-center">
+                                <input
+                                    type="text"
+                                    value={question}
+                                    onChange={(e) => setQuestion(e.target.value)}
+                                    placeholder={`Ask AI about ${title} data...`}
+                                    className={`flex-1 text-sm font-medium p-3 rounded-[3px] border outline-none transition-all ${
+                                        isDarkMode 
+                                            ? 'bg-black border-gray-800 text-white focus:border-cyan-500' 
+                                            : 'bg-white border-gray-200 text-black focus:border-cyan-500 shadow-sm'
+                                    }`}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={loading || !question.trim()}
+                                    className={`p-3 rounded-[3px] bg-cyan-500 text-black hover:bg-cyan-600 active:scale-95 transition-all font-black flex items-center justify-center ${
+                                        (loading || !question.trim()) ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
+                                >
+                                    <FaPaperPlane size={14} />
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -211,6 +211,20 @@ const EnrolledStudentsContent = () => {
         return "UNKNOWN COURSE";
     }, [masterCourses]);
 
+    // Helper to resolve class name from ID or lastClass if populate failed
+    const resolveClassName = React.useCallback((admission) => {
+        if (!admission) return "";
+        if (admission.class && typeof admission.class === 'object') {
+            return admission.class.name || admission.class.className || "";
+        }
+        if (typeof admission.class === 'string' && admission.class.trim().length > 0) {
+            const matched = masterClasses.find(c => c._id === admission.class.trim());
+            if (matched) return matched.name;
+            if (admission.class.trim().length !== 24) return admission.class;
+        }
+        return admission.lastClass || "";
+    }, [masterClasses]);
+
     const fetchAllowedCentres = React.useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
@@ -702,7 +716,7 @@ const EnrolledStudentsContent = () => {
         if (filterClass.length > 0) {
             result = result.filter(item =>
                 item.admissions.some(admission => {
-                    const className = admission.class?.className || admission.class?.name || "";
+                    const className = resolveClassName(admission);
                     return filterClass.includes(className);
                 })
             );
@@ -722,12 +736,15 @@ const EnrolledStudentsContent = () => {
         }
 
         if (filterExamTag.length > 0) {
-            result = result.filter(item =>
-                item.admissions.some(admission => {
-                    const tag = admission.examTag?.name || "";
+            result = result.filter(item => {
+                const student = item.student || {};
+                const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
+                return item.admissions.some(admission => {
+                    const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === admission.academicSession);
+                    const tag = matchedSessionExam?.examTag || studentExamTag || admission.examTag?.name || "";
                     return filterExamTag.includes(tag);
-                })
-            );
+                });
+            });
         }
 
         if (filterProgramme.length > 0) {
@@ -985,7 +1002,26 @@ const EnrolledStudentsContent = () => {
         return ["BLANK", ...coursesList];
     }, [masterCourses, students, resolveCourseName]);
     const uniqueBoards = [...new Set(students.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))];
-    const uniqueExamTags = [...new Set(students.flatMap(item => item.admissions.map(a => a.examTag?.name)).filter(Boolean))];
+    const uniqueClasses = React.useMemo(() => {
+        const classesSet = new Set(masterClasses.map(c => c.className || c.name));
+        students.forEach(item => {
+            item.admissions.forEach(a => {
+                const name = resolveClassName(a);
+                if (name) {
+                    classesSet.add(name);
+                }
+            });
+        });
+        return Array.from(classesSet).filter(Boolean).sort((a, b) => a.localeCompare(b));
+    }, [masterClasses, students, resolveClassName]);
+    const uniqueExamTags = [...new Set(students.flatMap(item => {
+        const student = item.student || {};
+        const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
+        return item.admissions.map(a => {
+            const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === a.academicSession);
+            return matchedSessionExam?.examTag || studentExamTag || a.examTag?.name;
+        });
+    }).filter(Boolean))];
     const uniqueProgrammes = [...new Set(masterCourses.map(c => c.programme).filter(Boolean))];
     const uniqueModes = [...new Set(masterCourses.map(c => c.mode).filter(Boolean))];
     const uniqueCourseTypes = [...new Set(masterCourses.map(c => c.courseType).filter(Boolean))];
@@ -1393,8 +1429,8 @@ const EnrolledStudentsContent = () => {
         const exportData = exportAdmissions.map(admission => {
             const student = admission.student || {};
             const details = student.studentsDetails?.[0] || {};
-            const guardian = student.guardians?.[0] || {};
-            const centre = admission.centre || details.centre || "N/A";
+            const guardian = student.guardians?.[0] || details.guardians?.[0] || {};
+            const centre = admission.centre || details.centre || student.centre || "N/A";
 
             // Map Installments
             const installments = admission.paymentBreakdown?.map(inst => ({
@@ -1405,19 +1441,32 @@ const EnrolledStudentsContent = () => {
                 paidDate: formatDate(inst.paidDate)
             })) || [];
 
+            // Resolve Lead By
+            const leadBy = student.leadBy || admission.leadBy;
+            const leadByName = typeof leadBy?.name === 'string' ? leadBy.name : (typeof leadBy === 'string' ? leadBy : "System");
+            const leadByCreatedAt = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleString('en-GB') : '';
+
+            // Resolve Counselled By
+            const counselBy = student.counselledByDetails || admission.counselledByDetails;
+            const counselByName = typeof counselBy?.name === 'string' ? counselBy.name : (typeof student.counselledBy === 'string' ? student.counselledBy : "N/A");
+            const counselByCreatedAt = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleString('en-GB') : '';
+
+            // Resolve Admitted By
+            const admittedByName = typeof admission.createdBy?.name === 'string' ? admission.createdBy.name : (admission.createdBy ? "Unknown" : "System");
+
             return {
                 student: {
                     studentsDetails: [{
-                        studentName: details.studentName || '',
-                        dateOfBirth: formatDate(details.dateOfBirth),
-                        gender: details.gender || '',
-                        board: details.board || '',
-                        state: details.state || '',
-                        studentEmail: details.studentEmail || '',
-                        mobileNum: details.mobileNum || '',
-                        whatsappNumber: details.whatsappNumber || '',
-                        schoolName: details.schoolName || '',
-                        address: details.address || ''
+                        studentName: admission.studentName || details.studentName || student.studentName || '',
+                        dateOfBirth: formatDate(details.dateOfBirth || admission.dateOfBirth),
+                        gender: details.gender || admission.gender || '',
+                        board: admission.board?.name || admission.board?.boardName || details.board || '',
+                        state: details.state || admission.state || '',
+                        studentEmail: admission.studentEmail || details.studentEmail || student.studentEmail || '',
+                        mobileNum: admission.mobileNum || details.mobileNum || student.mobileNum || '',
+                        whatsappNumber: admission.whatsappNumber || details.whatsappNumber || student.whatsappNumber || '',
+                        schoolName: details.schoolName || admission.schoolName || '',
+                        address: details.address || admission.address || ''
                     }],
                     guardians: [{
                         guardianName: guardian.guardianName || '',
@@ -1426,28 +1475,36 @@ const EnrolledStudentsContent = () => {
                     }]
                 },
                 centre: centre,
-                class: { name: admission.class?.name || admission.class?.className || '' },
+                class: { name: resolveClassName(admission) || '' },
                 academicSession: admission.academicSession || '',
-                examTag: { name: admission.examTag?.name || '' },
+                examTag: {
+                    name: (() => {
+                        const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === admission.academicSession);
+                        return matchedSessionExam?.examTag || student.sessionExamCourse?.[0]?.examTag || admission.examTag?.name || '';
+                    })()
+                },
                 admissionNumber: admission.admissionNumber || '',
                 admissionDate: formatDate(admission.admissionDate),
                 admissionStatus: admission.admissionStatus || '',
                 leadBy: {
-                    name: admission.leadBy?.name || '',
-                    createdAt: admission.leadBy?.createdAt ? new Date(admission.leadBy.createdAt).toLocaleString('en-GB') : ''
+                    name: leadByName,
+                    createdAt: leadByCreatedAt
                 },
                 counselledByDetails: {
-                    name: admission.counselledByDetails?.name || '',
-                    createdAt: admission.counselledByDetails?.createdAt ? new Date(admission.counselledByDetails.createdAt).toLocaleString('en-GB') : ''
+                    name: counselByName,
+                    createdAt: counselByCreatedAt
                 },
-                createdBy: admission.createdBy?.name || '',
+                createdBy: admittedByName,
                 course: {
-                    courseName: admission.course?.courseName || '',
-                    programme: admission.course?.programme || '',
+                    courseName: (() => {
+                        const resolved = resolveCourseName(admission) || '';
+                        return (resolved.toUpperCase().includes('COURSE ID') || resolved.toUpperCase().includes('UNKNOWN COURSE')) ? '' : resolved;
+                    })(),
+                    programme: admission.course?.programme || details.programme || student.programme || '',
                     mode: admission.course?.mode || '',
                     courseType: admission.course?.courseType || ''
                 },
-                department: { departmentName: admission.department?.departmentName || '' },
+                department: { departmentName: admission.department?.departmentName || student.department?.departmentName || '' },
                 totalFees: admission.totalFees || 0,
                 totalPaidAmount: admission.totalPaidAmount || 0,
                 remainingAmount: admission.remainingAmount || 0,
@@ -1783,7 +1840,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Class"
                                 placeholder="ALL CLASSES"
-                                options={Array.from(new Set(masterClasses.map(c => c.className || c.name))).filter(Boolean).map(name => ({ value: name, label: name.toUpperCase() }))}
+                                options={uniqueClasses.map(name => ({ value: name, label: name.toUpperCase() }))}
                                 selectedValues={filterClass}
                                 onChange={setFilterClass}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -2063,27 +2120,9 @@ const EnrolledStudentsContent = () => {
 
                                                 <td className="p-4 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
-                                                        {/* {student?.studentEmail && (
-                                                            <button
-                                                                onClick={(e) => handleCopy(e, student.studentEmail, "Email ID")}
-                                                                className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-100 shadow-sm'}`}
-                                                                title="Copy ID"
-                                                            >
-                                                                <FaCopy size={10} />
-                                                            </button>
-                                                        )} */}
                                                         <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
                                                             {student?.studentEmail || "N/A"}
                                                         </span>
-                                                        {/* {student?.studentEmail && (
-                                                            <button
-                                                                onClick={(e) => handleCopy(e, student.studentEmail, "Email ID")}
-                                                                className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-100 shadow-sm'}`}
-                                                                title="Copy ID"
-                                                            >
-                                                                <FaCopy size={10} />
-                                                            </button>
-                                                        )} */}
                                                     </div>
                                                 </td>
 
@@ -2104,7 +2143,7 @@ const EnrolledStudentsContent = () => {
                                                 </td>
                                                 <td className="p-4">
                                                     <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
-                                                        {latestAdmission?.class?.className || latestAdmission?.class?.name || "N/A"}
+                                                        {resolveClassName(latestAdmission) || "N/A"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
