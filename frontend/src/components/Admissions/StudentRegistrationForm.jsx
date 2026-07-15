@@ -295,13 +295,25 @@ const StudentRegistrationForm = () => {
             const data = await response.json();
             if (response.ok && data.users) {
                 const userList = Array.isArray(data.users) ? data.users : [];
-                const filtered = userList.filter((user) =>
-                    user.isActive !== false &&
-                    user.primaryCentre &&
-                    user.primaryCentre.centreName &&
-                    user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&
-                    !["teacher", "accounts", "hr"].includes((user.role || "").toLowerCase())
-                );
+                const allowedRoles = [
+                    "telecaller", "centralizedtelecaller", "counsellor", "marketing",
+                    "assistant centre incharge", "assistantcentreincharge", "assistant center incharge", "assistantcenterincharge",
+                    "centre incharge", "centreincharge", "center incharge", "centerincharge",
+                    "admin", "zonal manager", "zonalmanager", "assistant zonal manager", "assistantzonalmanager"
+                ];
+                const filtered = userList.filter((user) => {
+                    if (user.isActive === false) return false;
+                    
+                    const userRole = (user.role || "").toLowerCase().trim();
+                    const hasAllowedRole = allowedRoles.includes(userRole) || allowedRoles.includes(userRole.replace(/\s+/g, ""));
+                    if (!hasAllowedRole) return false;
+
+                    const hasMatchingCentre = 
+                        (user.primaryCentre && user.primaryCentre.centreName && user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase()) ||
+                        (user.centres && user.centres.some(c => c.centreName && c.centreName.toLowerCase() === centreName.toLowerCase()));
+
+                    return hasMatchingCentre;
+                });
                 setCounselledByOptions(filtered);
             }
         } catch (error) {
