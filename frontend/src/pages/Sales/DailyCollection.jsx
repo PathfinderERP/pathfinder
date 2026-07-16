@@ -185,6 +185,13 @@ const DailyCollection = () => {
                 const end = new Date(now.getFullYear(), now.getMonth(), 0);
                 params.append("startDate", formatLocalDate(start));
                 params.append("endDate", formatLocalDate(end));
+            } else if (activePreset === "custom") {
+                if (startDate && endDate) {
+                    params.append("startDate", startDate);
+                    params.append("endDate", endDate);
+                } else {
+                    params.append("date", date);
+                }
             } else {
                 params.append("date", date);
             }

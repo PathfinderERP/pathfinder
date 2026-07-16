@@ -5,6 +5,7 @@ import DailyTarget from "../../models/Sales/DailyTarget.js";
 
 export const getDailyCollectionReport = async (req, res) => {
     try {
+        console.log("Daily Collection query:", req.query);
         const reportData = await getDailyCollectionReportData({ query: req.query, user: req.user });
         return res.status(200).json(reportData);
     } catch (error) {
