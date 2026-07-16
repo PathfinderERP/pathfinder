@@ -628,19 +628,19 @@ const DailyCollection = () => {
                             <FaCalendarDay />
                             <span className="font-semibold">Collection Date</span>
                         </div>
-                        <input
+                        {/* <input
                             type="date"
                             value={date}
                             onChange={(e) => { setDate(e.target.value); setActivePreset(""); }}
                             className={`w-full rounded-[4px] p-3 ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
-                        />
+                        /> */}
                         {/* Quick date preset dropdown */}
                         <select
                             value={activePreset}
                             onChange={(e) => applyPreset(e.target.value)}
                             className={`w-full mt-3 rounded-[4px] p-2.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${isDarkMode
-                                    ? "bg-[#15181f] border border-gray-700 text-white"
-                                    : "bg-white border border-gray-300 text-slate-900"
+                                ? "bg-[#15181f] border border-gray-700 text-white"
+                                : "bg-white border border-gray-300 text-slate-900"
                                 }`}
                         >
                             {!activePreset && <option value="">Custom Date</option>}
