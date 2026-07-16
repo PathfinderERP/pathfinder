@@ -13,6 +13,7 @@ const DailyCollection = () => {
 
     const [loading, setLoading] = useState(false);
     const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+    const [activePreset, setActivePreset] = useState("today");
     const [dailyDetails, setDailyDetails] = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [totalCollection, setTotalCollection] = useState(0);
@@ -148,7 +149,44 @@ const DailyCollection = () => {
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
-            params.append("date", date);
+
+            const now = new Date();
+            const formatLocalDate = (d) => {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            };
+
+            if (activePreset === "today") {
+                const todayStr = formatLocalDate(now);
+                params.append("startDate", todayStr);
+                params.append("endDate", todayStr);
+            } else if (activePreset === "yesterday") {
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                const yesterdayStr = formatLocalDate(yesterday);
+                params.append("startDate", yesterdayStr);
+                params.append("endDate", yesterdayStr);
+            } else if (activePreset === "last7") {
+                const sevenDaysAgo = new Date(now);
+                sevenDaysAgo.setDate(now.getDate() - 6);
+                params.append("startDate", formatLocalDate(sevenDaysAgo));
+                params.append("endDate", formatLocalDate(now));
+            } else if (activePreset === "thisMonth") {
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                params.append("startDate", formatLocalDate(start));
+                params.append("endDate", formatLocalDate(end));
+            } else if (activePreset === "lastMonth") {
+                const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const end = new Date(now.getFullYear(), now.getMonth(), 0);
+                params.append("startDate", formatLocalDate(start));
+                params.append("endDate", formatLocalDate(end));
+            } else {
+                params.append("date", date);
+            }
+
             if (selectedCentres.length) params.append("centreIds", selectedCentres.join(","));
             if (selectedCourses.length) params.append("courseIds", selectedCourses.join(","));
             if (selectedDepartments.length) params.append("departmentIds", selectedDepartments.join(","));
@@ -236,9 +274,39 @@ const DailyCollection = () => {
         setPaymentMethodSearch("");
         setSearchText("");
         setDate(new Date().toISOString().split("T")[0]);
+        setActivePreset("today");
         setSelectedZones([]);
         setZoneSearch("");
         toast.info("Filters reset");
+    };
+
+    /* ── Quick date preset helper ─────────────────────────────────────── */
+    const DATE_PRESETS = [
+        { key: "today", label: "Today" },
+        { key: "yesterday", label: "Yesterday" },
+        { key: "last7", label: "Last 7 Days" },
+        { key: "thisMonth", label: "This Month" },
+        { key: "lastMonth", label: "Last Month" },
+    ];
+
+    const applyPreset = (key) => {
+        const now = new Date();
+        let d;
+        if (key === "today") {
+            d = new Date();
+        } else if (key === "yesterday") {
+            d = new Date();
+            d.setDate(d.getDate() - 1);
+        } else if (key === "last7") {
+            d = new Date();
+            d.setDate(d.getDate() - 6);
+        } else if (key === "thisMonth") {
+            d = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (key === "lastMonth") {
+            d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        }
+        setDate(d.toISOString().split("T")[0]);
+        setActivePreset(key);
     };
 
     const exportToExcel = () => {
@@ -563,9 +631,25 @@ const DailyCollection = () => {
                         <input
                             type="date"
                             value={date}
-                            onChange={(e) => setDate(e.target.value)}
+                            onChange={(e) => { setDate(e.target.value); setActivePreset(""); }}
                             className={`w-full rounded-[4px] p-3 ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
                         />
+                        {/* Quick date preset dropdown */}
+                        <select
+                            value={activePreset}
+                            onChange={(e) => applyPreset(e.target.value)}
+                            className={`w-full mt-3 rounded-[4px] p-2.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${isDarkMode
+                                    ? "bg-[#15181f] border border-gray-700 text-white"
+                                    : "bg-white border border-gray-300 text-slate-900"
+                                }`}
+                        >
+                            {!activePreset && <option value="">Custom Date</option>}
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="last7">Last 7 Days</option>
+                            <option value="thisMonth">This Month</option>
+                            <option value="lastMonth">Last Month</option>
+                        </select>
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm flex flex-col justify-between`}>
                         <div>
@@ -1030,16 +1114,16 @@ const DailyCollection = () => {
                 <div className={`${cardBgClass} ${cardBorderClass} rounded-[4px] p-4`}>
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
                         <div className={`flex items-center gap-2 p-1 rounded-lg border ${isDarkMode
-                                ? "bg-gray-900/40 border-gray-800"
-                                : "bg-slate-100 border-gray-200"
+                            ? "bg-gray-900/40 border-gray-800"
+                            : "bg-slate-100 border-gray-200"
                             }`}>
                             <button
                                 onClick={() => setActiveTab("centers")}
                                 className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "centers"
-                                        ? "bg-blue-600 text-white shadow-lg"
-                                        : isDarkMode
-                                            ? "text-gray-400 hover:text-gray-200"
-                                            : "text-slate-600 hover:text-slate-950"
+                                    ? "bg-blue-600 text-white shadow-lg"
+                                    : isDarkMode
+                                        ? "text-gray-400 hover:text-gray-200"
+                                        : "text-slate-600 hover:text-slate-950"
                                     }`}
                             >
                                 Centers Collection
@@ -1047,10 +1131,10 @@ const DailyCollection = () => {
                             <button
                                 onClick={() => setActiveTab("details")}
                                 className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "details"
-                                        ? "bg-blue-600 text-white shadow-lg"
-                                        : isDarkMode
-                                            ? "text-gray-400 hover:text-gray-200"
-                                            : "text-slate-600 hover:text-slate-950"
+                                    ? "bg-blue-600 text-white shadow-lg"
+                                    : isDarkMode
+                                        ? "text-gray-400 hover:text-gray-200"
+                                        : "text-slate-600 hover:text-slate-950"
                                     }`}
                             >
                                 Details with Bill
@@ -1100,8 +1184,8 @@ const DailyCollection = () => {
                                             }
                                         });
                                         return initialAcc;
-                                    })());                                    const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
- 
+                                    })()); const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
+
                                     // Column Totals
                                     const totalTarget = sortedData.reduce((sum, [centre]) => sum + (centreTargets[centre] || 0), 0);
                                     const totalPaymentMethods = paymentMethodsList.reduce((acc, method) => {
@@ -1114,7 +1198,7 @@ const DailyCollection = () => {
                                         const withoutGst = isPhsps ? data.total : (data.total / 1.18);
                                         return sum + (withoutGst || 0);
                                     }, 0);
- 
+
                                     return (
                                         <>
                                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>

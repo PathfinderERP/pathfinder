@@ -137,6 +137,8 @@ const buildFixedWeeks = (year, monthIndex) => {
 export const getDailyCollectionReportData = async ({ query, user }) => {
     const {
         date,
+        startDate,
+        endDate,
         centreIds,
         courseIds,
         examTagId,
@@ -147,11 +149,21 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         search
     } = query;
 
-    const selectedDate = date ? new Date(date) : new Date();
-    selectedDate.setHours(0, 0, 0, 0);
-    const startOfDay = selectedDate;
-    const endOfDay = new Date(selectedDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    let startOfDay;
+    let endOfDay;
+    const selectedDate = endDate ? new Date(endDate) : (date ? new Date(date) : new Date());
+
+    if (startDate && endDate) {
+        startOfDay = new Date(startDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+    } else {
+        selectedDate.setHours(0, 0, 0, 0);
+        startOfDay = selectedDate;
+        endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+    }
 
     // Base Payment Filter
     const paymentMatch = {
