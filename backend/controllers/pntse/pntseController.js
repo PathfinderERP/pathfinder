@@ -346,20 +346,75 @@ export const checkDuplicatesBulk = async (req, res) => {
     try {
         const { mobiles = [], emails = [] } = req.body;
 
-        // Query once for all mobiles and once for all emails
-        const [dupMobileStudents, dupEmailStudents] = await Promise.all([
+        // ── 1. Check PNTSE DB (these will be REJECTED) ─────────────────────
+        const [pntseMobStudents, pntseEmailStudents] = await Promise.all([
             mobiles.length > 0
-                ? PNTSEStudent.find({ mobile: { $in: mobiles } }, "mobile").lean()
+                ? PNTSEStudent.find({ mobile: { $in: mobiles } }, "mobile name rollNo email").lean()
                 : [],
             emails.length > 0
-                ? PNTSEStudent.find({ email: { $in: emails.map(e => e.toLowerCase()) } }, "email").lean()
+                ? PNTSEStudent.find({ email: { $in: emails.map(e => e.toLowerCase()) } }, "email name rollNo mobile").lean()
                 : []
         ]);
 
-        const foundMobiles = dupMobileStudents.map(s => s.mobile);
-        const foundEmails  = dupEmailStudents.map(s => (s.email || "").toLowerCase());
+        const pntseMobiles = pntseMobStudents.map(s => s.mobile);
+        const pntseEmails  = pntseEmailStudents.map(s => (s.email || "").toLowerCase());
 
-        res.status(200).json({ foundMobiles, foundEmails });
+        // ── 2. Check main ERP (Normal/Board admission — CARRY FORWARD) ─────
+        const erpMobStudents = mobiles.length > 0
+            ? await Student.find({ "studentsDetails.mobileNum": { $in: mobiles } }, "studentsDetails").lean()
+            : [];
+
+        const erpEmailStudents = emails.length > 0
+            ? await Student.find({ "studentsDetails.studentEmail": { $in: emails } }, "studentsDetails").lean()
+            : [];
+
+        // Merge unique ERP student hits
+        const erpStudentMap = new Map();
+        [...erpMobStudents, ...erpEmailStudents].forEach(s => {
+            if (!erpStudentMap.has(String(s._id))) erpStudentMap.set(String(s._id), s);
+        });
+
+        // For each ERP student, fetch their admission number
+        const erpCarryForward = [];
+        for (const erpStudent of erpStudentMap.values()) {
+            const details = erpStudent.studentsDetails?.[0] || {};
+            const mobile  = details.mobileNum || "";
+            const email   = (details.studentEmail || "").toLowerCase();
+
+            // Skip if already flagged as PNTSE duplicate
+            if (pntseMobiles.includes(mobile) || pntseEmails.includes(email)) continue;
+
+            const [normalAdm, boardAdm] = await Promise.all([
+                Admission.findOne({ student: erpStudent._id }, "admissionNumber").lean(),
+                BoardCourseAdmission.findOne({ studentId: erpStudent._id }, "admissionNumber").lean()
+            ]);
+
+            const enrollmentNo = normalAdm?.admissionNumber || boardAdm?.admissionNumber || "";
+            const admissionType = normalAdm ? "NORMAL" : (boardAdm ? "BOARD" : "UNKNOWN");
+
+            erpCarryForward.push({
+                studentId:    String(erpStudent._id),
+                name:         details.studentName || "",
+                mobile:       mobile,
+                email:        details.studentEmail || "",
+                enrollmentNo,
+                admissionType
+            });
+        }
+
+        // Build fast-lookup sets for the frontend
+        const erpMobilesSet = new Set(erpCarryForward.map(e => e.mobile).filter(Boolean));
+        const erpEmailsSet  = new Set(erpCarryForward.map(e => e.email.toLowerCase()).filter(Boolean));
+
+        res.status(200).json({
+            // PNTSE duplicates — will be SKIPPED
+            foundMobiles: pntseMobiles,
+            foundEmails:  pntseEmails,
+            // ERP carry-forward — will be ACCEPTED with old enrollment number
+            erpMobiles:      [...erpMobilesSet],
+            erpEmails:       [...erpEmailsSet],
+            erpCarryForward  // full details for the popup
+        });
     } catch (err) {
         console.error("Bulk duplicate check error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
@@ -602,59 +657,64 @@ export const importExcel = async (req, res) => {
                     continue;
                 }
 
-                // Check duplicate mobile in Main ERP
-                const erpMobile = await Student.findOne({ "studentsDetails.mobileNum": mobile });
-                if (erpMobile && (!studentId || String(erpMobile._id) !== String(studentId))) {
+                // ── Step 1: Check if ALREADY IN PNTSE → REJECT ─────────────────────
+                const pntseDupMobile = await PNTSEStudent.findOne({ mobile });
+                if (pntseDupMobile && (!studentId || String(pntseDupMobile.studentId) !== String(studentId))) {
                     results.failed++;
-                    results.errors.push(`[DUPLICATE_MOBILE] Row ${rowNum}: Mobile "${mobile}" is already registered in Normal/Board Course. Please carry forward.`);
+                    results.errors.push(`[DUPLICATE_PNTSE] Row ${rowNum}: Mobile "${mobile}" is already registered in PNTSE (student: "${pntseDupMobile.name}", Roll: ${pntseDupMobile.rollNo || 'N/A'}). Duplicate already in PNTSE.`);
                     continue;
                 }
 
-                // Check duplicate email in Main ERP
                 if (email) {
-                    const erpEmail = await Student.findOne({ "studentsDetails.studentEmail": email });
-                    if (erpEmail && (!studentId || String(erpEmail._id) !== String(studentId))) {
+                    const pntseDupEmail = await PNTSEStudent.findOne({ email });
+                    if (pntseDupEmail && (!studentId || String(pntseDupEmail.studentId) !== String(studentId))) {
                         results.failed++;
-                        results.errors.push(`[DUPLICATE_EMAIL] Row ${rowNum}: Email "${email}" is already registered in Normal/Board Course. Please carry forward.`);
+                        results.errors.push(`[DUPLICATE_PNTSE] Row ${rowNum}: Email "${email}" is already registered in PNTSE (student: "${pntseDupEmail.name}", Roll: ${pntseDupEmail.rollNo || 'N/A'}). Duplicate already in PNTSE.`);
                         continue;
                     }
                 }
 
-                // Check duplicate mobile in PNTSE
-                const dupMobile = await PNTSEStudent.findOne({ mobile });
-                if (dupMobile && (!studentId || String(dupMobile.studentId) !== String(studentId))) {
-                    results.failed++;
-                    results.errors.push(`[DUPLICATE_MOBILE] Row ${rowNum}: Mobile "${mobile}" already registered for PNTSE student "${dupMobile.name}" (Roll: ${dupMobile.rollNo || 'N/A'})`);
-                    continue;
+                // ── Step 2: Check if in Normal/Board ERP → CARRY FORWARD (accept with enrollment no.) ──
+                let erpEnrollmentNo = null;  // will be set if found in ERP
+                let erpStudentId = studentId || null;
+
+                const erpByMobile = await Student.findOne({ "studentsDetails.mobileNum": mobile });
+                const erpByEmail  = email ? await Student.findOne({ "studentsDetails.studentEmail": email }) : null;
+                const erpMatch    = erpByMobile || erpByEmail;
+
+                if (erpMatch) {
+                    // Student is in ERP — carry forward: look up their enrollment number
+                    const [normalAdm, boardAdm] = await Promise.all([
+                        Admission.findOne({ student: erpMatch._id }, "admissionNumber").lean(),
+                        BoardCourseAdmission.findOne({ studentId: erpMatch._id }, "admissionNumber").lean()
+                    ]);
+                    erpEnrollmentNo = normalAdm?.admissionNumber || boardAdm?.admissionNumber || null;
+                    erpStudentId    = String(erpMatch._id);
+                    results.carryForward = (results.carryForward || 0) + 1;
                 }
 
-                // Check duplicate email in PNTSE
-                if (email) {
-                    const dupEmail = await PNTSEStudent.findOne({ email });
-                    if (dupEmail && (!studentId || String(dupEmail.studentId) !== String(studentId))) {
-                        results.failed++;
-                        results.errors.push(`[DUPLICATE_EMAIL] Row ${rowNum}: Email "${email}" already registered for PNTSE student "${dupEmail.name}" (Roll: ${dupEmail.rollNo || 'N/A'})`);
-                        continue;
-                    }
-                }
-
-                // Generate roll number: PATH{centreCode}{classCode}{3-digit seq}
-                const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
-
-                const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
-                const classCode = String(classNum).padStart(2, '0');
-
-                const count = await PNTSEStudent.countDocuments({ centre: centreObj._id, class: classObj._id });
-                let nextIndex = count + 1;
+                // ── Step 3: Generate or reuse roll number ─────────────────────────
                 let rollNo;
-                let isUnique = false;
-                while (!isUnique) {
-                    rollNo = `PATH${twoDigitCode}${classCode}${String(nextIndex).padStart(3, '0')}`;
-                    const existing = await PNTSEStudent.findOne({ rollNo });
-                    if (!existing) {
-                        isUnique = true;
-                    } else {
-                        nextIndex++;
+                if (erpEnrollmentNo) {
+                    // Carry forward: reuse the existing enrollment/admission number as PNTSE rollNo
+                    rollNo = erpEnrollmentNo;
+                } else {
+                    // Generate new PNTSE roll number: PATH{centreCode}{classCode}{3-digit seq}
+                    const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
+                    const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
+                    const classCode = String(classNum).padStart(2, '0');
+
+                    const count = await PNTSEStudent.countDocuments({ centre: centreObj._id, class: classObj._id });
+                    let nextIndex = count + 1;
+                    let isUnique = false;
+                    while (!isUnique) {
+                        rollNo = `PATH${twoDigitCode}${classCode}${String(nextIndex).padStart(3, '0')}`;
+                        const existing = await PNTSEStudent.findOne({ rollNo });
+                        if (!existing) {
+                            isUnique = true;
+                        } else {
+                            nextIndex++;
+                        }
                     }
                 }
 
@@ -674,7 +734,7 @@ export const importExcel = async (req, res) => {
                     score: 0,
                     isImported: true,
                     isPaymentPending: true,
-                    studentId
+                    studentId: erpStudentId || studentId
                 });
 
                 await newStudent.save();
@@ -686,7 +746,7 @@ export const importExcel = async (req, res) => {
         }
 
         res.status(200).json({
-            message: `Import completed. ${results.success} imported, ${results.failed} failed.`,
+            message: `Import completed. ${results.success} imported, ${results.carryForward || 0} carried forward from ERP, ${results.failed} failed.`,
             ...results
         });
     } catch (err) {

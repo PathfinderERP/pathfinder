@@ -2,7 +2,8 @@ import React, { useState, useRef, useCallback } from "react";
 import {
     FaTimes, FaUpload, FaDownload, FaFileExcel, FaSync,
     FaExclamationTriangle, FaCheckCircle, FaEye, FaTrash,
-    FaTimesCircle, FaEdit, FaSave, FaDatabase, FaSpinner
+    FaTimesCircle, FaEdit, FaSave, FaDatabase, FaSpinner,
+    FaArrowRight, FaIdCard, FaInfoCircle
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
@@ -73,9 +74,13 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
     const fileInputRef = useRef(null);
 
     // DB duplicate check state
-    const [dbChecking, setDbChecking]       = useState(false);
-    const [dbDupMobiles, setDbDupMobiles]   = useState(new Set()); // set of mobile strings that exist in DB
-    const [dbDupEmails, setDbDupEmails]     = useState(new Set()); // set of email strings
+    const [dbChecking, setDbChecking]           = useState(false);
+    const [dbDupMobiles, setDbDupMobiles]       = useState(new Set()); // PNTSE dups (REJECTED)
+    const [dbDupEmails, setDbDupEmails]         = useState(new Set()); // PNTSE dups (REJECTED)
+    const [erpMobilesSet, setErpMobilesSet]     = useState(new Set()); // ERP carry-forward by mobile
+    const [erpEmailsSet, setErpEmailsSet]       = useState(new Set()); // ERP carry-forward by email
+    const [erpCarryForward, setErpCarryForward] = useState([]);        // full ERP student details
+    const [showErpPopup, setShowErpPopup]       = useState(false);
 
     /* detect duplicates WITHIN the current rows array */
     const getDuplicateIndices = useCallback((rows) => {
@@ -108,8 +113,14 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
             });
             if (!res.ok) throw new Error("DB check failed");
             const data = await res.json();
+            // PNTSE duplicates (will be rejected)
             setDbDupMobiles(new Set(data.foundMobiles || []));
             setDbDupEmails(new Set((data.foundEmails || []).map(e => e.toLowerCase())));
+            // ERP carry-forward (will be accepted with old enrollment no)
+            setErpMobilesSet(new Set(data.erpMobiles || []));
+            setErpEmailsSet(new Set((data.erpEmails || []).map(e => e.toLowerCase())));
+            setErpCarryForward(data.erpCarryForward || []);
+            if ((data.erpCarryForward || []).length > 0) setShowErpPopup(true);
         } catch {
             // Silent — not critical
         } finally {
@@ -161,6 +172,7 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
         setParsedRows([]); setStep("idle"); setFileName(""); setUploadResult(null);
         setEditingIdx(null); setEditBuf({});
         setDbDupMobiles(new Set()); setDbDupEmails(new Set()); setDbChecking(false);
+        setErpMobilesSet(new Set()); setErpEmailsSet(new Set()); setErpCarryForward([]); setShowErpPopup(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -235,14 +247,117 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
     const validCount = parsedRows.filter((_, i) => rowErrs(i).length === 0).length;
     const errCount   = parsedRows.filter((_, i) => rowErrs(i).length > 0).length;
 
-    // Count DB duplicates visible in current rows
+    // Count PNTSE DB duplicates visible in current rows
     const dbMobCount   = parsedRows.filter(r => r.mobile && dbDupMobiles.has(r.mobile.trim())).length;
     const dbEmailCount = parsedRows.filter(r => r.email  && dbDupEmails.has(r.email.trim().toLowerCase())).length;
+
+    // Count ERP carry-forward visible in current rows
+    const erpCfCount = parsedRows.filter(r =>
+        (r.mobile && erpMobilesSet.has(r.mobile.trim())) ||
+        (r.email  && erpEmailsSet.has(r.email.trim().toLowerCase()))
+    ).length;
+
+    // Helper: get ERP details for a given row
+    const getErpDetail = (row) => erpCarryForward.find(e =>
+        (row.mobile && e.mobile === row.mobile.trim()) ||
+        (row.email  && e.email.toLowerCase() === row.email.trim().toLowerCase())
+    );
 
     const inp = "w-full px-2 py-1 rounded border text-[11px] font-semibold outline-none transition-all bg-[#0f1215] border-gray-700 text-gray-200 focus:border-cyan-500/80";
 
     return (
         <div className="fixed inset-0 flex items-center justify-center z-[70] p-4 backdrop-blur-md bg-black/75">
+
+            {/* ── ERP Carry-Forward Detail Popup ─────────────────────────────── */}
+            {showErpPopup && erpCarryForward.length > 0 && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="w-full max-w-2xl rounded-2xl border border-teal-500/40 bg-[#0d1a1a] shadow-2xl shadow-teal-900/30 flex flex-col overflow-hidden" style={{ maxHeight: "85vh" }}>
+                        {/* Popup Header */}
+                        <div className="px-5 py-4 border-b border-teal-800/40 bg-gradient-to-r from-teal-950/80 to-emerald-950/60 flex items-center gap-3 flex-shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center">
+                                <FaArrowRight className="text-teal-400 text-base" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-tight text-white">
+                                    ERP Students — Carry Forward to PNTSE
+                                </h3>
+                                <p className="text-[10px] text-teal-400/70 font-bold uppercase tracking-widest mt-0.5">
+                                    {erpCarryForward.length} student{erpCarryForward.length !== 1 ? "s" : ""} already in Normal/Board Course
+                                </p>
+                            </div>
+                            <button onClick={() => setShowErpPopup(false)} className="ml-auto p-2 rounded-lg text-teal-400/60 hover:text-white hover:bg-white/5 transition-all">
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+
+                        {/* Info note */}
+                        <div className="px-5 py-3 bg-teal-500/5 border-b border-teal-800/30 flex-shrink-0">
+                            <p className="text-[11px] text-teal-300/80 leading-relaxed">
+                                <span className="text-teal-300 font-bold">✓ These students will be ACCEPTED</span> in the PNTSE import.
+                                Their existing enrollment number from Normal/Board Course will be used as their PNTSE Roll Number —
+                                so they keep the <span className="text-teal-200 font-bold">same enrollment number</span> across both systems.
+                            </p>
+                        </div>
+
+                        {/* Table */}
+                        <div className="flex-1 overflow-y-auto pntse-bulk-scroll">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="sticky top-0 bg-[#0d1a1a] border-b border-teal-800/30">
+                                    <tr>
+                                        {["#", "Name", "Email", "Mobile", "Enrollment No.", "Type"].map(h => (
+                                            <th key={h} className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-teal-500/70 whitespace-nowrap">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-teal-800/20">
+                                    {erpCarryForward.map((s, i) => (
+                                        <tr key={i} className="hover:bg-teal-500/5 transition-colors">
+                                            <td className="px-4 py-3 text-[10px] font-black text-teal-500">{i + 1}</td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-[11px] font-bold text-gray-100">{s.name || "—"}</span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-[11px] text-gray-300">{s.email || "—"}</span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-[11px] text-gray-300">{s.mobile || "—"}</span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/20 border border-teal-500/30 text-[11px] font-black text-teal-200">
+                                                    <FaIdCard size={9} className="text-teal-400" />
+                                                    {s.enrollmentNo || <span className="text-teal-500/50 italic">N/A</span>}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                                    s.admissionType === "NORMAL"
+                                                        ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                                        : s.admissionType === "BOARD"
+                                                        ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                                        : "bg-gray-500/20 text-gray-400 border border-gray-500/30"
+                                                }`}>
+                                                    {s.admissionType}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-5 py-3.5 border-t border-teal-800/30 bg-[#0d1a1a] flex justify-end flex-shrink-0">
+                            <button
+                                onClick={() => setShowErpPopup(false)}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white shadow-lg shadow-teal-500/20 transition-all hover:-translate-y-0.5 active:scale-95"
+                            >
+                                <FaCheckCircle size={10} /> Understood — Proceed
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div
                 className={`w-full rounded-2xl border border-gray-700 shadow-2xl bg-[#0f1215] flex flex-col overflow-hidden ${step === "idle" ? "max-w-lg" : "max-w-[96vw]"}`}
                 style={{ maxHeight: "92vh" }}
@@ -326,6 +441,7 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                     { label: "Dup Mobile (file)", val: dupMob.size,   color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
                                     { label: "Dup Email (file)",  val: dupEmail.size, color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
                                     { label: "Errors",     val: errCount,             color: "text-red-400 bg-red-500/10 border-red-500/20" },
+                                    { label: "ERP Carry Fwd", val: erpCfCount,        color: "text-teal-400 bg-teal-500/10 border-teal-500/20" },
                                 ].map(s => (
                                     <div key={s.label} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider ${s.color}`}>
                                         <span className="text-[13px] font-black">{s.val}</span>
@@ -343,25 +459,64 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                 }`}>
                                     {dbChecking
                                         ? <><FaSpinner className="animate-spin" size={10} /> Checking DB…</>
-                                        : <><FaDatabase size={9} /> DB Dups: {dbMobCount + dbEmailCount}</>
+                                        : <><FaDatabase size={9} /> PNTSE Dups: {dbMobCount + dbEmailCount}</>
                                     }
                                 </div>
 
                                 <div className="ml-auto flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest text-gray-500">
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-orange-500/40 inline-block" /> File Dup Mobile</span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-purple-500/40 inline-block" /> File Dup Email</span>
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose-600/60 inline-block" /> DB Duplicate</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-rose-600/60 inline-block" /> PNTSE Dup (skip)</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-teal-500/40 inline-block" /> ERP Carry Fwd</span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500/40 inline-block" /> Error</span>
                                 </div>
                             </div>
 
-                            {/* DB duplicate instant warning */}
+                            {/* ERP Carry-Forward info banner */}
+                            {!dbChecking && erpCfCount > 0 && (
+                                <div className="rounded-xl border border-teal-500/40 bg-teal-500/5 p-3">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <FaArrowRight className="text-teal-400 text-xs" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-teal-400">
+                                            ERP Students — Will Be Carried Forward
+                                        </span>
+                                        <button
+                                            onClick={() => setShowErpPopup(true)}
+                                            className="ml-auto flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-teal-300 hover:text-teal-200 transition-colors"
+                                        >
+                                            <FaInfoCircle size={9} /> View Details
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-teal-300/70">
+                                        These students exist in <span className="text-teal-300 font-bold">Normal/Board Course</span> admission.
+                                        They will be <span className="text-teal-300 font-bold">accepted</span> and their previous
+                                        <span className="text-teal-300 font-bold"> enrollment number will be reused</span> as their PNTSE Roll No.
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {parsedRows.map((r, i) => {
+                                            const erpD = getErpDetail(r);
+                                            if (!erpD) return null;
+                                            return (
+                                                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/15 border border-teal-500/30 text-[10px] font-black text-teal-200">
+                                                    <span className="text-teal-400">#{i+1}</span>
+                                                    {r.name}
+                                                    <span className="px-1.5 py-0.5 rounded bg-teal-500/25 text-teal-200 text-[9px] font-black">
+                                                        <FaIdCard className="inline mr-1" size={7} />{erpD.enrollmentNo || "—"}
+                                                    </span>
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* PNTSE DB duplicate warning */}
                             {!dbChecking && (dbMobCount > 0 || dbEmailCount > 0) && (
                                 <div className="rounded-xl border border-rose-500/40 bg-rose-500/5 p-3">
                                     <div className="flex items-center gap-2 mb-1.5">
                                         <FaDatabase className="text-rose-400 text-xs" />
                                         <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">
-                                            Already Exists in Database
+                                            Already in PNTSE Database
                                         </span>
                                         <span className="ml-auto text-[9px] text-rose-400/70 font-bold uppercase">These will be skipped on upload</span>
                                     </div>
@@ -437,12 +592,15 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                                 const isEmail   = dupEmail.has(idx);
                                                 const isDbMob   = !!(row.mobile && dbDupMobiles.has(row.mobile.trim()));
                                                 const isDbEmail = !!(row.email  && dbDupEmails.has(row.email.trim().toLowerCase()));
+                                                const isErpCf   = !!(getErpDetail(row));
+                                                const erpDetail = getErpDetail(row);
                                                 const isEdit    = editingIdx === idx;
 
-                                                // Priority: edit > error > DB dup > file dup
+                                                // Priority: edit > error > PNTSE DB dup > ERP carry-fwd > file dup
                                                 const rowBg = isEdit      ? "bg-cyan-500/5"
                                                             : errs.length > 0 ? "bg-red-500/5"
                                                             : (isDbMob || isDbEmail) ? "bg-rose-500/5 border-l-2 border-l-rose-500/70"
+                                                            : isErpCf  ? "bg-teal-500/5 border-l-2 border-l-teal-500/60"
                                                             : isMob    ? "bg-orange-500/5 border-l-2 border-l-orange-500/60"
                                                             : isEmail  ? "bg-purple-500/5 border-l-2 border-l-purple-500/60"
                                                             : "hover:bg-white/[0.01]";
@@ -464,16 +622,23 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                                                         Missing: {errs.map(e => e.replace(" required", "")).join(", ")}
                                                                     </span>
                                                                 )}
-                                                                {/* DB duplicates — shown first, most critical */}
-                                                                {isDbMob   && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/25 text-rose-300 uppercase flex items-center gap-1"><FaDatabase size={7} />DB Dup Mobile</span>}
-                                                                {isDbEmail && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/20 text-rose-400 uppercase flex items-center gap-1"><FaDatabase size={7} />DB Dup Email</span>}
+                                                                {/* PNTSE duplicates — REJECTED */}
+                                                                {isDbMob   && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/25 text-rose-300 uppercase flex items-center gap-1"><FaDatabase size={7} />PNTSE Dup Mobile</span>}
+                                                                {isDbEmail && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/20 text-rose-400 uppercase flex items-center gap-1"><FaDatabase size={7} />PNTSE Dup Email</span>}
+                                                                {/* ERP carry-forward — ACCEPTED with old enrollment no */}
+                                                                {isErpCf && !isDbMob && !isDbEmail && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-teal-500/20 text-teal-300 uppercase flex items-center gap-1">
+                                                                        <FaArrowRight size={7} />ERP→PNTSE
+                                                                        {erpDetail?.enrollmentNo && <span className="ml-0.5 text-teal-200">{erpDetail.enrollmentNo}</span>}
+                                                                    </span>
+                                                                )}
                                                                 {/* File-level duplicates */}
-                                                                {isMob   && !isDbMob   && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-orange-500/20 text-orange-400 uppercase">Dup Mobile</span>}
-                                                                {isEmail && !isDbEmail && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-500/20 text-purple-400 uppercase">Dup Email</span>}
-                                                                {errs.length === 0 && !isMob && !isEmail && !isDbMob && !isDbEmail && (
+                                                                {isMob   && !isDbMob   && !isErpCf && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-orange-500/20 text-orange-400 uppercase">Dup Mobile</span>}
+                                                                {isEmail && !isDbEmail && !isErpCf && <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-500/20 text-purple-400 uppercase">Dup Email</span>}
+                                                                {errs.length === 0 && !isMob && !isEmail && !isDbMob && !isDbEmail && !isErpCf && (
                                                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-400 uppercase">Valid</span>
                                                                 )}
-                                                                {dbChecking && !isDbMob && !isDbEmail && errs.length === 0 && !isMob && !isEmail && (
+                                                                {dbChecking && !isDbMob && !isDbEmail && !isErpCf && errs.length === 0 && !isMob && !isEmail && (
                                                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-sky-500/10 text-sky-400 uppercase flex items-center gap-1">
                                                                         <FaSpinner size={7} className="animate-spin" />Checking
                                                                     </span>
@@ -554,10 +719,15 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
 
                     {/* DONE */}
                     {step === "done" && uploadResult && (() => {
-                        const dupMobErrs   = (uploadResult.errors || []).filter(e => e.startsWith("[DUPLICATE_MOBILE]"));
-                        const dupEmailErrs = (uploadResult.errors || []).filter(e => e.startsWith("[DUPLICATE_EMAIL]"));
-                        const otherErrs    = (uploadResult.errors || []).filter(e => !e.startsWith("[DUPLICATE_MOBILE]") && !e.startsWith("[DUPLICATE_EMAIL]"));
-                        const clean = msg  => msg.replace(/^\[(DUPLICATE_MOBILE|DUPLICATE_EMAIL)\]\s*/, "");
+                        const dupPntseErrs  = (uploadResult.errors || []).filter(e => e.startsWith("[DUPLICATE_PNTSE]"));
+                        const dupMobErrs    = (uploadResult.errors || []).filter(e => e.startsWith("[DUPLICATE_MOBILE]"));
+                        const dupEmailErrs  = (uploadResult.errors || []).filter(e => e.startsWith("[DUPLICATE_EMAIL]"));
+                        const otherErrs     = (uploadResult.errors || []).filter(e =>
+                            !e.startsWith("[DUPLICATE_PNTSE]") &&
+                            !e.startsWith("[DUPLICATE_MOBILE]") &&
+                            !e.startsWith("[DUPLICATE_EMAIL]")
+                        );
+                        const clean = msg  => msg.replace(/^\[(DUPLICATE_PNTSE|DUPLICATE_MOBILE|DUPLICATE_EMAIL)\]\s*/, "");
                         return (
                             <div className="p-5 flex flex-col gap-4 bg-[#0a0d0f]">
                                 <div className="rounded-xl border border-gray-800 bg-[#131619] p-6 flex flex-col items-center gap-5">
@@ -568,9 +738,10 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                     </div>
                                     <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
                                         {[
-                                            { label: "Imported",   val: uploadResult.success || 0,                        color: "text-emerald-400" },
-                                            { label: "Failed",     val: uploadResult.failed || 0,                         color: "text-red-400" },
-                                            { label: "Duplicates", val: dupMobErrs.length + dupEmailErrs.length,          color: "text-orange-400" },
+                                            { label: "Imported",      val: uploadResult.success || 0,                         color: "text-emerald-400" },
+                                            { label: "ERP Fwd",       val: uploadResult.carryForward || 0,                    color: "text-teal-400" },
+                                            { label: "PNTSE Dups",    val: dupPntseErrs.length,                               color: "text-rose-400" },
+                                            { label: "Failed",        val: (uploadResult.failed || 0) - dupPntseErrs.length,  color: "text-red-400" },
                                         ].map((s, i) => (
                                             <div key={i} className="p-4 rounded-xl border border-gray-800 bg-[#0f1215] text-center">
                                                 <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">{s.label}</p>
@@ -587,6 +758,23 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {dupPntseErrs.length > 0 && (
+                                    <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 overflow-hidden">
+                                        <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 border-b border-rose-500/20">
+                                            <FaDatabase className="text-rose-400 text-xs" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-rose-400">Already in PNTSE — Skipped ({dupPntseErrs.length})</p>
+                                        </div>
+                                        <div className="max-h-40 overflow-y-auto divide-y divide-rose-500/10 pntse-bulk-scroll">
+                                            {dupPntseErrs.map((e, i) => (
+                                                <div key={i} className="px-4 py-2.5 flex items-start gap-2">
+                                                    <FaTimesCircle className="text-rose-400 mt-0.5 shrink-0 text-xs" />
+                                                    <p className="text-xs text-rose-200 leading-relaxed">{clean(e)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {dupMobErrs.length > 0 && (
                                     <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 overflow-hidden">
