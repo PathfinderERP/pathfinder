@@ -8,7 +8,8 @@ import {
     collectBoardExamFee,
     collectBoardAdditionalFee,
     collectNcrpFees,
-    getBoardAdmissionAnalysis
+    getBoardAdmissionAnalysis,
+    bulkUpdateBoardAdmissions
 } from "../../controllers/Admission/BoardCourseAdmissionController.js";
 import {
     createBoardCourseCounselling,
@@ -29,6 +30,7 @@ router.post("/collect-installment/:id", requireGranularPermission("admissions", 
 router.post("/collect-exam-fee/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectBoardExamFee);
 router.post("/collect-additional-fee/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectBoardAdditionalFee);
 router.post("/collect-ncrp-fees/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectNcrpFees);
+router.post("/bulk-update", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), bulkUpdateBoardAdmissions);
 
 // Board Course Counselling Routes
 router.post("/counsel/create", requireGranularPermission("admissions", "boardCourseAdmission", "create"), createBoardCourseCounselling);

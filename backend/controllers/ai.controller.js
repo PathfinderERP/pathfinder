@@ -294,12 +294,35 @@ When the user asks any of the CEO control tower Tracking & Flagging questions, l
   * "unsubmittedManagers": users who haven't submitted daily reports for today.
   * "promisesMadeYesterday": list of activities from yesterday logs (promises made yesterday).
 
-Use these pre-aggregated stats to directly, professionally, and accurately answer the user's CRM, lead management, admissions, and tracking/flagging questions with exact numbers and analytical clarity.
+When the user asks any of the CEO control tower Daily Tracking Log questions, look under the data field "data.trackingLog.qaTelemetry" for pre-computed metrics:
+- "commitments" contains:
+  * "totalCommitments": count of all logged task commitments.
+  * "completedCommitments": count of commitments marked completed.
+  * "inProgressCommitments": count of commitments still in progress.
+  * "onTimeRate": completion rate percentage.
+  * "commitmentsByEmployee": logs details grouped by employee name and department, including activity status and details.
+  * "overdueCommitments": log tasks marked in progress whose log date is in the past.
+- "blockers" contains:
+  * "blockers": list of logged blockers with employee name, department, and description.
+  * "blockerResolutionRate": percentage of blocker logs marked completed.
+  * "pendingSupportOrApprovals": logs awaiting manager approval or support.
+  * "carriedForward": tasks that have been carried forward to future logs.
+  * "unplannedWork": log details indicating ad-hoc or unplanned work.
+- "priorities" contains:
+  * "priorityAlignment": commitments matching critical priority keywords.
+  * "departmentPriorities": mapping of department -> priority activities.
+- "compliance" contains:
+  * "consistentSubmitters": users who have submitted logs.
+  * "lateSubmitters": users who submitted logs late or retrospectively.
+  * "unsubmittedUsers": active users who haven't submitted a log today.
+  * "verificationMismatch": comparison check comparing logged work metrics against core systems (e.g. Admission counts).
+
+Use these pre-aggregated stats to directly, professionally, and accurately answer the user's CRM, lead management, admissions, tracking/flagging, and daily tracking log questions with exact numbers and analytical clarity.
 
 ═══════════════════════════════════════════════
 CEO CONTROL TOWER RESPONSE STRUCTURE
 ═══════════════════════════════════════════════
-For every question asked within the CEO Control Tower / Lead Management, Admissions or Tracking & Flagging context, you MUST structure your response into exactly these 5 distinct sections, each using the specified title prefix:
+For every question asked within the CEO Control Tower / Lead Management, Admissions, Tracking & Flagging or Daily Tracking Log context, you MUST structure your response into exactly these 5 distinct sections, each using the specified title prefix:
 
 1. **Answer**: What happened?
    (Provide the direct, factual answer to the question using the exact data, metrics, counts, and performance records from the database.)
@@ -2577,6 +2600,236 @@ export const analyseERP = async (req, res) => {
             }
 
             data.tracking = {
+                qaTelemetry: qaTelemetry
+            };
+        }
+
+        if (targetModule === "all" || targetModule === "trackingLog") {
+            let qaTelemetry = {};
+            try {
+                const DailyTrackingLog = (await import("../models/DailyTrackingLog.js")).default;
+                const Task = (await import("../models/Task.js")).default;
+                const Admission = (await import("../models/Admission/Admission.js")).default;
+                const BoardCourseAdmission = (await import("../models/Admission/BoardCourseAdmission.js")).default;
+                const LeadManagement = (await import("../models/LeadManagement.js")).default;
+
+                // Dates setup
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+                // Fetch logs
+                const logs = await DailyTrackingLog.find({}).populate("user").lean();
+                
+                // Fetch tasks to cross reference
+                const tasks = await Task.find({}).populate("assignedTo").lean();
+
+                // Group all logs by user name & calculate details
+                let totalCommitments = 0;
+                let completedCommitments = 0;
+                let inProgressCommitments = 0;
+                const commitmentsByEmployee = [];
+                const blockers = [];
+                const pendingSupportOrApprovals = [];
+                const unplannedWork = [];
+                const carriedForward = [];
+                const priorityAlignment = [];
+                const overdueCommitments = [];
+                const departmentPriorities = {};
+                const consistentSubmitters = [];
+                const lateSubmitters = [];
+
+                logs.forEach(log => {
+                    const empName = log.userName || log.user?.name || "Unknown Employee";
+                    const dept = log.department || log.user?.role || "Operations";
+                    
+                    // Priority grouping
+                    if (!departmentPriorities[dept]) {
+                        departmentPriorities[dept] = [];
+                    }
+
+                    const employeeLogItem = {
+                        employeeName: empName,
+                        department: dept,
+                        date: log.date,
+                        activities: []
+                    };
+
+                    log.activities?.forEach(act => {
+                        totalCommitments++;
+                        if (act.status === "Completed") completedCommitments++;
+                        if (act.status === "In Progress") inProgressCommitments++;
+
+                        const lowerDetails = (act.workDetails || "").toLowerCase();
+                        const lowerCompleted = (act.completedWork || "").toLowerCase();
+
+                        const actItem = {
+                            workDetails: act.workDetails,
+                            completedWork: act.completedWork,
+                            status: act.status,
+                            time: act.time
+                        };
+
+                        employeeLogItem.activities.push(actItem);
+
+                        // Blockers search
+                        if (lowerDetails.includes("block") || lowerDetails.includes("waiting") || lowerDetails.includes("hold") || lowerDetails.includes("delay") || lowerDetails.includes("issue") || lowerDetails.includes("problem") ||
+                            lowerCompleted.includes("block") || lowerCompleted.includes("waiting") || lowerCompleted.includes("hold") || lowerCompleted.includes("delay")) {
+                            blockers.push({
+                                employeeName: empName,
+                                department: dept,
+                                workDetails: act.workDetails,
+                                status: act.status
+                            });
+                        }
+
+                        // Support & Approval pending
+                        if (lowerDetails.includes("approv") || lowerDetails.includes("support") || lowerDetails.includes("sign") || lowerDetails.includes("permission") ||
+                            lowerCompleted.includes("approv") || lowerCompleted.includes("support") || lowerCompleted.includes("sign")) {
+                            pendingSupportOrApprovals.push({
+                                employeeName: empName,
+                                department: dept,
+                                details: act.workDetails,
+                                status: act.status
+                            });
+                        }
+
+                        // Unplanned / Ad-hoc work
+                        if (lowerDetails.includes("urgent") || lowerDetails.includes("unplanned") || lowerDetails.includes("adhoc") || lowerDetails.includes("sudden") || lowerDetails.includes("unexpected")) {
+                            unplannedWork.push({
+                                employeeName: empName,
+                                department: dept,
+                                details: act.workDetails
+                            });
+                        }
+
+                        // Carried Forward
+                        if (lowerDetails.includes("carry forward") || lowerDetails.includes("carried forward") || lowerDetails.includes("postpone") || lowerDetails.includes("delay") || lowerDetails.includes("defer")) {
+                            carriedForward.push({
+                                employeeName: empName,
+                                department: dept,
+                                details: act.workDetails
+                            });
+                        }
+
+                        // Priorities
+                        if (lowerDetails.includes("priority") || lowerDetails.includes("critical") || lowerDetails.includes("important") || lowerDetails.includes("high") || lowerDetails.includes("focus")) {
+                            priorityAlignment.push({
+                                employeeName: empName,
+                                details: act.workDetails
+                            });
+                        }
+
+                        // Overdue
+                        if (act.status === "In Progress" && new Date(log.date) < startOfToday) {
+                            overdueCommitments.push({
+                                employeeName: empName,
+                                details: act.workDetails,
+                                date: log.date
+                            });
+                        }
+
+                        // Add to department priorities list
+                        departmentPriorities[dept].push(act.workDetails);
+                    });
+
+                    commitmentsByEmployee.push(employeeLogItem);
+
+                    // Compliance - consistency and timeliness
+                    consistentSubmitters.push(empName);
+                    
+                    // Late submitters check
+                    const logUpdatedAt = new Date(log.updatedAt);
+                    const logDate = new Date(log.date);
+                    const isLate = logUpdatedAt.getDate() > logDate.getDate() || logUpdatedAt.getHours() >= 20; 
+                    if (isLate) {
+                        lateSubmitters.push({
+                            employeeName: empName,
+                            submittedAt: log.updatedAt
+                        });
+                    }
+                });
+
+                // Get all users
+                const allUsers = await User.find({ isActive: { $ne: false } }).select("name role").lean();
+                const submittedUserIds = new Set(logs.map(l => l.user?.toString()));
+                const unsubmittedUsers = allUsers.filter(u => !submittedUserIds.has(u._id.toString())).map(u => u.name);
+
+                // Verification Mismatches: cross-reference logs against system records.
+                const verificationMismatch = [];
+                const actualAdmissionsToday = await Admission.countDocuments({ createdAt: { $gte: startOfToday, $lte: endOfToday } });
+                const actualBoardAdmissionsToday = await BoardCourseAdmission.countDocuments({ createdAt: { $gte: startOfToday, $lte: endOfToday } });
+                const totalActualAdmissions = actualAdmissionsToday + actualBoardAdmissionsToday;
+
+                let loggedAdmissionsCount = 0;
+                logs.forEach(log => {
+                    const todayLog = new Date(log.date) >= startOfToday;
+                    if (todayLog) {
+                        log.activities?.forEach(act => {
+                            if (act.status === "Completed") {
+                                const details = (act.workDetails + " " + act.completedWork).toLowerCase();
+                                if (details.includes("admission") || details.includes("admitted") || details.includes("enroll")) {
+                                    const match = details.match(/\d+/);
+                                    loggedAdmissionsCount += match ? parseInt(match[0]) : 1;
+                                }
+                            }
+                        });
+                    }
+                });
+
+                if (Math.abs(loggedAdmissionsCount - totalActualAdmissions) > 0) {
+                    verificationMismatch.push({
+                        metric: "Admissions Count",
+                        loggedValue: loggedAdmissionsCount,
+                        systemValue: totalActualAdmissions,
+                        status: "Mismatch Detected"
+                    });
+                } else {
+                    verificationMismatch.push({
+                        metric: "Admissions Count",
+                        loggedValue: loggedAdmissionsCount,
+                        systemValue: totalActualAdmissions,
+                        status: "Consistent"
+                    });
+                }
+
+                const totalBlockers = blockers.length;
+                const resolvedBlockersCount = blockers.filter(b => b.status === "Completed").length;
+                const blockerResolutionRate = totalBlockers > 0 ? Math.round((resolvedBlockersCount / totalBlockers) * 100) : 100;
+
+                qaTelemetry = {
+                    commitments: {
+                        totalCommitments,
+                        completedCommitments,
+                        inProgressCommitments,
+                        onTimeRate: totalCommitments > 0 ? Math.round((completedCommitments / totalCommitments) * 100) : 0,
+                        commitmentsByEmployee,
+                        overdueCommitments
+                    },
+                    blockers: {
+                        blockers,
+                        blockerResolutionRate,
+                        pendingSupportOrApprovals,
+                        carriedForward,
+                        unplannedWork
+                    },
+                    priorities: {
+                        priorityAlignment,
+                        departmentPriorities
+                    },
+                    compliance: {
+                        consistentSubmitters: consistentSubmitters.slice(0, 15),
+                        lateSubmitters: lateSubmitters.slice(0, 10),
+                        unsubmittedUsers: unsubmittedUsers.slice(0, 15),
+                        verificationMismatch
+                    }
+                };
+
+            } catch (telemetryError) {
+                console.error("Failed to compile Daily Tracking Log QA Telemetry:", telemetryError);
+            }
+
+            data.trackingLog = {
                 qaTelemetry: qaTelemetry
             };
         }

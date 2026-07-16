@@ -7,6 +7,7 @@ import { Link, useNavigate, useSearchParams, useLocation } from "react-router-do
 import { toast } from "react-toastify";
 import StudentDetailsModal from './StudentDetailsModal';
 import EditStudentModal from './EditStudentModal';
+import BulkUpdateBoardModal from './BulkUpdateBoardModal';
 import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
@@ -56,6 +57,8 @@ const BoardAdmissionsContent = () => {
     const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
 
     const [activeTab, setActiveTab] = useState(initialTab); // "Counselling" | "Enrolled"
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [showBulkModal, setShowBulkModal] = useState(false);
     const [boardAdmissions, setBoardAdmissions] = useState([]);
     const [counselledStudents, setCounselledStudents] = useState([]);
     const [enrolledLoading, setEnrolledLoading] = useState(false);
@@ -408,9 +411,13 @@ const BoardAdmissionsContent = () => {
             const admittedByName = admission.createdBy?.name || (admission.createdBy ? "Unknown" : "System");
             const matchesAdmissionBy = filterAdmissionBy.length === 0 || filterAdmissionBy.includes(admittedByName);
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesStatus && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy;
+            // Department Filter
+            const departmentName = admission.department?.departmentName || admission.studentId?.department?.departmentName || "";
+            const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
+
+            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesStatus && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment;
         });
-    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy]);
+    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterDepartment]);
 
     const handleExportEnrolled = () => {
         const exportData = filteredBoardAdmissions.map(adm => {
@@ -524,6 +531,7 @@ const BoardAdmissionsContent = () => {
     // Handle Tab Click to update URL
     const handleTabChange = (tabName) => {
         setActiveTab(tabName);
+        setSelectedIds([]);
         setSearchParams({ tab: tabName });
     };
 
@@ -724,7 +732,11 @@ const BoardAdmissionsContent = () => {
                 const admittedByName = cs.createdBy?.name || (cs.createdBy ? "Unknown" : "System");
                 const matchesAdmissionBy = filterAdmissionBy.length === 0 || filterAdmissionBy.includes(admittedByName);
 
-                return matchesSearch && matchesCentre && matchesClass && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy;
+                // Department Filter
+                const departmentName = cs.department?.departmentName || cs.studentId?.department?.departmentName || "";
+                const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
+
+                return matchesSearch && matchesCentre && matchesClass && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment;
             });
 
     const totalStudents = filteredStudents.length;
@@ -1057,6 +1069,9 @@ const BoardAdmissionsContent = () => {
         };
     }, [filteredBoardAdmissions, filteredStudents, activeTab]);
 
+    const activeData = (activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents;
+    const currentPageItems = activeData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
     return (
         <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
@@ -1206,6 +1221,20 @@ const BoardAdmissionsContent = () => {
                                 <FaDownload /> Export to Excel
                             </button>
                         )}
+                        {activeTab !== "Potential" && activeData.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (selectedIds.length === 0) {
+                                        setSelectedIds(activeData.map(item => item._id));
+                                    }
+                                    setShowBulkModal(true);
+                                }}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-[4px] border text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-black' : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white'}`}
+                            >
+                                <FaEdit /> Bulk Update ({selectedIds.length > 0 ? selectedIds.length : activeData.length})
+                            </button>
+                        )}
                     </div>
 
                     {activeTab !== "Potential" && (
@@ -1244,6 +1273,13 @@ const BoardAdmissionsContent = () => {
                                 }
                                 selectedValues={filterClass}
                                 onChange={setFilterClass}
+                                theme={theme}
+                            />
+                            <MultiSelectFilter
+                                label="Departments"
+                                options={departments.map(d => d.departmentName).filter(Boolean)}
+                                selectedValues={filterDepartment}
+                                onChange={setFilterDepartment}
                                 theme={theme}
                             />
                             <MultiSelectFilter
@@ -1342,6 +1378,25 @@ const BoardAdmissionsContent = () => {
                     <table className="w-full text-left border-collapse min-w-[1200px]">
                         <thead>
                             <tr className={`text-[11px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                {activeTab !== "Potential" && (
+                                    <th className="p-4 w-12 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={
+                                                activeData.length > 0 &&
+                                                activeData.every(item => selectedIds.includes(item._id))
+                                            }
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedIds(activeData.map(item => item._id));
+                                                } else {
+                                                    setSelectedIds([]);
+                                                }
+                                            }}
+                                            className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                        />
+                                    </th>
+                                )}
                                 <th className="p-4 w-12">SL</th>
                                 <th className="p-4">{activeTab === "Potential" ? "Reg. Date" : activeTab === "Counselling" ? "Counsel Date" : "Addon Date"}</th>
                                 <th className="p-4">Student Name</th>
@@ -1352,6 +1407,7 @@ const BoardAdmissionsContent = () => {
                                     {activeTab === "Potential" ? "Programme" : activeTab === "Counselling" ? "Remarks" : "Course Name"}
                                 </th>
                                 <th className="p-4">Class</th>
+                                {activeTab !== "Potential" && <th className="p-4">Department</th>}
                                 {activeTab === "Potential" && <th className="p-4">Exam Tag</th>}
                                 <th className="p-4">Centre</th>
                                 <th className="p-4">Mobile</th>
@@ -1371,11 +1427,11 @@ const BoardAdmissionsContent = () => {
                             {(activeTab === "Potential" ? loading :
                                 activeTab === "Counselling" ? counsellingLoading :
                                     enrolledLoading) ? (
-                                <tr><td colSpan="13" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
-                            ) : ((activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents).length === 0 ? (
-                                <tr><td colSpan="13" className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
+                                <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
+                            ) : currentPageItems.length === 0 ? (
+                                <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
                             ) : (
-                                ((activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, index) => {
+                                currentPageItems.map((item, index) => {
                                     const student = activeTab === "Potential" ? item : item.studentId;
                                     const details = student?.studentsDetails?.[0] || {};
                                     const exam = student?.examSchema?.[0] || {};
@@ -1383,6 +1439,22 @@ const BoardAdmissionsContent = () => {
 
                                     return (
                                         <tr key={item._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
+                                            {activeTab !== "Potential" && (
+                                                <td className="p-4 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.includes(item._id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedIds(prev => [...prev, item._id]);
+                                                            } else {
+                                                                setSelectedIds(prev => prev.filter(id => id !== item._id));
+                                                            }
+                                                        }}
+                                                        className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                                    />
+                                                </td>
+                                            )}
                                             <td className="p-4 font-bold text-[10px] text-gray-500">
                                                 {(currentPage - 1) * itemsPerPage + index + 1}
                                             </td>
@@ -1441,6 +1513,13 @@ const BoardAdmissionsContent = () => {
                                                     {item.lastClass || details.lastClass || "N/A"}
                                                 </span>
                                             </td>
+                                            {activeTab !== "Potential" && (
+                                                <td className="p-4">
+                                                    <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                        {item.department?.departmentName || item.studentId?.department?.departmentName || (typeof item.department === 'string' ? item.department : "N/A")}
+                                                    </span>
+                                                </td>
+                                            )}
                                             {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
                                             <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.centre || details.centre || "N/A"}</span></td>
                                             <td className="p-4"><span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span></td>
@@ -2103,6 +2182,26 @@ const BoardAdmissionsContent = () => {
                         </div>
                     </div>
                 </div>
+            )}
+            {showBulkModal && (
+                <BulkUpdateBoardModal
+                    selectedIds={selectedIds}
+                    activeTab={activeTab}
+                    onClose={() => setShowBulkModal(false)}
+                    onSuccess={() => {
+                        setShowBulkModal(false);
+                        setSelectedIds([]);
+                        fetchBoardAdmissions();
+                        fetchCounselledStudents();
+                    }}
+                    allowedCentres={allowedCentres}
+                    classes={classes}
+                    departments={departments}
+                    boards={boards}
+                    examTags={examTags}
+                    activeEmployees={activeEmployees}
+                    isDarkMode={isDarkMode}
+                />
             )}
         </div>
     );

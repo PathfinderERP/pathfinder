@@ -387,6 +387,55 @@ const trackingQuestionsCategories = [
     }
 ];
 
+const trackingLogQuestionsCategories = [
+    {
+        category: "Employee Commitments & Outcomes",
+        questions: [
+            "What did each employee commit to doing?",
+            "What was actually completed?",
+            "Which work created measurable output?",
+            "Which work was only activity without outcome?",
+            "How many commitments are completed on time?",
+            "Which commitments are overdue?",
+            "Which commitments have been carried forward repeatedly?"
+        ]
+    },
+    {
+        category: "Blockers & Dependencies",
+        questions: [
+            "What blockers were reported?",
+            "What support or approval is pending?",
+            "Which dependencies are blocking progress?",
+            "Which department is waiting for another department?",
+            "What decisions require management approval?",
+            "What percentage of reported blockers are resolved?",
+            "Which issues recur across daily logs?"
+        ]
+    },
+    {
+        category: "Department Priorities & Execution",
+        questions: [
+            "What is every department’s current priority?",
+            "Which departmental targets are on track?",
+            "Are employees working on priority tasks?",
+            "Are management instructions being acknowledged and executed?",
+            "Which departments have excessive unplanned work?",
+            "Where are responsibility gaps or duplicated efforts?"
+        ]
+    },
+    {
+        category: "Log Compliance & Verification",
+        questions: [
+            "Who submits logs consistently?",
+            "Who submits late or retrospectively?",
+            "Which managers review team logs?",
+            "Do the logs match CRM, calls, admissions, payments and task records?",
+            "Are important issues mentioned in logs but never converted into tasks?",
+            "Are log summaries reliable compared with source systems?"
+        ]
+    }
+];
+
 const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPrompts = [], isDarkMode, filters = {}, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
@@ -473,21 +522,25 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                 {/* Main Content Area split into columns */}
                 <div className="flex-1 flex gap-6 overflow-hidden min-h-0 mb-4">
                     {/* Left Column: Suggested CEO Questions */}
-                    {(module === "leads" || module === "admissions" || module === "tracking") && (
+                    {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog") && (
                         <div className="w-[340px] shrink-0 flex flex-col border-r border-gray-255 dark:border-gray-800 pr-4 overflow-y-auto custom-scrollbar">
                             <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500 mb-4 select-none">
                                 {module === "leads" 
                                     ? "CEO Control Tower CRM Prompts" 
                                     : module === "admissions" 
                                         ? "CEO Control Tower Admissions Prompts" 
-                                        : "CEO Control Tower Tracking Prompts"}
+                                        : module === "tracking"
+                                            ? "CEO Control Tower Tracking Prompts"
+                                            : "CEO Control Tower Daily Logs Prompts"}
                             </h4>
                             <div className="space-y-4 pr-1">
                                 {(module === "leads" 
                                     ? leadQuestionsCategories 
                                     : module === "admissions" 
                                         ? admissionQuestionsCategories 
-                                        : trackingQuestionsCategories
+                                        : module === "tracking"
+                                            ? trackingQuestionsCategories
+                                            : trackingLogQuestionsCategories
                                 ).map((cat, catIdx) => (
                                     <div key={catIdx} className="space-y-2">
                                         <h5 className="text-[11px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-1.5">{cat.category}</h5>
@@ -527,7 +580,7 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                                         Pathfinder AI Analyst Ready
                                     </h4>
                                     <p className={`text-xs max-w-md leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-650'}`}>
-                                        {(module === "leads" || module === "admissions" || module === "tracking") 
+                                        {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog") 
                                             ? "Select a suggested CEO Control Tower question from the left sidebar, or type a custom question below to start analyzing live ERP data."
                                             : "Type a custom analysis question below to analyze this section's live ERP data."}
                                     </p>
@@ -682,9 +735,9 @@ const CEOControlTowerContent = () => {
             description: "View department-wide logged activities, team logs, and historic operational reports.",
             features: ["My Daily Log", "Department Board", "Log Tracking"],
             path: "/daily-tracking-log?tab=myLog",
-            moduleKey: "all",
-            aiQuestion: "Summarize activity tracking logs and general institutional reports.",
-            aiPrompts: ["Activity log summary", "Department board status"]
+            moduleKey: "trackingLog",
+            aiQuestion: "What did each employee commit to doing?",
+            aiPrompts: ["What did each employee commit to doing?", "What was actually completed?", "What blockers were reported?"]
         },
         {
             name: "Marketing & CRM",
@@ -844,7 +897,12 @@ const CEOControlTowerContent = () => {
                 {modules.map((m, idx) => (
                     <div
                         key={idx}
-                        onClick={() => navigate(m.path)}
+                        onClick={() => setActiveAIModule({
+                            title: m.name,
+                            module: m.moduleKey,
+                            defaultQuestion: m.aiQuestion,
+                            quickPrompts: m.aiPrompts
+                        })}
                         className={`border rounded-[2px] p-6 relative group overflow-hidden transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[220px] ${isDarkMode
                             ? `bg-[#131619] border-gray-800 ${m.borderColor} ${m.shadowColor}`
                             : `bg-white border-gray-200 shadow-sm ${m.borderColor} ${m.shadowColor} hover:shadow-md`
@@ -881,7 +939,7 @@ const CEOControlTowerContent = () => {
                             </div>
 
                             <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-cyan-500 group-hover:text-cyan-400 transition-colors mb-4">
-                                View Analytics <FaArrowRight className="group-hover:translate-x-1 transition-transform duration-300" />
+                                View AI Insights <FaArrowRight className="group-hover:translate-x-1 transition-transform duration-300" />
                             </div>
 
                             <div onClick={(e) => e.stopPropagation()} className="relative z-20 mt-2 border-t border-gray-800/10 dark:border-gray-700/30 pt-4">

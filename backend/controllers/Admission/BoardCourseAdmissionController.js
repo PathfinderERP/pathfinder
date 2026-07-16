@@ -474,6 +474,7 @@ export const getBoardAdmissions = async (req, res) => {
                     { path: 'department' }
                 ]
             })
+            .populate('department')
             .populate('boardId')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId')
@@ -1461,5 +1462,183 @@ export const getBoardAdmissionAnalysis = async (req, res) => {
     } catch (error) {
         console.error("Board Analysis Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const bulkUpdateBoardAdmissions = async (req, res) => {
+    try {
+        const { ids, type, updateData } = req.body;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No IDs provided for bulk update" });
+        }
+
+        if (!updateData || Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: "No update data provided" });
+        }
+
+        const cleanUpdateData = { ...updateData };
+        
+        // Clean empty fields
+        const optionalFields = ['lastClass', 'examTag', 'department', 'boardId', 'counselledBy', 'createdBy'];
+        optionalFields.forEach(field => {
+            if (cleanUpdateData[field] === "") {
+                cleanUpdateData[field] = null;
+            }
+        });
+
+        let modifiedCount = 0;
+
+        if (type === "Counselling") {
+            const BoardCourseCounselling = (await import("../../models/Admission/BoardCourseCounselling.js")).default;
+            const Student = (await import("../../models/Students.js")).default;
+            const ExamTag = (await import("../../models/Master_data/ExamTag.js")).default;
+
+            let examTagName = null;
+            if (cleanUpdateData.examTag) {
+                const tagObj = await ExamTag.findById(cleanUpdateData.examTag);
+                if (tagObj) examTagName = tagObj.name;
+            }
+
+            for (const id of ids) {
+                const record = await BoardCourseCounselling.findById(id);
+                if (!record) continue;
+
+                const counsellingUpdates = {};
+                if (cleanUpdateData.academicSession !== undefined) counsellingUpdates.academicSession = cleanUpdateData.academicSession;
+                if (cleanUpdateData.centre !== undefined) counsellingUpdates.centre = cleanUpdateData.centre;
+                if (cleanUpdateData.lastClass !== undefined) counsellingUpdates.lastClass = cleanUpdateData.lastClass;
+                if (cleanUpdateData.department !== undefined) counsellingUpdates.department = cleanUpdateData.department;
+                if (cleanUpdateData.programme !== undefined) counsellingUpdates.programme = cleanUpdateData.programme;
+                if (cleanUpdateData.boardId !== undefined) counsellingUpdates.boardId = cleanUpdateData.boardId;
+                if (cleanUpdateData.counselledBy !== undefined) counsellingUpdates.counselledBy = cleanUpdateData.counselledBy;
+                if (examTagName) counsellingUpdates.examName = examTagName;
+
+                // Sync to matching student profile
+                if (record.studentId) {
+                    const student = await Student.findById(record.studentId);
+                    if (student) {
+                        let studentModified = false;
+                        if (cleanUpdateData.centre !== undefined && student.studentsDetails?.[0]) {
+                            student.studentsDetails[0].centre = cleanUpdateData.centre;
+                            student.markModified('studentsDetails');
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.department !== undefined) {
+                            student.department = cleanUpdateData.department;
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.counselledBy !== undefined) {
+                            student.counselledBy = cleanUpdateData.counselledBy;
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.lastClass !== undefined && student.examSchema?.[0]) {
+                            student.examSchema[0].class = cleanUpdateData.lastClass;
+                            student.markModified('examSchema');
+                            studentModified = true;
+                        }
+                        if (examTagName && student.sessionExamCourse?.[0]) {
+                            student.sessionExamCourse[0].examTag = examTagName;
+                            student.markModified('sessionExamCourse');
+                            studentModified = true;
+                        }
+                        if (studentModified) {
+                            student.updatedBy = req.user?.name || "System";
+                            student.updatedByUserId = req.user?._id;
+                            await student.save();
+                        }
+                    }
+                }
+
+                if (Object.keys(counsellingUpdates).length > 0) {
+                    Object.assign(record, counsellingUpdates);
+                    await record.save();
+                }
+                modifiedCount++;
+            }
+        } else {
+            // Admission / Enrolled / Deactivated
+            const BoardCourseAdmission = (await import("../../models/Admission/BoardCourseAdmission.js")).default;
+            const Student = (await import("../../models/Students.js")).default;
+            const ExamTag = (await import("../../models/Master_data/ExamTag.js")).default;
+
+            let examTagName = null;
+            if (cleanUpdateData.examTag) {
+                const tagObj = await ExamTag.findById(cleanUpdateData.examTag);
+                if (tagObj) examTagName = tagObj.name;
+            }
+
+            for (const id of ids) {
+                const record = await BoardCourseAdmission.findById(id);
+                if (!record) continue;
+
+                const admissionUpdates = {};
+                if (cleanUpdateData.academicSession !== undefined) admissionUpdates.academicSession = cleanUpdateData.academicSession;
+                if (cleanUpdateData.centre !== undefined) admissionUpdates.centre = cleanUpdateData.centre;
+                if (cleanUpdateData.lastClass !== undefined) admissionUpdates.lastClass = cleanUpdateData.lastClass;
+                if (cleanUpdateData.department !== undefined) admissionUpdates.department = cleanUpdateData.department;
+                if (cleanUpdateData.programme !== undefined) admissionUpdates.programme = cleanUpdateData.programme;
+                if (cleanUpdateData.boardId !== undefined) admissionUpdates.boardId = cleanUpdateData.boardId;
+                if (cleanUpdateData.createdBy !== undefined) admissionUpdates.createdBy = cleanUpdateData.createdBy;
+                if (cleanUpdateData.examTag !== undefined) admissionUpdates.examTag = cleanUpdateData.examTag;
+
+                if (record.studentId) {
+                    const student = await Student.findById(record.studentId);
+                    if (student) {
+                        let studentModified = false;
+                        if (cleanUpdateData.centre !== undefined && student.studentsDetails?.[0]) {
+                            student.studentsDetails[0].centre = cleanUpdateData.centre;
+                            student.markModified('studentsDetails');
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.department !== undefined) {
+                            student.department = cleanUpdateData.department;
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.counselledBy !== undefined) {
+                            student.counselledBy = cleanUpdateData.counselledBy;
+                            studentModified = true;
+                        }
+                        if (cleanUpdateData.lastClass !== undefined && student.examSchema?.[0]) {
+                            student.examSchema[0].class = cleanUpdateData.lastClass;
+                            student.markModified('examSchema');
+                            studentModified = true;
+                        }
+                        if (examTagName && student.sessionExamCourse?.[0]) {
+                            student.sessionExamCourse[0].examTag = examTagName;
+                            student.markModified('sessionExamCourse');
+                            studentModified = true;
+                        }
+                        if (studentModified) {
+                            student.updatedBy = req.user?.name || "System";
+                            student.updatedByUserId = req.user?._id;
+                            await student.save();
+                        }
+                    }
+                }
+
+                if (Object.keys(admissionUpdates).length > 0) {
+                    Object.assign(record, admissionUpdates);
+                    await record.save();
+                }
+                modifiedCount++;
+            }
+        }
+
+        // Clear cache
+        try {
+            const { clearCachePattern } = await import("../../utils/redisCache.js");
+            await clearCachePattern("admissions:list:*");
+        } catch (cacheErr) {
+            console.error("Cache clear issue on board bulk update:", cacheErr);
+        }
+
+        res.status(200).json({
+            message: `Successfully updated ${modifiedCount} records`
+        });
+
+    } catch (error) {
+        console.error("Bulk Board Update Error:", error);
+        res.status(500).json({ message: "Server error during bulk update", error: error.message });
     }
 };
