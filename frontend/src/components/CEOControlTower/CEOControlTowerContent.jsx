@@ -261,6 +261,132 @@ const leadQuestionsCategories = [
     }
 ];
 
+const admissionQuestionsCategories = [
+    {
+        category: "Counselling & Conversion Insights",
+        questions: [
+            "How many counselling sessions were completed by centre and counsellor?",
+            "What percentage converted on the same day?",
+            "What percentage converted within 7, 15 and 30 days?",
+            "What is the average counselling-to-admission time?",
+            "Which counsellors have the strongest conversion by course?",
+            "Which counsellors rely excessively on discounts?",
+            "Which objections are most common?",
+            "Which objections are successfully overcome?",
+            "What percentage of counselled students never received a follow-up?",
+            "Which guardians requested faculty, scholarship, demo or management intervention?",
+            "Which counselling sessions ended without a clear next step?",
+            "What is the conversion rate of online versus physical counselling?",
+            "Which course recommendations resulted in admission?",
+            "Are counsellors recommending courses according to need or ticket size?",
+            "What is the fee realization after each counsellor’s discounting?",
+            "Which centres have high counselling volume but weak admission closure?"
+        ]
+    },
+    {
+        category: "Registration & Onboarding Audits",
+        questions: [
+            "How many students registered by board, class, centre and course?",
+            "Which students have incomplete forms or documentation?",
+            "Which registrations lack payment confirmation?",
+            "Which registrations have incorrect school, board or subject information?",
+            "How many students registered but were not allotted a batch?",
+            "What is the conversion from counselling to registration?",
+            "Which board-course combinations are growing or declining?",
+            "Which schools contribute the highest registrations?",
+            "Which registrations are duplicates?",
+            "Which students have not received login credentials, materials or schedules?",
+            "Which centre has unusual cancellation or correction rates?",
+            "Are promised services consistent with the registered package?"
+        ]
+    },
+    {
+        category: "Enrolled Roster & Active Batch Metrics",
+        questions: [
+            "How many active enrolled students are there by centre, course, batch and class?",
+            "How many seats remain in every batch?",
+            "Which batches are underfilled or overcrowded?",
+            "How many students have paid but not started classes?",
+            "How many enrolled students have never attended?",
+            "Which students have not received books, ID cards, app access or schedules?"
+        ]
+    },
+    {
+        category: "Retention, Refunds & Revenue Metrics",
+        questions: [
+            "What is the cancellation and refund rate?",
+            "What is the course-transfer rate?",
+            "Which centres have high admissions but poor activation?",
+            "What percentage of enrolled students continue into the next academic year?",
+            "What is the retention rate from Foundation to CRP?",
+            "What is the revenue per enrolled student?",
+            "How much discount was provided per admission?",
+            "Which cohorts show high complaint, absenteeism or dropout rates?"
+        ]
+    }
+];
+
+const trackingQuestionsCategories = [
+    {
+        category: "Daily Centre Achievements & Targets",
+        questions: [
+            "What did each centre achieve today?",
+            "What is the current monthly target achievement?",
+            "What daily run rate is required to reach target?",
+            "Which centres are improving or declining?",
+            "Which centres have adequate leads but poor conversion?",
+            "Which have good conversion but inadequate leads?",
+            "Which have admissions but weak collections?",
+            "Which have collections but excessive dues?",
+            "Which centres had no admissions, walk-ins or collections today?"
+        ]
+    },
+    {
+        category: "Operations & Attendance",
+        questions: [
+            "How many calls, counselling sessions, walk-ins and admissions occurred?",
+            "How many classes were scheduled and delivered?",
+            "What was student and employee attendance?",
+            "What operational complaints are unresolved?",
+            "Which centres are understaffed?",
+            "Which centre managers are failing to submit reports?",
+            "What promises were made yesterday, and what was achieved?",
+            "Are reported numbers consistent with transaction-level records?"
+        ]
+    },
+    {
+        category: "Red Flags & Severity Analysis",
+        questions: [
+            "What red flags are currently open?",
+            "Which are critical, high, medium or low severity?",
+            "How old is each flag?",
+            "Who owns it?",
+            "What is the estimated financial, academic or reputational impact?",
+            "Which flags repeatedly reopen?",
+            "Which centres generate the most red flags?",
+            "Which departments fail to close flags on time?",
+            "Which flags have no owner or deadline?",
+            "Which problem categories are increasing?",
+            "Which incidents are related to one root cause?",
+            "Which red flags may affect multiple centres?"
+        ]
+    },
+    {
+        category: "Operational Disruptions & Incidents",
+        questions: [
+            "What incidents occurred by centre and department?",
+            "What are the most frequent operational disruptions?",
+            "How many classes, counselling sessions or transactions were affected?",
+            "What is the average resolution time?",
+            "Which vendors, systems or employees are repeatedly associated with failures?",
+            "Which problems occur at particular times or locations?",
+            "Are temporary workarounds being repeatedly used instead of permanent fixes?",
+            "What is the estimated revenue or service loss from downtime?",
+            "Which incidents should become formal tasks or red flags?"
+        ]
+    }
+];
+
 const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPrompts = [], isDarkMode, filters = {}, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
@@ -346,12 +472,23 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
 
                 {/* Main Content Area split into columns */}
                 <div className="flex-1 flex gap-6 overflow-hidden min-h-0 mb-4">
-                    {/* Left Column: Suggested CEO Lead Questions (only shown if module === "leads") */}
-                    {module === "leads" && (
+                    {/* Left Column: Suggested CEO Questions */}
+                    {(module === "leads" || module === "admissions" || module === "tracking") && (
                         <div className="w-[340px] shrink-0 flex flex-col border-r border-gray-255 dark:border-gray-800 pr-4 overflow-y-auto custom-scrollbar">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500 mb-4 select-none">CEO Control Tower CRM Prompts</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500 mb-4 select-none">
+                                {module === "leads" 
+                                    ? "CEO Control Tower CRM Prompts" 
+                                    : module === "admissions" 
+                                        ? "CEO Control Tower Admissions Prompts" 
+                                        : "CEO Control Tower Tracking Prompts"}
+                            </h4>
                             <div className="space-y-4 pr-1">
-                                {leadQuestionsCategories.map((cat, catIdx) => (
+                                {(module === "leads" 
+                                    ? leadQuestionsCategories 
+                                    : module === "admissions" 
+                                        ? admissionQuestionsCategories 
+                                        : trackingQuestionsCategories
+                                ).map((cat, catIdx) => (
                                     <div key={catIdx} className="space-y-2">
                                         <h5 className="text-[11px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-1.5">{cat.category}</h5>
                                         <div className="flex flex-col gap-2">
@@ -390,8 +527,8 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                                         Pathfinder AI Analyst Ready
                                     </h4>
                                     <p className={`text-xs max-w-md leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-650'}`}>
-                                        {module === "leads" 
-                                            ? "Select a suggested CEO Control Tower CRM question from the left sidebar, or type a custom question below to start analyzing live ERP data."
+                                        {(module === "leads" || module === "admissions" || module === "tracking") 
+                                            ? "Select a suggested CEO Control Tower question from the left sidebar, or type a custom question below to start analyzing live ERP data."
                                             : "Type a custom analysis question below to analyze this section's live ERP data."}
                                     </p>
                                 </div>
@@ -516,8 +653,8 @@ const CEOControlTowerContent = () => {
             features: ["Counselled Students", "Board Registrations", "Enrolled Roster"],
             path: "/admissions",
             moduleKey: "admissions",
-            aiQuestion: "Analyze our course-wise enrollments and revenues. Which centers have the highest fee collections?",
-            aiPrompts: ["Analyze course enrollments", "Highest fee collections by center", "Calculate pending installment risk"]
+            aiQuestion: "How many counselling sessions were completed by centre and counsellor?",
+            aiPrompts: ["Counselling sessions by counsellor", "Same-day conversion percentage", "Average counselling-to-admission time"]
         },
         {
             name: "Tracking & Flagging",
@@ -530,9 +667,9 @@ const CEOControlTowerContent = () => {
             description: "Monitor daily center performance flags, operational exceptions, and metric-based alerts.",
             features: ["Daily Center Tracking", "Red Flag Desk", "Operational Logs"],
             path: "/daily-center-tracking",
-            moduleKey: "all",
-            aiQuestion: "Explain the daily center tracking metrics, operational exceptions, and red flags raised.",
-            aiPrompts: ["Analyze center performance red flags", "Operational exception report"]
+            moduleKey: "tracking",
+            aiQuestion: "What did each centre achieve today?",
+            aiPrompts: ["What did each centre achieve today?", "What red flags are currently open?", "What is the current monthly target achievement?"]
         },
         {
             name: "Daily Tracking Log",

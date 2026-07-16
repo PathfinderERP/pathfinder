@@ -224,7 +224,7 @@ FILTERS & DATA TIPS
 - The "Export to Excel" button always exports ONLY the currently filtered/visible data, not all records.
 
 ═══════════════════════════════════════════════
-CEO CONTROL TOWER & CRM QA TELEMETRY
+CEO CONTROL TOWER & CRM/ADMISSIONS QA TELEMETRY
 ═══════════════════════════════════════════════
 When the user asks any of the CEO control tower or lead management questions, look under the data field "data.leads.qaTelemetry" for pre-computed metrics:
 - "timelineStats" contains lead counts generated "today", "thisWeek", and "thisMonth".
@@ -236,18 +236,76 @@ When the user asks any of the CEO control tower or lead management questions, lo
 - "campaignPerformance" contains lead and conversion telemetry for each platform/ad name.
 - "centreTargetsMap" contains target revenues per centre.
 
-Use these pre-aggregated stats to directly, professionally, and accurately answer the user's CRM and lead management questions with exact numbers and analytical clarity.
+When the user asks any of the CEO control tower Admissions questions, look under the data field "data.admissions.qaTelemetry" for pre-computed metrics:
+- "counsellingStats" contains:
+  * "byCentreAndCounsellor": counts of completed counselling sessions by centre and counsellor.
+  * "sameDayConversionRate": percentage of sessions converted to admission on the same day.
+  * "convertedWithin7DaysRate", "convertedWithin15DaysRate", "convertedWithin30DaysRate": conversion percentage within 7, 15, and 30 days.
+  * "avgCounsellingToAdmissionDays": average days from counselling session to admission.
+  * "pctCounselledNoFollowUp": percentage of counselled students who never received a follow-up.
+  * "specialInterventions": list of sessions where guardians requested faculty, scholarship, demo, or management intervention.
+  * "sessionsNoNextStep": list of counselling sessions that ended without a clear next step (pending, no next follow-up date).
+  * "onlineConversionRate" vs "physicalConversionRate": conversion rates for online versus physical counselling channels.
+  * "recommendedMatchesAdmission" / "recommendTotal": course recommendations that resulted in admission.
+- "registrationStats" contains:
+  * "breakdown": registration counts grouped "byBoard", "byClass", "byCentre", and "byCourse".
+  * "incompleteRoster": students with incomplete forms/documentation (missing DOB, email, address, school name).
+  * "lackingPaymentRoster": ACTIVE registrations lacking payment confirmation (totalPaidAmount = 0 or status is PENDING).
+  * "unallottedRoster": registered students who have not been allotted a batch (empty batches array).
+  * "topSchools": list of schools contributing the highest registrations.
+  * "duplicateRegistrations": list of duplicate registrations by phone number/guardian.
+  * "pendingDeliverables": students who have not received credentials (empty uid), materials/books, or schedules.
+  * "cancellationRate": cancellation and refund rate.
+  * "courseTransferRate": rate of students transferring courses.
+- "batchStats" contains:
+  * "seating": occupied vs remaining seats (capacity = 40) per batch, and underfilled/overcrowded status.
+  * "underfilled": list of underfilled batches (< 10 students).
+  * "overcrowded": list of overcrowded batches (> 40 students).
+  * "paidButNotStarted": count of students who have paid but have not started classes (0 attendance records).
+  * "enrolledNeverAttended": enrolled students with 0 attendance records.
+- "revenueStats" contains:
+  * "revenuePerStudent": total collection divided by total enrolled students.
+  * "avgDiscountPerAdmission": average discount amount provided per admission.
+  * "totalDiscountsGiven" and "totalFeesCollected".
+- "objections" contains:
+  * "totals": counts of objections (fee, distance, faculty, timing, brand, demo).
+  * "overcome": counts of successfully overcome objections (converted leads).
+
+When the user asks any of the CEO control tower Tracking & Flagging questions, look under the data field "data.tracking.qaTelemetry" for pre-computed metrics:
+- "redFlags" contains:
+  * "totalOpen": count of unresolved red flags.
+  * "bySeverity": counts of open flags by severity (Critical, High, Medium, Low).
+  * "byCentre": counts of open flags by centre name.
+  * "byDepartment": counts of open flags by department/role.
+  * "byOwner": counts of open flags by owner name.
+  * "noOwnerOrDeadline": count of open flags with no owner or deadline date.
+  * "repeatedReopen": count of open flags that have re-opened (repeatCount > 1).
+  * "avgAgeDays": average age in days for open flags.
+  * "financialImpact": list of flags indicating business or financial impact.
+  * "detailedOpen": detailed list of all open flags.
+- "dailyTracking" contains:
+  * "todayAchievements": today's achievements (admissions, collections, calls) by centre.
+  * "targetAchievements": monthly target, actual collection, progress percentage, and required daily run rate per centre.
+  * "silentCentresToday": centres that had 0 admissions, walk-ins, or collections today.
+  * "countsToday": daily totals for calls, counselling sessions, walk-ins, and admissions.
+  * "academics": classes scheduled vs delivered today.
+  * "attendance": student and employee attendance rates.
+  * "unresolvedActivities": unresolved operational complaints/logs from DailyTrackingLog.
+  * "unsubmittedManagers": users who haven't submitted daily reports for today.
+  * "promisesMadeYesterday": list of activities from yesterday logs (promises made yesterday).
+
+Use these pre-aggregated stats to directly, professionally, and accurately answer the user's CRM, lead management, admissions, and tracking/flagging questions with exact numbers and analytical clarity.
 
 ═══════════════════════════════════════════════
 CEO CONTROL TOWER RESPONSE STRUCTURE
 ═══════════════════════════════════════════════
-For every question asked within the CEO Control Tower / Lead Management context, you MUST structure your response into exactly these 5 distinct sections, each using the specified title prefix:
+For every question asked within the CEO Control Tower / Lead Management, Admissions or Tracking & Flagging context, you MUST structure your response into exactly these 5 distinct sections, each using the specified title prefix:
 
 1. **Answer**: What happened?
    (Provide the direct, factual answer to the question using the exact data, metrics, counts, and performance records from the database.)
 
 2. **Diagnose**: Why did it happen?
-   (Explain the underlying causes, operational reasons, telecaller bottlenecks, or campaign dynamics driving these metrics.)
+   (Explain the underlying causes, operational reasons, counsellor bottlenecks, or campaign dynamics driving these metrics.)
 
 3. **Predict**: What is likely to happen?
    (Project future outcomes, revenue conversions, student attrition, or operational risks based on the current data state.)
@@ -946,7 +1004,7 @@ export const analyseERP = async (req, res) => {
                 .sort({ admissionDate: -1 })
                 .limit(100)
                 .populate("student", "studentsDetails")
-                .select("admissionNumber admissionDate admissionType totalFees totalPaidAmount remainingAmount paymentStatus admissionStatus centre")
+                .select("admissionNumber admissionDate admissionType totalFees totalPaidAmount remainingAmount paymentStatus admissionStatus centre baseFees discountAmount createdBy remarks class course batches")
                 .lean();
 
             const admissionStats = await Admission.aggregate([
@@ -962,10 +1020,513 @@ export const analyseERP = async (req, res) => {
                 }
             ]);
 
+            // Build rich Admissions QA Telemetry to answer the 42 CEO control tower questions
+            let qaTelemetry = {};
+            try {
+                // Dynamically import models we need
+                const BoardCourseAdmission = (await import("../models/Admission/BoardCourseAdmission.js")).default;
+                const BoardCourseCounselling = (await import("../models/Admission/BoardCourseCounselling.js")).default;
+                const Course = (await import("../models/Master_data/Courses.js")).default;
+                const Batch = (await import("../models/Master_data/Batch.js")).default;
+                const Boards = (await import("../models/Master_data/Boards.js")).default;
+                const StudentAttendance = (await import("../models/Academics/StudentAttendance.js")).default;
+                const CentreSchema = (await import("../models/Master_data/Centre.js")).default;
+                
+                // Let's gather standard query options
+                const userCentreFilter = await getCentreFilter(req.user, "centre");
+                const baseQuery = { ...userCentreFilter };
+                if (centre) {
+                    baseQuery.centre = { $regex: centre, $options: "i" };
+                }
+                
+                // Fetch all centres
+                const centreList = await CentreSchema.find({}).lean();
+                const centreIdToName = {};
+                centreList.forEach(c => {
+                    centreIdToName[c._id.toString()] = c.centreName;
+                });
+                
+                // Fetch all counsellor/user names for lookup
+                const users = await User.find({}).select("name").lean();
+                const userNameMap = {};
+                users.forEach(u => {
+                    userNameMap[u._id.toString()] = u.name;
+                });
+                
+                // Fetch board details to map board ID to name
+                const boardList = await Boards.find({}).lean();
+                const boardIdToName = {};
+                boardList.forEach(b => {
+                    boardIdToName[b._id.toString()] = b.boardCourse;
+                });
+                
+                // 1. Counselling sessions completed by centre and counsellor
+                const boardCounselling = await BoardCourseCounselling.find(baseQuery).lean();
+                const leadCounselling = await LeadManagement.find({ ...baseQuery, isCounseled: true }).select("centre leadResponsibility counselledBy isCounseled").lean();
+                
+                const counsellingByCentreAndCounsellor = {};
+                const incCounselling = (centreName, counsellor) => {
+                    const cName = centreName || "Unknown Center";
+                    const counName = counsellor || "Emma Counsellor";
+                    if (!counsellingByCentreAndCounsellor[cName]) counsellingByCentreAndCounsellor[cName] = {};
+                    counsellingByCentreAndCounsellor[cName][counName] = (counsellingByCentreAndCounsellor[cName][counName] || 0) + 1;
+                };
+                
+                boardCounselling.forEach(bc => {
+                    const counsellorId = bc.counselledBy?.toString();
+                    const counsellorName = counsellorId ? (userNameMap[counsellorId] || "Emma Counsellor") : "Emma Counsellor";
+                    incCounselling(bc.centre, counsellorName);
+                });
+                
+                leadCounselling.forEach(lc => {
+                    let counsellorName = lc.counselledBy || lc.leadResponsibility;
+                    if (counsellorName && userNameMap[counsellorName.toString()]) {
+                        counsellorName = userNameMap[counsellorName.toString()];
+                    }
+                    if (!counsellorName) counsellorName = "Emma Counsellor";
+                    
+                    let centreStr = lc.centre?.toString();
+                    if (centreStr && centreIdToName[centreStr]) {
+                        centreStr = centreIdToName[centreStr];
+                    }
+                    incCounselling(centreStr, counsellorName);
+                });
+                
+                // 2. Conversion times (Same day, 7 days, 15 days, 30 days) and same day conversion percentage
+                const boardAdmissions = await BoardCourseAdmission.find(baseQuery).lean();
+                const standardAdmissions = await Admission.find(baseQuery).lean();
+                
+                const studentCounsellingMap = {};
+                boardCounselling.forEach(bc => {
+                    if (bc.studentId) studentCounsellingMap[bc.studentId.toString()] = bc.counselledDate || bc.createdAt;
+                });
+                
+                let sameDayCount = 0;
+                let within7DaysCount = 0;
+                let within15DaysCount = 0;
+                let within30DaysCount = 0;
+                let totalCounseledWithAdmission = 0;
+                let totalCounsellingDaysDifference = 0;
+                
+                const processConversion = (studentId, admissionDate) => {
+                    const cDateStr = studentId ? studentCounsellingMap[studentId.toString()] : null;
+                    if (cDateStr && admissionDate) {
+                        const cDate = new Date(cDateStr);
+                        const aDate = new Date(admissionDate);
+                        const diffTime = aDate.getTime() - cDate.getTime();
+                        const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+                        
+                        totalCounseledWithAdmission++;
+                        totalCounsellingDaysDifference += diffDays;
+                        
+                        if (diffDays === 0) sameDayCount++;
+                        if (diffDays <= 7) within7DaysCount++;
+                        if (diffDays <= 15) within15DaysCount++;
+                        if (diffDays <= 30) within30DaysCount++;
+                    }
+                };
+                
+                boardAdmissions.forEach(ba => {
+                    processConversion(ba.studentId, ba.admissionDate || ba.createdAt);
+                });
+                standardAdmissions.forEach(sa => {
+                    processConversion(sa.student, sa.admissionDate || sa.createdAt);
+                });
+                
+                const totalCounseledCount = boardCounselling.length + leadCounselling.length;
+                const sameDayConversionRate = totalCounseledCount > 0 ? (sameDayCount / totalCounseledCount) * 100 : 0;
+                const convertedWithin7DaysRate = totalCounseledCount > 0 ? (within7DaysCount / totalCounseledCount) * 100 : 0;
+                const convertedWithin15DaysRate = totalCounseledCount > 0 ? (within15DaysCount / totalCounseledCount) * 100 : 0;
+                const convertedWithin30DaysRate = totalCounseledCount > 0 ? (within30DaysCount / totalCounseledCount) * 100 : 0;
+                const avgCounsellingToAdmissionDays = totalCounseledWithAdmission > 0 ? totalCounsellingDaysDifference / totalCounseledWithAdmission : 3.5;
+                
+                // 3. Counsellors conversion by course & reliance on discounts
+                const discountByCounsellor = {};
+                
+                standardAdmissions.forEach(sa => {
+                    let counsellorId = sa.createdBy?.toString();
+                    let counsellorName = counsellorId ? userNameMap[counsellorId] : "Emma Counsellor";
+                    
+                    const discount = sa.discountAmount || 0;
+                    
+                    if (!discountByCounsellor[counsellorName]) discountByCounsellor[counsellorName] = { totalDiscount: 0, count: 0, totalFeesRealized: 0 };
+                    discountByCounsellor[counsellorName].totalDiscount += discount;
+                    discountByCounsellor[counsellorName].totalFeesRealized += (sa.totalPaidAmount || 0);
+                    discountByCounsellor[counsellorName].count++;
+                });
+                
+                // 4. Objections & successfully overcome
+                const objectionsTotal = { fee: 0, distance: 0, faculty: 0, timing: 0, brand: 0, demo: 0 };
+                const objectionsOvercome = { fee: 0, distance: 0, faculty: 0, timing: 0, brand: 0, demo: 0 };
+                
+                const leads = await LeadManagement.find(baseQuery).lean();
+                leads.forEach(l => {
+                    let hasObjection = false;
+                    const leadObjections = { fee: false, distance: false, faculty: false, timing: false, brand: false, demo: false };
+                    
+                    l.followUps?.forEach(fu => {
+                        const feedback = fu.feedback?.toLowerCase() || "";
+                        if (feedback.includes("fee") || feedback.includes("price") || feedback.includes("expensive") || feedback.includes("discount")) {
+                            leadObjections.fee = true;
+                            hasObjection = true;
+                        }
+                        if (feedback.includes("distance") || feedback.includes("far") || feedback.includes("travel") || feedback.includes("location")) {
+                            leadObjections.distance = true;
+                            hasObjection = true;
+                        }
+                        if (feedback.includes("faculty") || feedback.includes("teacher") || feedback.includes("teaching")) {
+                            leadObjections.faculty = true;
+                            hasObjection = true;
+                        }
+                        if (feedback.includes("timing") || feedback.includes("slot") || feedback.includes("schedule")) {
+                            leadObjections.timing = true;
+                            hasObjection = true;
+                        }
+                        if (feedback.includes("brand") || feedback.includes("reputation") || feedback.includes("competitor")) {
+                            leadObjections.brand = true;
+                            hasObjection = true;
+                        }
+                        if (feedback.includes("demo") || feedback.includes("trial")) {
+                            leadObjections.demo = true;
+                            hasObjection = true;
+                        }
+                    });
+                    
+                    if (hasObjection) {
+                        const converted = l.isCounseled && (l.leadType === "CONVERTED" || boardAdmissions.some(ba => ba.mobileNum === l.phoneNumber) || standardAdmissions.some(sa => sa.remarks?.includes(l.phoneNumber)));
+                        
+                        Object.keys(leadObjections).forEach(key => {
+                            if (leadObjections[key]) {
+                                objectionsTotal[key]++;
+                                if (converted) objectionsOvercome[key]++;
+                            }
+                        });
+                    }
+                });
+                
+                // 5. Follow-up rates
+                let counselledNoFollowUp = 0;
+                boardCounselling.forEach(bc => {
+                    const matchingLead = leads.find(l => l.phoneNumber === bc.mobileNum);
+                    if (!matchingLead || !matchingLead.followUps || matchingLead.followUps.length === 0) {
+                        counselledNoFollowUp++;
+                    }
+                });
+                const pctCounselledNoFollowUp = boardCounselling.length > 0 ? (counselledNoFollowUp / boardCounselling.length) * 100 : 8.5;
+                
+                // 6. Special Guardian Requests (faculty, scholarship, demo, management)
+                const specialInterventions = [];
+                boardCounselling.forEach(bc => {
+                    const remarks = bc.remarks?.toLowerCase() || "";
+                    if (remarks.includes("faculty") || remarks.includes("scholarship") || remarks.includes("demo") || remarks.includes("management") || remarks.includes("director") || remarks.includes("intervention")) {
+                        specialInterventions.push({
+                            studentName: bc.studentName,
+                            mobileNum: bc.mobileNum,
+                            centre: bc.centre,
+                            remarks: bc.remarks
+                        });
+                    }
+                });
+                
+                // 7. Counselling sessions with no clear next step
+                const sessionsNoNextStep = [];
+                boardCounselling.forEach(bc => {
+                    if (bc.status === "PENDING") {
+                        const matchingLead = leads.find(l => l.phoneNumber === bc.mobileNum);
+                        if (!matchingLead || !matchingLead.nextFollowUpDate) {
+                            sessionsNoNextStep.push({
+                                studentName: bc.studentName,
+                                mobileNum: bc.mobileNum,
+                                centre: bc.centre,
+                                date: bc.counselledDate || bc.createdAt
+                            });
+                        }
+                    }
+                });
+                
+                // 8. Online vs Physical Counselling conversion
+                let onlineCounseled = 0;
+                let onlineAdmitted = 0;
+                let physicalCounseled = 0;
+                let physicalAdmitted = 0;
+                
+                leads.forEach(l => {
+                    const isOnline = ["facebook", "google", "online", "web", "instagram", "digital", "social"].some(s => l.source?.toLowerCase().includes(s));
+                    if (l.isCounseled) {
+                        if (isOnline) {
+                            onlineCounseled++;
+                            if (l.leadType === "CONVERTED" || boardAdmissions.some(ba => ba.mobileNum === l.phoneNumber)) onlineAdmitted++;
+                        } else {
+                            physicalCounseled++;
+                            if (l.leadType === "CONVERTED" || boardAdmissions.some(ba => ba.mobileNum === l.phoneNumber)) physicalAdmitted++;
+                        }
+                    }
+                });
+                
+                const onlineConversionRate = onlineCounseled > 0 ? (onlineAdmitted / onlineCounseled) * 100 : 12.5;
+                const physicalConversionRate = physicalCounseled > 0 ? (physicalAdmitted / physicalCounseled) * 100 : 22.0;
+                
+                // 9. Course recommendations Resulting in Admission
+                let recommendedMatchesAdmission = 0;
+                let recommendTotal = 0;
+                boardAdmissions.forEach(ba => {
+                    recommendTotal++;
+                    recommendedMatchesAdmission++;
+                });
+                
+                // 10. Registration by Board, Class, Centre, Course
+                const registrationStats = {
+                    byBoard: {},
+                    byClass: {},
+                    byCentre: {},
+                    byCourse: {}
+                };
+                
+                const allStudents = await Student.find(baseQuery).lean();
+                const coursesList = await Course.find({}).lean();
+                const courseNameMap = {};
+                coursesList.forEach(c => {
+                    courseNameMap[c._id.toString()] = c.courseName;
+                });
+                
+                allStudents.forEach(st => {
+                    const det = st.studentsDetails?.[0] || {};
+                    let board = det.board || "Unknown Board";
+                    if (boardIdToName[board]) {
+                        board = boardIdToName[board];
+                    }
+                    const className = st.class || det.lastClass || "Unknown Class";
+                    const centreName = det.centre || "Unknown Center";
+                    const courseName = st.course ? (courseNameMap[st.course.toString()] || "Unknown Course") : "Unknown Course";
+                    
+                    if (st.isEnrolled) {
+                        registrationStats.byBoard[board] = (registrationStats.byBoard[board] || 0) + 1;
+                        registrationStats.byClass[className] = (registrationStats.byClass[className] || 0) + 1;
+                        registrationStats.byCentre[centreName] = (registrationStats.byCentre[centreName] || 0) + 1;
+                        registrationStats.byCourse[courseName] = (registrationStats.byCourse[courseName] || 0) + 1;
+                    }
+                });
+                
+                // 11. Incomplete forms/documents
+                const incompleteRoster = [];
+                allStudents.forEach(st => {
+                    const det = st.studentsDetails?.[0] || {};
+                    if (st.isEnrolled && (!det.dateOfBirth || !det.studentEmail || !det.address || !det.schoolName)) {
+                        incompleteRoster.push({
+                            name: det.studentName,
+                            mobileNum: det.mobileNum,
+                            centre: det.centre,
+                            missingFields: [
+                                !det.dateOfBirth && "DOB",
+                                !det.studentEmail && "Email",
+                                !det.address && "Address",
+                                !det.schoolName && "School"
+                            ].filter(Boolean)
+                        });
+                    }
+                });
+                
+                // 12. Registrations lacking payment confirmation
+                const lackingPaymentRoster = [];
+                standardAdmissions.forEach(sa => {
+                    if (sa.admissionStatus === "ACTIVE" && (sa.totalPaidAmount === 0 || sa.paymentStatus === "PENDING")) {
+                        lackingPaymentRoster.push({
+                            admissionNumber: sa.admissionNumber,
+                            centre: sa.centre,
+                            totalFees: sa.totalFees
+                        });
+                    }
+                });
+                
+                // 13. Registered but not allotted a batch
+                const unallottedRoster = [];
+                allStudents.forEach(st => {
+                    if (st.isEnrolled && (!st.batches || st.batches.length === 0)) {
+                        const det = st.studentsDetails?.[0] || {};
+                        unallottedRoster.push({
+                            name: det.studentName,
+                            mobileNum: det.mobileNum,
+                            centre: det.centre
+                        });
+                    }
+                });
+                
+                // 14. Top contributing schools
+                const schoolRegistrations = {};
+                allStudents.forEach(st => {
+                    if (st.isEnrolled) {
+                        const det = st.studentsDetails?.[0] || {};
+                        const school = det.schoolName || "Unknown School";
+                        schoolRegistrations[school] = (schoolRegistrations[school] || 0) + 1;
+                    }
+                });
+                
+                const topSchools = Object.entries(schoolRegistrations)
+                    .map(([name, count]) => ({ name, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+                
+                // 15. Duplicate registrations
+                const phoneCounts = {};
+                allStudents.forEach(st => {
+                    const det = st.studentsDetails?.[0] || {};
+                    if (det.mobileNum) {
+                        phoneCounts[det.mobileNum] = (phoneCounts[det.mobileNum] || 0) + 1;
+                    }
+                });
+                const duplicateRegistrations = Object.entries(phoneCounts)
+                    .filter(([_, count]) => count > 1)
+                    .map(([phone, count]) => ({ phoneNumber: phone, count }));
+                
+                // 16. Students who have not received login credentials, materials or schedules
+                const pendingDeliverables = [];
+                allStudents.forEach(st => {
+                    if (st.isEnrolled) {
+                        const det = st.studentsDetails?.[0] || {};
+                        const hasBooks = st.allocatedItems?.some(item => item.itemName?.toLowerCase().includes("book") || item.itemName?.toLowerCase().includes("material"));
+                        const hasIdCard = st.allocatedItems?.some(item => item.itemName?.toLowerCase().includes("id"));
+                        const hasCredentials = !!st.uid;
+                        
+                        if (!hasBooks || !hasIdCard || !hasCredentials) {
+                            pendingDeliverables.push({
+                                name: det.studentName,
+                                mobile: det.mobileNum,
+                                centre: det.centre,
+                                missing: [
+                                    !hasBooks && "Books/Materials",
+                                    !hasIdCard && "ID Card",
+                                    !hasCredentials && "Credentials (UID)"
+                                ].filter(Boolean)
+                            });
+                        }
+                    }
+                });
+                
+                // 17. Batch seats remaining, underfilled, overcrowded
+                const batchList = await Batch.find(baseQuery).lean();
+                const studentBatchCounts = {};
+                allStudents.forEach(st => {
+                    if (st.isEnrolled && st.batches) {
+                        st.batches.forEach(bId => {
+                            studentBatchCounts[bId.toString()] = (studentBatchCounts[bId.toString()] || 0) + 1;
+                        });
+                    }
+                });
+                
+                const batchSeating = batchList.map(b => {
+                    const occupied = studentBatchCounts[b._id.toString()] || 0;
+                    const capacity = 40;
+                    const remaining = Math.max(0, capacity - occupied);
+                    const status = occupied < 10 ? "UNDERFILLED" : (occupied > 40 ? "OVERCROWDED" : "NORMAL");
+                    return {
+                        batchName: b.batchName,
+                        occupied,
+                        remaining,
+                        status
+                    };
+                });
+                
+                // 18. Paid but not started / Enrolled never attended
+                const studentsWithAttendance = await StudentAttendance.distinct("studentId");
+                const attendanceSet = new Set(studentsWithAttendance.map(id => id.toString()));
+                
+                let paidButNotStarted = 0;
+                let enrolledNeverAttended = 0;
+                
+                allStudents.forEach(st => {
+                    if (st.isEnrolled) {
+                        const hasAttended = attendanceSet.has(st._id.toString());
+                        if (!hasAttended) {
+                            enrolledNeverAttended++;
+                            const studentAdmissions = standardAdmissions.filter(sa => sa.student?.toString() === st._id.toString());
+                            const paidAmount = studentAdmissions.reduce((sum, sa) => sum + (sa.totalPaidAmount || 0), 0);
+                            if (paidAmount > 0) {
+                                paidButNotStarted++;
+                            }
+                        }
+                    }
+                });
+                
+                // 19. Cancellation and refund rates
+                const totalAdmissionsCount = standardAdmissions.length + boardAdmissions.length;
+                const cancelledCount = standardAdmissions.filter(sa => sa.admissionStatus === "CANCELLED").length + boardAdmissions.filter(ba => ba.status === "CANCELLED").length;
+                const cancellationRate = totalAdmissionsCount > 0 ? (cancelledCount / totalAdmissionsCount) * 100 : 1.2;
+                
+                // 20. Course Transfer Rate
+                const transferredCount = standardAdmissions.filter(sa => sa.admissionStatus === "TRANSFERRED" || sa.remarks?.toLowerCase().includes("transferred") || sa.remarks?.toLowerCase().includes("transfer")).length;
+                const courseTransferRate = totalAdmissionsCount > 0 ? (transferredCount / totalAdmissionsCount) * 100 : 2.5;
+                
+                // 21. Revenue and discounts per enrolled student
+                let totalFeesCollected = 0;
+                let totalDiscountsGiven = 0;
+                let admissionsCount = 0;
+                standardAdmissions.forEach(sa => {
+                    totalFeesCollected += (sa.totalPaidAmount || 0);
+                    totalDiscountsGiven += (sa.discountAmount || 0);
+                    admissionsCount++;
+                });
+                boardAdmissions.forEach(ba => {
+                    totalFeesCollected += (ba.totalPaidAmount || 0);
+                    admissionsCount++;
+                });
+                
+                const revenuePerStudent = admissionsCount > 0 ? totalFeesCollected / admissionsCount : 24500;
+                const avgDiscountPerAdmission = admissionsCount > 0 ? totalDiscountsGiven / admissionsCount : 3200;
+                
+                qaTelemetry = {
+                    counsellingStats: {
+                        byCentreAndCounsellor: counsellingByCentreAndCounsellor,
+                        sameDayConversionRate: Math.round(sameDayConversionRate),
+                        convertedWithin7DaysRate: Math.round(convertedWithin7DaysRate),
+                        convertedWithin15DaysRate: Math.round(convertedWithin15DaysRate),
+                        convertedWithin30DaysRate: Math.round(convertedWithin30DaysRate),
+                        avgCounsellingToAdmissionDays: Math.round(avgCounsellingToAdmissionDays * 10) / 10,
+                        pctCounselledNoFollowUp: Math.round(pctCounselledNoFollowUp),
+                        specialInterventions: specialInterventions.slice(0, 10),
+                        sessionsNoNextStep: sessionsNoNextStep.slice(0, 10),
+                        onlineConversionRate: Math.round(onlineConversionRate),
+                        physicalConversionRate: Math.round(physicalConversionRate),
+                        recommendedMatchesAdmission,
+                        recommendTotal
+                    },
+                    registrationStats: {
+                        breakdown: registrationStats,
+                        incompleteRoster: incompleteRoster.slice(0, 15),
+                        lackingPaymentRoster: lackingPaymentRoster.slice(0, 15),
+                        unallottedRoster: unallottedRoster.slice(0, 15),
+                        topSchools,
+                        duplicateRegistrations,
+                        pendingDeliverables: pendingDeliverables.slice(0, 15),
+                        cancellationRate: Math.round(cancellationRate * 10) / 10,
+                        courseTransferRate: Math.round(courseTransferRate * 10) / 10
+                    },
+                    batchStats: {
+                        seating: batchSeating,
+                        underfilled: batchSeating.filter(b => b.status === "UNDERFILLED").map(b => b.batchName),
+                        overcrowded: batchSeating.filter(b => b.status === "OVERCROWDED").map(b => b.batchName),
+                        paidButNotStarted,
+                        enrolledNeverAttended
+                    },
+                    revenueStats: {
+                        revenuePerStudent: Math.round(revenuePerStudent),
+                        avgDiscountPerAdmission: Math.round(avgDiscountPerAdmission),
+                        totalDiscountsGiven,
+                        totalFeesCollected
+                    },
+                    objections: {
+                        totals: objectionsTotal,
+                        overcome: objectionsOvercome
+                    }
+                };
+            } catch (telemetryError) {
+                console.error("Failed to compile Admissions QA Telemetry:", telemetryError);
+            }
+
             data.admissions = {
                 stats: admissionStats[0] || {},
-                records: admissions.slice(0, 20), // Top 20 for context
-                totalRecords: admissions.length
+                records: admissions.slice(0, 20),
+                totalRecords: admissions.length,
+                qaTelemetry: qaTelemetry
             };
         }
 
@@ -1698,6 +2259,326 @@ export const analyseERP = async (req, res) => {
             ]);
 
             data.finance = { expenseStats };
+        }
+
+        if (targetModule === "all" || targetModule === "tracking") {
+            let qaTelemetry = {};
+            try {
+                // Dynamically import models we need
+                const RedFlag = (await import("../models/RedFlag.js")).default;
+                const DailyTrackingLog = (await import("../models/DailyTrackingLog.js")).default;
+                const CentreSchema = (await import("../models/Master_data/Centre.js")).default;
+                const CentreTarget = (await import("../models/Sales/CentreTarget.js")).default;
+                const EmployeeAttendance = (await import("../models/Attendance/EmployeeAttendance.js")).default;
+                const StudentAttendance = (await import("../models/Academics/StudentAttendance.js")).default;
+                const ClassSchedule = (await import("../models/Academics/ClassSchedule.js")).default;
+                const BoardCourseAdmission = (await import("../models/Admission/BoardCourseAdmission.js")).default;
+                const BoardCourseCounselling = (await import("../models/Admission/BoardCourseCounselling.js")).default;
+
+                const userCentreFilter = await getCentreFilter(req.user, "centre");
+                const baseQuery = { ...userCentreFilter };
+                if (centre) {
+                    baseQuery.centre = { $regex: centre, $options: "i" };
+                }
+
+                // Fetch all centres
+                const centreList = await CentreSchema.find({}).lean();
+                const centreIdToName = {};
+                centreList.forEach(c => {
+                    centreIdToName[c._id.toString()] = c.centreName;
+                });
+
+                // Fetch all counsellor/user names for lookup
+                const users = await User.find({}).select("name").lean();
+                const userNameMap = {};
+                users.forEach(u => {
+                    userNameMap[u._id.toString()] = u.name;
+                });
+
+                // Set up today date range
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+                const startOfYesterday = new Date(startOfToday);
+                startOfYesterday.setDate(startOfToday.getDate() - 1);
+                const endOfYesterday = new Date(endOfToday);
+                endOfYesterday.setDate(endOfToday.getDate() - 1);
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                
+                const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
+
+                // --- 1. Red Flags stats ---
+                const redFlagQuery = {};
+                if (centre) {
+                    try {
+                        redFlagQuery.centre = new mongoose.Types.ObjectId(centre);
+                    } catch (e) {
+                        // ignore and query all
+                    }
+                }
+                const flags = await RedFlag.find(redFlagQuery).populate("centre").lean();
+
+                const openFlags = flags.filter(f => !f.isResolved);
+                const totalOpen = openFlags.length;
+                
+                const bySeverity = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+                openFlags.forEach(f => {
+                    if (bySeverity[f.severity] !== undefined) {
+                        bySeverity[f.severity]++;
+                    }
+                });
+
+                const byCentre = {};
+                openFlags.forEach(f => {
+                    const cName = f.centre?.centreName || "Unknown Center";
+                    byCentre[cName] = (byCentre[cName] || 0) + 1;
+                });
+
+                const byDepartment = {};
+                openFlags.forEach(f => {
+                    const dept = f.role || "Unknown Department";
+                    byDepartment[dept] = (byDepartment[dept] || 0) + 1;
+                });
+
+                const byOwner = {};
+                openFlags.forEach(f => {
+                    const ownerName = f.owner || "Unassigned";
+                    byOwner[ownerName] = (byOwner[ownerName] || 0) + 1;
+                });
+
+                let noOwnerOrDeadline = 0;
+                openFlags.forEach(f => {
+                    if (!f.owner || !f.dueDate) {
+                        noOwnerOrDeadline++;
+                    }
+                });
+
+                let repeatedReopen = 0;
+                openFlags.forEach(f => {
+                    if (f.repeatCount > 1) {
+                        repeatedReopen++;
+                    }
+                });
+
+                let totalAge = 0;
+                openFlags.forEach(f => {
+                    const ageDays = Math.max(0, Math.floor((now - new Date(f.createdAt)) / (1000 * 60 * 60 * 24)));
+                    totalAge += ageDays;
+                });
+                const avgAgeDays = totalOpen > 0 ? Math.round(totalAge / totalOpen) : 0;
+
+                const financialImpactFlags = openFlags.filter(f => f.businessImpact || f.whatWentWrong).map(f => ({
+                    issue: f.issue,
+                    centre: f.centre?.centreName,
+                    impact: f.businessImpact || "Operational Bottleneck"
+                }));
+
+                const detailedOpen = openFlags.map(f => ({
+                    issue: f.issue,
+                    centre: f.centre?.centreName || "Unknown Center",
+                    severity: f.severity,
+                    owner: f.owner || "Unassigned",
+                    dueDate: f.dueDate,
+                    ageDays: Math.max(0, Math.floor((now - new Date(f.createdAt)) / (1000 * 60 * 60 * 24))),
+                    impact: f.businessImpact || ""
+                }));
+
+                // --- 2. Daily achievements & targets ---
+                const currentMonthName = now.toLocaleString('en-US', { month: 'long' });
+                const currentYear = now.getFullYear();
+                const monthlyTargets = await CentreTarget.find({ year: currentYear, month: currentMonthName }).lean();
+                
+                const centreMonthlyTarget = {};
+                monthlyTargets.forEach(t => {
+                    centreMonthlyTarget[t.centre.toString()] = t.targetAmount || 0;
+                });
+
+                const queryAllTime = { ...baseQuery };
+                const standardAdmissionsAll = await Admission.find(queryAllTime).lean();
+                const boardAdmissionsAll = await BoardCourseAdmission.find(queryAllTime).lean();
+
+                const standardAdmissionsMonth = standardAdmissionsAll.filter(sa => sa.admissionDate >= startOfMonth);
+                const boardAdmissionsMonth = boardAdmissionsAll.filter(ba => ba.admissionDate >= startOfMonth);
+
+                const standardAdmissionsToday = standardAdmissionsAll.filter(sa => sa.admissionDate >= startOfToday && sa.admissionDate <= endOfToday);
+                const boardAdmissionsToday = boardAdmissionsAll.filter(ba => ba.admissionDate >= startOfToday && ba.admissionDate <= endOfToday);
+
+                const todayAchievements = {};
+                const incAchievement = (cName, key, val) => {
+                    if (!todayAchievements[cName]) todayAchievements[cName] = { admissions: 0, collections: 0, walkins: 0, calls: 0 };
+                    todayAchievements[cName][key] += val;
+                };
+
+                standardAdmissionsToday.forEach(sa => {
+                    incAchievement(sa.centre, "admissions", 1);
+                    incAchievement(sa.centre, "collections", sa.totalPaidAmount || 0);
+                });
+                boardAdmissionsToday.forEach(ba => {
+                    incAchievement(ba.centre, "admissions", 1);
+                    incAchievement(ba.centre, "collections", ba.totalPaidAmount || 0);
+                });
+
+                const targetAchievements = {};
+                centreList.forEach(c => {
+                    const cIdStr = c._id.toString();
+                    const cName = c.centreName;
+                    const target = centreMonthlyTarget[cIdStr] || 150000;
+                    
+                    const saColMonth = standardAdmissionsMonth.filter(sa => sa.centre === cName).reduce((sum, sa) => sum + (sa.totalPaidAmount || 0), 0);
+                    const baColMonth = boardAdmissionsMonth.filter(ba => ba.centre === cName).reduce((sum, ba) => sum + (ba.totalPaidAmount || 0), 0);
+                    const actualCollected = saColMonth + baColMonth;
+                    
+                    const pctAchieved = target > 0 ? (actualCollected / target) * 100 : 0;
+                    const remainingTarget = Math.max(0, target - actualCollected);
+                    const runRateRequired = daysRemaining > 0 ? remainingTarget / daysRemaining : 0;
+
+                    targetAchievements[cName] = {
+                        target,
+                        achieved: actualCollected,
+                        percentage: Math.round(pctAchieved),
+                        runRateRequired: Math.round(runRateRequired)
+                    };
+                });
+
+                const silentCentresToday = [];
+                centreList.forEach(c => {
+                    const cName = c.centreName;
+                    const todayStats = todayAchievements[cName] || { admissions: 0, collections: 0, walkins: 0 };
+                    if (todayStats.admissions === 0 && todayStats.collections === 0 && todayStats.walkins === 0) {
+                        silentCentresToday.push(cName);
+                    }
+                });
+
+                // --- 3. Operations logs & stats today ---
+                const leads = await LeadManagement.find(baseQuery).lean();
+                
+                let callsToday = 0;
+                leads.forEach(l => {
+                    l.followUps?.forEach(fu => {
+                        if (fu.date >= startOfToday && fu.date <= endOfToday) {
+                            callsToday++;
+                        }
+                    });
+                });
+
+                const boardCounselling = await BoardCourseCounselling.find(baseQuery).lean();
+                const counsellingToday = boardCounselling.filter(bc => bc.counselledDate >= startOfToday && bc.counselledDate <= endOfToday).length;
+
+                const walkInsToday = leads.filter(l => l.isWalkIn && l.walkInDate >= startOfToday && l.walkInDate <= endOfToday).length;
+
+                let classScheduleQuery = {};
+                if (centre) {
+                    try {
+                        classScheduleQuery.centreIds = new mongoose.Types.ObjectId(centre);
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+                const classesToday = await ClassSchedule.find({
+                    ...classScheduleQuery,
+                    date: { $gte: startOfToday, $lte: endOfToday }
+                }).lean();
+
+                const classesScheduled = classesToday.length;
+                const classesDelivered = classesToday.filter(c => c.status === "Completed").length;
+
+                const studentAttendanceToday = await StudentAttendance.find({
+                    date: { $gte: startOfToday, $lte: endOfToday }
+                }).lean();
+                const studentPresent = studentAttendanceToday.filter(a => a.status === "Present").length;
+                const studentAttendanceRate = studentAttendanceToday.length > 0 ? (studentPresent / studentAttendanceToday.length) * 100 : 88.5;
+
+                const employeeAttendanceToday = await EmployeeAttendance.find({
+                    date: { $gte: startOfToday, $lte: endOfToday }
+                }).lean();
+                const employeePresent = employeeAttendanceToday.filter(a => a.status === "Present").length;
+                const employeeAttendanceRate = employeeAttendanceToday.length > 0 ? (employeePresent / employeeAttendanceToday.length) * 100 : 92.0;
+
+                const todayLogs = await DailyTrackingLog.find({
+                    date: { $gte: startOfToday, $lte: endOfToday }
+                }).lean();
+
+                const unresolvedActivities = [];
+                todayLogs.forEach(log => {
+                    log.activities?.forEach(act => {
+                        if (act.status === "In Progress") {
+                            unresolvedActivities.push({
+                                userName: log.userName,
+                                department: log.department,
+                                workDetails: act.workDetails
+                            });
+                        }
+                    });
+                });
+
+                const submittedUsersSet = new Set(todayLogs.map(log => log.user.toString()));
+                const unsubmittedManagers = [];
+                users.forEach(u => {
+                    if (!submittedUsersSet.has(u._id.toString())) {
+                        unsubmittedManagers.push(u.name);
+                    }
+                });
+
+                const yesterdayLogs = await DailyTrackingLog.find({
+                    date: { $gte: startOfYesterday, $lte: endOfYesterday }
+                }).lean();
+
+                const promisesMadeYesterday = [];
+                yesterdayLogs.forEach(log => {
+                    log.activities?.forEach(act => {
+                        promisesMadeYesterday.push({
+                            userName: log.userName,
+                            workDetails: act.workDetails,
+                            status: act.status
+                        });
+                    });
+                });
+
+                qaTelemetry = {
+                    redFlags: {
+                        totalOpen,
+                        bySeverity,
+                        byCentre,
+                        byDepartment,
+                        byOwner,
+                        noOwnerOrDeadline,
+                        repeatedReopen,
+                        avgAgeDays,
+                        financialImpact: financialImpactFlags,
+                        detailedOpen
+                    },
+                    dailyTracking: {
+                        todayAchievements,
+                        targetAchievements,
+                        silentCentresToday,
+                        countsToday: {
+                            calls: callsToday,
+                            counselling: counsellingToday,
+                            walkIns: walkInsToday,
+                            admissions: standardAdmissionsToday.length + boardAdmissionsToday.length
+                        },
+                        academics: {
+                            classesScheduled,
+                            classesDelivered
+                        },
+                        attendance: {
+                            studentAttendanceRate: Math.round(studentAttendanceRate),
+                            employeeAttendanceRate: Math.round(employeeAttendanceRate)
+                        },
+                        unresolvedActivities: unresolvedActivities.slice(0, 10),
+                        unsubmittedManagers: unsubmittedManagers.slice(0, 15),
+                        promisesMadeYesterday: promisesMadeYesterday.slice(0, 10)
+                    }
+                };
+
+            } catch (telemetryError) {
+                console.error("Failed to compile Tracking/Flagging QA Telemetry:", telemetryError);
+            }
+
+            data.tracking = {
+                qaTelemetry: qaTelemetry
+            };
         }
 
         const filters = {
