@@ -13,6 +13,8 @@ const DailyCollection = () => {
 
     const [loading, setLoading] = useState(false);
     const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [activePreset, setActivePreset] = useState("today");
     const [dailyDetails, setDailyDetails] = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -96,7 +98,7 @@ const DailyCollection = () => {
 
     useEffect(() => {
         fetchDailyCollection();
-    }, [date, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
+    }, [date, startDate, endDate, activePreset, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
 
     const fetchMasterData = async () => {
         try {
@@ -274,6 +276,8 @@ const DailyCollection = () => {
         setPaymentMethodSearch("");
         setSearchText("");
         setDate(new Date().toISOString().split("T")[0]);
+        setStartDate("");
+        setEndDate("");
         setActivePreset("today");
         setSelectedZones([]);
         setZoneSearch("");
@@ -287,23 +291,37 @@ const DailyCollection = () => {
         { key: "last7", label: "Last 7 Days" },
         { key: "thisMonth", label: "This Month" },
         { key: "lastMonth", label: "Last Month" },
+        { key: "custom", label: "Custom Range" },
     ];
 
     const applyPreset = (key) => {
         const now = new Date();
-        let d;
+        let d = now;
         if (key === "today") {
             d = new Date();
+            setStartDate("");
+            setEndDate("");
         } else if (key === "yesterday") {
             d = new Date();
             d.setDate(d.getDate() - 1);
+            setStartDate("");
+            setEndDate("");
         } else if (key === "last7") {
             d = new Date();
             d.setDate(d.getDate() - 6);
+            setStartDate("");
+            setEndDate("");
         } else if (key === "thisMonth") {
             d = new Date(now.getFullYear(), now.getMonth(), 1);
+            setStartDate("");
+            setEndDate("");
         } else if (key === "lastMonth") {
             d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            setStartDate("");
+            setEndDate("");
+        } else if (key === "custom") {
+            setStartDate("");
+            setEndDate("");
         }
         setDate(d.toISOString().split("T")[0]);
         setActivePreset(key);
@@ -628,17 +646,11 @@ const DailyCollection = () => {
                             <FaCalendarDay />
                             <span className="font-semibold">Collection Date</span>
                         </div>
-                        {/* <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => { setDate(e.target.value); setActivePreset(""); }}
-                            className={`w-full rounded-[4px] p-3 ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
-                        /> */}
                         {/* Quick date preset dropdown */}
                         <select
                             value={activePreset}
                             onChange={(e) => applyPreset(e.target.value)}
-                            className={`w-full mt-3 rounded-[4px] p-2.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${isDarkMode
+                            className={`w-full rounded-[4px] p-2.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${isDarkMode
                                 ? "bg-[#15181f] border border-gray-700 text-white"
                                 : "bg-white border border-gray-300 text-slate-900"
                                 }`}
@@ -649,7 +661,42 @@ const DailyCollection = () => {
                             <option value="last7">Last 7 Days</option>
                             <option value="thisMonth">This Month</option>
                             <option value="lastMonth">Last Month</option>
+                            <option value="custom">Custom Range</option>
                         </select>
+
+                        {activePreset === "custom" ? (
+                            <div className="flex flex-col gap-2 mt-3">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-gray-500 font-bold uppercase">From:</span>
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className={`w-full rounded-[4px] p-2 text-xs ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
+                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                    />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-gray-500 font-bold uppercase">To:</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className={`w-full rounded-[4px] p-2 text-xs ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
+                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mt-3">
+                                <input
+                                    type="date"
+                                    value={date}
+                                    onChange={(e) => { setDate(e.target.value); setActivePreset(""); }}
+                                    className={`w-full rounded-[4px] p-3 text-xs ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
+                                />
+                            </div>
+                        )}
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm flex flex-col justify-between`}>
                         <div>
