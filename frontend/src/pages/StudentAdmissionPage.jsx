@@ -105,10 +105,9 @@ const StudentAdmissionPage = () => {
                 if (data.users) {
                     const userList = Array.isArray(data.users) ? data.users : [];
                     const filtered = userList.filter(u =>
-                        u.primaryCentre &&
-                        u.primaryCentre.centreName &&
-                        u.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase() &&
-                        !["teacher", "accounts", "hr"].includes((u.role || "").toLowerCase())
+                        u.isActive !== false &&
+                        (u.centres || []).some(c => c && c.centreName && c.centreName.toLowerCase() === centreName.toLowerCase()) &&
+                        !["teacher", "accounts", "hr", "coordinator", "class_coordinator", "hod"].includes((u.role || "").toLowerCase())
                     );
                     setAdmittedByOptions(filtered);
                 }
