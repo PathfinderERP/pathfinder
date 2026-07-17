@@ -15,6 +15,179 @@ import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
 import './AdmissionsWave.css';
 import { hasPermission } from '../../config/permissions';
 
+// CentreWiseReport sub-component to display aggregated board admissions count
+const CentreWiseReport = ({ filteredBoardAdmissions, isDarkMode }) => {
+    // Aggregated structure: { [centreName]: { total: 0, boards: {}, examTags: {}, depts: {}, classes: {}, programmes: {} } }
+    const reportData = React.useMemo(() => {
+        const data = {};
+
+        filteredBoardAdmissions.forEach(adm => {
+            const centreName = (adm.centre || "Unspecified").toUpperCase();
+
+            if (!data[centreName]) {
+                data[centreName] = {
+                    total: 0,
+                    boards: {},
+                    examTags: {},
+                    depts: {},
+                    classes: {},
+                    programmes: {}
+                };
+            }
+
+            data[centreName].total++;
+
+            // 1. Board
+            const board = (adm.boardId?.boardCourse || adm.boardId || "N/A").toUpperCase();
+            data[centreName].boards[board] = (data[centreName].boards[board] || 0) + 1;
+
+            // 2. Exam Tag
+            const student = adm.studentId || {};
+            const examTag = (student.sessionExamCourse?.[0]?.examTag || student.examSchema?.[0]?.examName || "N/A").toUpperCase();
+            data[centreName].examTags[examTag] = (data[centreName].examTags[examTag] || 0) + 1;
+
+            // 3. Department
+            const dept = (adm.department?.departmentName || student.department?.departmentName || "N/A").toUpperCase();
+            data[centreName].depts[dept] = (data[centreName].depts[dept] || 0) + 1;
+
+            // 4. Class
+            const cls = (adm.lastClass || student.class || "N/A").toUpperCase();
+            data[centreName].classes[cls] = (data[centreName].classes[cls] || 0) + 1;
+
+            // 5. Programme
+            const prog = (adm.programme || "N/A").toUpperCase();
+            data[centreName].programmes[prog] = (data[centreName].programmes[prog] || 0) + 1;
+        });
+
+        // Convert to sorted array
+        return Object.entries(data).map(([name, stats]) => ({
+            centreName: name,
+            ...stats
+        })).sort((a, b) => b.total - a.total);
+    }, [filteredBoardAdmissions]);
+
+    return (
+        <div className="space-y-6">
+            {/* Summary KPI */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Filtered Enrolments</p>
+                    <h3 className={`text-2xl font-black ${isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}`}>{filteredBoardAdmissions.length}</h3>
+                </div>
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Active Centres</p>
+                    <h3 className={`text-2xl font-black ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{reportData.length}</h3>
+                </div>
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Average Students per Centre</p>
+                    <h3 className={`text-2xl font-black ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                        {reportData.length > 0 ? Math.round(filteredBoardAdmissions.length / reportData.length) : 0}
+                    </h3>
+                </div>
+            </div>
+
+            {/* Centre breakdown list */}
+            <div className={`border rounded-[4px] overflow-hidden ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-100 bg-gray-50'}`}>
+                    <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Centre Wise Student Aggregation</h3>
+                </div>
+                {reportData.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                        No records match the current filters.
+                    </div>
+                ) : (
+                    <div className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                        {reportData.map((centre) => (
+                            <div key={centre.centreName} className={`p-6 hover:bg-opacity-50 transition-colors ${isDarkMode ? 'bg-[#1a1f24] hover:bg-cyan-500/5' : 'bg-white hover:bg-gray-50'}`}>
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-xs font-black uppercase tracking-wider px-3 py-1 rounded-[4px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
+                                            {centre.centreName}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total Enrolled:</span>
+                                        <span className={`text-sm font-black px-2.5 py-0.5 rounded-full ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
+                                            {centre.total} {centre.total === 1 ? 'Student' : 'Students'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                                    {/* Board Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Board</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.boards).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Exam Tag Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Exam Tag</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.examTags).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Department Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Department</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.depts).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Class Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Class</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.classes).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Programme Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Programme</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.programmes).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const BoardAdmissionsContent = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -435,7 +608,90 @@ const BoardAdmissionsContent = () => {
         });
     }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterDepartment]);
 
+    const prepareReportExportData = () => {
+        const headers = [
+            { label: 'Centre', key: 'centre' },
+            { label: 'Board', key: 'board' },
+            { label: 'Exam Tag', key: 'examTag' },
+            { label: 'Department', key: 'department' },
+            { label: 'Class', key: 'class' },
+            { label: 'Programme', key: 'programme' },
+            { label: 'Student Count', key: 'count' }
+        ];
+
+        const data = {};
+
+        filteredBoardAdmissions.forEach(adm => {
+            const centreName = (adm.centre || "Unspecified").toUpperCase();
+
+            if (!data[centreName]) {
+                data[centreName] = {
+                    total: 0,
+                    boards: {},
+                    examTags: {},
+                    depts: {},
+                    classes: {},
+                    programmes: {}
+                };
+            }
+
+            data[centreName].total++;
+
+            // Board
+            const board = (adm.boardId?.boardCourse || adm.boardId || "N/A").toUpperCase();
+            data[centreName].boards[board] = (data[centreName].boards[board] || 0) + 1;
+
+            // Exam Tag
+            const student = adm.studentId || {};
+            const examTag = (student.sessionExamCourse?.[0]?.examTag || student.examSchema?.[0]?.examName || "N/A").toUpperCase();
+            data[centreName].examTags[examTag] = (data[centreName].examTags[examTag] || 0) + 1;
+
+            // Department
+            const dept = (adm.department?.departmentName || student.department?.departmentName || "N/A").toUpperCase();
+            data[centreName].depts[dept] = (data[centreName].depts[dept] || 0) + 1;
+
+            // Class
+            const cls = (adm.lastClass || student.class || "N/A").toUpperCase();
+            data[centreName].classes[cls] = (data[centreName].classes[cls] || 0) + 1;
+
+            // Programme
+            const prog = (adm.programme || "N/A").toUpperCase();
+            data[centreName].programmes[prog] = (data[centreName].programmes[prog] || 0) + 1;
+        });
+
+        const exportData = Object.entries(data).map(([name, stats]) => {
+            const formatSubCounts = (countsObj) => {
+                return Object.entries(countsObj)
+                    .map(([val, count]) => `${val} (${count})`)
+                    .join(" | ");
+            };
+
+            return {
+                centre: name,
+                board: formatSubCounts(stats.boards),
+                examTag: formatSubCounts(stats.examTags),
+                department: formatSubCounts(stats.depts),
+                class: formatSubCounts(stats.classes),
+                programme: formatSubCounts(stats.programmes),
+                count: stats.total
+            };
+        }).sort((a, b) => b.count - a.count);
+
+        return { headers, exportData };
+    };
+
     const handleExportEnrolled = () => {
+        if (activeTab === "Report") {
+            const { headers, exportData } = prepareReportExportData();
+            if (exportData.length === 0) {
+                toast.warning("No data to export");
+                return;
+            }
+            downloadExcel(exportData, headers, `Centre_Wise_Board_Student_Count_Report`);
+            toast.success("Centre-wise board student count report exported to Excel!");
+            return;
+        }
+
         const exportData = filteredBoardAdmissions.map(adm => {
             const student = adm.studentId;
             const leadBy = student?.leadBy || adm.leadBy;
@@ -1069,7 +1325,7 @@ const BoardAdmissionsContent = () => {
 
     // Statistics Calculations
     const statsMetrics = React.useMemo(() => {
-        const activeData = (activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents;
+        const activeData = (activeTab === "Enrolled" || activeTab === "Deactivated" || activeTab === "Report") ? filteredBoardAdmissions : filteredStudents;
         const today = new Date().toDateString();
         // Today's total WITHIN the filtered set
         const todayTotalFiltered = activeData.filter(item => (new Date(item.admissionDate || item.createdAt || new Date())).toDateString() === today).length;
@@ -1102,7 +1358,7 @@ const BoardAdmissionsContent = () => {
         };
     }, [filteredBoardAdmissions, filteredStudents, activeTab]);
 
-    const activeData = (activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions : filteredStudents;
+    const activeData = (activeTab === "Enrolled" || activeTab === "Deactivated" || activeTab === "Report") ? filteredBoardAdmissions : filteredStudents;
     const currentPageItems = activeData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
@@ -1163,16 +1419,16 @@ const BoardAdmissionsContent = () => {
             </div>
 
             <div className="flex gap-1 mb-8 p-1 bg-black/20 rounded-lg w-fit">
-                {["Counselling", "Enrolled", "Deactivated"].map((tab) => (
+                {["Counselling", "Enrolled", "Deactivated", "Report"].map((tab) => (
                     <button
                         key={tab}
                         onClick={() => handleTabChange(tab)}
                         className={`px-6 py-2 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab
-                            ? (tab === "Deactivated" ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20")
+                            ? (tab === "Deactivated" ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : tab === "Report" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20")
                             : "text-gray-500 hover:text-white"
                             }`}
                     >
-                        {tab === "Counselling" ? "COUNSELLED" : tab === "Enrolled" ? "ENROLLED BOARD" : "DEACTIVATED"}
+                        {tab === "Counselling" ? "COUNSELLED" : tab === "Enrolled" ? "ENROLLED BOARD" : tab === "Deactivated" ? "DEACTIVATED" : "REPORT SECTION"}
                     </button>
                 ))}
             </div>
@@ -1246,7 +1502,7 @@ const BoardAdmissionsContent = () => {
                                 className={`w-full pl-12 pr-4 py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             />
                         </div>
-                        {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
+                        {(activeTab === "Enrolled" || activeTab === "Deactivated" || activeTab === "Report") && (
                             <button
                                 onClick={handleExportEnrolled}
                                 className={`flex items-center gap-2 px-6 py-3 rounded-[4px] border text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500 hover:text-black' : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white'}`}
@@ -1398,7 +1654,10 @@ const BoardAdmissionsContent = () => {
                 </div>
             </div>
 
-            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
+            {activeTab === "Report" ? (
+                <CentreWiseReport filteredBoardAdmissions={filteredBoardAdmissions} isDarkMode={isDarkMode} />
+            ) : (
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
                 <div className="p-6 border-b flex justify-between items-center border-gray-200 dark:border-gray-800">
                     <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         {activeTab === "Potential" ? "Board Records" : activeTab === "Counselling" ? "Counselled Students" : activeTab === "Deactivated" ? "Deactivated Board Students" : "Enrolled Board Students"}
@@ -1731,6 +1990,7 @@ const BoardAdmissionsContent = () => {
                     />
                 </div>
             </div>
+        )}
 
             {showDetailsModal && selectedStudent && (
                 <StudentDetailsModal

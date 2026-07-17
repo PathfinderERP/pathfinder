@@ -18,6 +18,186 @@ import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import RazorpayPOSModal from '../Finance/RazorpayPOSModal';
 
+// CentreWiseReport sub-component to display aggregated students count
+const CentreWiseReport = ({ filteredStudents, isDarkMode, resolveClassName }) => {
+    // Aggregated structure: { [centreName]: { total: 0, boards: {}, examTags: {}, depts: {}, classes: {}, programmes: {} } }
+    const reportData = React.useMemo(() => {
+        const data = {};
+
+        filteredStudents.forEach(item => {
+            const studentDetails = item.student?.studentsDetails?.[0] || {};
+            const centreName = (studentDetails.centre || "Unspecified").toUpperCase();
+
+            if (!data[centreName]) {
+                data[centreName] = {
+                    total: 0,
+                    boards: {},
+                    examTags: {},
+                    depts: {},
+                    classes: {},
+                    programmes: {}
+                };
+            }
+
+            data[centreName].total++;
+
+            // 1. Board
+            const board = (studentDetails.board || "N/A").toUpperCase();
+            data[centreName].boards[board] = (data[centreName].boards[board] || 0) + 1;
+
+            // 2. Exam Tag
+            const student = item.student || {};
+            const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
+            const itemExamTags = item.admissions.map(a => {
+                const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === a.academicSession);
+                return matchedSessionExam?.examTag || studentExamTag || a.examTag?.name;
+            }).filter(Boolean);
+            const examTag = (itemExamTags[0] || "N/A").toUpperCase();
+            data[centreName].examTags[examTag] = (data[centreName].examTags[examTag] || 0) + 1;
+
+            // 3. Department
+            const latestAdmission = item.admissions[0] || item.latestAdmission || {};
+            const dept = (item.student?.department?.departmentName || latestAdmission.department?.departmentName || latestAdmission.department?.name || "N/A").toUpperCase();
+            data[centreName].depts[dept] = (data[centreName].depts[dept] || 0) + 1;
+
+            // 4. Class
+            const cls = (resolveClassName(latestAdmission) || item.student?.class || "N/A").toUpperCase();
+            data[centreName].classes[cls] = (data[centreName].classes[cls] || 0) + 1;
+
+            // 5. Programme
+            const prog = (latestAdmission.course?.programme || "N/A").toUpperCase();
+            data[centreName].programmes[prog] = (data[centreName].programmes[prog] || 0) + 1;
+        });
+
+        // Convert to sorted array
+        return Object.entries(data).map(([name, stats]) => ({
+            centreName: name,
+            ...stats
+        })).sort((a, b) => b.total - a.total);
+    }, [filteredStudents, resolveClassName]);
+
+    return (
+        <div className="space-y-6">
+            {/* Summary KPI */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Filtered Enrolments</p>
+                    <h3 className={`text-2xl font-black ${isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}`}>{filteredStudents.length}</h3>
+                </div>
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Active Centres</p>
+                    <h3 className={`text-2xl font-black ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{reportData.length}</h3>
+                </div>
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Average Students per Centre</p>
+                    <h3 className={`text-2xl font-black ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                        {reportData.length > 0 ? Math.round(filteredStudents.length / reportData.length) : 0}
+                    </h3>
+                </div>
+            </div>
+
+            {/* Centre breakdown list */}
+            <div className={`border rounded-[4px] overflow-hidden ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-100 bg-gray-50'}`}>
+                    <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Centre Wise Student Aggregation</h3>
+                </div>
+                {reportData.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                        No records match the current filters.
+                    </div>
+                ) : (
+                    <div className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                        {reportData.map((centre) => (
+                            <div key={centre.centreName} className={`p-6 hover:bg-opacity-50 transition-colors ${isDarkMode ? 'bg-[#1a1f24] hover:bg-cyan-500/5' : 'bg-white hover:bg-gray-50'}`}>
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-xs font-black uppercase tracking-wider px-3 py-1 rounded-[4px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
+                                            {centre.centreName}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total Enrolled:</span>
+                                        <span className={`text-sm font-black px-2.5 py-0.5 rounded-full ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
+                                            {centre.total} {centre.total === 1 ? 'Student' : 'Students'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                                    {/* Board Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Board</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.boards).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Exam Tag Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Exam Tag</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.examTags).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Department Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Department</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.depts).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Class Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Class</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.classes).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Programme Column */}
+                                    <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Programme</h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(centre.programmes).map(([name, count]) => (
+                                                <div key={name} className="flex justify-between items-center text-[10px] font-bold">
+                                                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{name}</span>
+                                                    <span className={isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const EnrolledStudentsContent = () => {
     const navigate = useNavigate();
     const [students, setStudents] = useState([]);
@@ -56,6 +236,7 @@ const EnrolledStudentsContent = () => {
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterSessions, setMasterSessions] = useState([]);
     const [masterExamTags, setMasterExamTags] = useState([]);
+    const [masterBoards, setMasterBoards] = useState([]);
     const [batches, setBatches] = useState([]);
     const [selectedAdmissionIds, setSelectedAdmissionIds] = useState([]);
     const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
@@ -139,7 +320,7 @@ const EnrolledStudentsContent = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes, tagRes, batchRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes, tagRes, batchRes, boardRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
@@ -147,7 +328,8 @@ const EnrolledStudentsContent = () => {
                 fetch(`${apiUrl}/admission/active-employees`, { headers }),
                 fetch(`${apiUrl}/master-data/account`, { headers }),
                 fetch(`${apiUrl}/examTag`, { headers }),
-                fetch(`${apiUrl}/batch/list`, { headers })
+                fetch(`${apiUrl}/batch/list`, { headers }),
+                fetch(`${apiUrl}/board`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -169,6 +351,9 @@ const EnrolledStudentsContent = () => {
             }
             if (batchRes && batchRes.ok) {
                 setBatches(await batchRes.json());
+            }
+            if (boardRes && boardRes.ok) {
+                setMasterBoards(await boardRes.json());
             }
         } catch (error) {
             console.error("Error fetching master data:", error);
@@ -881,7 +1066,8 @@ const EnrolledStudentsContent = () => {
                 return item.admissions.some(a => a.admissionType === 'BOARD') && (item.student?.status || 'Active') === 'Active';
             }
             const status = item.student?.status || 'Active';
-            return status === viewMode && item.admissions.some(a => a.admissionType === 'NORMAL');
+            const targetStatus = viewMode === 'Report' ? 'Active' : viewMode;
+            return status === targetStatus && item.admissions.some(a => a.admissionType === 'NORMAL');
         });
 
         setFilteredStudents(result);
@@ -1535,24 +1721,105 @@ const EnrolledStudentsContent = () => {
         return { headers, exportData };
     };
 
+    const prepareReportExportData = () => {
+        const headers = [
+            { label: 'Centre', key: 'centre' },
+            { label: 'Board', key: 'board' },
+            { label: 'Exam Tag', key: 'examTag' },
+            { label: 'Department', key: 'department' },
+            { label: 'Class', key: 'class' },
+            { label: 'Programme', key: 'programme' },
+            { label: 'Student Count', key: 'count' }
+        ];
+
+        const data = {};
+
+        filteredStudents.forEach(item => {
+            const studentDetails = item.student?.studentsDetails?.[0] || {};
+            const centreName = (studentDetails.centre || "Unspecified").toUpperCase();
+
+            if (!data[centreName]) {
+                data[centreName] = {
+                    total: 0,
+                    boards: {},
+                    examTags: {},
+                    depts: {},
+                    classes: {},
+                    programmes: {}
+                };
+            }
+
+            data[centreName].total++;
+
+            // Board
+            const board = (studentDetails.board || "N/A").toUpperCase();
+            data[centreName].boards[board] = (data[centreName].boards[board] || 0) + 1;
+
+            // Exam Tag
+            const student = item.student || {};
+            const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
+            const itemExamTags = item.admissions.map(a => {
+                const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === a.academicSession);
+                return matchedSessionExam?.examTag || studentExamTag || a.examTag?.name;
+            }).filter(Boolean);
+            const examTag = (itemExamTags[0] || "N/A").toUpperCase();
+            data[centreName].examTags[examTag] = (data[centreName].examTags[examTag] || 0) + 1;
+
+            // Department
+            const latestAdmission = item.admissions[0] || item.latestAdmission || {};
+            const dept = (item.student?.department?.departmentName || latestAdmission.department?.departmentName || latestAdmission.department?.name || "N/A").toUpperCase();
+            data[centreName].depts[dept] = (data[centreName].depts[dept] || 0) + 1;
+
+            // Class
+            const cls = (resolveClassName(latestAdmission) || item.student?.class || "N/A").toUpperCase();
+            data[centreName].classes[cls] = (data[centreName].classes[cls] || 0) + 1;
+
+            // Programme
+            const prog = (latestAdmission.course?.programme || "N/A").toUpperCase();
+            data[centreName].programmes[prog] = (data[centreName].programmes[prog] || 0) + 1;
+        });
+
+        const exportData = Object.entries(data).map(([name, stats]) => {
+            const formatSubCounts = (countsObj) => {
+                return Object.entries(countsObj)
+                    .map(([val, count]) => `${val} (${count})`)
+                    .join(" | ");
+            };
+
+            return {
+                centre: name,
+                board: formatSubCounts(stats.boards),
+                examTag: formatSubCounts(stats.examTags),
+                department: formatSubCounts(stats.depts),
+                class: formatSubCounts(stats.classes),
+                programme: formatSubCounts(stats.programmes),
+                count: stats.total
+            };
+        }).sort((a, b) => b.count - a.count);
+
+        return { headers, exportData };
+    };
+
     const handleExportCSV = () => {
-        const { headers, exportData } = prepareExportData();
+        const { headers, exportData } = viewMode === 'Report' ? prepareReportExportData() : prepareExportData();
         if (exportData.length === 0) {
             toast.warning("No data to export");
             return;
         }
-        downloadCSV(exportData, headers, 'enrolled_students_full');
-        toast.success('Full enrolled student details exported to CSV!');
+        const fileName = viewMode === 'Report' ? 'centre_wise_student_count_report' : 'enrolled_students_full';
+        downloadCSV(exportData, headers, fileName);
+        toast.success(viewMode === 'Report' ? 'Centre-wise student count report exported to CSV!' : 'Full enrolled student details exported to CSV!');
     };
 
     const handleExportExcel = () => {
-        const { headers, exportData } = prepareExportData();
+        const { headers, exportData } = viewMode === 'Report' ? prepareReportExportData() : prepareExportData();
         if (exportData.length === 0) {
             toast.warning("No data to export");
             return;
         }
-        downloadExcel(exportData, headers, 'enrolled_students_full');
-        toast.success('Full enrolled student details exported to Excel!');
+        const fileName = viewMode === 'Report' ? 'centre_wise_student_count_report' : 'enrolled_students_full';
+        downloadExcel(exportData, headers, fileName);
+        toast.success(viewMode === 'Report' ? 'Centre-wise student count report exported to Excel!' : 'Full enrolled student details exported to Excel!');
     };
 
     return (
@@ -1735,7 +2002,8 @@ const EnrolledStudentsContent = () => {
             <div className={`flex border-b mb-8 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                 {[
                     { label: 'Active Students', id: 'Active', color: 'cyan' },
-                    { label: 'Deactivated', id: 'Deactivated', color: 'red' }
+                    { label: 'Deactivated', id: 'Deactivated', color: 'red' },
+                    { label: 'Report Section', id: 'Report', color: 'emerald' }
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -1798,7 +2066,7 @@ const EnrolledStudentsContent = () => {
                             <MultiSelectFilter
                                 label="Board"
                                 placeholder="ALL BOARDS"
-                                options={Array.from(new Set(uniqueBoards)).filter(Boolean).map(b => ({ value: b, label: b.toUpperCase() }))}
+                                options={masterBoards.map(b => ({ value: b.boardCourse, label: b.boardCourse.toUpperCase() }))}
                                 selectedValues={filterBoard}
                                 onChange={setFilterBoard}
                                 theme={isDarkMode ? 'dark' : 'light'}
@@ -1994,7 +2262,10 @@ const EnrolledStudentsContent = () => {
             </div>
 
             {/* Students Table */}
-            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
+            {viewMode === 'Report' ? (
+                <CentreWiseReport filteredStudents={filteredStudents} isDarkMode={isDarkMode} resolveClassName={resolveClassName} />
+            ) : (
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
                 <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                     <h3 className={`text-xl font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Student Records</h3>
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Manage lifecycle and financial status</p>
@@ -2365,17 +2636,20 @@ const EnrolledStudentsContent = () => {
                     </table>
                 </div>
             </div>
+            )}
 
-            <div className="mt-8">
-                <Pagination
-                    currentPage={currentPage}
-                    totalItems={filteredStudents.length}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setCurrentPage}
-                    theme={isDarkMode ? 'dark' : 'light'}
-                    onItemsPerPageChange={setItemsPerPage}
-                />
-            </div>
+            {viewMode !== 'Report' && (
+                <div className="mt-8">
+                    <Pagination
+                        currentPage={currentPage}
+                        totalItems={filteredStudents.length}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setCurrentPage}
+                        theme={isDarkMode ? 'dark' : 'light'}
+                        onItemsPerPageChange={setItemsPerPage}
+                    />
+                </div>
+            )}
 
             {/* Student Details Modal */}
             {/* Student Details Modal */}
@@ -3660,6 +3934,7 @@ const EnrolledStudentsContent = () => {
                     examTags={masterExamTags}
                     activeEmployees={activeEmployees}
                     isDarkMode={isDarkMode}
+                    boards={masterBoards}
                 />
             )}
 

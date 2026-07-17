@@ -97,6 +97,15 @@ export const bulkUpdateAdmissions = async (req, res) => {
                         }
                     }
 
+                    // Sync Board
+                    if (cleanUpdateData.board !== undefined) {
+                        if (student.studentsDetails && student.studentsDetails[0]) {
+                            student.studentsDetails[0].board = cleanUpdateData.board;
+                            student.markModified('studentsDetails');
+                            studentModified = true;
+                        }
+                    }
+
                     // Sync Counselled By
                     if (cleanUpdateData.counselledBy !== undefined) {
                         student.counselledBy = cleanUpdateData.counselledBy;

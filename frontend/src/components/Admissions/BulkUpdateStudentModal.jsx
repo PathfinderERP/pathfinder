@@ -13,11 +13,13 @@ const BulkUpdateStudentModal = ({
     courses,
     examTags,
     activeEmployees,
-    isDarkMode
+    isDarkMode,
+    boards = []
 }) => {
     const [enabledFields, setEnabledFields] = useState({
         academicSession: false,
         centre: false,
+        board: false,
         class: false,
         department: false,
         course: false,
@@ -31,6 +33,7 @@ const BulkUpdateStudentModal = ({
     const [formData, setFormData] = useState({
         academicSession: "",
         centre: "",
+        board: "",
         class: "",
         department: "",
         course: "",
@@ -175,6 +178,27 @@ const BulkUpdateStudentModal = ({
                                 <option value="">Select Centre</option>
                                 {allowedCentres.map(c => (
                                     <option key={c} value={c}>{c.toUpperCase()}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Board */}
+                        <div className={`p-3 rounded-lg border transition-all ${enabledFields.board ? (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200') : (isDarkMode ? 'border-gray-800' : 'border-gray-200')}`}>
+                            <div className="flex items-center gap-2 mb-2 cursor-pointer select-none" onClick={() => toggleField('board')}>
+                                {enabledFields.board ? <FaCheckSquare className="text-cyan-500" /> : <FaSquare className="text-gray-500" />}
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-750'}`}>Enable Board</span>
+                            </div>
+                            <label className={labelClasses(enabledFields.board)}>Affiliation Board</label>
+                            <select
+                                name="board"
+                                disabled={!enabledFields.board}
+                                value={formData.board}
+                                onChange={handleChange}
+                                className={selectClasses(enabledFields.board)}
+                            >
+                                <option value="">Select Board</option>
+                                {boards.map(b => (
+                                    <option key={b._id} value={b.boardCourse}>{b.boardCourse.toUpperCase()}</option>
                                 ))}
                             </select>
                         </div>
