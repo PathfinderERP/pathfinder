@@ -202,6 +202,7 @@ const PNTSEAllStudentsContent = () => {
             city: student.city || '',
             state: student.state || '',
             pincode: student.pincode || '',
+            examDate: student.examDate || '',
             remarks: student.remarks || '',
             status: student.status || '',
             score: student.score || 0,
@@ -1277,6 +1278,15 @@ const PNTSEAllStudentsContent = () => {
                                             value={editForm.school}
                                             onChange={e => setEditForm(p => ({ ...p, school: e.target.value }))}
                                             className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-400 font-semibold">Exam Date</label>
+                                        <input
+                                            type="date"
+                                            value={editForm.examDate ? editForm.examDate.split('T')[0] : ''}
+                                            onChange={e => setEditForm(p => ({ ...p, examDate: e.target.value }))}
+                                            className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer"
                                         />
                                     </div>
                                 </div>

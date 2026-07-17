@@ -91,6 +91,30 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
     const studentClass = student.class?.name || student.class || '';
     const romanClass = getRomanClass(studentClass);
     const centreName = student.centre?.centreName || student.centre?.enterCode || student.centre || '';
+
+    // Parse examDate if exists
+    let examDay = ['D', 'D'];
+    let examMonth = ['M', 'M'];
+    let examYear = ['Y', 'Y', 'Y', 'Y'];
+    let isExamDatePopulated = false;
+
+    if (student.examDate) {
+        try {
+            const dateObj = new Date(student.examDate);
+            if (!isNaN(dateObj.getTime())) {
+                const dayStr = String(dateObj.getDate()).padStart(2, '0');
+                const monthStr = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const yearStr = String(dateObj.getFullYear());
+
+                examDay = dayStr.split('');
+                examMonth = monthStr.split('');
+                examYear = yearStr.split('');
+                isExamDatePopulated = true;
+            }
+        } catch (e) {
+            console.error("Error parsing exam date:", e);
+        }
+    }
     
     // Attempt to pad roll number or use empty boxes if none
     const rollBoxes = Array(7).fill('');
@@ -200,15 +224,42 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                                             </div>
                                         </div>
 
-                                        {/* Row 2: Exam Date */}
-                                        <div className="flex gap-4 items-center">
-                                            <span className="font-bold text-sm w-32">Examination Date:</span>
-                                            <div className="flex gap-1">
-                                                <div className="flex"><div className="w-8 h-8 border border-black text-center text-gray-400 flex items-center justify-center font-bold">D</div><div className="w-8 h-8 border border-black border-l-0 text-center text-gray-400 flex items-center justify-center font-bold">D</div></div>
-                                                <div className="flex"><div className="w-8 h-8 border border-black text-center text-gray-400 flex items-center justify-center font-bold">M</div><div className="w-8 h-8 border border-black border-l-0 text-center text-gray-400 flex items-center justify-center font-bold">M</div></div>
-                                                <div className="flex"><div className="w-8 h-8 border border-black text-center text-gray-400 flex items-center justify-center font-bold">Y</div><div className="w-8 h-8 border border-black border-l-0 text-center text-gray-400 flex items-center justify-center font-bold">Y</div><div className="w-8 h-8 border border-black border-l-0 text-center text-gray-400 flex items-center justify-center font-bold">Y</div><div className="w-8 h-8 border border-black border-l-0 text-center text-gray-400 flex items-center justify-center font-bold">Y</div></div>
-                                            </div>
-                                        </div>
+                                         {/* Row 2: Exam Date */}
+                                         <div className="flex gap-4 items-center">
+                                             <span className="font-bold text-sm w-32">Examination Date:</span>
+                                             <div className="flex gap-1">
+                                                 <div className="flex">
+                                                     <div className={`w-8 h-8 border border-black text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examDay[0]}
+                                                     </div>
+                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examDay[1]}
+                                                     </div>
+                                                 </div>
+                                                 <div className="flex">
+                                                     <div className={`w-8 h-8 border border-black text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examMonth[0]}
+                                                     </div>
+                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examMonth[1]}
+                                                     </div>
+                                                 </div>
+                                                 <div className="flex">
+                                                     <div className={`w-8 h-8 border border-black text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examYear[0]}
+                                                     </div>
+                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examYear[1]}
+                                                     </div>
+                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examYear[2]}
+                                                     </div>
+                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                         {examYear[3]}
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         </div>
 
                                         {/* Row 3: Class */}
                                         <div className="flex gap-4 items-center">
