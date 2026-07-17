@@ -110,23 +110,30 @@ const CourseTarget = () => {
         return weeks;
     };
 
+    const formatDateLocal = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
     // Compute date range from current filter settings for the admissions API
     const getDateRange = () => {
         const mIdx = monthNames.indexOf(selectedMonth);
         if (viewMode === "CUSTOM") {
             return { startDate: customStartDate, endDate: customEndDate };
         } else if (viewMode === "MONTHLY") {
-            const s = new Date(selectedYear, mIdx, 1).toISOString().split('T')[0];
-            const e = new Date(selectedYear, mIdx + 1, 0).toISOString().split('T')[0];
-            return { startDate: s, endDate: e };
+            const s = new Date(selectedYear, mIdx, 1);
+            const e = new Date(selectedYear, mIdx + 1, 0);
+            return { startDate: formatDateLocal(s), endDate: formatDateLocal(e) };
         } else if (viewMode === "WEEKLY") {
             const weeks = getWeeksForMonth(selectedYear, selectedMonth);
             const currentWeekRange = weeks.find(w => w.weekNumber === selectedWeek) || weeks[0];
             const startDay = currentWeekRange ? currentWeekRange.startDay : 1;
             const endDay = currentWeekRange ? currentWeekRange.endDay : 7;
-            const s = new Date(selectedYear, mIdx, startDay).toISOString().split('T')[0];
-            const e = new Date(selectedYear, mIdx, endDay).toISOString().split('T')[0];
-            return { startDate: s, endDate: e };
+            const s = new Date(selectedYear, mIdx, startDay);
+            const e = new Date(selectedYear, mIdx, endDay);
+            return { startDate: formatDateLocal(s), endDate: formatDateLocal(e) };
         } else if (viewMode === "QUARTERLY") {
             const qMap = {
                 Q1: { s: [selectedYear, 3, 1], e: [selectedYear, 5, 30] },
@@ -136,13 +143,13 @@ const CourseTarget = () => {
             };
             const q = qMap[selectedQuarter];
             return {
-                startDate: new Date(...q.s).toISOString().split('T')[0],
-                endDate: new Date(...q.e).toISOString().split('T')[0]
+                startDate: formatDateLocal(new Date(...q.s)),
+                endDate: formatDateLocal(new Date(...q.e))
             };
         } else { // YEARLY
             return {
-                startDate: new Date(selectedYear, 3, 1).toISOString().split('T')[0],
-                endDate: new Date(parseInt(selectedYear) + 1, 2, 31).toISOString().split('T')[0]
+                startDate: formatDateLocal(new Date(selectedYear, 3, 1)),
+                endDate: formatDateLocal(new Date(parseInt(selectedYear) + 1, 2, 31))
             };
         }
     };
@@ -1349,7 +1356,7 @@ const CourseTarget = () => {
                                     <h3 className={`text-base font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Student Admissions</h3>
                                     <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mt-0.5">
                                         {studentModalData.centreName} · {studentModalData.deptName}
-                                        {studentModalData.tagName !== "All" && ` · ${studentModalData.tagName}`}
+                                        {studentModalData.tagName && studentModalData.tagName !== "All" && ` · ${studentModalData.tagName}`}
                                     </p>
                                 </div>
                                 <button
