@@ -115,7 +115,20 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
             console.error("Error parsing exam date:", e);
         }
     }
-    
+    const formatReportingTime = (timeStr) => {
+        if (!timeStr) return '';
+        const parts = timeStr.split(':');
+        if (parts.length >= 2) {
+            let hours = parseInt(parts[0], 10);
+            const minutes = parts[1];
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // the hour '0' should be '12'
+            return `${hours}:${minutes} ${ampm}`;
+        }
+        return timeStr;
+    };
+
     // Attempt to pad roll number or use empty boxes if none
     const rollBoxes = Array(7).fill('');
     if (student.rollNo) {
@@ -284,7 +297,7 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                                             <div className="flex gap-4">
                                                 <div className="flex items-end gap-2 flex-1">
                                                     <span className="font-bold text-sm whitespace-nowrap">Reporting Time:</span>
-                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{student.reportingTime || ''}</div>
+                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{formatReportingTime(student.reportingTime)}</div>
                                                 </div>
                                                 <div className="flex items-end gap-2 flex-1">
                                                     <span className="font-bold text-sm whitespace-nowrap">Time Slot:</span>

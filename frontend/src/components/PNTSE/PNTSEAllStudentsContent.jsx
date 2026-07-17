@@ -10,6 +10,20 @@ import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
 import PNTSEBulkImportModal from './PNTSEBulkImportModal';
 
+const formatReportingTime = (timeStr) => {
+    if (!timeStr) return '—';
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+        let hours = parseInt(parts[0], 10);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        return `${hours}:${minutes} ${ampm}`;
+    }
+    return timeStr;
+};
+
 const PNTSEAllStudentsContent = () => {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -203,6 +217,9 @@ const PNTSEAllStudentsContent = () => {
             state: student.state || '',
             pincode: student.pincode || '',
             examDate: student.examDate || '',
+            examVenue: student.examVenue || '',
+            reportingTime: student.reportingTime || '',
+            timeSlot: student.timeSlot || '',
             remarks: student.remarks || '',
             status: student.status || '',
             score: student.score || 0,
@@ -1021,6 +1038,22 @@ const PNTSEAllStudentsContent = () => {
                                         <p className="text-[10px] text-gray-400 uppercase font-semibold">School Name</p>
                                         <p className="text-sm text-gray-200 mt-0.5 truncate">{viewStudent.school || '—'}</p>
                                     </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Exam Date</p>
+                                        <p className="text-sm text-gray-200 mt-0.5">{viewStudent.examDate ? new Date(viewStudent.examDate).toLocaleDateString() : '—'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Exam Venue</p>
+                                        <p className="text-sm text-gray-200 mt-0.5 truncate">{viewStudent.examVenue || '—'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Reporting Time</p>
+                                        <p className="text-sm text-gray-200 mt-0.5">{formatReportingTime(viewStudent.reportingTime)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Time Slot</p>
+                                        <p className="text-sm text-gray-200 mt-0.5 truncate">{viewStudent.timeSlot || '—'}</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1287,6 +1320,35 @@ const PNTSEAllStudentsContent = () => {
                                             value={editForm.examDate ? editForm.examDate.split('T')[0] : ''}
                                             onChange={e => setEditForm(p => ({ ...p, examDate: e.target.value }))}
                                             className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-400 font-semibold">Exam Venue</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.examVenue}
+                                            onChange={e => setEditForm(p => ({ ...p, examVenue: e.target.value }))}
+                                            placeholder="e.g. Pathfinder Park Street"
+                                            className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-400 font-semibold">Reporting Time</label>
+                                        <input
+                                            type="time"
+                                            value={editForm.reportingTime}
+                                            onChange={e => setEditForm(p => ({ ...p, reportingTime: e.target.value }))}
+                                            className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-400 font-semibold">Time Slot</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.timeSlot}
+                                            onChange={e => setEditForm(p => ({ ...p, timeSlot: e.target.value }))}
+                                            placeholder="e.g. 10:00 AM - 01:00 PM"
+                                            className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
                                         />
                                     </div>
                                 </div>

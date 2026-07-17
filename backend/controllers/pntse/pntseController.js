@@ -521,10 +521,10 @@ export const downloadTemplate = async (req, res) => {
                 "Email": "",
                 "DOB (YYYY-MM-DD)": "2011-08-20",
                 "Gender": "Female",
-                "Class Name* (e.g. 7)": "7",
+                "Class Name* (e.g. 6)": "7",
                 "Centre Name* (exact)": "DUMDUM",
                 "Session Name* (e.g. 2025-2026)": "2025-2026",
-                "ExamTag Name* (e.g. PNTSE 7)": "PNTSE 7",
+                "ExamTag Name* (e.g. PNTSE 6)": "PNTSE 7",
                 "Course* (e.g. PNTSE CLASS 6)": "PNTSE CLASS 7",
                 "School": "XYZ School",
                 "Guardian Name": "Suresh Verma",
@@ -590,25 +590,30 @@ export const importExcel = async (req, res) => {
             const rowNum = i + 2; // Excel row number (header is row 1)
 
             try {
-                const name = String(row["Name*"] ?? "").trim();
-                const mobile = String(row["Mobile*"] ?? "").trim();
-                const email = String(row["Email"] ?? "").trim() || undefined;
-                const dob = String(row["DOB (YYYY-MM-DD)"] ?? "").trim() || undefined;
-                const gender = String(row["Gender"] ?? "").trim() || undefined;
-                const className = String(row["Class Name* (e.g. 6th)"] ?? "").trim();
-                const centreName = String(row["Centre Name* (exact)"] ?? "").trim();
-                const sessionName = String(row["Session Name* (e.g. 2025-26)"] ?? "").trim();
-                const examTagName = String(row["ExamTag Name* (e.g. PNTSE)"] ?? "").trim();
-                const course = String(row["Course* (e.g. PNTSE CLASS 6)"] ?? "").trim();
-                const school = String(row["School"] ?? "").trim() || undefined;
-                const guardianName = String(row["Guardian Name"] ?? "").trim() || undefined;
-                const guardianMobile = String(row["Guardian Mobile"] ?? "").trim() || undefined;
-                const address = String(row["Address"] ?? "").trim() || undefined;
-                const city = String(row["City"] ?? "").trim() || undefined;
-                const state = String(row["State"] ?? "").trim() || undefined;
-                const pincode = String(row["Pincode"] ?? "").trim() || undefined;
-                const remarks = String(row["Remarks"] ?? "").trim() || undefined;
-                const studentId = row["studentId"] || undefined;
+                const getRowValue = (prefix) => {
+                    const foundKey = Object.keys(row).find(k => k.toLowerCase().startsWith(prefix.toLowerCase()));
+                    return foundKey ? row[foundKey] : undefined;
+                };
+
+                const name = String(getRowValue("Name*") ?? getRowValue("Name") ?? "").trim();
+                const mobile = String(getRowValue("Mobile") ?? "").trim();
+                const email = String(getRowValue("Email") ?? "").trim() || undefined;
+                const dob = String(getRowValue("DOB") ?? "").trim() || undefined;
+                const gender = String(getRowValue("Gender") ?? "").trim() || undefined;
+                const className = String(getRowValue("Class Name") ?? "").trim();
+                const centreName = String(getRowValue("Centre Name") ?? "").trim();
+                const sessionName = String(getRowValue("Session Name") ?? "").trim();
+                const examTagName = String(getRowValue("ExamTag Name") ?? "").trim();
+                const course = String(getRowValue("Course") ?? "").trim();
+                const school = String(getRowValue("School") ?? "").trim() || undefined;
+                const guardianName = String(getRowValue("Guardian Name") ?? "").trim() || undefined;
+                const guardianMobile = String(getRowValue("Guardian Mobile") ?? "").trim() || undefined;
+                const address = String(getRowValue("Address") ?? "").trim() || undefined;
+                const city = String(getRowValue("City") ?? "").trim() || undefined;
+                const state = String(getRowValue("State") ?? "").trim() || undefined;
+                const pincode = String(getRowValue("Pincode") ?? "").trim() || undefined;
+                const remarks = String(getRowValue("Remarks") ?? "").trim() || undefined;
+                const studentId = getRowValue("studentId") || undefined;
 
                 // Validate required
                 if (!name || !mobile || !className || !centreName || !sessionName || !examTagName || !course) {
