@@ -749,11 +749,17 @@ const BoardAdmissionsContent = () => {
                 const response = await fetch(`${apiUrl}/centre`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                const centres = response.ok ? await response.json() : [];
-                setAllowedCentres(centres.map(c => c.centreName).sort((a, b) => a.localeCompare(b)));
+                const allCentres = response.ok ? await response.json() : [];
+                const activeCentres = allCentres.filter(c =>
+                    c.status !== "deactive" && c.status !== "inactive" && c.status !== "Inactive"
+                );
+                setAllowedCentres(activeCentres.map(c => c.centreName).sort((a, b) => a.localeCompare(b)));
             } else {
                 const userCentres = currentUser.centres || [];
-                const userCentreNames = userCentres.map(c => c.centreName || c.name || c).filter(Boolean);
+                const activeUserCentres = userCentres.filter(c =>
+                    c.status !== "deactive" && c.status !== "inactive" && c.status !== "Inactive"
+                );
+                const userCentreNames = activeUserCentres.map(c => c.centreName || c.name || c).filter(Boolean);
                 setAllowedCentres(userCentreNames.sort((a, b) => a.localeCompare(b)));
             }
         } catch (error) {
@@ -841,11 +847,11 @@ const BoardAdmissionsContent = () => {
             const studentCentre = s.studentsDetails?.[0]?.centre;
             return allowedCentres.includes(studentCentre);
         })
-        : (activeTab === "Enrolled" || activeTab === "Deactivated")
+        : (activeTab === "Enrolled" || activeTab === "Deactivated" || activeTab === "Report")
             ? boardAdmissions.filter(ba => {
                 if (isSuperAdmin) return true;
                 if (allowedCentres.length === 0) return false;
-                const studentCentre = ba.studentId?.studentsDetails?.[0]?.centre;
+                const studentCentre = ba.studentId?.studentsDetails?.[0]?.centre || ba.centre;
                 return allowedCentres.includes(studentCentre);
             })
             : counselledStudents.filter(cs => {
@@ -880,7 +886,7 @@ const BoardAdmissionsContent = () => {
                 return allowedCentres.includes(studentCentre);
             });
 
-    const uniqueCentres = [...new Set(visibleStudents.map(s => (activeTab === "Potential" ? s : s.studentId)?.studentsDetails?.[0]?.centre).filter(Boolean))];
+    const uniqueCentres = allowedCentres;
     const uniqueBoards = [...new Set(students.map(s => s.studentsDetails?.[0]?.board).filter(Boolean))];
     const uniqueLeadBy = [...new Set(boardAdmissions.map(item => {
         const student = item.studentId;
