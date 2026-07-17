@@ -180,6 +180,22 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
     /* ─── Upload to backend ──────────────────────────────────── */
     const handleUpload = async () => {
         if (!parsedRows.length) return;
+
+        const phoneRegex = /^[6-9]\d{9}$/;
+        for (let i = 0; i < parsedRows.length; i++) {
+            const row = parsedRows[i];
+            const primaryPhone = row.phoneNumber ? String(row.phoneNumber).trim() : "";
+            if (!primaryPhone || !phoneRegex.test(primaryPhone)) {
+                toast.error("enter the correct phone number");
+                return;
+            }
+            const secPhone = row.secondPhoneNumber ? String(row.secondPhoneNumber).trim() : "";
+            if (secPhone && secPhone !== "0" && secPhone !== "0.0" && !phoneRegex.test(secPhone)) {
+                toast.error("enter the correct phone number");
+                return;
+            }
+        }
+
         setStep("uploading");
         try {
             const token = localStorage.getItem("token");

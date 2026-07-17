@@ -151,8 +151,8 @@ const BulkUpdateStudentModal = ({
                                 onChange={handleChange}
                                 className={selectClasses(enabledFields.academicSession)}
                             >
-                                <option value="">Select Session</option>
-                                {sessions.map(sess => (
+                                <option value="">-- SELECT SESSION --</option>
+                                {sessions.filter(sess => sess.isGlobalActive).map(sess => (
                                     <option key={sess._id} value={sess.sessionName}>{sess.sessionName}</option>
                                 ))}
                             </select>

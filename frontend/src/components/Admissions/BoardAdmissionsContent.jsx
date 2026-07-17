@@ -64,6 +64,7 @@ const BoardAdmissionsContent = () => {
     const [enrolledLoading, setEnrolledLoading] = useState(false);
     const [counsellingLoading, setCounsellingLoading] = useState(false);
     const [boards, setBoards] = useState([]);
+    const [sessions, setSessions] = useState([]);
     const [showCounsellingModal, setShowCounsellingModal] = useState(false);
     const [editingCounsellingId, setEditingCounsellingId] = useState(null);
     // Duplicate contact check state
@@ -96,7 +97,8 @@ const BoardAdmissionsContent = () => {
         selectedSubjectIds: [],
         remarks: "",
         department: "",
-        counselledBy: ""
+        counselledBy: "",
+        academicSession: ""
     });
 
     const [counselledByOptions, setCounselledByOptions] = useState([]);
@@ -111,6 +113,19 @@ const BoardAdmissionsContent = () => {
         "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
         "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
     ];
+
+    const fetchSessions = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/session/list`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) setSessions(data);
+        } catch (error) {
+            console.error("Error fetching sessions:", error);
+        }
+    };
 
     const fetchExamTags = async () => {
         try {
@@ -305,7 +320,8 @@ const BoardAdmissionsContent = () => {
                 examName: leadData.examName || leadData.course?.courseName || "",
                 boardId: leadData.board?._id || "",
                 selectedSubjectIds: [],
-                remarks: leadData.remarks || ""
+                remarks: leadData.remarks || "",
+                academicSession: leadData.academicSession || leadData.session || ""
             });
             setShowCounsellingModal(true);
 
@@ -521,6 +537,7 @@ const BoardAdmissionsContent = () => {
         fetchBoardAdmissions();
         fetchCounselledStudents();
         fetchBoards();
+        fetchSessions();
         fetchBoardCourseSubjects();
         fetchExamTags();
         fetchClasses();
@@ -548,6 +565,7 @@ const BoardAdmissionsContent = () => {
         fetchStudents();
         fetchDepartments();
         fetchBoards();
+        fetchSessions();
         fetchExamTags();
         fetchClasses();
         fetchBoardCourseSubjects();
@@ -736,7 +754,18 @@ const BoardAdmissionsContent = () => {
                 const departmentName = cs.department?.departmentName || cs.studentId?.department?.departmentName || "";
                 const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
 
-                return matchesSearch && matchesCentre && matchesClass && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment;
+                // Board Filter
+                const matchesBoard = filterBoard.length === 0 || filterBoard.includes(boardName);
+
+                // Programme Filter
+                const matchesProgramme = filterProgramme.length === 0 || filterProgramme.includes(cs.programme);
+
+                // Date Filter
+                const itemDate = new Date(cs.counselledDate || cs.createdAt);
+                const matchesStartDate = !startDate || itemDate >= new Date(startDate);
+                const matchesEndDate = !endDate || itemDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999));
+
+                return matchesSearch && matchesCentre && matchesClass && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment && matchesBoard && matchesProgramme && matchesStartDate && matchesEndDate;
             });
 
     const totalStudents = filteredStudents.length;
@@ -795,6 +824,7 @@ const BoardAdmissionsContent = () => {
     }, [counsellingForm.studentEmail, counsellingForm.studentId]);
 
     const handleOpenNewCounselling = () => {
+        const activeSession = sessions.find(s => s.isGlobalActive);
         setCounsellingForm({
             studentId: "",
             studentName: "",
@@ -822,7 +852,8 @@ const BoardAdmissionsContent = () => {
             boardId: "",
             selectedSubjectIds: [],
             remarks: "",
-            department: ""
+            department: "",
+            academicSession: activeSession ? activeSession.sessionName : ""
         });
         setEditingCounsellingId(null);
         setMobileCheck({ checking: false, taken: false, name: "" });
@@ -863,7 +894,8 @@ const BoardAdmissionsContent = () => {
             boardId: item.boardId?._id || "",
             selectedSubjectIds: item.selectedSubjects?.map(s => s.subjectId?._id || s.subjectId).filter(Boolean) || [],
             remarks: item.remarks || "",
-            department: item.department?._id || item.department || ""
+            department: item.department?._id || item.department || "",
+            academicSession: item.academicSession || ""
         });
         setShowCounsellingModal(true);
     };
@@ -901,7 +933,8 @@ const BoardAdmissionsContent = () => {
             selectedSubjectIds: [],
             remarks: "",
             department: student.department?._id || student.department || "",
-            counselledBy: student.counselledBy?._id || student.counselledBy || ""
+            counselledBy: student.counselledBy?._id || student.counselledBy || "",
+            academicSession: sessionExam.session || sessions.find(s => s.isGlobalActive)?.sessionName || ""
         });
         setShowCounsellingModal(true);
     };
@@ -912,7 +945,7 @@ const BoardAdmissionsContent = () => {
             centre, programme, board, state, schoolName, pincode, address,
             guardianName, guardianMobile, guardianEmail, occupation,
             lastClass, examStatus, markAggregate, scienceMathPercent, examName,
-            boardId, selectedSubjectIds, remarks, department, counselledBy
+            boardId, selectedSubjectIds, remarks, department, counselledBy, academicSession
         } = counsellingForm;
 
         if (!studentId && (!studentName || !mobileNum || !centre)) {
@@ -954,7 +987,7 @@ const BoardAdmissionsContent = () => {
                     centre, programme, board, state, schoolName, pincode, address,
                     guardianName, guardianMobile, guardianEmail, occupation,
                     lastClass, examStatus, markAggregate, scienceMathPercent, examName,
-                    boardId, selectedSubjectIds, remarks, department, counselledBy
+                    boardId, selectedSubjectIds, remarks, department, counselledBy, academicSession
                 })
             });
 
@@ -2102,6 +2135,22 @@ const BoardAdmissionsContent = () => {
                                                 ))}
                                             </select>
                                         </div>
+                                        <div>
+                                            <label className="block text-[9px] font-black uppercase tracking-widest text-cyan-600 mb-1.5">Academic Session *</label>
+                                            <select
+                                                required
+                                                className={`w-full p-2.5 rounded-[4px] border text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                                value={counsellingForm.academicSession || ""}
+                                                onChange={(e) => setCounsellingForm({ ...counsellingForm, academicSession: e.target.value })}
+                                            >
+                                                <option value="">CHOOSE SESSION...</option>
+                                                {sessions.filter(s => s.isGlobalActive).map(s => (
+                                                    <option key={s._id} value={s.sessionName}>
+                                                        {s.sessionName.toUpperCase()}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
 
                                     <div className="lg:col-span-1">
@@ -2194,6 +2243,7 @@ const BoardAdmissionsContent = () => {
                         fetchBoardAdmissions();
                         fetchCounselledStudents();
                     }}
+                    sessions={sessions}
                     allowedCentres={allowedCentres}
                     classes={classes}
                     departments={departments}

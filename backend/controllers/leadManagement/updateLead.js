@@ -5,6 +5,23 @@ export const updateLead = async (req, res) => {
         const { id } = req.params;
         const updateData = { ...req.body };
 
+        const phoneRegex = /^[6-9]\d{9}$/;
+        if (updateData.phoneNumber !== undefined) {
+            const phoneStr = String(updateData.phoneNumber).trim();
+            if (!phoneStr || !phoneRegex.test(phoneStr)) {
+                return res.status(400).json({ message: "enter the correct phone number" });
+            }
+        }
+
+        if (updateData.secondPhoneNumber !== undefined && updateData.secondPhoneNumber !== null) {
+            const secondPhoneStr = String(updateData.secondPhoneNumber).trim();
+            if (secondPhoneStr === "" || secondPhoneStr === "0" || secondPhoneStr === "0.0") {
+                updateData.secondPhoneNumber = "";
+            } else if (!phoneRegex.test(secondPhoneStr)) {
+                return res.status(400).json({ message: "enter the correct phone number" });
+            }
+        }
+
         // Handle empty strings for ObjectId fields
         if (!updateData.className) delete updateData.className;
         if (!updateData.centre) delete updateData.centre;

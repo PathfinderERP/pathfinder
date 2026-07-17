@@ -37,6 +37,10 @@ const boardCourseCounsellingSchema = new mongoose.Schema({
         ref: "Department",
         required: true
     },
+    academicSession: {
+        type: String,
+        required: false
+    },
     programme: {
         type: String,
         enum: ['CRP', 'NCRP']

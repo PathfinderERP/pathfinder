@@ -7,6 +7,7 @@ const BulkUpdateBoardModal = ({
     activeTab,
     onClose,
     onSuccess,
+    sessions = [],
     allowedCentres,
     classes,
     departments,
@@ -186,15 +187,20 @@ const BulkUpdateBoardModal = ({
                                 <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-750'}`}>Enable Session</span>
                             </div>
                             <label className={labelClasses(enabledFields.academicSession)}>Academic Session</label>
-                            <input
-                                type="text"
+                            <select
                                 name="academicSession"
                                 disabled={!enabledFields.academicSession}
                                 value={formData.academicSession}
                                 onChange={handleChange}
-                                placeholder="E.G. 2026-2027"
                                 className={selectClasses(enabledFields.academicSession)}
-                            />
+                            >
+                                <option value="">-- SELECT SESSION --</option>
+                                {sessions.filter(s => s.isGlobalActive).map(s => (
+                                    <option key={s._id} value={s.sessionName}>
+                                        {s.sessionName.toUpperCase()}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Centre */}

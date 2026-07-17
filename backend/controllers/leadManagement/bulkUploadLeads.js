@@ -106,7 +106,7 @@ export const bulkUploadLeads = async (req, res) => {
                 name:               (row.name || "").trim(),
                 email:              row.email || "",
                 phoneNumber:        row.phoneNumber ? String(row.phoneNumber).trim() : "",
-                secondPhoneNumber:  row.secondPhoneNumber ? String(row.secondPhoneNumber).trim() : "",
+                secondPhoneNumber:  row.secondPhoneNumber && String(row.secondPhoneNumber).trim() !== "0" && String(row.secondPhoneNumber).trim() !== "0.0" ? String(row.secondPhoneNumber).trim() : "",
                 schoolName:         row.schoolName || "",
                 targetExam:         row.targetExam || "",
                 leadResponsibility: resolvedResponsibility,
@@ -242,6 +242,27 @@ export const bulkUploadLeads = async (req, res) => {
             }
 
             const p = row.phoneNumber;
+            const phoneRegex = /^[6-9]\d{9}$/;
+            if (!p || !phoneRegex.test(p)) {
+                skippedDetails.push({
+                    row: originalRowIndex,
+                    name: row.name,
+                    reason: "enter the correct phone number"
+                });
+                skipped++;
+                continue;
+            }
+
+            if (row.secondPhoneNumber && !phoneRegex.test(row.secondPhoneNumber)) {
+                skippedDetails.push({
+                    row: originalRowIndex,
+                    name: row.name,
+                    reason: "enter the correct phone number"
+                });
+                skipped++;
+                continue;
+            }
+
             let isDuplicate = false;
             let duplicateReason = "";
 
@@ -271,6 +292,13 @@ export const bulkUploadLeads = async (req, res) => {
         }
 
         if (valid.length === 0) {
+            const phoneErrors = skippedDetails.filter(d => d.reason === "enter the correct phone number");
+            if (phoneErrors.length > 0) {
+                return res.status(400).json({
+                    message: "enter the correct phone number",
+                    skippedDetails
+                });
+            }
             return res.status(400).json({
                 message: "All rows were skipped because they are missing required fields or contain duplicate phone numbers.",
                 skippedDetails

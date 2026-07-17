@@ -1518,41 +1518,38 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
                 if (record.studentId) {
                     const student = await Student.findById(record.studentId);
                     if (student) {
+                        const studentUpdates = {};
                         let studentModified = false;
                         if (cleanUpdateData.centre !== undefined && student.studentsDetails?.[0]) {
-                            student.studentsDetails[0].centre = cleanUpdateData.centre;
-                            student.markModified('studentsDetails');
+                            studentUpdates["studentsDetails.0.centre"] = cleanUpdateData.centre;
                             studentModified = true;
                         }
                         if (cleanUpdateData.department !== undefined) {
-                            student.department = cleanUpdateData.department;
+                            studentUpdates.department = cleanUpdateData.department;
                             studentModified = true;
                         }
                         if (cleanUpdateData.counselledBy !== undefined) {
-                            student.counselledBy = cleanUpdateData.counselledBy;
+                            studentUpdates.counselledBy = cleanUpdateData.counselledBy;
                             studentModified = true;
                         }
                         if (cleanUpdateData.lastClass !== undefined && student.examSchema?.[0]) {
-                            student.examSchema[0].class = cleanUpdateData.lastClass;
-                            student.markModified('examSchema');
+                            studentUpdates["examSchema.0.class"] = cleanUpdateData.lastClass;
                             studentModified = true;
                         }
                         if (examTagName && student.sessionExamCourse?.[0]) {
-                            student.sessionExamCourse[0].examTag = examTagName;
-                            student.markModified('sessionExamCourse');
+                            studentUpdates["sessionExamCourse.0.examTag"] = examTagName;
                             studentModified = true;
                         }
                         if (studentModified) {
-                            student.updatedBy = req.user?.name || "System";
-                            student.updatedByUserId = req.user?._id;
-                            await student.save();
+                            studentUpdates.updatedBy = req.user?.name || "System";
+                            studentUpdates.updatedByUserId = req.user?._id;
+                            await Student.findByIdAndUpdate(record.studentId, { $set: studentUpdates });
                         }
                     }
                 }
 
                 if (Object.keys(counsellingUpdates).length > 0) {
-                    Object.assign(record, counsellingUpdates);
-                    await record.save();
+                    await BoardCourseCounselling.findByIdAndUpdate(id, { $set: counsellingUpdates });
                 }
                 modifiedCount++;
             }
@@ -1585,41 +1582,38 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
                 if (record.studentId) {
                     const student = await Student.findById(record.studentId);
                     if (student) {
+                        const studentUpdates = {};
                         let studentModified = false;
                         if (cleanUpdateData.centre !== undefined && student.studentsDetails?.[0]) {
-                            student.studentsDetails[0].centre = cleanUpdateData.centre;
-                            student.markModified('studentsDetails');
+                            studentUpdates["studentsDetails.0.centre"] = cleanUpdateData.centre;
                             studentModified = true;
                         }
                         if (cleanUpdateData.department !== undefined) {
-                            student.department = cleanUpdateData.department;
+                            studentUpdates.department = cleanUpdateData.department;
                             studentModified = true;
                         }
                         if (cleanUpdateData.counselledBy !== undefined) {
-                            student.counselledBy = cleanUpdateData.counselledBy;
+                            studentUpdates.counselledBy = cleanUpdateData.counselledBy;
                             studentModified = true;
                         }
                         if (cleanUpdateData.lastClass !== undefined && student.examSchema?.[0]) {
-                            student.examSchema[0].class = cleanUpdateData.lastClass;
-                            student.markModified('examSchema');
+                            studentUpdates["examSchema.0.class"] = cleanUpdateData.lastClass;
                             studentModified = true;
                         }
                         if (examTagName && student.sessionExamCourse?.[0]) {
-                            student.sessionExamCourse[0].examTag = examTagName;
-                            student.markModified('sessionExamCourse');
+                            studentUpdates["sessionExamCourse.0.examTag"] = examTagName;
                             studentModified = true;
                         }
                         if (studentModified) {
-                            student.updatedBy = req.user?.name || "System";
-                            student.updatedByUserId = req.user?._id;
-                            await student.save();
+                            studentUpdates.updatedBy = req.user?.name || "System";
+                            studentUpdates.updatedByUserId = req.user?._id;
+                            await Student.findByIdAndUpdate(record.studentId, { $set: studentUpdates });
                         }
                     }
                 }
 
                 if (Object.keys(admissionUpdates).length > 0) {
-                    Object.assign(record, admissionUpdates);
-                    await record.save();
+                    await BoardCourseAdmission.findByIdAndUpdate(id, { $set: admissionUpdates });
                 }
                 modifiedCount++;
             }

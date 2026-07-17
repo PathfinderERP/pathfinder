@@ -37,10 +37,19 @@ export const createLead = async (req, res) => {
 
         // Phone number duplication check
         const phoneStr = phoneNumber !== undefined && phoneNumber !== null ? String(phoneNumber).trim() : "";
-        const secondPhoneStr = secondPhoneNumber !== undefined && secondPhoneNumber !== null ? String(secondPhoneNumber).trim() : "";
+        const secondPhoneStr = secondPhoneNumber !== undefined && secondPhoneNumber !== null && String(secondPhoneNumber).trim() !== "0" && String(secondPhoneNumber).trim() !== "0.0" ? String(secondPhoneNumber).trim() : "";
 
         if (phoneStr && secondPhoneStr && phoneStr === secondPhoneStr) {
             return res.status(400).json({ message: "Primary and Secondary phone numbers cannot be the same." });
+        }
+
+        const phoneRegex = /^[6-9]\d{9}$/;
+        if (!phoneStr || !phoneRegex.test(phoneStr)) {
+            return res.status(400).json({ message: "enter the correct phone number" });
+        }
+
+        if (secondPhoneStr !== "" && !phoneRegex.test(secondPhoneStr)) {
+            return res.status(400).json({ message: "enter the correct phone number" });
         }
 
         const checkPhoneNumber = async (phone) => {

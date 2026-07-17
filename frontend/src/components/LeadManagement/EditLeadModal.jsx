@@ -184,6 +184,18 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const phoneRegex = /^[6-9]\d{9}$/;
+        if (!formData.phoneNumber || !phoneRegex.test(formData.phoneNumber.trim())) {
+            toast.error("enter the correct phone number");
+            return;
+        }
+
+        if (formData.secondPhoneNumber && formData.secondPhoneNumber.trim() !== "" && formData.secondPhoneNumber.trim() !== "0" && formData.secondPhoneNumber.trim() !== "0.0" && !phoneRegex.test(formData.secondPhoneNumber.trim())) {
+            toast.error("enter the correct phone number");
+            return;
+        }
+
         setLoading(true);
 
         try {

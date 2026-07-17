@@ -14,7 +14,8 @@ export const createBoardCourseCounselling = async (req, res) => {
             class: studentClass, examTag, programme, 
             guardianName, guardianMobile, guardianEmail, relation, occupation,
             examName, lastClass, examStatus, markAgregate, scienceMathParcent,
-            boardId, selectedSubjectIds, remarks, department, counselledBy
+            boardId, selectedSubjectIds, remarks, department, counselledBy,
+            academicSession
         } = req.body;
 
         if (!department) {
@@ -110,9 +111,9 @@ export const createBoardCourseCounselling = async (req, res) => {
                                 scienceMathParcent
                             }],
                             sessionExamCourse: [{
-                                examTag: examName || "",
-                                session: ""
-                            }],
+                                 examTag: examName || "",
+                                 session: academicSession || ""
+                             }],
                             isEnrolled: false,
                             counselledBy: req.user?._id,
                             createdBy: req.user?.name || "System",
@@ -176,7 +177,7 @@ export const createBoardCourseCounselling = async (req, res) => {
                     }],
                     sessionExamCourse: [{
                         examTag: examName || "",
-                        session: ""
+                        session: academicSession || ""
                     }],
                     isEnrolled: false,
                     counselledBy: counselledBy || req.user?._id,
@@ -199,7 +200,7 @@ export const createBoardCourseCounselling = async (req, res) => {
                 if (examName && (!student.sessionExamCourse || student.sessionExamCourse.length === 0 || !student.sessionExamCourse[0].examTag)) {
                     updateSet["sessionExamCourse"] = [{
                         examTag: examName,
-                        session: student.sessionExamCourse?.[0]?.session || "",
+                        session: academicSession || student.sessionExamCourse?.[0]?.session || "",
                         targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
                     }];
                 }
@@ -234,7 +235,8 @@ export const createBoardCourseCounselling = async (req, res) => {
             selectedSubjects: selectedSubjectIds.map(id => ({ subjectId: id })),
             remarks,
             counselledBy: counselledBy || req.user._id,
-            department
+            department,
+            academicSession
         });
 
         await counselling.save();
@@ -323,7 +325,8 @@ export const updateBoardCourseCounselling = async (req, res) => {
             dateOfBirth, gender, centre, board, state, schoolName, pincode, address,
             guardianName, guardianMobile, guardianEmail, occupation,
             programme, lastClass, examName, examStatus, markAgregate, scienceMathParcent,
-            boardId, selectedSubjectIds, remarks, department, counselledBy
+            boardId, selectedSubjectIds, remarks, department, counselledBy,
+            academicSession
         } = req.body;
 
         const counselling = await BoardCourseCounselling.findById(id);
@@ -344,6 +347,7 @@ export const updateBoardCourseCounselling = async (req, res) => {
         if (remarks !== undefined) counselling.remarks = remarks;
         if (department) counselling.department = department;
         if (counselledBy) counselling.counselledBy = counselledBy;
+        if (academicSession !== undefined) counselling.academicSession = academicSession;
         if (selectedSubjectIds) {
             counselling.selectedSubjects = selectedSubjectIds.map(subId => ({ subjectId: subId }));
         }
@@ -375,11 +379,12 @@ export const updateBoardCourseCounselling = async (req, res) => {
             if (occupation) updateSet["studentsDetails.0.occupation"] = occupation;
             if (programme) updateSet["studentsDetails.0.programme"] = programme;
             
-            if (examName) {
+            if (examName || academicSession) {
                 const studentObj = await Student.findById(counselling.studentId);
-                const currentSession = studentObj?.sessionExamCourse?.[0]?.session || "";
+                const currentTag = examName || studentObj?.sessionExamCourse?.[0]?.examTag || "";
+                const currentSession = academicSession || studentObj?.sessionExamCourse?.[0]?.session || "";
                 updateSet["sessionExamCourse"] = [{
-                    examTag: examName,
+                    examTag: currentTag,
                     session: currentSession,
                     targetExams: studentObj?.sessionExamCourse?.[0]?.targetExams || ""
                 }];

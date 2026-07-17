@@ -126,6 +126,7 @@ const BoardCourseAdmissionPage = () => {
             let fetchedProgramme = "";
             let startingClass = ""; // must be outer scope so it's accessible in all branches
             let prefilledTag = "";
+            let prefilledSession = "";
 
             if (counselRes.ok) {
                 const counselRecord = await counselRes.json();
@@ -138,6 +139,10 @@ const BoardCourseAdmissionPage = () => {
                     prefilledTag = counselRecord.examTag.name;
                 } else if (counselRecord.examTag) {
                     prefilledTag = counselRecord.examTag;
+                }
+
+                if (counselRecord.academicSession) {
+                    prefilledSession = counselRecord.academicSession;
                 }
 
                 // Pre-fill from counselling
@@ -206,12 +211,15 @@ const BoardCourseAdmissionPage = () => {
                 if (!prefilledTag) {
                     prefilledTag = studentData?.sessionExamCourse?.[0]?.examTag || "";
                 }
-                // Priority: console session > student details session > active master session
+                // Priority: counselling record session > console session > student details session > active master session
+                const sessionFromCounselling = prefilledSession;
                 const sessionFromConsole = studentData?.sessionExamCourse?.[0]?.session;
                 const sessionFromDetails = studentData?.studentsDetails?.[0]?.academicSession;
                 const activeSession = sessionsData.find(s => s.isGlobalActive)?.sessionName || "";
 
-                if (sessionFromConsole) {
+                if (sessionFromCounselling) {
+                    setAcademicSession(sessionFromCounselling);
+                } else if (sessionFromConsole) {
                     setAcademicSession(sessionFromConsole);
                 } else if (sessionFromDetails) {
                     setAcademicSession(sessionFromDetails);
@@ -229,6 +237,13 @@ const BoardCourseAdmissionPage = () => {
                     startingClass = studentData?.examSchema?.[0]?.class || studentData?.studentsDetails?.[0]?.lastClass || "";
                 }
                 setLastClass(startingClass);
+            } else {
+                const activeSession = sessionsData.find(s => s.isGlobalActive)?.sessionName || "";
+                if (prefilledSession) {
+                    setAcademicSession(prefilledSession);
+                } else if (activeSession) {
+                    setAcademicSession(activeSession);
+                }
             }
 
             if (prefilledTag) {
