@@ -1096,27 +1096,36 @@ const EnrolledStudentsContent = () => {
         setShowEditModal(true);
     };
 
-    const handleDeleteAdmission = async (admissionId) => {
-        if (!window.confirm("Are you sure you want to deactivate this course enrollment? This will deactivate the course and all its upcoming unpaid installments, removing them from active financial calculations and due lists. Already paid amounts will stay untouched.")) {
+    const handleDeleteAdmission = async (admission) => {
+        const admissionId = admission._id;
+        const isBoard = admission.admissionType === 'BOARD';
+
+        if (!window.confirm("Are you sure you want to deactivate this course enrollment? This will mark it as inactive in the enrolled students view. Already paid amounts will stay untouched.")) {
             return;
         }
 
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${apiUrl}/admission/${admissionId}`, {
+            const deleteUrl = isBoard
+                ? `${apiUrl}/board-admission/${admissionId}`
+                : `${apiUrl}/admission/${admissionId}`;
+
+            const response = await fetch(deleteUrl, {
                 method: "DELETE",
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             const data = await response.json();
             if (response.ok) {
                 toast.success("Course enrollment deactivated successfully");
 
-                // Update local modal state
                 setStudentAdmissions(prev => prev.map(ad => {
-                    if (ad._id === admissionId) {
+                    if (ad._id !== admissionId) return ad;
+
+                    if (isBoard) {
+                        // For board courses: only flip the view status — DO NOT modify financials or installments
+                        return { ...ad, admissionStatus: "INACTIVE" };
+                    } else {
                         return {
                             ...ad,
                             admissionStatus: "INACTIVE",
@@ -1130,10 +1139,8 @@ const EnrolledStudentsContent = () => {
                             })
                         };
                     }
-                    return ad;
                 }));
 
-                // Refresh main list
                 fetchAdmissions();
             } else {
                 toast.error(data.message || "Failed to deactivate enrollment");
@@ -1144,14 +1151,21 @@ const EnrolledStudentsContent = () => {
         }
     };
 
-    const handleReactivateAdmission = async (admissionId) => {
-        if (!window.confirm("Are you sure you want to reactivate this course enrollment? This will restore the course to active status and change all voided/deactivated installments back to pending, restoring all original financial calculations.")) {
+    const handleReactivateAdmission = async (admission) => {
+        const admissionId = admission._id;
+        const isBoard = admission.admissionType === 'BOARD';
+
+        if (!window.confirm("Are you sure you want to reactivate this course enrollment?")) {
             return;
         }
 
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${apiUrl}/admission/${admissionId}/reactivate`, {
+            const reactivateUrl = isBoard
+                ? `${apiUrl}/board-admission/${admissionId}/reactivate`
+                : `${apiUrl}/admission/${admissionId}/reactivate`;
+
+            const response = await fetch(reactivateUrl, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -1163,9 +1177,13 @@ const EnrolledStudentsContent = () => {
             if (response.ok) {
                 toast.success("Course enrollment reactivated successfully");
 
-                // Update local modal state
                 setStudentAdmissions(prev => prev.map(ad => {
-                    if (ad._id === admissionId) {
+                    if (ad._id !== admissionId) return ad;
+
+                    if (isBoard) {
+                        // For board courses: only flip the view status back — financials and installments unchanged
+                        return { ...ad, admissionStatus: "ACTIVE" };
+                    } else {
                         const restored = data.admission;
                         return {
                             ...ad,
@@ -1176,10 +1194,8 @@ const EnrolledStudentsContent = () => {
                             monthlySubjectHistory: restored.monthlySubjectHistory
                         };
                     }
-                    return ad;
                 }));
 
-                // Refresh main list
                 fetchAdmissions();
             } else {
                 toast.error(data.message || "Failed to reactivate enrollment");
@@ -2866,7 +2882,7 @@ const EnrolledStudentsContent = () => {
 
                                                         {canDelete && admission.admissionStatus !== 'INACTIVE' && (
                                                             <button
-                                                                onClick={() => handleDeleteAdmission(admission._id)}
+                                                                onClick={() => handleDeleteAdmission(admission)}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
                                                                 className={`p-2 rounded-[4px] transition-all shadow-sm ${selectedStudent.status === 'Deactivated'
                                                                     ? (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-300')
@@ -2879,7 +2895,7 @@ const EnrolledStudentsContent = () => {
 
                                                         {canDelete && admission.admissionStatus === 'INACTIVE' && (
                                                             <button
-                                                                onClick={() => handleReactivateAdmission(admission._id)}
+                                                                onClick={() => handleReactivateAdmission(admission)}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
                                                                 className={`p-2 rounded-[4px] transition-all shadow-sm ${selectedStudent.status === 'Deactivated'
                                                                     ? (isDarkMode ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-300')

@@ -10,6 +10,7 @@ import { generateBillId } from "../../utils/billIdGenerator.js";
 import BoardCourseSubject from "../../models/Master_data/BoardCourseSubject.js";
 import Class from "../../models/Master_data/Class.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -1634,5 +1635,120 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
     } catch (error) {
         console.error("Bulk Board Update Error:", error);
         res.status(500).json({ message: "Server error during bulk update", error: error.message });
+    }
+};
+
+export const deleteBoardAdmission = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const admission = await BoardCourseAdmission.findById(id).lean();
+
+        if (!admission) {
+            return res.status(404).json({ message: "Board admission not found" });
+        }
+
+        // Only update enrolledStudentsStatus — do NOT touch status, installments, or financials.
+        // This keeps the board course admission module fully intact.
+        await BoardCourseAdmission.findByIdAndUpdate(id, {
+            $set: { enrolledStudentsStatus: "INACTIVE" }
+        });
+
+        // Invalidate admissions list cache
+        await clearCachePattern("admissions:list:*");
+
+        if (admission.studentId) {
+            await deleteCache(`student:report:${admission.studentId}`);
+        }
+
+        res.status(200).json({ message: "Board admission deactivated in enrolled students view", admission });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+export const reactivateBoardAdmission = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const admission = await BoardCourseAdmission.findById(id).lean();
+
+        if (!admission) {
+            return res.status(404).json({ message: "Board admission not found" });
+        }
+
+        // Only restore enrolledStudentsStatus — do NOT touch status, installments, or financials.
+        await BoardCourseAdmission.findByIdAndUpdate(id, {
+            $set: { enrolledStudentsStatus: "ACTIVE" }
+        });
+
+        // Invalidate admissions list cache
+        await clearCachePattern("admissions:list:*");
+
+        if (admission.studentId) {
+            await deleteCache(`student:report:${admission.studentId}`);
+        }
+
+        res.status(200).json({ message: "Board admission reactivated in enrolled students view", admission });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+/**
+ * One-time repair: restore any board admissions that were wrongly set to
+ * status = "CANCELLED" by the old deleteBoardAdmission logic.
+ * These records now correctly use enrolledStudentsStatus = "INACTIVE" for the
+ * enrolled students view and should have their main status restored to "ACTIVE".
+ */
+export const repairCancelledBoardAdmissions = async (req, res) => {
+    try {
+        // Find all board admissions that are CANCELLED AND have enrolledStudentsStatus = INACTIVE
+        // These were wrongly cancelled by the old delete logic
+        const wronglyCancelled = await BoardCourseAdmission.find({
+            status: "CANCELLED",
+            enrolledStudentsStatus: "INACTIVE"
+        });
+
+        if (wronglyCancelled.length === 0) {
+            // Also check ones with no enrolledStudentsStatus field (old cancelled records)
+            const oldCancelled = await BoardCourseAdmission.find({ status: "CANCELLED" });
+            if (oldCancelled.length === 0) {
+                return res.status(200).json({ message: "No records need repair.", repaired: 0 });
+            }
+            // Treat all CANCELLED records as wrongly cancelled and repair them
+            wronglyCancelled.push(...oldCancelled);
+        }
+
+        let repairedCount = 0;
+        for (const admission of wronglyCancelled) {
+            // Restore DEACTIVATED installments back to PENDING
+            let restoredAmount = 0;
+            if (admission.installments) {
+                admission.installments.forEach(inst => {
+                    if (inst.status === "DEACTIVATED") {
+                        inst.status = "PENDING";
+                        restoredAmount += inst.payableAmount || 0;
+                    }
+                });
+            }
+            // Restore totalExpectedAmount
+            admission.totalExpectedAmount = parseFloat(((admission.totalPaidAmount || 0) + restoredAmount).toFixed(3));
+            // Set enrolledStudentsStatus = INACTIVE so it still shows as inactive in enrolled view
+            admission.enrolledStudentsStatus = "INACTIVE";
+            // Restore main status to ACTIVE so it appears in the board course module
+            admission.status = "ACTIVE";
+            await admission.save();
+            repairedCount++;
+        }
+
+        await clearCachePattern("admissions:list:*");
+
+        res.status(200).json({
+            message: `Repaired ${repairedCount} board admission(s). Main status restored to ACTIVE — they will now appear in the board course module. The enrolled students view still shows them as INACTIVE.`,
+            repaired: repairedCount
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
     }
 };

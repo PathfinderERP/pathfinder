@@ -142,7 +142,7 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         },
         status: {
             type: String,
-            enum: ["PENDING", "PARTIALLY_PAID", "PARTIAL", "PAID", "REJECTED"],
+            enum: ["PENDING", "PARTIALLY_PAID", "PARTIAL", "PAID", "REJECTED", "DEACTIVATED"],
             default: "PENDING"
         },
         paymentTransactions: [{
@@ -176,6 +176,13 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     },
     centre: String,
     remarks: String,
+    // This field is ONLY used by the enrolled students module to show deactivated/inactive state.
+    // The main 'status' field (and the board course admission module) remain completely unaffected.
+    enrolledStudentsStatus: {
+        type: String,
+        enum: ["ACTIVE", "INACTIVE"],
+        default: "ACTIVE"
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"

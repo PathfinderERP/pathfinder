@@ -134,7 +134,9 @@ export const getAdmissions = async (req, res) => {
             totalFees: ba.totalExpectedAmount,
             totalPaidAmount: ba.totalPaidAmount,
             paymentStatus: ba.totalPaidAmount >= ba.totalExpectedAmount ? "COMPLETED" : (ba.totalPaidAmount > 0 ? "PARTIAL" : "PENDING"),
-            admissionStatus: ba.status || "ACTIVE"
+            // Use enrolledStudentsStatus for the enrolled students view.
+            // The board course module uses ba.status directly and is NOT affected.
+            admissionStatus: ba.enrolledStudentsStatus === "INACTIVE" ? "INACTIVE" : (ba.status || "ACTIVE")
         }));
 
         // Merge both lists
