@@ -129,6 +129,18 @@ const pntseStudentSchema = new mongoose.Schema({
         type: String,
         required: false,
     },
+    examVenue: {
+        type: String,
+        required: false,
+    },
+    reportingTime: {
+        type: String,
+        required: false,
+    },
+    timeSlot: {
+        type: String,
+        required: false,
+    },
     remarks: {
         type: String,
         required: false,

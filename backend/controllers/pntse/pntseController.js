@@ -16,7 +16,7 @@ export const createPNTSEStudent = async (req, res) => {
         const {
             name, mobile, email, dob, gender, address, city, state, pincode,
             class: classId, centre: centreId, session: sessionId, examTag: examTagId,
-            course, paymentType, school, guardianName, guardianMobile, examDate, remarks, status, score, rank,
+            course, paymentType, school, guardianName, guardianMobile, examDate, examVenue, reportingTime, timeSlot, remarks, status, score, rank,
             // Payment fields (only used when paymentType === 'paid')
             paymentMethod, transactionId, accountHolderName, chequeDate, receivedDate, waiver,
             studentId, rollNo: customRollNo
@@ -170,6 +170,9 @@ export const createPNTSEStudent = async (req, res) => {
             guardianName,
             guardianMobile,
             examDate,
+            examVenue,
+            reportingTime,
+            timeSlot,
             remarks,
             status: status || 'Appeared',
             score: score || 0,

@@ -284,18 +284,18 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                                             <div className="flex gap-4">
                                                 <div className="flex items-end gap-2 flex-1">
                                                     <span className="font-bold text-sm whitespace-nowrap">Reporting Time:</span>
-                                                    <div className="border-b border-black flex-1 px-2 pb-0.5 min-w-[100px]"></div>
+                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{student.reportingTime || ''}</div>
                                                 </div>
                                                 <div className="flex items-end gap-2 flex-1">
                                                     <span className="font-bold text-sm whitespace-nowrap">Time Slot:</span>
-                                                    <div className="border-b border-black flex-1 px-2 pb-0.5 min-w-[100px]"></div>
+                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{student.timeSlot || ''}</div>
                                                 </div>
                                             </div>
 
                                             <div className="flex gap-4">
                                                 <div className="flex items-end gap-2 flex-[1.5]">
                                                     <span className="font-bold text-sm whitespace-nowrap">Exam Venue:</span>
-                                                    <div className="border-b border-black flex-1 px-2 pb-0.5 min-w-[100px]"></div>
+                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{student.examVenue || ''}</div>
                                                 </div>
                                                 <div className="flex items-end gap-2 flex-1">
                                                     <span className="font-bold text-sm whitespace-nowrap">Signature of PEC Official:</span>

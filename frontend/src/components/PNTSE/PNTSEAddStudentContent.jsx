@@ -27,6 +27,9 @@ const INITIAL_FORM = {
     state: '',
     pincode: '',
     examDate: '',
+    examVenue: '',
+    reportingTime: '',
+    timeSlot: '',
     remarks: '',
     studentId: '',
     rollNo: '',
@@ -566,6 +569,24 @@ const PNTSEAddStudentContent = () => {
                                     <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Date</label>
                                     <input type="date" name="examDate" value={form.examDate} onChange={handleChange}
                                         className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all" />
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Venue</label>
+                                    <input type="text" name="examVenue" value={form.examVenue} onChange={handleChange} placeholder="e.g. Pathfinder Park Street"
+                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all" />
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Reporting Time</label>
+                                    <input type="time" name="reportingTime" value={form.reportingTime} onChange={handleChange}
+                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all" />
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Time Slot</label>
+                                    <input type="text" name="timeSlot" value={form.timeSlot} onChange={handleChange} placeholder="e.g. 10:00 AM - 01:00 PM"
+                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all" />
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
