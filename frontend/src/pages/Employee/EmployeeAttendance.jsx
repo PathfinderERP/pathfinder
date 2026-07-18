@@ -54,6 +54,12 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
 
     const progressPercent = Math.min(100, (elapsedHours / targetHours) * 100);
 
+    // Calculate End Time
+    const startTimestamp = new Date(checkIn).getTime();
+    const expectedEndTime = new Date(startTimestamp + targetHours * 60 * 60 * 1000);
+    const expectedEndTimeStr = !isNaN(expectedEndTime.getTime()) ? format(expectedEndTime, 'hh:mm a') : '--:--';
+    const checkInTimeStr = !isNaN(startTimestamp) ? format(new Date(checkIn), 'hh:mm a') : '--:--';
+
     // Dynamic Color Logic: Red -> Yellow -> Green
     const getProgressColor = () => {
         if (remaining <= 0) return 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.6)]'; // Overtime
@@ -69,6 +75,10 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
                     <p className="text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Elapsed</p>
                     <p className="text-gray-900 dark:text-white font-black text-2xl tracking-tighter tabular-nums drop-shadow-md">{formatTime(elapsed)}</p>
                 </div>
+                <div className="text-center px-2">
+                    <p className="text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">Shift End Time</p>
+                    <p className="text-cyan-500 font-black text-sm tracking-tighter tabular-nums drop-shadow-md">{expectedEndTimeStr}</p>
+                </div>
                 <div className="text-right">
                     <p className="text-gray-500 dark:text-gray-400 text-[9px] font-black uppercase tracking-widest mb-1">{remaining <= 0 ? 'Overtime' : 'Remaining'}</p>
                     <p className={`font-black text-2xl tracking-tighter tabular-nums drop-shadow-md ${remaining <= 0 ? 'text-indigo-400 animate-pulse' : 'text-gray-600 dark:text-gray-300'}`}>{remainingTimeStr()}</p>
@@ -83,9 +93,9 @@ const ShiftTimer = ({ checkIn, targetHours }) => {
             </div>
             {/* Markers */}
             <div className="flex justify-between mt-1 px-1">
-                <span className="text-[8px] font-black uppercase text-red-500">Start</span>
+                <span className="text-[8px] font-black uppercase text-red-500">Start ({checkInTimeStr})</span>
                 <span className="text-[8px] font-black uppercase text-yellow-500">50%</span>
-                <span className="text-[8px] font-black uppercase text-emerald-500">Target</span>
+                <span className="text-[8px] font-black uppercase text-emerald-500">Target ({expectedEndTimeStr})</span>
             </div>
         </div>
     );
