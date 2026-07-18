@@ -373,6 +373,78 @@ export const getPreviousClasses = async (req, res) => {
     }
 };
 
+// Get Previous Classes Attendance
+export const getPreviousClassesAttendance = async (req, res) => {
+    try {
+        let studentId = req.params.studentId || req.user.id;
+
+        if (req.user.role === "student" && studentId.toString() !== req.user.id.toString()) {
+            return res.status(403).json({ message: "Access denied." });
+        }
+
+        const student = await Student.findById(studentId);
+        if (!student) return res.status(404).json({ success: false, message: "Student not found" });
+
+        const batchIds = student.batches || [];
+
+        const previousClasses = await ClassSchedule.find({
+            $or: [
+                { batchIds: { $in: batchIds } },
+                { batchId: { $in: batchIds } }
+            ],
+            status: "Completed"
+        })
+        .populate("subjectId", "subName")
+        .populate("acadClassId", "className")
+        .populate({
+            path: "acadSubjectId",
+            populate: { path: "masterSubjectId", select: "subName" }
+        })
+        .populate("chapterId", "chapterName")
+        .populate("topicIds", "topicName")
+        .populate("teacherId", "name email designation")
+        .sort({ date: -1, startTime: -1 });
+
+        const classIds = previousClasses.map(c => c._id);
+        const attendanceRecords = await StudentAttendance.find({
+            studentId,
+            classScheduleId: { $in: classIds }
+        });
+
+        const formatted = previousClasses.map(cls => {
+            const attendance = attendanceRecords.find(r => r.classScheduleId.toString() === cls._id.toString());
+            return {
+                _id: cls._id,
+                className: cls.className,
+                date: cls.date,
+                startTime: cls.startTime,
+                endTime: cls.endTime,
+                classMode: cls.classMode,
+                status: cls.status,
+                teacherName: cls.teacherId?.name || "N/A",
+                subjectName: cls.subjectId?.subName || "N/A",
+                academicClassName: cls.acadClassId?.className || "N/A",
+                academicSubjectName: cls.acadSubjectId?.masterSubjectId?.subName || "N/A",
+                chapterName: cls.chapterId?.chapterName || "N/A",
+                topics: cls.topicIds?.map(t => t.topicName) || [],
+                attendanceStatus: attendance ? attendance.status : "Not Marked",
+                attendanceMarkedDate: attendance ? attendance.createdAt : null
+            };
+        });
+
+        res.json({
+            success: true,
+            totalPreviousClasses: formatted.length,
+            presentCount: attendanceRecords.filter(r => r.status === "Present").length,
+            absentCount: attendanceRecords.filter(r => r.status === "Absent").length,
+            data: formatted
+        });
+    } catch (error) {
+        console.error("Get Previous Classes Attendance Error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
 // Get Attendance
 export const getAttendance = async (req, res) => {
     try {
