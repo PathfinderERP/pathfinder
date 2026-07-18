@@ -5,6 +5,7 @@ import {
     getClassDropdownData,
     startClass,
     endClass,
+    bulkEndClass,
     deleteClassSchedule,
     submitFeedback,
     markTeacherAttendance,
@@ -32,7 +33,9 @@ router.get("/export-excel", requireGranularPermission("academics", "classes", "v
 router.get("/dropdown-data", requireAuth, getClassDropdownData);
 router.put("/start/:id", requireGranularPermission("academics", "classes", "edit"), startClass);
 router.put("/end/:id", requireGranularPermission("academics", "classes", "edit"), endClass);
+router.put("/bulk-end", requireGranularPermission("academics", "classes", "edit"), bulkEndClass);
 router.delete("/delete/:id", requireGranularPermission("academics", "classes", "delete"), deleteClassSchedule);
+
 router.put("/update/:id", requireGranularPermission("academics", "classes", "edit"), updateClassSchedule);
 router.put("/feedback/:id", verifyToken, submitFeedback);
 router.put("/mark-attendance/:id", verifyToken, markTeacherAttendance);

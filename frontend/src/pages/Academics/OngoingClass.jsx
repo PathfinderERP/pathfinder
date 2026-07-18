@@ -30,6 +30,8 @@ const OngoingClass = () => {
     const [verifyingId, setVerifyingId] = useState(null);
     const [showStudentAttendance, setShowStudentAttendance] = useState(false);
     const [selectedClassId, setSelectedClassId] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectAllMatching, setSelectAllMatching] = useState(false);
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -113,6 +115,8 @@ const OngoingClass = () => {
 
     const fetchClasses = async () => {
         setLoading(true);
+        setSelectedIds(new Set());
+        setSelectAllMatching(false);
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${API_URL}/academics/class-schedule/list?${buildQuery()}`, {
@@ -217,6 +221,87 @@ const OngoingClass = () => {
         }
     };
 
+    const handleSelectRow = (id) => {
+        if (selectAllMatching) {
+            setSelectAllMatching(false);
+            const next = new Set();
+            classes.forEach(cls => {
+                if (cls._id !== id) {
+                    next.add(cls._id);
+                }
+            });
+            setSelectedIds(next);
+        } else {
+            setSelectedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) {
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
+                return next;
+            });
+        }
+    };
+
+    const handleSelectAll = () => {
+        if (classes.length === 0) return;
+        const allSelectedOnPage = classes.every(cls => selectedIds.has(cls._id));
+        if (allSelectedOnPage || selectAllMatching) {
+            setSelectedIds(new Set());
+            setSelectAllMatching(false);
+        } else {
+            setSelectedIds(new Set(classes.map(cls => cls._id)));
+        }
+    };
+
+    const handleBulkEnd = async () => {
+        if (selectedIds.size === 0 && !selectAllMatching) return;
+        
+        const count = selectAllMatching ? totalRecords : selectedIds.size;
+        if (!window.confirm(`Are you sure you want to end all ${count} ongoing classes matching the selection?`)) return;
+        
+        try {
+            const token = localStorage.getItem("token");
+            
+            const serializedFilters = {};
+            if (filters.teacherId?.length > 0) serializedFilters.teacherId = filters.teacherId.map(v => v.value).join(",");
+            if (filters.centreId?.length > 0) serializedFilters.centreId = filters.centreId.map(v => v.value).join(",");
+            if (filters.subjectId?.length > 0) serializedFilters.subjectId = filters.subjectId.map(v => v.value).join(",");
+            if (filters.classMode?.length > 0) serializedFilters.classMode = filters.classMode.map(v => v.value).join(",");
+            if (filters.batchId?.length > 0) serializedFilters.batchId = filters.batchId.map(v => v.value).join(",");
+            if (filters.fromDate) serializedFilters.fromDate = filters.fromDate;
+            if (filters.toDate) serializedFilters.toDate = filters.toDate;
+            if (filters.startTime) serializedFilters.startTime = filters.startTime;
+            if (filters.endTime) serializedFilters.endTime = filters.endTime;
+            if (search) serializedFilters.search = search;
+
+            const response = await fetch(`${API_URL}/academics/class-schedule/bulk-end`, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ 
+                    allMatching: selectAllMatching,
+                    filters: selectAllMatching ? serializedFilters : undefined,
+                    ids: selectAllMatching ? undefined : Array.from(selectedIds)
+                })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message || "Classes ended successfully!");
+                setSelectedIds(new Set());
+                setSelectAllMatching(false);
+                fetchClasses();
+            } else {
+                toast.error(data.message || "Failed to end classes");
+            }
+        } catch (error) {
+            toast.error("Error bulk ending classes");
+        }
+    };
+
     const handleAttendance = async (classId, type = 'teacher') => {
         if (verifyingId === classId) return;
 
@@ -315,6 +400,14 @@ const OngoingClass = () => {
                 <div className="flex justify-between items-center mb-6">
                     <h1 className={`text-3xl font-bold uppercase italic tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Ongoing Class</h1>
                     <div className="flex gap-3">
+                        {canEdit && (selectedIds.size > 0 || selectAllMatching) && (
+                            <button
+                                onClick={handleBulkEnd}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-2 transition-all shadow-lg"
+                            >
+                                <FaStop className="text-xs" /> Bulk End ({selectAllMatching ? totalRecords : selectedIds.size})
+                            </button>
+                        )}
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className={`px-4 py-2 rounded-lg flex items-center gap-2 font-bold transition-all shadow-lg ${showFilters ? 'bg-blue-600 text-white' : isDarkMode ? 'bg-[#1e2530] text-gray-400 border border-gray-700' : 'bg-white text-gray-600 border border-gray-200'}`}
@@ -518,10 +611,51 @@ const OngoingClass = () => {
                         </select>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {canEdit && classes.length > 0 && classes.every(cls => selectedIds.has(cls._id)) && totalRecords > classes.length && (
+                    <div className={`p-3 text-center text-sm mb-4 rounded-lg font-medium transition-colors ${
+                        isDarkMode ? 'bg-[#2a3038] text-cyan-400 border border-gray-700' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                    }`}>
+                        {!selectAllMatching ? (
+                            <span>
+                                All {classes.length} classes on this page are selected.{" "}
+                                <button 
+                                    onClick={() => setSelectAllMatching(true)} 
+                                    className="underline font-black hover:text-blue-500 hover:no-underline"
+                                >
+                                    Select all {totalRecords} ongoing classes matching these filters
+                                </button>
+                            </span>
+                        ) : (
+                            <span>
+                                All {totalRecords} ongoing classes matching these filters are selected.{" "}
+                                <button 
+                                    onClick={() => {
+                                        setSelectAllMatching(false);
+                                        setSelectedIds(new Set());
+                                    }} 
+                                    className="underline font-black hover:text-blue-500 hover:no-underline"
+                                >
+                                    Clear selection
+                                </button>
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className={`border-b ${isDarkMode ? 'bg-[#2a3038] text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-600 border-gray-200'} text-xs uppercase font-bold tracking-wider`}>
+                                    {canEdit && (
+                                        <th className="p-4 text-center w-12">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectAllMatching || (classes.length > 0 && classes.every(cls => selectedIds.has(cls._id)))}
+                                                onChange={handleSelectAll}
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            />
+                                        </th>
+                                    )}
                                     <th className="p-4">SL</th>
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Date</th>
@@ -544,12 +678,22 @@ const OngoingClass = () => {
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
                                 {loading ? (
-                                    <tr><td colSpan="17" className="p-8 text-center text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan={canEdit ? 18 : 17} className="p-8 text-center text-gray-500">Loading...</td></tr>
                                 ) : classes.length === 0 ? (
-                                    <tr><td colSpan="17" className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
+                                    <tr><td colSpan={canEdit ? 18 : 17} className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
                                 ) : (
                                     classes.map((cls, index) => (
                                         <tr key={cls._id} className={`transition-colors text-sm ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                            {canEdit && (
+                                                <td className="p-4 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.has(cls._id)}
+                                                        onChange={() => handleSelectRow(cls._id)}
+                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    />
+                                                </td>
+                                            )}
                                             <td className="p-4 font-bold text-gray-500">{(page - 1) * limit + index + 1}</td>
                                             <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
                                             <td className="p-4 whitespace-nowrap">{formatDate(cls.date)}</td>
