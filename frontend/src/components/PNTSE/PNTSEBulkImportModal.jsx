@@ -41,6 +41,11 @@ const COL_MAP = {
     "State":                          "state",
     "Pincode":                        "pincode",
     "Remarks":                        "remarks",
+    "Exam Venue":                     "examVenue",
+    "Reporting Time (e.g. 09:30 AM)": "reportingTime",
+    "Reporting Time":                 "reportingTime",
+    "Exam Time (e.g. 10:00 AM)":      "timeSlot",
+    "Exam Time":                      "timeSlot",
 };
 
 const parseRow = (rawRow) => {
@@ -402,7 +407,7 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                 </div>
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider pt-1">Optional Columns</p>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {["Email","DOB","Gender","School","Guardian Name","Guardian Mobile","Address","City","State","Pincode","Remarks"].map(c => (
+                                    {["Email","DOB","Gender","School","Guardian Name","Guardian Mobile","Address","City","State","Pincode","Remarks","Exam Venue","Reporting Time","Exam Time"].map(c => (
                                         <span key={c} className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded font-mono">{c}</span>
                                     ))}
                                 </div>

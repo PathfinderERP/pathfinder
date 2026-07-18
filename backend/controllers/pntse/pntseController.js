@@ -513,7 +513,11 @@ export const downloadTemplate = async (req, res) => {
                 "City": "Kolkata",
                 "State": "West Bengal",
                 "Pincode": "700001",
-                "Remarks": "Good student"
+                "Remarks": "Good student",
+                "Exam Date (YYYY-MM-DD)": "2026-08-25",
+                "Exam Venue": "Hazra Main Center",
+                "Reporting Time (e.g. 09:30 AM)": "09:30 AM",
+                "Exam Time (e.g. 10:00 AM)": "10:00 AM"
             },
             {
                 "Name*": "Priya Verma",
@@ -533,7 +537,11 @@ export const downloadTemplate = async (req, res) => {
                 "City": "Howrah",
                 "State": "West Bengal",
                 "Pincode": "711101",
-                "Remarks": ""
+                "Remarks": "",
+                "Exam Date (YYYY-MM-DD)": "2026-08-25",
+                "Exam Venue": "Dumdum Branch",
+                "Reporting Time (e.g. 09:30 AM)": "10:30 AM",
+                "Exam Time (e.g. 10:00 AM)": "11:00 AM"
             }
         ];
 
@@ -545,7 +553,7 @@ export const downloadTemplate = async (req, res) => {
             { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 10 },
             { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
             { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 25 }, { wch: 15 },
-            { wch: 18 }, { wch: 10 }, { wch: 20 }
+            { wch: 18 }, { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 30 }
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, "PNTSE Students");
@@ -613,6 +621,10 @@ export const importExcel = async (req, res) => {
                 const state = String(getRowValue("State") ?? "").trim() || undefined;
                 const pincode = String(getRowValue("Pincode") ?? "").trim() || undefined;
                 const remarks = String(getRowValue("Remarks") ?? "").trim() || undefined;
+                const examVenue = String(getRowValue("Exam Venue") ?? "").trim() || undefined;
+                const reportingTime = String(getRowValue("Reporting Time") ?? "").trim() || undefined;
+                const examTime = String(getRowValue("Exam Time") ?? "").trim() || undefined;
+                const examDate = String(getRowValue("Exam Date") ?? "").trim() || undefined;
                 const studentId = getRowValue("studentId") || undefined;
 
                 // Validate required
@@ -738,6 +750,10 @@ export const importExcel = async (req, res) => {
                     amountPaid: 0,
                     rollNo,
                     school, guardianName, guardianMobile, remarks,
+                    examDate,
+                    examVenue,
+                    reportingTime,
+                    timeSlot: examTime,
                     status: 'Appeared',
                     score: 0,
                     isImported: true,
