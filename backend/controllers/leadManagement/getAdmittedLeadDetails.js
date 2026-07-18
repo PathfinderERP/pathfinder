@@ -8,29 +8,55 @@ import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
  * Returns detailed admission records for leads matching the given filters + leadType.
  * Used by the "Converted to Admitted" click popup in the Conversion Report page.
  *
- * Query params:
- *   - All standard lead filters (fromDate, toDate, centre, leadResponsibility, source)
- *   - leadType  → optional — filter to a specific lead type row (e.g. "HOT LEAD")
+ * Modified to filter by actual student admissionDate.
  */
 export const getAdmittedLeadDetails = async (req, res) => {
     try {
         const queryParams = { ...req.query };
         queryParams.includeInvalid = true;
-        const { leadType } = queryParams;
+        const { leadType, fromDate, toDate } = queryParams;
 
         // Guard: require at least one date boundary
-        if (!queryParams.fromDate && !queryParams.toDate) {
+        if (!fromDate && !toDate) {
             return res.status(400).json({
                 success: false,
                 message: "Please select a date range before fetching admitted lead details."
             });
         }
 
+        // Remove date parameters so buildLeadQuery doesn't filter leads by createdAt
+        delete queryParams.fromDate;
+        delete queryParams.toDate;
+
         const baseMatch = await buildLeadQuery(queryParams, req.user);
 
         // Add leadType filter if provided
         if (leadType) baseMatch.leadType = leadType;
 
+        // Build the admissionDate filter query
+        const admissionDateQuery = {};
+        if (fromDate) admissionDateQuery.$gte = new Date(fromDate);
+        if (toDate) {
+            const end = new Date(toDate);
+            end.setHours(23, 59, 59, 999);
+            admissionDateQuery.$lte = end;
+        }
+
+        // Find all student IDs that had an admission within this date range
+        const [matchingNormalAdms, matchingBoardAdms] = await Promise.all([
+            Admission.find({ admissionDate: admissionDateQuery }, { student: 1 }).lean(),
+            BoardCourseAdmission.find({ admissionDate: admissionDateQuery }, { studentId: 1 }).lean()
+        ]);
+
+        const admittedStudentIds = new Set();
+        for (const adm of matchingNormalAdms) {
+            if (adm.student) admittedStudentIds.add(adm.student.toString());
+        }
+        for (const adm of matchingBoardAdms) {
+            if (adm.studentId) admittedStudentIds.add(adm.studentId.toString());
+        }
+
+        const admittedIdsArray = [...admittedStudentIds];
 
         // Step 1: Fetch leads (only phone + leadType needed for matching)
         const leads = await LeadManagement.find(baseMatch, {
@@ -42,7 +68,7 @@ export const getAdmittedLeadDetails = async (req, res) => {
             centre: 1
         }).lean();
 
-        if (leads.length === 0) {
+        if (leads.length === 0 || admittedIdsArray.length === 0) {
             return res.status(200).json({ success: true, admittedLeads: [] });
         }
 
@@ -65,7 +91,10 @@ export const getAdmittedLeadDetails = async (req, res) => {
 
         // Step 3: Batch-fetch matching students
         const matchedStudents = await Student.find(
-            { "studentsDetails.mobileNum": { $in: allPhones } },
+            { 
+                _id: { $in: admittedIdsArray },
+                "studentsDetails.mobileNum": { $in: allPhones } 
+            },
             { _id: 1, "studentsDetails.mobileNum": 1, "studentsDetails.studentName": 1 }
         ).lean();
 
@@ -92,15 +121,18 @@ export const getAdmittedLeadDetails = async (req, res) => {
             }
         }
 
-        const studentIds = [...studentIdToInfo.keys()];
-        if (studentIds.length === 0) {
+        const filteredStudentIds = [...studentIdToInfo.keys()];
+        if (filteredStudentIds.length === 0) {
             return res.status(200).json({ success: true, admittedLeads: [] });
         }
 
         // Step 4: Fetch admission details for matched students (both normal + board)
         const [normalAdmissions, boardAdmissions] = await Promise.all([
             Admission.find(
-                { student: { $in: studentIds } },
+                { 
+                    admissionDate: admissionDateQuery,
+                    student: { $in: filteredStudentIds } 
+                },
                 {
                     student: 1,
                     admissionNumber: 1,
@@ -122,7 +154,10 @@ export const getAdmittedLeadDetails = async (req, res) => {
                 .lean(),
 
             BoardCourseAdmission.find(
-                { studentId: { $in: studentIds } },
+                { 
+                    admissionDate: admissionDateQuery,
+                    studentId: { $in: filteredStudentIds } 
+                },
                 {
                     studentId: 1,
                     admissionNumber: 1,
@@ -131,6 +166,10 @@ export const getAdmittedLeadDetails = async (req, res) => {
                     centre: 1,
                     admissionFee: 1,
                     boardId: 1,
+                    examTag: 1,
+                    programme: 1,
+                    examFeePaid: 1,
+                    additionalThingsPaid: 1,
                     lastClass: 1,
                     createdBy: 1,
                     // Only fetch the first installment to get first paid amount
@@ -138,6 +177,7 @@ export const getAdmittedLeadDetails = async (req, res) => {
                 }
             )
                 .populate("boardId", "boardCourse")  // Boards model field is 'boardCourse'
+                .populate("examTag", "name")
                 .populate("createdBy", "name")
                 .lean()
         ]);
@@ -173,10 +213,14 @@ export const getAdmittedLeadDetails = async (req, res) => {
             const info = studentIdToInfo.get(sid);
             addedStudentIds.add(sid);
 
-            // First paid amount = paidAmount of the first installment (month 1)
-            // Falls back to admissionFee if no installments exist yet
-            const firstInstallment = (adm.installments || [])[0];
-            const firstPaidAmount = firstInstallment?.paidAmount ?? adm.admissionFee ?? 0;
+            let downPayment = 0;
+            if (adm.programme === 'CRP') {
+                const firstInstallment = (adm.installments || [])[0];
+                downPayment = firstInstallment?.paidAmount ?? 0;
+            } else {
+                // NCRP: exam fee paid + additional things paid
+                downPayment = (adm.examFeePaid || 0) + (adm.additionalThingsPaid || 0);
+            }
 
             result.push({
                 leadName: info.lead.leadName || info.studentName || "—",
@@ -185,9 +229,9 @@ export const getAdmittedLeadDetails = async (req, res) => {
                 admissionNumber: adm.admissionNumber || "—",
                 class: adm.lastClass || "—",
                 course: adm.boardId?.boardCourse || "Board Course",
-                examTag: "—",
+                examTag: adm.examTag?.name || "—",
                 session: adm.academicSession || "—",
-                admissionAmount: firstPaidAmount,   // First month's paid amount (NCRP down payment)
+                admissionAmount: downPayment,
                 admittedBy: adm.createdBy?.name || "—",
                 admissionDate: adm.admissionDate || null,
                 type: "BOARD"
