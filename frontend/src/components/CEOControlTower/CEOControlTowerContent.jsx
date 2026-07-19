@@ -436,6 +436,70 @@ const trackingLogQuestionsCategories = [
     }
 ];
 
+const academicQuestionsCategories = [
+    {
+        category: "Teacher Capacity & Workload",
+        questions: [
+            "How many active teachers are available by subject, centre, board and course?",
+            "What is each teacher’s scheduled and delivered workload?",
+            "What is the teacher’s cost per delivered hour?",
+            "Which teachers are underutilized or overloaded?",
+            "What is the punctuality and cancellation rate?",
+            "How many substitutions are required?",
+            "Which subjects have no backup faculty?",
+            "Which centre depends excessively on one teacher?",
+            "Which teachers have excessive travel gaps?",
+            "Which centres need shared or online faculty?"
+        ]
+    },
+    {
+        category: "Faculty Evaluation & Outcomes",
+        questions: [
+            "What are student attendance and performance trends under each teacher?",
+            "What feedback is received from students and guardians?",
+            "Which teachers complete the syllabus on time?",
+            "Which teachers generate repeated complaints?",
+            "Which teachers create strong retention and referrals?",
+            "Are HOD observations and evaluations completed?",
+            "What is the relationship between teacher attendance and student outcomes?",
+            "Are teacher ratings being adjusted for batch difficulty and student baseline?"
+        ]
+    },
+    {
+        category: "Timetable & Batch Health",
+        questions: [
+            "How many classes were scheduled, conducted, cancelled or rescheduled?",
+            "What was the attendance rate?",
+            "What is the syllabus completion percentage?",
+            "Is the course running ahead of or behind the academic plan?",
+            "Which batches have falling attendance?",
+            "Which students are repeatedly absent?",
+            "Which students attend classes but perform poorly?",
+            "Which students perform well but show disengagement?",
+            "What is the batch size and classroom utilization?",
+            "Are there teacher, classroom or batch conflicts?",
+            "Are teachers scheduled at physically impossible locations?",
+            "Which rooms remain underused?",
+            "Which time slots have poor student attendance?",
+            "Do timetable changes increase absenteeism?",
+            "Are required academic hours being delivered?"
+        ]
+    },
+    {
+        category: "Academic Deliverables & Tracking",
+        questions: [
+            "Which chapters are producing poor test performance?",
+            "How many doubt-clearing sessions were requested and delivered?",
+            "What is the homework and DPP completion rate?",
+            "Are tests occurring according to plan?",
+            "How quickly are results and feedback released?",
+            "Which batches have high complaint, transfer or refund rates?",
+            "Which services promised in the package have not been delivered?",
+            "Are high-demand courses receiving suitable prime slots?"
+        ]
+    }
+];
+
 const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPrompts = [], isDarkMode, filters = {}, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
@@ -522,7 +586,7 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                 {/* Main Content Area split into columns */}
                 <div className="flex-1 flex gap-6 overflow-hidden min-h-0 mb-4">
                     {/* Left Column: Suggested CEO Questions */}
-                    {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog") && (
+                    {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog" || module === "academics") && (
                         <div className="w-[340px] shrink-0 flex flex-col border-r border-gray-255 dark:border-gray-800 pr-4 overflow-y-auto custom-scrollbar">
                             <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500 mb-4 select-none">
                                 {module === "leads" 
@@ -531,7 +595,9 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                                         ? "CEO Control Tower Admissions Prompts" 
                                         : module === "tracking"
                                             ? "CEO Control Tower Tracking Prompts"
-                                            : "CEO Control Tower Daily Logs Prompts"}
+                                            : module === "academics"
+                                                ? "CEO Control Tower Academics Prompts"
+                                                : "CEO Control Tower Daily Logs Prompts"}
                             </h4>
                             <div className="space-y-4 pr-1">
                                 {(module === "leads" 
@@ -540,7 +606,9 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                                         ? admissionQuestionsCategories 
                                         : module === "tracking"
                                             ? trackingQuestionsCategories
-                                            : trackingLogQuestionsCategories
+                                            : module === "academics"
+                                                ? academicQuestionsCategories
+                                                : trackingLogQuestionsCategories
                                 ).map((cat, catIdx) => (
                                     <div key={catIdx} className="space-y-2">
                                         <h5 className="text-[11px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-1.5">{cat.category}</h5>
@@ -580,7 +648,7 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
                                         Pathfinder AI Analyst Ready
                                     </h4>
                                     <p className={`text-xs max-w-md leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-650'}`}>
-                                        {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog") 
+                                        {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog" || module === "academics") 
                                             ? "Select a suggested CEO Control Tower question from the left sidebar, or type a custom question below to start analyzing live ERP data."
                                             : "Type a custom analysis question below to analyze this section's live ERP data."}
                                     </p>
@@ -765,9 +833,9 @@ const CEOControlTowerContent = () => {
             description: "Coordinate academic calendars, class timetables, teachers roster, routines, and HOD evaluations.",
             features: ["Teacher & HoD Lists", "Classes & Management", "Routines Schedule"],
             path: "/academics/teacher-list",
-            moduleKey: "admissions",
-            aiQuestion: "Analyze student board and standard course distribution across academic programs.",
-            aiPrompts: ["Board course analysis", "Standard course distribution"]
+            moduleKey: "academics",
+            aiQuestion: "How many active teachers are available by subject, centre, board and course?",
+            aiPrompts: ["Active teachers by subject", "Teacher workloads & costs", "Timetable & conflicts"]
         },
         {
             name: "Finance & Fees",

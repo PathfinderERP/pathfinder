@@ -1,0 +1,295 @@
+{
+  "topBatchSizes": [
+    {
+      "id": "6970890dabb4820c05aece93",
+      "name": "FND class  9A",
+      "studentCount": 705
+    },
+    {
+      "id": "6970890dabb4820c05aece92",
+      "name": "FND class  8A",
+      "studentCount": 510
+    },
+    {
+      "id": "6970890dabb4820c05aece94",
+      "name": "FND class  10A",
+      "studentCount": 456
+    },
+    {
+      "id": "6970890dabb4820c05aece91",
+      "name": "FND class  7A",
+      "studentCount": 374
+    },
+    {
+      "id": "6970890dabb4820c05aece8a",
+      "name": "NEET- N1",
+      "studentCount": 243
+    },
+    {
+      "id": "6970890dabb4820c05aece87",
+      "name": "JEE-E1",
+      "studentCount": 241
+    },
+    {
+      "id": "6970890dabb4820c05aece88",
+      "name": "JEE-E2",
+      "studentCount": 141
+    },
+    {
+      "id": "6970890dabb4820c05aece8b",
+      "name": "NEET- N2",
+      "studentCount": 131
+    },
+    {
+      "id": "6970890dabb4820c05aece90",
+      "name": "FND class 10B",
+      "studentCount": 104
+    },
+    {
+      "id": "6970890dabb4820c05aece8f",
+      "name": "FND class 9B",
+      "studentCount": 39
+    }
+  ],
+  "bottomBatchSizes": [
+    {
+      "id": "6970890dabb4820c05aece8c",
+      "name": "NEET- N3",
+      "studentCount": 5
+    },
+    {
+      "id": "69f4bc4a37f45e266b02f620",
+      "name": "FND CLASS 7 (ONLINE)",
+      "studentCount": 5
+    },
+    {
+      "id": "6970890dabb4820c05aece89",
+      "name": "JEE-E3",
+      "studentCount": 3
+    },
+    {
+      "id": "6a3cf52ca25b731dc57b9002",
+      "name": "JEE",
+      "studentCount": 3
+    },
+    {
+      "id": "69b10cf74ed4d3a85dc4cc90",
+      "name": "WBCHSE 1",
+      "studentCount": 2
+    },
+    {
+      "id": "69b10cfe4ed4d3a85dc4cc95",
+      "name": "WBCHSE 2",
+      "studentCount": 2
+    },
+    {
+      "id": "6a3cf531a25b731dc57b9007",
+      "name": "NEET",
+      "studentCount": 2
+    },
+    {
+      "id": "69f4bc6537f45e266b0305d8",
+      "name": "FND CLASS 10 (ONLINE)",
+      "studentCount": 1
+    },
+    {
+      "id": "69b01ed3b3f1ff085d15f6f4",
+      "name": "WBBSE 2",
+      "studentCount": 1
+    },
+    {
+      "id": "69f4bc5437f45e266b030348",
+      "name": "FND CLASS 8 (ONLINE)",
+      "studentCount": 1
+    }
+  ],
+  "repeatedlyAbsentStudents": [
+    {
+      "studentId": "698ecb6acc716f7a61ea1a74",
+      "name": "SAMRIDDHA SENSARMA",
+      "absencesCount": 71
+    },
+    {
+      "studentId": "698ecbdccc716f7a61ea2898",
+      "name": "PRITHA MONDAL",
+      "absencesCount": 67
+    },
+    {
+      "studentId": "698ecb48cc716f7a61ea1644",
+      "name": "OMPRAKASH GHOSH",
+      "absencesCount": 63
+    },
+    {
+      "studentId": "698ecbe8cc716f7a61ea2a05",
+      "name": "KOUSHIK SINHA",
+      "absencesCount": 61
+    },
+    {
+      "studentId": "69a9514189ddff5ef88a4bac",
+      "name": "SAGNIK MALLIK",
+      "absencesCount": 60
+    },
+    {
+      "studentId": "698ecd53cc716f7a61ea524d",
+      "name": "SAYANI DAS",
+      "absencesCount": 58
+    },
+    {
+      "studentId": "69ca87103305ab324ce3ae4d",
+      "name": "SAPTARSI SAMANTA",
+      "absencesCount": 56
+    },
+    {
+      "studentId": "698ecb75cc716f7a61ea1bcc",
+      "name": "ARINDAM GHOSH",
+      "absencesCount": 56
+    },
+    {
+      "studentId": "698ecc59cc716f7a61ea37f7",
+      "name": "PRAKRITI MAITY",
+      "absencesCount": 55
+    },
+    {
+      "studentId": "69b3ffb1207a606247558644",
+      "name": "SOUMITI SAMANTA",
+      "absencesCount": 54
+    },
+    {
+      "studentId": "69a9514289ddff5ef88a4bbe",
+      "name": "SOUMALYA JANA",
+      "absencesCount": 54
+    },
+    {
+      "studentId": "69906de6d1378c308e7efe70",
+      "name": "trayambika majumdar",
+      "absencesCount": 53
+    },
+    {
+      "studentId": "698ecbcdcc716f7a61ea26c2",
+      "name": "SOUMYADIP BOSE",
+      "absencesCount": 51
+    },
+    {
+      "studentId": "698ecb21cc716f7a61ea118f",
+      "name": "PRITHWISH BAR",
+      "absencesCount": 51
+    },
+    {
+      "studentId": "698ecb79cc716f7a61ea1c45",
+      "name": "ANUSHUMAN DEY",
+      "absencesCount": 50
+    }
+  ],
+  "centreDependencies": [
+    {
+      "centre": "JODHPUR PARK",
+      "teacher": "RAHUL DEV GHOSH",
+      "classesConducted": 23,
+      "totalCentreClasses": 26,
+      "dependencyPercentage": 88.5
+    },
+    {
+      "centre": "KATWA",
+      "teacher": "SANTOSH DAWN",
+      "classesConducted": 14,
+      "totalCentreClasses": 36,
+      "dependencyPercentage": 38.9
+    },
+    {
+      "centre": "KATWA",
+      "teacher": "SHUVAM MUKHERJEE",
+      "classesConducted": 14,
+      "totalCentreClasses": 36,
+      "dependencyPercentage": 38.9
+    },
+    {
+      "centre": "BALURGHAT",
+      "teacher": "ASHIS KARAN",
+      "classesConducted": 22,
+      "totalCentreClasses": 66,
+      "dependencyPercentage": 33.3
+    },
+    {
+      "centre": "HABRA",
+      "teacher": "SANU PAIK",
+      "classesConducted": 20,
+      "totalCentreClasses": 60,
+      "dependencyPercentage": 33.3
+    },
+    {
+      "centre": "HABRA",
+      "teacher": "DEBJANI SARKAR",
+      "classesConducted": 19,
+      "totalCentreClasses": 60,
+      "dependencyPercentage": 31.7
+    },
+    {
+      "centre": "RAIGANJ",
+      "teacher": "SAYED MD ALI",
+      "classesConducted": 24,
+      "totalCentreClasses": 79,
+      "dependencyPercentage": 30.4
+    },
+    {
+      "centre": "BALURGHAT",
+      "teacher": "Krishnendu brahmachari ",
+      "classesConducted": 19,
+      "totalCentreClasses": 66,
+      "dependencyPercentage": 28.8
+    },
+    {
+      "centre": "CONTAI",
+      "teacher": "DEBAJYOTI SARKAR",
+      "classesConducted": 42,
+      "totalCentreClasses": 149,
+      "dependencyPercentage": 28.2
+    },
+    {
+      "centre": "BALLY",
+      "teacher": "DIPANJAN CHAKRABORTY",
+      "classesConducted": 21,
+      "totalCentreClasses": 75,
+      "dependencyPercentage": 28
+    },
+    {
+      "centre": "BARASAT",
+      "teacher": "DEBJANI SARKAR",
+      "classesConducted": 8,
+      "totalCentreClasses": 31,
+      "dependencyPercentage": 25.8
+    },
+    {
+      "centre": "TARAKESWAR",
+      "teacher": "Pranab Ghosh",
+      "classesConducted": 32,
+      "totalCentreClasses": 125,
+      "dependencyPercentage": 25.6
+    },
+    {
+      "centre": "TARAKESWAR",
+      "teacher": "SAYANTAN SARCAR",
+      "classesConducted": 32,
+      "totalCentreClasses": 125,
+      "dependencyPercentage": 25.6
+    },
+    {
+      "centre": "RAIGANJ",
+      "teacher": "SABIR ALI",
+      "classesConducted": 20,
+      "totalCentreClasses": 79,
+      "dependencyPercentage": 25.3
+    },
+    {
+      "centre": "TARAKESWAR",
+      "teacher": "A K MD AZIZUL HAQUE",
+      "classesConducted": 31,
+      "totalCentreClasses": 125,
+      "dependencyPercentage": 24.8
+    }
+  ],
+  "doubtSessions": {
+    "totalRequested": 0,
+    "completed": 0,
+    "upcoming": 0
+  }
+}

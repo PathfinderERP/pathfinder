@@ -1,0 +1,4400 @@
+{
+  "teacherDistribution": {
+    "totalActive": 173,
+    "bySubject": {
+      "CHEMISTRY": 34,
+      "PHYSICS": 34,
+      "MATHS": 29,
+      "ZOOLOGY": 12,
+      "BOTANY": 8,
+      "Biology": 19,
+      "Unassigned": 30,
+      "MATHEMATICS": 4,
+      "MATH": 1,
+      "BENGALI": 1,
+      "Physics ": 1,
+      "#N/A": 1,
+      "Physics": 1,
+      "COMPUTER SCIENCE": 1
+    },
+    "byBoard": {
+      "JEE": 44,
+      "NEET": 18,
+      "Unassigned": 109,
+      "CBSE": 2
+    },
+    "byCentre": {
+      "BURDWAN": 12,
+      "PHSPS_MIDNAPORE": 8,
+      "TAMLUK": 13,
+      "KTPP TOWNSHIP": 12,
+      "BARUIPUR": 12,
+      "PHSPS_JODHPUR_PARK": 9,
+      "DIAMOND HARBOUR": 15,
+      "BEHALA": 18,
+      "HAZRA H.O": 46,
+      "DUMDUM": 17,
+      "BALLY": 11,
+      "SHYAMBAZAR ": 9,
+      "JODHPUR PARK": 14,
+      "BARASAT": 16,
+      "CHANDANNAGAR": 7,
+      "KALYANI": 9,
+      "HABRA": 5,
+      "KATWA": 4,
+      "ARAMBAGH": 12,
+      "TARAKESWAR": 5,
+      "DURGAPUR": 1,
+      "BERHAMPUR": 4,
+      "BAGNAN": 13,
+      "MIDNAPORE": 16,
+      "CONTAI": 8,
+      "KHARAGPUR_FRANCHISE": 4,
+      "MALDA": 10,
+      "BALURGHAT": 5,
+      "RAIGANJ": 6,
+      "SILIGURI": 1,
+      "COOCHBEHAR": 5,
+      "ZAGARTALA": 1,
+      "PHSPS  BERHAMPUR": 4,
+      "RKM DEOGHAR": 1,
+      "PHSPS_SILIGURI": 1,
+      "RKM_PURULIA": 1,
+      "KISHANGANJ_FRANCHISE": 1,
+      "RKMV_NARENDRAPUR": 2,
+      "EAST POINT SCHOOL (ICHHAPUR)": 1,
+      "HOWRAH_FRANCHISE": 5,
+      "RAMPURHAT_ FRANCHISE": 1,
+      "JAIPUR_FRANCHISE": 1,
+      "NEW TOWN _ FRANCHISE": 2,
+      "Unknown Center": 3,
+      "Unassigned": 15
+    },
+    "byType": {
+      "Part Time": 93,
+      "Full Time": 65,
+      "Full-time": 11,
+      "Part-time": 4
+    }
+  },
+  "workloads": [
+    {
+      "id": "6970c45f9590082b81675072",
+      "name": "Indranil Banerjee",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce5663f133b47dc84d4a",
+      "name": "SUMANTA DUTTA",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 40,
+      "deliveredClasses": 36,
+      "scheduledHours": 96.6,
+      "deliveredHours": 87.6,
+      "salary": 8000,
+      "costPerHour": 91.3,
+      "costSource": "Full-time Salary (8000/mo)"
+    },
+    {
+      "id": "6970ce5663f133b47dc84d4d",
+      "name": "Dr. MOUMITA MONDAL",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 58,
+      "deliveredClasses": 48,
+      "scheduledHours": 87.8,
+      "deliveredHours": 73.8,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce5863f133b47dc84d66",
+      "name": "BISWAJIT PRABHAKAR",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 8,
+      "deliveredClasses": 3,
+      "scheduledHours": 12,
+      "deliveredHours": 4.5,
+      "salary": 75000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5963f133b47dc84d6f",
+      "name": "TUSHAR KANTI HAZRA",
+      "subject": "CHEMISTRY",
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce5963f133b47dc84d78",
+      "name": "DIPANJAN CHAKRABORTY",
+      "subject": "CHEMISTRY",
+      "type": "Full-time",
+      "scheduledClasses": 23,
+      "deliveredClasses": 21,
+      "scheduledHours": 67.3,
+      "deliveredHours": 63,
+      "salary": 127000,
+      "costPerHour": 2015.9,
+      "costSource": "Full-time Salary (127000/mo)"
+    },
+    {
+      "id": "6970ce5c63f133b47dc84d96",
+      "name": "PARTHA SARATHI KUNDU",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 30,
+      "deliveredClasses": 30,
+      "scheduledHours": 89,
+      "deliveredHours": 89,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5e63f133b47dc84daf",
+      "name": "GAUTAM SAMANTA",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 25000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5e63f133b47dc84db5",
+      "name": "SUPRATIM SEN",
+      "subject": "ZOOLOGY",
+      "type": "Full Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 1,
+      "scheduledHours": 6,
+      "deliveredHours": 3,
+      "salary": 100000,
+      "costPerHour": 33333.3,
+      "costSource": "Full-time Salary (100000/mo)"
+    },
+    {
+      "id": "6970ce6263f133b47dc84de9",
+      "name": "HAREKRISHNA MANDAL",
+      "subject": "BOTANY",
+      "type": "Full Time",
+      "scheduledClasses": 45,
+      "deliveredClasses": 43,
+      "scheduledHours": 109.5,
+      "deliveredHours": 105.5,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce6463f133b47dc84e04",
+      "name": "MANIK JANA",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 49,
+      "deliveredClasses": 46,
+      "scheduledHours": 71,
+      "deliveredHours": 67,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6663f133b47dc84e1c",
+      "name": "ARIJIT GOON",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 12,
+      "deliveredClasses": 9,
+      "scheduledHours": 18,
+      "deliveredHours": 13.5,
+      "salary": 0,
+      "costPerHour": 600,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6763f133b47dc84e22",
+      "name": "JAYDEV SAMANTA",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 12,
+      "deliveredClasses": 10,
+      "scheduledHours": 18,
+      "deliveredHours": 15,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6763f133b47dc84e25",
+      "name": "SAYANTAN GHOSH",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 15,
+      "deliveredClasses": 7,
+      "scheduledHours": 22.5,
+      "deliveredHours": 10.5,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6b63f133b47dc84e58",
+      "name": "SOURAV BOSE",
+      "subject": "ZOOLOGY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6c63f133b47dc84e5e",
+      "name": "NILANJAN MAJUMDAR",
+      "subject": "CHEMISTRY",
+      "type": "Full Time",
+      "scheduledClasses": 40,
+      "deliveredClasses": 35,
+      "scheduledHours": 69.2,
+      "deliveredHours": 51.9,
+      "salary": 35150,
+      "costPerHour": 677.3,
+      "costSource": "Full-time Salary (35150/mo)"
+    },
+    {
+      "id": "6970ce6d63f133b47dc84e6d",
+      "name": "SYED WASIM AKROM",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 4,
+      "deliveredClasses": 1,
+      "scheduledHours": 6,
+      "deliveredHours": 1.5,
+      "salary": 0,
+      "costPerHour": 650,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6d63f133b47dc84e70",
+      "name": "PRANAB PALADHI",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 4,
+      "deliveredClasses": 2,
+      "scheduledHours": 6,
+      "deliveredHours": 3,
+      "salary": 573,
+      "costPerHour": 575,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6d63f133b47dc84e73",
+      "name": "BHASKAR MONDAL",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6d63f133b47dc84e76",
+      "name": "SK MD ASIF",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6e63f133b47dc84e82",
+      "name": "PRITAM NASKAR",
+      "subject": "CHEMISTRY",
+      "type": "Full-time",
+      "scheduledClasses": 20,
+      "deliveredClasses": 10,
+      "scheduledHours": 27,
+      "deliveredHours": 13.5,
+      "salary": 32150,
+      "costPerHour": 2381.5,
+      "costSource": "Full-time Salary (32150/mo)"
+    },
+    {
+      "id": "6970ce7263f133b47dc84eac",
+      "name": "ARPAN BHATTACHARYA",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 53,
+      "deliveredClasses": 47,
+      "scheduledHours": 86.3,
+      "deliveredHours": 73.3,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7263f133b47dc84eaf",
+      "name": "SUBHRAJIT NANDI",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 61,
+      "deliveredClasses": 59,
+      "scheduledHours": 89.7,
+      "deliveredHours": 86.7,
+      "salary": 65000,
+      "costPerHour": 749.7,
+      "costSource": "Full-time Salary (65000/mo)"
+    },
+    {
+      "id": "6970ce7463f133b47dc84ec0",
+      "name": "SANTOSH DAWN",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 16,
+      "deliveredClasses": 14,
+      "scheduledHours": 21.5,
+      "deliveredHours": 18.9,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970c4749590082b816751da",
+      "name": "Gautam Samanta",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 25000,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (25000/mo)"
+    },
+    {
+      "id": "6970ce5563f133b47dc84d41",
+      "name": "P S DEV",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 6250,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970ce5663f133b47dc84d47",
+      "name": "ASRAF KHAN",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 22,
+      "deliveredClasses": 20,
+      "scheduledHours": 42.7,
+      "deliveredHours": 38.7,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce5363f133b47dc84d26",
+      "name": "BISWAJIT GHOSH",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 1,
+      "deliveredClasses": 0,
+      "scheduledHours": 2,
+      "deliveredHours": 0,
+      "salary": 55000,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (55000/mo)"
+    },
+    {
+      "id": "6970ce5363f133b47dc84d2c",
+      "name": "AKSHAY KUMAR TIWARI",
+      "subject": "PHYSICS",
+      "type": "Part-time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 5625,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5463f133b47dc84d35",
+      "name": "SANDIP PRASAD",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 1,
+      "deliveredClasses": 1,
+      "scheduledHours": 3,
+      "deliveredHours": 3,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce5763f133b47dc84d5a",
+      "name": "PRITAM SAHA",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 61,
+      "deliveredClasses": 58,
+      "scheduledHours": 181.1,
+      "deliveredHours": 172.1,
+      "salary": 6000,
+      "costPerHour": 6000,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970ce5a63f133b47dc84d7e",
+      "name": "Dr BHIM CHARAN MAITY",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 29997,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5b63f133b47dc84d8d",
+      "name": "MAINAK LODH CHOWDHURY",
+      "subject": "MATHS",
+      "type": "Full Time",
+      "scheduledClasses": 18,
+      "deliveredClasses": 17,
+      "scheduledHours": 53.9,
+      "deliveredHours": 50.9,
+      "salary": 120000,
+      "costPerHour": 2357.6,
+      "costSource": "Full-time Salary (120000/mo)"
+    },
+    {
+      "id": "6970ce5d63f133b47dc84da9",
+      "name": "RINTU KAR",
+      "subject": "MATHS",
+      "type": "Full Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 2,
+      "scheduledHours": 4,
+      "deliveredHours": 4,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce5f63f133b47dc84dbb",
+      "name": "ASIJITA CHATTERJEE",
+      "subject": "BOTANY",
+      "type": "Full Time",
+      "scheduledClasses": 10,
+      "deliveredClasses": 10,
+      "scheduledHours": 30,
+      "deliveredHours": 30,
+      "salary": 65000,
+      "costPerHour": 2166.7,
+      "costSource": "Full-time Salary (65000/mo)"
+    },
+    {
+      "id": "6970ce5f63f133b47dc84dc1",
+      "name": "SUBRATA CHATTERJEE",
+      "subject": "BOTANY",
+      "type": "Full Time",
+      "scheduledClasses": 21,
+      "deliveredClasses": 20,
+      "scheduledHours": 61,
+      "deliveredHours": 58,
+      "salary": 85000,
+      "costPerHour": 1465.5,
+      "costSource": "Full-time Salary (85000/mo)"
+    },
+    {
+      "id": "6970ce6263f133b47dc84de0",
+      "name": "DEB SHANKHA GOSWAMI",
+      "subject": [
+        "ZOOLOGY"
+      ],
+      "type": "Full Time",
+      "scheduledClasses": 13,
+      "deliveredClasses": 12,
+      "scheduledHours": 17.6,
+      "deliveredHours": 16.1,
+      "salary": 45000,
+      "costPerHour": 2795,
+      "costSource": "Full-time Salary (45000/mo)"
+    },
+    {
+      "id": "6970ce6363f133b47dc84df2",
+      "name": "TARUN ROY",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 49,
+      "deliveredClasses": 49,
+      "scheduledHours": 145.5,
+      "deliveredHours": 145.5,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6663f133b47dc84e19",
+      "name": "ABHINANDAN REJ",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6763f133b47dc84e28",
+      "name": "MOUMITA M",
+      "subject": "PHYSICS",
+      "type": "Full-time",
+      "scheduledClasses": 5,
+      "deliveredClasses": 4,
+      "scheduledHours": 7.5,
+      "deliveredHours": 6,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce6863f133b47dc84e2e",
+      "name": "DIPANWITA GHOSH",
+      "subject": "MATHS",
+      "type": "Part-time",
+      "scheduledClasses": 39,
+      "deliveredClasses": 37,
+      "scheduledHours": 57.4,
+      "deliveredHours": 54.9,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6b63f133b47dc84e52",
+      "name": "BABLU MAITY",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 499,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6e63f133b47dc84e7f",
+      "name": "KUNAL DUTTA",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7063f133b47dc84e91",
+      "name": "ABHIJIT BANEJEE",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 550,
+      "costPerHour": 550,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7463f133b47dc84ec6",
+      "name": "SUBRATA SARDER",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 21,
+      "deliveredClasses": 18,
+      "scheduledHours": 31.3,
+      "deliveredHours": 26.8,
+      "salary": 0,
+      "costPerHour": 525,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7463f133b47dc84ec9",
+      "name": "SOURAV PAKIRA",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 67,
+      "deliveredClasses": 63,
+      "scheduledHours": 113.2,
+      "deliveredHours": 107.2,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce5763f133b47dc84d57",
+      "name": "SUSOBHAN SINGHA ROY",
+      "subject": "CHEMISTRY",
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 84997,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (84997/mo)"
+    },
+    {
+      "id": "6970ce5b63f133b47dc84d8a",
+      "name": "ANKIT SUREKA",
+      "subject": "MATHS",
+      "type": "Full Time",
+      "scheduledClasses": 21,
+      "deliveredClasses": 20,
+      "scheduledHours": 63,
+      "deliveredHours": 60,
+      "salary": 153000,
+      "costPerHour": 2550,
+      "costSource": "Full-time Salary (153000/mo)"
+    },
+    {
+      "id": "6970ce5c63f133b47dc84d99",
+      "name": "SOURAV TAPADAR",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 100000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5e63f133b47dc84db2",
+      "name": "ADITYA AGARWAL",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 1,
+      "deliveredClasses": 1,
+      "scheduledHours": 3,
+      "deliveredHours": 3,
+      "salary": 35000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6363f133b47dc84def",
+      "name": "SHANKAR KUMAR ROY",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 51,
+      "deliveredClasses": 50,
+      "scheduledHours": 115.5,
+      "deliveredHours": 112.5,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6563f133b47dc84e0d",
+      "name": "Dr.ARNAB SINHA RAY",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 57,
+      "deliveredClasses": 50,
+      "scheduledHours": 83,
+      "deliveredHours": 73,
+      "salary": 600,
+      "costPerHour": 600,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6563f133b47dc84e10",
+      "name": "SUKIRAN MANDAL",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6563f133b47dc84e13",
+      "name": "SOUMYAJIT SETT",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 667,
+      "costPerHour": 667,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6663f133b47dc84e16",
+      "name": "SAPTARSHI BHATTACHARYA",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 0,
+      "scheduledHours": 4.5,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 650,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6663f133b47dc84e1f",
+      "name": "SUBHOJIT DAS",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 47,
+      "deliveredClasses": 42,
+      "scheduledHours": 69.3,
+      "deliveredHours": 61.8,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6963f133b47dc84e43",
+      "name": "RITWICK BISWAS",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6963f133b47dc84e46",
+      "name": "ANTU MONDAL",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6c63f133b47dc84e61",
+      "name": "SAURAV SARKAR",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 525,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6c63f133b47dc84e64",
+      "name": "APURBA KUNDU",
+      "subject": "BOTANY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6e63f133b47dc84e79",
+      "name": "SUMANTA MANDAL",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6f63f133b47dc84e85",
+      "name": "SOUMITRA BANERJEE",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 525,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6f63f133b47dc84e88",
+      "name": "SANGITA SAHA",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7063f133b47dc84e9a",
+      "name": "ARGHADEEP SARKAR",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 2,
+      "scheduledHours": 3,
+      "deliveredHours": 3,
+      "salary": 549,
+      "costPerHour": 550,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7363f133b47dc84eba",
+      "name": "SANU PAIK",
+      "subject": "MATHS",
+      "type": "Full-time",
+      "scheduledClasses": 55,
+      "deliveredClasses": 50,
+      "scheduledHours": 82.2,
+      "deliveredHours": 74.9,
+      "salary": 45000,
+      "costPerHour": 600.8,
+      "costSource": "Full-time Salary (45000/mo)"
+    },
+    {
+      "id": "6970ce7363f133b47dc84ebd",
+      "name": "SANCHITA SARKAR",
+      "subject": "Biology",
+      "type": "Full Time",
+      "scheduledClasses": 47,
+      "deliveredClasses": 45,
+      "scheduledHours": 83.5,
+      "deliveredHours": 80.5,
+      "salary": 26000,
+      "costPerHour": 323.2,
+      "costSource": "Full-time Salary (26000/mo)"
+    },
+    {
+      "id": "6970ce7463f133b47dc84ec3",
+      "name": "TUSAR KANTO DEY",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 16,
+      "deliveredClasses": 16,
+      "scheduledHours": 24,
+      "deliveredHours": 24,
+      "salary": 548,
+      "costPerHour": 550,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970c45e9590082b8167506c",
+      "name": "SAHEB DALAPATI",
+      "subject": [
+        "MATHEMATICS"
+      ],
+      "type": "Full Time",
+      "scheduledClasses": 105,
+      "deliveredClasses": 98,
+      "scheduledHours": 221.6,
+      "deliveredHours": 205.1,
+      "salary": 107000,
+      "costPerHour": 521.8,
+      "costSource": "Full-time Salary (107000/mo)"
+    },
+    {
+      "id": "6970ce5363f133b47dc84d23",
+      "name": "ASHIM DAS",
+      "subject": "PHYSICS",
+      "type": "Full-time",
+      "scheduledClasses": 9,
+      "deliveredClasses": 3,
+      "scheduledHours": 13.5,
+      "deliveredHours": 4.5,
+      "salary": 110000,
+      "costPerHour": 24444.4,
+      "costSource": "Full-time Salary (110000/mo)"
+    },
+    {
+      "id": "6970ce5363f133b47dc84d29",
+      "name": "ANIRBAN BHATTACHARYA",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 80000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5463f133b47dc84d32",
+      "name": "KESHAV KOTHARI",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 2,
+      "scheduledHours": 6,
+      "deliveredHours": 6,
+      "salary": 115000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5563f133b47dc84d3e",
+      "name": "SUJIT BERA",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 34,
+      "deliveredClasses": 27,
+      "scheduledHours": 100.5,
+      "deliveredHours": 79.5,
+      "salary": 6500,
+      "costPerHour": 6500,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970ce5663f133b47dc84d53",
+      "name": "Subhajit Saha",
+      "subject": [
+        "CHEMISTRY"
+      ],
+      "type": "Full Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 2,
+      "scheduledHours": 6,
+      "deliveredHours": 6,
+      "salary": 189000,
+      "costPerHour": 31500,
+      "costSource": "Full-time Salary (189000/mo)"
+    },
+    {
+      "id": "6970ce5763f133b47dc84d5d",
+      "name": "SUPRATIK SEN",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 33,
+      "deliveredClasses": 29,
+      "scheduledHours": 99,
+      "deliveredHours": 87,
+      "salary": 7000,
+      "costPerHour": 7000,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970ce5863f133b47dc84d60",
+      "name": "SUMIT HAZRA",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 65,
+      "deliveredClasses": 63,
+      "scheduledHours": 169.1,
+      "deliveredHours": 165.1,
+      "salary": 65200,
+      "costPerHour": 6250,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970ce5963f133b47dc84d75",
+      "name": "SK MERAZ CHOWDHURY",
+      "subject": "CHEMISTRY",
+      "type": "Full Time",
+      "scheduledClasses": 44,
+      "deliveredClasses": 42,
+      "scheduledHours": 123,
+      "deliveredHours": 117,
+      "salary": 83333,
+      "costPerHour": 712.2,
+      "costSource": "Full-time Salary (83333/mo)"
+    },
+    {
+      "id": "6970ce5a63f133b47dc84d7b",
+      "name": "SAMIRAN MAJUMDER",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 1,
+      "deliveredClasses": 0,
+      "scheduledHours": 3,
+      "deliveredHours": 0,
+      "salary": 5000,
+      "costPerHour": 5000,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970ce5a63f133b47dc84d81",
+      "name": "SAMBHU NARAYAN MONDAL",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 25000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5c63f133b47dc84d9c",
+      "name": "ABHISHEK  BANERJEE",
+      "subject": "MATHEMATICS",
+      "type": "Part Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 2,
+      "scheduledHours": 6,
+      "deliveredHours": 6,
+      "salary": 89998,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce5c63f133b47dc84d9f",
+      "name": "SOURAV DEY",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 4500,
+      "costPerHour": 4500,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970ce5e63f133b47dc84db8",
+      "name": "SWAGATA ROY CHOWDHURY",
+      "subject": "ZOOLOGY",
+      "type": "Full Time",
+      "scheduledClasses": 32,
+      "deliveredClasses": 31,
+      "scheduledHours": 96,
+      "deliveredHours": 93,
+      "salary": 125000,
+      "costPerHour": 1344.1,
+      "costSource": "Full-time Salary (125000/mo)"
+    },
+    {
+      "id": "6970ce5f63f133b47dc84dbe",
+      "name": "KRISHNA PREM JHA",
+      "subject": "ZOOLOGY",
+      "type": "Full-time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 140000,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (140000/mo)"
+    },
+    {
+      "id": "6970ce6063f133b47dc84dcd",
+      "name": "ANINDYA SANTRA",
+      "subject": "BOTANY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6163f133b47dc84dd7",
+      "name": "BISWAJIT KUNDU",
+      "subject": "ZOOLOGY",
+      "type": "Part Time",
+      "scheduledClasses": 3,
+      "deliveredClasses": 3,
+      "scheduledHours": 9,
+      "deliveredHours": 9,
+      "salary": 40000,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6363f133b47dc84df8",
+      "name": "MOHIT GUPTA",
+      "subject": "MATHS",
+      "type": "Full Time",
+      "scheduledClasses": 19,
+      "deliveredClasses": 16,
+      "scheduledHours": 37.2,
+      "deliveredHours": 31.2,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce6563f133b47dc84e07",
+      "name": "ALOK KR. JANA",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 51,
+      "deliveredClasses": 47,
+      "scheduledHours": 74,
+      "deliveredHours": 68,
+      "salary": 0,
+      "costPerHour": 600,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6863f133b47dc84e37",
+      "name": "SHUVANKAR HAZRA",
+      "subject": "CHEMISTRY",
+      "type": "Full-time",
+      "scheduledClasses": 17,
+      "deliveredClasses": 17,
+      "scheduledHours": 35.2,
+      "deliveredHours": 35.2,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce6963f133b47dc84e3a",
+      "name": "PAPIYA ROY",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6a63f133b47dc84e49",
+      "name": "SOUMAJIT DEY",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6a63f133b47dc84e4c",
+      "name": "NISHA AGASTI",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 550,
+      "costPerHour": 550,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6b63f133b47dc84e55",
+      "name": "BIJOY BANIK",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 525,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce6c63f133b47dc84e67",
+      "name": "RITOBRATO BHATTACHARJEE",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 4,
+      "deliveredClasses": 1,
+      "scheduledHours": 6,
+      "deliveredHours": 1.5,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6c63f133b47dc84e6a",
+      "name": "SUBHAYAN CHAKRABORTY",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 4,
+      "deliveredClasses": 1,
+      "scheduledHours": 6,
+      "deliveredHours": 1.5,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce6f63f133b47dc84e8b",
+      "name": "RAHUL DEV GHOSH",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 30,
+      "deliveredClasses": 23,
+      "scheduledHours": 46.5,
+      "deliveredHours": 34.5,
+      "salary": 0,
+      "costPerHour": 600,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7063f133b47dc84e97",
+      "name": "ANUP BERA",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 1,
+      "scheduledHours": 16.5,
+      "deliveredHours": 1.5,
+      "salary": 0,
+      "costPerHour": 600,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7163f133b47dc84e9d",
+      "name": "ASHIS KARAN",
+      "subject": "MATHS",
+      "type": "Full-time",
+      "scheduledClasses": 44,
+      "deliveredClasses": 40,
+      "scheduledHours": 63.2,
+      "deliveredHours": 57.2,
+      "salary": 30150,
+      "costPerHour": 527.1,
+      "costSource": "Full-time Salary (30150/mo)"
+    },
+    {
+      "id": "6970ce7163f133b47dc84ea0",
+      "name": "SAYANTAN MAHAPATRA",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 2,
+      "scheduledHours": 3,
+      "deliveredHours": 3,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7163f133b47dc84ea3",
+      "name": "PRITHWISH DUTTA",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 49,
+      "deliveredClasses": 46,
+      "scheduledHours": 71.7,
+      "deliveredHours": 67.2,
+      "salary": 0,
+      "costPerHour": 750,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7163f133b47dc84ea6",
+      "name": "SUVOJIT SIKDER",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 49,
+      "deliveredClasses": 46,
+      "scheduledHours": 73.5,
+      "deliveredHours": 69,
+      "salary": 549,
+      "costPerHour": 550,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7763f133b47dc84ee4",
+      "name": "CHIRANTAN MAJI",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 24,
+      "deliveredClasses": 18,
+      "scheduledHours": 36,
+      "deliveredHours": 27,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7863f133b47dc84eed",
+      "name": "ARUP KR PATRA",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 36,
+      "deliveredClasses": 33,
+      "scheduledHours": 60,
+      "deliveredHours": 55.9,
+      "salary": 0,
+      "costPerHour": 575,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7c63f133b47dc84f0e",
+      "name": "ANAL KR. BISWAS",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 50,
+      "deliveredClasses": 47,
+      "scheduledHours": 73.8,
+      "deliveredHours": 69.3,
+      "salary": 625,
+      "costPerHour": 625,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "699d9e01ff02990a45e878bf",
+      "name": "SHREYA DAS",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "699d9e02ff02990a45e878c7",
+      "name": "PRADIP KARMAKAR",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 43,
+      "deliveredClasses": 40,
+      "scheduledHours": 64.5,
+      "deliveredHours": 60,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69a93770f4891f7106f46226",
+      "name": "ABHIJIT PAYRA",
+      "subject": "Biology",
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69afe84344eb17f20245c0c2",
+      "name": "PALASH SIR",
+      "subject": "MATH",
+      "type": "Part Time",
+      "scheduledClasses": 1,
+      "deliveredClasses": 0,
+      "scheduledHours": 3,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "69b6c1273932f6bcd2747238",
+      "name": "Deepshikha Mitra ",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69cf4fe2174aba94a5727928",
+      "name": "MUSHARRAF IQBAL",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 31,
+      "deliveredClasses": 29,
+      "scheduledHours": 94,
+      "deliveredHours": 88,
+      "salary": 30000,
+      "costPerHour": 340.9,
+      "costSource": "Full-time Salary (30000/mo)"
+    },
+    {
+      "id": "69cf503e174aba94a572a365",
+      "name": "IQBAL ANSARI",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 20,
+      "deliveredClasses": 19,
+      "scheduledHours": 57.5,
+      "deliveredHours": 54.5,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69cf50bd174aba94a572d905",
+      "name": "HIMADRI GUNGULY",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "69cf50f8174aba94a572fa79",
+      "name": "ASHISH AGARWAL",
+      "subject": "MATHEMATICS",
+      "type": "Full-time",
+      "scheduledClasses": 9,
+      "deliveredClasses": 9,
+      "scheduledHours": 17.5,
+      "deliveredHours": 17.5,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69d36091914d3430a6c96096",
+      "name": "Sayani Biswas",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 450,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (450/mo)"
+    },
+    {
+      "id": "69de4fdc87c5f7bd0e82bafa",
+      "name": "PINAKI MAJI",
+      "subject": [],
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 652,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6a2e90c46f9e8401da9a6fcd",
+      "name": "RIMA BHATTACHARYA",
+      "subject": "BENGALI",
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6a3cbe1d89d3d0c0fd4732d6",
+      "name": "Biplab Dhar",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce7663f133b47dc84ed5",
+      "name": "DEBJANI SARKAR",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 30,
+      "deliveredClasses": 27,
+      "scheduledHours": 44.2,
+      "deliveredHours": 39.7,
+      "salary": 45000,
+      "costPerHour": 450,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7963f133b47dc84ef6",
+      "name": "SAYED MD ALI",
+      "subject": "Biology",
+      "type": "Full Time",
+      "scheduledClasses": 52,
+      "deliveredClasses": 49,
+      "scheduledHours": 87.1,
+      "deliveredHours": 82.6,
+      "salary": 40000,
+      "costPerHour": 484.6,
+      "costSource": "Full-time Salary (40000/mo)"
+    },
+    {
+      "id": "6970ce7b63f133b47dc84f08",
+      "name": "SAMUDRA CHATTERJEE",
+      "subject": [
+        "ZOOLOGY",
+        "BOTANY"
+      ],
+      "type": "Full Time",
+      "scheduledClasses": 41,
+      "deliveredClasses": 35,
+      "scheduledHours": 76,
+      "deliveredHours": 68.2,
+      "salary": 108000,
+      "costPerHour": 1583.6,
+      "costSource": "Full-time Salary (108000/mo)"
+    },
+    {
+      "id": "6970ce7c63f133b47dc84f17",
+      "name": "SABIR ALI",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 42,
+      "deliveredClasses": 38,
+      "scheduledHours": 63.8,
+      "deliveredHours": 57.8,
+      "salary": 0,
+      "costPerHour": 650,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7e63f133b47dc84f29",
+      "name": "DEBLINA ROY",
+      "subject": "Biology",
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 30000,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (30000/mo)"
+    },
+    {
+      "id": "69907e00d1378c308e83a33d",
+      "name": "Shuvam Pal",
+      "subject": "ZOOLOGY",
+      "type": "Full Time",
+      "scheduledClasses": 48,
+      "deliveredClasses": 42,
+      "scheduledHours": 131.9,
+      "deliveredHours": 113.9,
+      "salary": 75000,
+      "costPerHour": 658.5,
+      "costSource": "Full-time Salary (75000/mo)"
+    },
+    {
+      "id": "69907e57d1378c308e83a694",
+      "name": "rohit saha",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 28,
+      "deliveredClasses": 23,
+      "scheduledHours": 79,
+      "deliveredHours": 66,
+      "salary": 6000,
+      "costPerHour": 90.9,
+      "costSource": "Full-time Salary (6000/mo)"
+    },
+    {
+      "id": "699d9e00ff02990a45e878a7",
+      "name": "PEU DUTTA",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 599,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (599/mo)"
+    },
+    {
+      "id": "699d9e01ff02990a45e878b2",
+      "name": "RAMESH MUKHERJEE",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 12,
+      "deliveredClasses": 12,
+      "scheduledHours": 15.1,
+      "deliveredHours": 15.1,
+      "salary": 600,
+      "costPerHour": 39.7,
+      "costSource": "Full-time Salary (600/mo)"
+    },
+    {
+      "id": "69a94023f4891f7106f65977",
+      "name": "REETANKAR BANERJEE",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69a94081f4891f7106f65f1e",
+      "name": "AVIJIT CHAKRABORTY",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 19152,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (19152/mo)"
+    },
+    {
+      "id": "69b6b3c63932f6bcd26bcbd5",
+      "name": "Tapas Chatterjee",
+      "subject": "Physics ",
+      "type": "Part Time",
+      "scheduledClasses": 51,
+      "deliveredClasses": 46,
+      "scheduledHours": 76.5,
+      "deliveredHours": 69,
+      "salary": 0,
+      "costPerHour": 650,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "69ca17378fc10e37292f18ce",
+      "name": "DEBAJYOTI SARKAR",
+      "subject": "Biology",
+      "type": "Part-time",
+      "scheduledClasses": 76,
+      "deliveredClasses": 68,
+      "scheduledHours": 130,
+      "deliveredHours": 116.9,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "69cf5081174aba94a572b345",
+      "name": "SOUVIK MAJI",
+      "subject": "CHEMISTRY",
+      "type": "Full-time",
+      "scheduledClasses": 24,
+      "deliveredClasses": 23,
+      "scheduledHours": 35.3,
+      "deliveredHours": 33.8,
+      "salary": 30000,
+      "costPerHour": 888.9,
+      "costSource": "Full-time Salary (30000/mo)"
+    },
+    {
+      "id": "69d3685ddefd98a3b4893d86",
+      "name": "Supriya Dutta",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 0,
+      "scheduledHours": 4.5,
+      "deliveredHours": 0,
+      "salary": 500,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (500/mo)"
+    },
+    {
+      "id": "69d369b0defd98a3b489afe7",
+      "name": "Sruti Chakraborty",
+      "subject": [],
+      "type": "Part Time",
+      "scheduledClasses": 2,
+      "deliveredClasses": 1,
+      "scheduledHours": 5.5,
+      "deliveredHours": 3,
+      "salary": 522,
+      "costPerHour": 525,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "69db3e1e3a4058db14d599f4",
+      "name": "Krishanu Ghosh",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 25,
+      "deliveredClasses": 14,
+      "scheduledHours": 47.8,
+      "deliveredHours": 32.5,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6a01a2267dd88d4bf2b07910",
+      "name": "DEBJYOTI SARKAR",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 500,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (500/mo)"
+    },
+    {
+      "id": "6a0d64b30aa8d2b1b321454c",
+      "name": "Archita Roy Chowdhuri",
+      "subject": "ZOOLOGY",
+      "type": "Part Time",
+      "scheduledClasses": 10,
+      "deliveredClasses": 8,
+      "scheduledHours": 30,
+      "deliveredHours": 24,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6a3cd90c89d3d0c0fd73c5ba",
+      "name": "Anup Biswas",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce7663f133b47dc84edb",
+      "name": "BIDYUT ADHIKARY",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 525,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7763f133b47dc84ee1",
+      "name": "SOUVIK GHOSH",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce7763f133b47dc84eea",
+      "name": "SUDIPTA CHAKRABORTY",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 18,
+      "deliveredClasses": 13,
+      "scheduledHours": 27,
+      "deliveredHours": 19.5,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce7863f133b47dc84ef3",
+      "name": "JAHIR ABBAS MIRDDE",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 58,
+      "deliveredClasses": 49,
+      "scheduledHours": 92.6,
+      "deliveredHours": 79.9,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7963f133b47dc84ef9",
+      "name": "SHUVAM MUKHERJEE",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 33,
+      "deliveredClasses": 31,
+      "scheduledHours": 46.5,
+      "deliveredHours": 43.9,
+      "salary": 497,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7a63f133b47dc84eff",
+      "name": "ANIRBAN MUKHERJEE",
+      "subject": "PHYSICS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 600,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7c63f133b47dc84f11",
+      "name": "SOUMADITYA CHANDRA",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce7d63f133b47dc84f1d",
+      "name": "TATHAGATA CHAKRABORTY",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 38,
+      "deliveredClasses": 31,
+      "scheduledHours": 54.8,
+      "deliveredHours": 44.3,
+      "salary": 0,
+      "costPerHour": 625,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce9a415b0531b9da344d",
+      "name": "Sudipa Madam",
+      "subject": "#N/A",
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69907d7fd1378c308e83a175",
+      "name": "Rahul Jha",
+      "subject": "ZOOLOGY",
+      "type": "Full Time",
+      "scheduledClasses": 40,
+      "deliveredClasses": 38,
+      "scheduledHours": 96.7,
+      "deliveredHours": 92.7,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "699d9d7d1dac3a84250adacc",
+      "name": "TANBIR AHMED",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "699d9d7d1dac3a84250adad1",
+      "name": "PARTHA PRATIM MONDOL",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "699d9d7e1dac3a84250adadf",
+      "name": "SUBHADIP JANA",
+      "subject": "Physics",
+      "type": "Full Time",
+      "scheduledClasses": 13,
+      "deliveredClasses": 9,
+      "scheduledHours": 19.5,
+      "deliveredHours": 13.5,
+      "salary": 30150,
+      "costPerHour": 2233.3,
+      "costSource": "Full-time Salary (30150/mo)"
+    },
+    {
+      "id": "69a94266f4891f7106f66541",
+      "name": "POUSALI BASU",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69ba685073db54e0f8284480",
+      "name": "Rupak Dhar",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69d0d91a1accc285adf33b59",
+      "name": "Pranab Ghosh",
+      "subject": "CHEMISTRY",
+      "type": "Full-time",
+      "scheduledClasses": 65,
+      "deliveredClasses": 55,
+      "scheduledHours": 95.6,
+      "deliveredHours": 80.3,
+      "salary": 35150,
+      "costPerHour": 437.7,
+      "costSource": "Full-time Salary (35150/mo)"
+    },
+    {
+      "id": "69d372cee0dde22a351e55f5",
+      "name": "Sweta Singh",
+      "subject": [],
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 672,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "69d375a0e0dde22a351ef19d",
+      "name": "NIRVIK GHOSH",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 13,
+      "deliveredClasses": 13,
+      "scheduledHours": 19.5,
+      "deliveredHours": 19.5,
+      "salary": 666,
+      "costPerHour": 5500,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "69db3c293a4058db14d57056",
+      "name": "Krishanu Bhattacharjee",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 44,
+      "deliveredClasses": 41,
+      "scheduledHours": 64.8,
+      "deliveredHours": 60.3,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6a01b53c9d3d991ee263cde6",
+      "name": "Trisha Baidya",
+      "subject": [
+        "BOTANY",
+        "ZOOLOGY"
+      ],
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6a3cbf7d89d3d0c0fd48f9fc",
+      "name": "Suchandra Bose",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 50200,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (50200/mo)"
+    },
+    {
+      "id": "6a3cd81b89d3d0c0fd701456",
+      "name": "Partha Sarathi Chakraborty",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6970ce7663f133b47dc84ede",
+      "name": "SUBHADEEP CHAKRABORTY",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 20,
+      "deliveredClasses": 14,
+      "scheduledHours": 29.2,
+      "deliveredHours": 20.6,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "6970ce7863f133b47dc84ef0",
+      "name": "SUPRAKASH KARMAKAR",
+      "subject": "CHEMISTRY",
+      "type": "Part Time",
+      "scheduledClasses": 40,
+      "deliveredClasses": 34,
+      "scheduledHours": 66,
+      "deliveredHours": 57.2,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7b63f133b47dc84f05",
+      "name": "DEEPSHIKHA MITRA",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 4,
+      "deliveredClasses": 4,
+      "scheduledHours": 6,
+      "deliveredHours": 6,
+      "salary": 0,
+      "costPerHour": 450,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7c63f133b47dc84f14",
+      "name": "RUPSA MONDAL",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 48,
+      "deliveredClasses": 48,
+      "scheduledHours": 72,
+      "deliveredHours": 72,
+      "salary": 500,
+      "costPerHour": 500,
+      "costSource": "Part-Time Rate (HOURLY)"
+    },
+    {
+      "id": "6970ce7d63f133b47dc84f20",
+      "name": "SUMANTA MANDAL",
+      "subject": "MATHS",
+      "type": "Part Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 1000,
+      "costSource": "Part-Time Rate (DAY_WISE)"
+    },
+    {
+      "id": "6970cea4415b0531b9da34e1",
+      "name": "DEBASHRITA ROY",
+      "subject": "Biology",
+      "type": "Part Time",
+      "scheduledClasses": 55,
+      "deliveredClasses": 53,
+      "scheduledHours": 80.3,
+      "deliveredHours": 77.3,
+      "salary": 649,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "699d9d7e1dac3a84250adada",
+      "name": "A K MD AZIZUL HAQUE",
+      "subject": "PHYSICS",
+      "type": "Full Time",
+      "scheduledClasses": 60,
+      "deliveredClasses": 56,
+      "scheduledHours": 85.8,
+      "deliveredHours": 79.8,
+      "salary": 37000,
+      "costPerHour": 463.9,
+      "costSource": "Full-time Salary (37000/mo)"
+    },
+    {
+      "id": "699d9e01ff02990a45e878ba",
+      "name": "MAHUA SINHA ROY",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 4,
+      "deliveredClasses": 2,
+      "scheduledHours": 6,
+      "deliveredHours": 3,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "699d9e03ff02990a45e878cf",
+      "name": "SAYANTAN SARCAR",
+      "subject": "MATHEMATICS",
+      "type": "Full Time",
+      "scheduledClasses": 61,
+      "deliveredClasses": 55,
+      "scheduledHours": 88.6,
+      "deliveredHours": 79.8,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69a94127f4891f7106f663be",
+      "name": "ABBAS UDDIN AHAMED",
+      "subject": [],
+      "type": "Part-time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 500,
+      "costSource": "Estimated Part-Time Rate"
+    },
+    {
+      "id": "69b56cec3932f6bcd2b037ff",
+      "name": "Sayantan Ghosh",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 3,
+      "deliveredClasses": 3,
+      "scheduledHours": 4.5,
+      "deliveredHours": 4.5,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "69ba3e4a616a5ce640908ed1",
+      "name": "Krishnendu brahmachari ",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 47,
+      "deliveredClasses": 47,
+      "scheduledHours": 70.1,
+      "deliveredHours": 70.1,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6a268507a2a0db78fc269359",
+      "name": "Aritra Das",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 16,
+      "deliveredClasses": 13,
+      "scheduledHours": 24.1,
+      "deliveredHours": 19.6,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6a2e90c36f9e8401da9a6fbd",
+      "name": "SOUMIK MUKHERJEE",
+      "subject": [],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6a2e90c36f9e8401da9a6fc5",
+      "name": "AYESHA SIDDIQUE",
+      "subject": "COMPUTER SCIENCE",
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    },
+    {
+      "id": "6a2fca9529ed829acc233408",
+      "name": "Rakesh Madhu",
+      "subject": [
+        "BOTANY",
+        "ZOOLOGY"
+      ],
+      "type": "Full Time",
+      "scheduledClasses": 0,
+      "deliveredClasses": 0,
+      "scheduledHours": 0,
+      "deliveredHours": 0,
+      "salary": 0,
+      "costPerHour": 0,
+      "costSource": "Full-time Salary (0/mo)"
+    }
+  ],
+  "workloadSummary": {
+    "underutilizedCount": 93,
+    "overloadedCount": 20,
+    "sampleUnderutilized": [
+      {
+        "name": "Indranil Banerjee",
+        "hours": 0,
+        "type": "Part Time"
+      },
+      {
+        "name": "BISWAJIT PRABHAKAR",
+        "hours": 4.5,
+        "type": "Part Time"
+      },
+      {
+        "name": "TUSHAR KANTI HAZRA",
+        "hours": 0,
+        "type": "Full Time"
+      },
+      {
+        "name": "GAUTAM SAMANTA",
+        "hours": 0,
+        "type": "Part Time"
+      },
+      {
+        "name": "SUPRATIM SEN",
+        "hours": 3,
+        "type": "Full Time"
+      },
+      {
+        "name": "SOURAV BOSE",
+        "hours": 0,
+        "type": "Part Time"
+      },
+      {
+        "name": "SYED WASIM AKROM",
+        "hours": 1.5,
+        "type": "Part Time"
+      },
+      {
+        "name": "PRANAB PALADHI",
+        "hours": 3,
+        "type": "Part Time"
+      },
+      {
+        "name": "BHASKAR MONDAL",
+        "hours": 0,
+        "type": "Part Time"
+      },
+      {
+        "name": "SK MD ASIF",
+        "hours": 0,
+        "type": "Part Time"
+      }
+    ],
+    "sampleOverloaded": [
+      {
+        "name": "SUMANTA DUTTA",
+        "hours": 87.6,
+        "type": "Full Time"
+      },
+      {
+        "name": "PARTHA SARATHI KUNDU",
+        "hours": 89,
+        "type": "Part Time"
+      },
+      {
+        "name": "HAREKRISHNA MANDAL",
+        "hours": 105.5,
+        "type": "Full Time"
+      },
+      {
+        "name": "SUBHRAJIT NANDI",
+        "hours": 86.7,
+        "type": "Full Time"
+      },
+      {
+        "name": "PRITAM SAHA",
+        "hours": 172.1,
+        "type": "Part Time"
+      },
+      {
+        "name": "TARUN ROY",
+        "hours": 145.5,
+        "type": "Part Time"
+      },
+      {
+        "name": "SOURAV PAKIRA",
+        "hours": 107.2,
+        "type": "Part Time"
+      },
+      {
+        "name": "SHANKAR KUMAR ROY",
+        "hours": 112.5,
+        "type": "Part Time"
+      },
+      {
+        "name": "SANCHITA SARKAR",
+        "hours": 80.5,
+        "type": "Full Time"
+      },
+      {
+        "name": "SAHEB DALAPATI",
+        "hours": 205.1,
+        "type": "Full Time"
+      }
+    ]
+  },
+  "teacherStudentAttendance": [
+    {
+      "teacherId": "6970ce5e63f133b47dc84db2",
+      "name": "ADITYA AGARWAL",
+      "studentAttendanceRate": 100,
+      "totalRecords": 3
+    },
+    {
+      "teacherId": "699d9d7e1dac3a84250adadf",
+      "name": "SUBHADIP JANA",
+      "studentAttendanceRate": 90.9,
+      "totalRecords": 11
+    },
+    {
+      "teacherId": "6970ce5663f133b47dc84d4a",
+      "name": "SUMANTA DUTTA",
+      "studentAttendanceRate": 88.3,
+      "totalRecords": 394
+    },
+    {
+      "teacherId": "699d9e01ff02990a45e878b2",
+      "name": "RAMESH MUKHERJEE",
+      "studentAttendanceRate": 86,
+      "totalRecords": 43
+    },
+    {
+      "teacherId": "69ba3e4a616a5ce640908ed1",
+      "name": "Krishnendu brahmachari ",
+      "studentAttendanceRate": 85.8,
+      "totalRecords": 925
+    },
+    {
+      "teacherId": "6970ce7963f133b47dc84ef9",
+      "name": "SHUVAM MUKHERJEE",
+      "studentAttendanceRate": 84.6,
+      "totalRecords": 460
+    },
+    {
+      "teacherId": "6970ce7863f133b47dc84ef3",
+      "name": "JAHIR ABBAS MIRDDE",
+      "studentAttendanceRate": 84.4,
+      "totalRecords": 776
+    },
+    {
+      "teacherId": "6970ce7863f133b47dc84ef0",
+      "name": "SUPRAKASH KARMAKAR",
+      "studentAttendanceRate": 84.4,
+      "totalRecords": 366
+    },
+    {
+      "teacherId": "6970ce6463f133b47dc84e04",
+      "name": "MANIK JANA",
+      "studentAttendanceRate": 84.4,
+      "totalRecords": 1200
+    },
+    {
+      "teacherId": "6970ce5963f133b47dc84d75",
+      "name": "SK MERAZ CHOWDHURY",
+      "studentAttendanceRate": 84.4,
+      "totalRecords": 602
+    },
+    {
+      "teacherId": "6970ce6363f133b47dc84df2",
+      "name": "TARUN ROY",
+      "studentAttendanceRate": 84.3,
+      "totalRecords": 217
+    },
+    {
+      "teacherId": "6970ce6263f133b47dc84de0",
+      "name": "DEB SHANKHA GOSWAMI",
+      "studentAttendanceRate": 84,
+      "totalRecords": 463
+    },
+    {
+      "teacherId": "6970ce7463f133b47dc84ec0",
+      "name": "SANTOSH DAWN",
+      "studentAttendanceRate": 84,
+      "totalRecords": 131
+    },
+    {
+      "teacherId": "69ca17378fc10e37292f18ce",
+      "name": "DEBAJYOTI SARKAR",
+      "studentAttendanceRate": 83.7,
+      "totalRecords": 716
+    },
+    {
+      "teacherId": "6970ce7863f133b47dc84eed",
+      "name": "ARUP KR PATRA",
+      "studentAttendanceRate": 83.7,
+      "totalRecords": 392
+    },
+    {
+      "teacherId": "6970ce7463f133b47dc84ec9",
+      "name": "SOURAV PAKIRA",
+      "studentAttendanceRate": 83.7,
+      "totalRecords": 1231
+    },
+    {
+      "teacherId": "6970ce6563f133b47dc84e07",
+      "name": "ALOK KR. JANA",
+      "studentAttendanceRate": 83.6,
+      "totalRecords": 1274
+    },
+    {
+      "teacherId": "69db3e1e3a4058db14d599f4",
+      "name": "Krishanu Ghosh",
+      "studentAttendanceRate": 83.5,
+      "totalRecords": 127
+    },
+    {
+      "teacherId": "6970ce5f63f133b47dc84dbb",
+      "name": "ASIJITA CHATTERJEE",
+      "studentAttendanceRate": 83.2,
+      "totalRecords": 131
+    },
+    {
+      "teacherId": "6970ce7763f133b47dc84ee4",
+      "name": "CHIRANTAN MAJI",
+      "studentAttendanceRate": 83.2,
+      "totalRecords": 119
+    },
+    {
+      "teacherId": "699d9e02ff02990a45e878c7",
+      "name": "PRADIP KARMAKAR",
+      "studentAttendanceRate": 82.2,
+      "totalRecords": 911
+    },
+    {
+      "teacherId": "69b6b3c63932f6bcd26bcbd5",
+      "name": "Tapas Chatterjee",
+      "studentAttendanceRate": 82,
+      "totalRecords": 743
+    },
+    {
+      "teacherId": "6970ce7163f133b47dc84e9d",
+      "name": "ASHIS KARAN",
+      "studentAttendanceRate": 81.8,
+      "totalRecords": 631
+    },
+    {
+      "teacherId": "69907e57d1378c308e83a694",
+      "name": "rohit saha",
+      "studentAttendanceRate": 81.6,
+      "totalRecords": 729
+    },
+    {
+      "teacherId": "6970ce5963f133b47dc84d78",
+      "name": "DIPANJAN CHAKRABORTY",
+      "studentAttendanceRate": 81.5,
+      "totalRecords": 837
+    },
+    {
+      "teacherId": "6970ce5b63f133b47dc84d8a",
+      "name": "ANKIT SUREKA",
+      "studentAttendanceRate": 81.4,
+      "totalRecords": 544
+    },
+    {
+      "teacherId": "6970ce6c63f133b47dc84e5e",
+      "name": "NILANJAN MAJUMDAR",
+      "studentAttendanceRate": 80.8,
+      "totalRecords": 870
+    },
+    {
+      "teacherId": "6970ce6763f133b47dc84e25",
+      "name": "SAYANTAN GHOSH",
+      "studentAttendanceRate": 80,
+      "totalRecords": 60
+    },
+    {
+      "teacherId": "699d9e01ff02990a45e878ba",
+      "name": "MAHUA SINHA ROY",
+      "studentAttendanceRate": 80,
+      "totalRecords": 75
+    },
+    {
+      "teacherId": "6970ce7363f133b47dc84eba",
+      "name": "SANU PAIK",
+      "studentAttendanceRate": 79.7,
+      "totalRecords": 947
+    },
+    {
+      "teacherId": "69d0d91a1accc285adf33b59",
+      "name": "Pranab Ghosh",
+      "studentAttendanceRate": 79.4,
+      "totalRecords": 879
+    },
+    {
+      "teacherId": "6970ce6e63f133b47dc84e82",
+      "name": "PRITAM NASKAR",
+      "studentAttendanceRate": 79.2,
+      "totalRecords": 106
+    },
+    {
+      "teacherId": "6970ce6763f133b47dc84e22",
+      "name": "JAYDEV SAMANTA",
+      "studentAttendanceRate": 78.9,
+      "totalRecords": 128
+    },
+    {
+      "teacherId": "6970ce7c63f133b47dc84f17",
+      "name": "SABIR ALI",
+      "studentAttendanceRate": 78.8,
+      "totalRecords": 832
+    },
+    {
+      "teacherId": "6970ce6363f133b47dc84def",
+      "name": "SHANKAR KUMAR ROY",
+      "studentAttendanceRate": 78.7,
+      "totalRecords": 442
+    },
+    {
+      "teacherId": "6970ce7963f133b47dc84ef6",
+      "name": "SAYED MD ALI",
+      "studentAttendanceRate": 78.6,
+      "totalRecords": 682
+    },
+    {
+      "teacherId": "6970ce5b63f133b47dc84d8d",
+      "name": "MAINAK LODH CHOWDHURY",
+      "studentAttendanceRate": 78.6,
+      "totalRecords": 98
+    },
+    {
+      "teacherId": "6970ce7663f133b47dc84ed5",
+      "name": "DEBJANI SARKAR",
+      "studentAttendanceRate": 77.7,
+      "totalRecords": 359
+    },
+    {
+      "teacherId": "699d9e03ff02990a45e878cf",
+      "name": "SAYANTAN SARCAR",
+      "studentAttendanceRate": 77.4,
+      "totalRecords": 1627
+    },
+    {
+      "teacherId": "6970ce7b63f133b47dc84f08",
+      "name": "SAMUDRA CHATTERJEE",
+      "studentAttendanceRate": 77.2,
+      "totalRecords": 776
+    },
+    {
+      "teacherId": "6970ce7d63f133b47dc84f1d",
+      "name": "TATHAGATA CHAKRABORTY",
+      "studentAttendanceRate": 76.7,
+      "totalRecords": 240
+    },
+    {
+      "teacherId": "6970ce7463f133b47dc84ec6",
+      "name": "SUBRATA SARDER",
+      "studentAttendanceRate": 76.7,
+      "totalRecords": 510
+    },
+    {
+      "teacherId": "6970ce7463f133b47dc84ec3",
+      "name": "TUSAR KANTO DEY",
+      "studentAttendanceRate": 76.4,
+      "totalRecords": 461
+    },
+    {
+      "teacherId": "6970ce7263f133b47dc84eaf",
+      "name": "SUBHRAJIT NANDI",
+      "studentAttendanceRate": 76.1,
+      "totalRecords": 1377
+    },
+    {
+      "teacherId": "6970ce6663f133b47dc84e1c",
+      "name": "ARIJIT GOON",
+      "studentAttendanceRate": 75.9,
+      "totalRecords": 112
+    },
+    {
+      "teacherId": "6970ce6563f133b47dc84e0d",
+      "name": "Dr.ARNAB SINHA RAY",
+      "studentAttendanceRate": 75.6,
+      "totalRecords": 1384
+    },
+    {
+      "teacherId": "699d9d7e1dac3a84250adada",
+      "name": "A K MD AZIZUL HAQUE",
+      "studentAttendanceRate": 75.5,
+      "totalRecords": 1512
+    },
+    {
+      "teacherId": "6970cea4415b0531b9da34e1",
+      "name": "DEBASHRITA ROY",
+      "studentAttendanceRate": 75.5,
+      "totalRecords": 1136
+    },
+    {
+      "teacherId": "6970ce6663f133b47dc84e1f",
+      "name": "SUBHOJIT DAS",
+      "studentAttendanceRate": 75.5,
+      "totalRecords": 1039
+    },
+    {
+      "teacherId": "69b56cec3932f6bcd2b037ff",
+      "name": "Sayantan Ghosh",
+      "studentAttendanceRate": 75.4,
+      "totalRecords": 69
+    },
+    {
+      "teacherId": "69cf5081174aba94a572b345",
+      "name": "SOUVIK MAJI",
+      "studentAttendanceRate": 75.4,
+      "totalRecords": 947
+    },
+    {
+      "teacherId": "6970ce7763f133b47dc84eea",
+      "name": "SUDIPTA CHAKRABORTY",
+      "studentAttendanceRate": 75,
+      "totalRecords": 4
+    },
+    {
+      "teacherId": "6970ce7363f133b47dc84ebd",
+      "name": "SANCHITA SARKAR",
+      "studentAttendanceRate": 74.9,
+      "totalRecords": 857
+    },
+    {
+      "teacherId": "6970ce7c63f133b47dc84f0e",
+      "name": "ANAL KR. BISWAS",
+      "studentAttendanceRate": 74.3,
+      "totalRecords": 1085
+    },
+    {
+      "teacherId": "6970ce5363f133b47dc84d23",
+      "name": "ASHIM DAS",
+      "studentAttendanceRate": 73.3,
+      "totalRecords": 45
+    },
+    {
+      "teacherId": "69db3c293a4058db14d57056",
+      "name": "Krishanu Bhattacharjee",
+      "studentAttendanceRate": 73,
+      "totalRecords": 827
+    },
+    {
+      "teacherId": "6970ce7163f133b47dc84ea6",
+      "name": "SUVOJIT SIKDER",
+      "studentAttendanceRate": 72.6,
+      "totalRecords": 999
+    },
+    {
+      "teacherId": "6970ce7163f133b47dc84ea3",
+      "name": "PRITHWISH DUTTA",
+      "studentAttendanceRate": 72.6,
+      "totalRecords": 951
+    },
+    {
+      "teacherId": "69cf503e174aba94a572a365",
+      "name": "IQBAL ANSARI",
+      "studentAttendanceRate": 71.8,
+      "totalRecords": 131
+    },
+    {
+      "teacherId": "6970ce6863f133b47dc84e2e",
+      "name": "DIPANWITA GHOSH",
+      "studentAttendanceRate": 71.5,
+      "totalRecords": 323
+    },
+    {
+      "teacherId": "6970ce7c63f133b47dc84f14",
+      "name": "RUPSA MONDAL",
+      "studentAttendanceRate": 71.5,
+      "totalRecords": 1170
+    },
+    {
+      "teacherId": "6970ce7263f133b47dc84eac",
+      "name": "ARPAN BHATTACHARYA",
+      "studentAttendanceRate": 70.7,
+      "totalRecords": 1002
+    },
+    {
+      "teacherId": "6970ce5f63f133b47dc84dc1",
+      "name": "SUBRATA CHATTERJEE",
+      "studentAttendanceRate": 70.2,
+      "totalRecords": 262
+    },
+    {
+      "teacherId": "6970ce7663f133b47dc84ede",
+      "name": "SUBHADEEP CHAKRABORTY",
+      "studentAttendanceRate": 69,
+      "totalRecords": 113
+    },
+    {
+      "teacherId": "6a0d64b30aa8d2b1b321454c",
+      "name": "Archita Roy Chowdhuri",
+      "studentAttendanceRate": 69,
+      "totalRecords": 29
+    },
+    {
+      "teacherId": "6970ce7b63f133b47dc84f05",
+      "name": "DEEPSHIKHA MITRA",
+      "studentAttendanceRate": 67.7,
+      "totalRecords": 31
+    },
+    {
+      "teacherId": "6970ce5663f133b47dc84d4d",
+      "name": "Dr. MOUMITA MONDAL",
+      "studentAttendanceRate": 67,
+      "totalRecords": 437
+    },
+    {
+      "teacherId": "6970c45e9590082b8167506c",
+      "name": "SAHEB DALAPATI",
+      "studentAttendanceRate": 66.6,
+      "totalRecords": 1995
+    },
+    {
+      "teacherId": "6970ce5e63f133b47dc84db8",
+      "name": "SWAGATA ROY CHOWDHURY",
+      "studentAttendanceRate": 66.4,
+      "totalRecords": 247
+    },
+    {
+      "teacherId": "6970ce5c63f133b47dc84d96",
+      "name": "PARTHA SARATHI KUNDU",
+      "studentAttendanceRate": 64,
+      "totalRecords": 406
+    },
+    {
+      "teacherId": "6970ce5763f133b47dc84d5a",
+      "name": "PRITAM SAHA",
+      "studentAttendanceRate": 63.8,
+      "totalRecords": 840
+    },
+    {
+      "teacherId": "69cf4fe2174aba94a5727928",
+      "name": "MUSHARRAF IQBAL",
+      "studentAttendanceRate": 63,
+      "totalRecords": 611
+    },
+    {
+      "teacherId": "6970ce6863f133b47dc84e37",
+      "name": "SHUVANKAR HAZRA",
+      "studentAttendanceRate": 63,
+      "totalRecords": 100
+    },
+    {
+      "teacherId": "6a268507a2a0db78fc269359",
+      "name": "Aritra Das",
+      "studentAttendanceRate": 62.4,
+      "totalRecords": 85
+    },
+    {
+      "teacherId": "69907d7fd1378c308e83a175",
+      "name": "Rahul Jha",
+      "studentAttendanceRate": 58.9,
+      "totalRecords": 219
+    },
+    {
+      "teacherId": "6970ce6763f133b47dc84e28",
+      "name": "MOUMITA M",
+      "studentAttendanceRate": 58.3,
+      "totalRecords": 24
+    },
+    {
+      "teacherId": "69d375a0e0dde22a351ef19d",
+      "name": "NIRVIK GHOSH",
+      "studentAttendanceRate": 55.6,
+      "totalRecords": 99
+    },
+    {
+      "teacherId": "6970ce5863f133b47dc84d60",
+      "name": "SUMIT HAZRA",
+      "studentAttendanceRate": 55.5,
+      "totalRecords": 980
+    },
+    {
+      "teacherId": "6970ce6263f133b47dc84de9",
+      "name": "HAREKRISHNA MANDAL",
+      "studentAttendanceRate": 46.2,
+      "totalRecords": 541
+    },
+    {
+      "teacherId": "69907e00d1378c308e83a33d",
+      "name": "Shuvam Pal",
+      "studentAttendanceRate": 45.8,
+      "totalRecords": 515
+    },
+    {
+      "teacherId": "69cf50f8174aba94a572fa79",
+      "name": "ASHISH AGARWAL",
+      "studentAttendanceRate": 45.7,
+      "totalRecords": 81
+    },
+    {
+      "teacherId": "6970ce5463f133b47dc84d35",
+      "name": "SANDIP PRASAD",
+      "studentAttendanceRate": 35.7,
+      "totalRecords": 14
+    },
+    {
+      "teacherId": "6970ce5563f133b47dc84d3e",
+      "name": "SUJIT BERA",
+      "studentAttendanceRate": 34.7,
+      "totalRecords": 1029
+    },
+    {
+      "teacherId": "6970ce5763f133b47dc84d5d",
+      "name": "SUPRATIK SEN",
+      "studentAttendanceRate": 34.7,
+      "totalRecords": 1052
+    },
+    {
+      "teacherId": "6970ce5663f133b47dc84d47",
+      "name": "ASRAF KHAN",
+      "studentAttendanceRate": 33.3,
+      "totalRecords": 498
+    },
+    {
+      "teacherId": "6970ce6363f133b47dc84df8",
+      "name": "MOHIT GUPTA",
+      "studentAttendanceRate": 33.2,
+      "totalRecords": 241
+    },
+    {
+      "teacherId": "6970ce5d63f133b47dc84da9",
+      "name": "RINTU KAR",
+      "studentAttendanceRate": 31.3,
+      "totalRecords": 32
+    }
+  ],
+  "punctuality": {
+    "totalCompletedWithPunctualityData": 2747,
+    "averageDelayMinutes": 151.1,
+    "classesDelayedMoreThan15Mins": 1307,
+    "latePercentage": 48,
+    "cancelledClasses": 0,
+    "rescheduledClasses": 0
+  },
+  "timeSlotStats": [
+    {
+      "slot": "02:30-04:00",
+      "attendanceRate": 11.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:00-04:00",
+      "attendanceRate": 14.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:30-18:30",
+      "attendanceRate": 19,
+      "classesCount": 1
+    },
+    {
+      "slot": "16:20-18:40",
+      "attendanceRate": 19.6,
+      "classesCount": 2
+    },
+    {
+      "slot": "13:00-15:00",
+      "attendanceRate": 20,
+      "classesCount": 3
+    },
+    {
+      "slot": "13:05-16:15",
+      "attendanceRate": 22.7,
+      "classesCount": 7
+    },
+    {
+      "slot": "13:00-16:15",
+      "attendanceRate": 26.3,
+      "classesCount": 3
+    },
+    {
+      "slot": "23:00-14:00",
+      "attendanceRate": 28.2,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:20-14:00",
+      "attendanceRate": 31.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-12:00",
+      "attendanceRate": 32.2,
+      "classesCount": 23
+    },
+    {
+      "slot": "10:30-11:30",
+      "attendanceRate": 33.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "12:00-02:00",
+      "attendanceRate": 34.1,
+      "classesCount": 23
+    },
+    {
+      "slot": "10:40-12:00",
+      "attendanceRate": 36,
+      "classesCount": 3
+    },
+    {
+      "slot": "10:15-12:00",
+      "attendanceRate": 36.5,
+      "classesCount": 2
+    },
+    {
+      "slot": "14:00-16:30",
+      "attendanceRate": 36.7,
+      "classesCount": 2
+    },
+    {
+      "slot": "10:30-01:30",
+      "attendanceRate": 37,
+      "classesCount": 23
+    },
+    {
+      "slot": "02:00-04:15",
+      "attendanceRate": 37,
+      "classesCount": 2
+    },
+    {
+      "slot": "03:00-05:00",
+      "attendanceRate": 37.6,
+      "classesCount": 40
+    },
+    {
+      "slot": "02:00-05:00",
+      "attendanceRate": 37.9,
+      "classesCount": 32
+    },
+    {
+      "slot": "16:20-18:30",
+      "attendanceRate": 38.1,
+      "classesCount": 10
+    },
+    {
+      "slot": "01:30-04:30",
+      "attendanceRate": 40,
+      "classesCount": 6
+    },
+    {
+      "slot": "10:30-01:00",
+      "attendanceRate": 40,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:00-13:45",
+      "attendanceRate": 40,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:30-04:45",
+      "attendanceRate": 40,
+      "classesCount": 1
+    },
+    {
+      "slot": "12:30-02:45",
+      "attendanceRate": 40,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-16:15",
+      "attendanceRate": 40.3,
+      "classesCount": 8
+    },
+    {
+      "slot": "13:45-04:15",
+      "attendanceRate": 41.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "13:00-14:00",
+      "attendanceRate": 42.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "16:15-18:30",
+      "attendanceRate": 43.2,
+      "classesCount": 3
+    },
+    {
+      "slot": "01:00-03:00",
+      "attendanceRate": 43.5,
+      "classesCount": 9
+    },
+    {
+      "slot": "23:40-13:10",
+      "attendanceRate": 43.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:45-12:30",
+      "attendanceRate": 44.4,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:30-16:00",
+      "attendanceRate": 45,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:00-16:15",
+      "attendanceRate": 45.1,
+      "classesCount": 2
+    },
+    {
+      "slot": "04:20-06:30",
+      "attendanceRate": 45.1,
+      "classesCount": 5
+    },
+    {
+      "slot": "01:30-03:00",
+      "attendanceRate": 45.9,
+      "classesCount": 7
+    },
+    {
+      "slot": "01:30-16:15",
+      "attendanceRate": 46.2,
+      "classesCount": 1
+    },
+    {
+      "slot": "13:00-17:45",
+      "attendanceRate": 47.4,
+      "classesCount": 1
+    },
+    {
+      "slot": "05:30-08:30",
+      "attendanceRate": 50,
+      "classesCount": 1
+    },
+    {
+      "slot": "01:00-01:45",
+      "attendanceRate": 50,
+      "classesCount": 1
+    },
+    {
+      "slot": "13:30-16:00",
+      "attendanceRate": 52.1,
+      "classesCount": 2
+    },
+    {
+      "slot": "10:30-13:45",
+      "attendanceRate": 53.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:15-16:15",
+      "attendanceRate": 54.3,
+      "classesCount": 2
+    },
+    {
+      "slot": "11:00-01:30",
+      "attendanceRate": 54.8,
+      "classesCount": 2
+    },
+    {
+      "slot": "10:30-13:30",
+      "attendanceRate": 55.6,
+      "classesCount": 13
+    },
+    {
+      "slot": "01:45-04:00",
+      "attendanceRate": 57.1,
+      "classesCount": 2
+    },
+    {
+      "slot": "12:30-03:00",
+      "attendanceRate": 57.1,
+      "classesCount": 1
+    },
+    {
+      "slot": "13:45-16:45",
+      "attendanceRate": 58.3,
+      "classesCount": 5
+    },
+    {
+      "slot": "13:00-16:00",
+      "attendanceRate": 61.1,
+      "classesCount": 4
+    },
+    {
+      "slot": "18:00-21:00",
+      "attendanceRate": 61.5,
+      "classesCount": 2
+    },
+    {
+      "slot": "11:15-14:30",
+      "attendanceRate": 61.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:30-05:30",
+      "attendanceRate": 61.9,
+      "classesCount": 4
+    },
+    {
+      "slot": "14:00-17:15",
+      "attendanceRate": 62.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-12:30",
+      "attendanceRate": 62.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-17:05",
+      "attendanceRate": 62.6,
+      "classesCount": 2
+    },
+    {
+      "slot": "15:00-16:30",
+      "attendanceRate": 63,
+      "classesCount": 20
+    },
+    {
+      "slot": "02:00-03:00",
+      "attendanceRate": 63.6,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:00-03:30",
+      "attendanceRate": 64.1,
+      "classesCount": 43
+    },
+    {
+      "slot": "17:45-20:45",
+      "attendanceRate": 64.2,
+      "classesCount": 21
+    },
+    {
+      "slot": "13:30-15:00",
+      "attendanceRate": 65.2,
+      "classesCount": 23
+    },
+    {
+      "slot": "03:30-05:00",
+      "attendanceRate": 65.9,
+      "classesCount": 49
+    },
+    {
+      "slot": "18:39-19:39",
+      "attendanceRate": 66.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-13:30",
+      "attendanceRate": 66.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:00-04:30",
+      "attendanceRate": 66.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "05:30-08:45",
+      "attendanceRate": 66.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "22:30-12:00",
+      "attendanceRate": 67.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:30-03:40",
+      "attendanceRate": 68.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-16:05",
+      "attendanceRate": 69.2,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:35-01:05",
+      "attendanceRate": 69.2,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:15-03:35",
+      "attendanceRate": 69.7,
+      "classesCount": 2
+    },
+    {
+      "slot": "04:15-07:15",
+      "attendanceRate": 70,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-11:00",
+      "attendanceRate": 70.2,
+      "classesCount": 4
+    },
+    {
+      "slot": "15:35-17:05",
+      "attendanceRate": 70.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:30-17:30",
+      "attendanceRate": 71.3,
+      "classesCount": 55
+    },
+    {
+      "slot": "13:30-16:30",
+      "attendanceRate": 71.4,
+      "classesCount": 2
+    },
+    {
+      "slot": "14:00-05:00",
+      "attendanceRate": 71.4,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:30-03:15",
+      "attendanceRate": 71.4,
+      "classesCount": 1
+    },
+    {
+      "slot": "18:30-21:00",
+      "attendanceRate": 71.4,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:30-12:00",
+      "attendanceRate": 71.9,
+      "classesCount": 9
+    },
+    {
+      "slot": "10:45-12:15",
+      "attendanceRate": 72.7,
+      "classesCount": 18
+    },
+    {
+      "slot": "03:40-05:00",
+      "attendanceRate": 73.2,
+      "classesCount": 3
+    },
+    {
+      "slot": "02:00-04:10",
+      "attendanceRate": 73.2,
+      "classesCount": 4
+    },
+    {
+      "slot": "12:00-15:00",
+      "attendanceRate": 73.5,
+      "classesCount": 8
+    },
+    {
+      "slot": "11:40-13:10",
+      "attendanceRate": 73.8,
+      "classesCount": 74
+    },
+    {
+      "slot": "13:15-16:15",
+      "attendanceRate": 74.1,
+      "classesCount": 3
+    },
+    {
+      "slot": "12:15-01:30",
+      "attendanceRate": 74.1,
+      "classesCount": 2
+    },
+    {
+      "slot": "11:40-01:40",
+      "attendanceRate": 74.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "05:45-08:45",
+      "attendanceRate": 74.4,
+      "classesCount": 5
+    },
+    {
+      "slot": "13:50-15:20",
+      "attendanceRate": 74.6,
+      "classesCount": 73
+    },
+    {
+      "slot": "12:30-05:00",
+      "attendanceRate": 75,
+      "classesCount": 1
+    },
+    {
+      "slot": "01:45-03:45",
+      "attendanceRate": 75,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-17:30",
+      "attendanceRate": 75,
+      "classesCount": 1
+    },
+    {
+      "slot": "15:30-15:30",
+      "attendanceRate": 75,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:50-12:00",
+      "attendanceRate": 75.2,
+      "classesCount": 3
+    },
+    {
+      "slot": "15:30-05:00",
+      "attendanceRate": 75.5,
+      "classesCount": 2
+    },
+    {
+      "slot": "15:20-16:50",
+      "attendanceRate": 75.6,
+      "classesCount": 12
+    },
+    {
+      "slot": "03:00-04:30",
+      "attendanceRate": 75.9,
+      "classesCount": 10
+    },
+    {
+      "slot": "15:00-17:00",
+      "attendanceRate": 76,
+      "classesCount": 3
+    },
+    {
+      "slot": "10:30-13:00",
+      "attendanceRate": 76.1,
+      "classesCount": 7
+    },
+    {
+      "slot": "17:20-20:25",
+      "attendanceRate": 76.2,
+      "classesCount": 1
+    },
+    {
+      "slot": "17:35-20:00",
+      "attendanceRate": 76.2,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-17:00",
+      "attendanceRate": 76.3,
+      "classesCount": 60
+    },
+    {
+      "slot": "13:45-15:15",
+      "attendanceRate": 76.5,
+      "classesCount": 48
+    },
+    {
+      "slot": "11:00-00:30",
+      "attendanceRate": 76.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "03:20-04:50",
+      "attendanceRate": 76.7,
+      "classesCount": 14
+    },
+    {
+      "slot": "01:20-02:50",
+      "attendanceRate": 76.7,
+      "classesCount": 9
+    },
+    {
+      "slot": "02:50-04:00",
+      "attendanceRate": 76.8,
+      "classesCount": 9
+    },
+    {
+      "slot": "13:45-16:15",
+      "attendanceRate": 76.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "13:45-16:30",
+      "attendanceRate": 76.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "03:15-04:45",
+      "attendanceRate": 77,
+      "classesCount": 28
+    },
+    {
+      "slot": "10:00-11:10",
+      "attendanceRate": 77.1,
+      "classesCount": 7
+    },
+    {
+      "slot": "01:45-03:15",
+      "attendanceRate": 77.2,
+      "classesCount": 50
+    },
+    {
+      "slot": "14:15-15:45",
+      "attendanceRate": 77.4,
+      "classesCount": 15
+    },
+    {
+      "slot": "05:00-07:00",
+      "attendanceRate": 77.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-16:00",
+      "attendanceRate": 77.8,
+      "classesCount": 6
+    },
+    {
+      "slot": "03:15-04:00",
+      "attendanceRate": 77.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-12:15",
+      "attendanceRate": 77.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-11:30",
+      "attendanceRate": 77.9,
+      "classesCount": 310
+    },
+    {
+      "slot": "15:15-16:45",
+      "attendanceRate": 78.3,
+      "classesCount": 31
+    },
+    {
+      "slot": "17:10-20:10",
+      "attendanceRate": 78.5,
+      "classesCount": 16
+    },
+    {
+      "slot": "15:30-17:00",
+      "attendanceRate": 78.6,
+      "classesCount": 113
+    },
+    {
+      "slot": "11:15-12:25",
+      "attendanceRate": 78.8,
+      "classesCount": 7
+    },
+    {
+      "slot": "16:10-18:10",
+      "attendanceRate": 78.9,
+      "classesCount": 6
+    },
+    {
+      "slot": "12:10-13:40",
+      "attendanceRate": 78.9,
+      "classesCount": 3
+    },
+    {
+      "slot": "01:50-03:20",
+      "attendanceRate": 79,
+      "classesCount": 8
+    },
+    {
+      "slot": "12:15-13:45",
+      "attendanceRate": 79,
+      "classesCount": 17
+    },
+    {
+      "slot": "14:10-15:20",
+      "attendanceRate": 79,
+      "classesCount": 7
+    },
+    {
+      "slot": "12:55-14:05",
+      "attendanceRate": 79.1,
+      "classesCount": 7
+    },
+    {
+      "slot": "15:45-17:15",
+      "attendanceRate": 79.3,
+      "classesCount": 17
+    },
+    {
+      "slot": "16:15-18:15",
+      "attendanceRate": 79.5,
+      "classesCount": 6
+    },
+    {
+      "slot": "15:00-18:00",
+      "attendanceRate": 79.6,
+      "classesCount": 9
+    },
+    {
+      "slot": "10:15-01:15",
+      "attendanceRate": 79.8,
+      "classesCount": 9
+    },
+    {
+      "slot": "12:00-01:30",
+      "attendanceRate": 80,
+      "classesCount": 1
+    },
+    {
+      "slot": "04:15-06:15",
+      "attendanceRate": 80,
+      "classesCount": 1
+    },
+    {
+      "slot": "02:00-05:30",
+      "attendanceRate": 80,
+      "classesCount": 2
+    },
+    {
+      "slot": "14:00-15:30",
+      "attendanceRate": 80.4,
+      "classesCount": 57
+    },
+    {
+      "slot": "12:30-14:00",
+      "attendanceRate": 80.6,
+      "classesCount": 3
+    },
+    {
+      "slot": "15:45-16:45",
+      "attendanceRate": 81,
+      "classesCount": 1
+    },
+    {
+      "slot": "17:00-20:00",
+      "attendanceRate": 81.1,
+      "classesCount": 5
+    },
+    {
+      "slot": "01:40-03:10",
+      "attendanceRate": 81.1,
+      "classesCount": 32
+    },
+    {
+      "slot": "10:00-01:00",
+      "attendanceRate": 81.3,
+      "classesCount": 5
+    },
+    {
+      "slot": "12:20-13:30",
+      "attendanceRate": 81.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-16:10",
+      "attendanceRate": 81.5,
+      "classesCount": 14
+    },
+    {
+      "slot": "11:00-14:00",
+      "attendanceRate": 81.7,
+      "classesCount": 62
+    },
+    {
+      "slot": "13:50-16:20",
+      "attendanceRate": 81.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:40-01:10",
+      "attendanceRate": 81.9,
+      "classesCount": 7
+    },
+    {
+      "slot": "14:00-03:30",
+      "attendanceRate": 82.1,
+      "classesCount": 1
+    },
+    {
+      "slot": "04:30-06:00",
+      "attendanceRate": 82.1,
+      "classesCount": 5
+    },
+    {
+      "slot": "11:30-01:00",
+      "attendanceRate": 82.4,
+      "classesCount": 100
+    },
+    {
+      "slot": "14:15-17:15",
+      "attendanceRate": 82.4,
+      "classesCount": 25
+    },
+    {
+      "slot": "10:45-13:45",
+      "attendanceRate": 82.4,
+      "classesCount": 11
+    },
+    {
+      "slot": "11:00-11:45",
+      "attendanceRate": 82.4,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:45-01:30",
+      "attendanceRate": 82.4,
+      "classesCount": 2
+    },
+    {
+      "slot": "03:10-04:40",
+      "attendanceRate": 83,
+      "classesCount": 35
+    },
+    {
+      "slot": "11:00-12:30",
+      "attendanceRate": 83.2,
+      "classesCount": 16
+    },
+    {
+      "slot": "11:06-14:05",
+      "attendanceRate": 83.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "05:00-07:30",
+      "attendanceRate": 83.3,
+      "classesCount": 2
+    },
+    {
+      "slot": "10:00-13:00",
+      "attendanceRate": 83.7,
+      "classesCount": 37
+    },
+    {
+      "slot": "11:30-13:00",
+      "attendanceRate": 83.9,
+      "classesCount": 115
+    },
+    {
+      "slot": "12:30-02:00",
+      "attendanceRate": 83.9,
+      "classesCount": 8
+    },
+    {
+      "slot": "10:00-23:30",
+      "attendanceRate": 84,
+      "classesCount": 4
+    },
+    {
+      "slot": "16:00-18:00",
+      "attendanceRate": 84.3,
+      "classesCount": 4
+    },
+    {
+      "slot": "10:15-11:30",
+      "attendanceRate": 84.4,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:15-15:15",
+      "attendanceRate": 84.6,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:30-15:40",
+      "attendanceRate": 84.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:30-11:55",
+      "attendanceRate": 84.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:15-11:45",
+      "attendanceRate": 85.2,
+      "classesCount": 35
+    },
+    {
+      "slot": "11:45-01:15",
+      "attendanceRate": 85.7,
+      "classesCount": 34
+    },
+    {
+      "slot": "15:03-16:30",
+      "attendanceRate": 85.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:30-13:30",
+      "attendanceRate": 85.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "22:30-23:30",
+      "attendanceRate": 85.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:30-19:00",
+      "attendanceRate": 85.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:30-01:15",
+      "attendanceRate": 85.7,
+      "classesCount": 2
+    },
+    {
+      "slot": "10:15-13:15",
+      "attendanceRate": 85.7,
+      "classesCount": 2
+    },
+    {
+      "slot": "14:30-16:30",
+      "attendanceRate": 85.7,
+      "classesCount": 1
+    },
+    {
+      "slot": "09:30-11:30",
+      "attendanceRate": 85.9,
+      "classesCount": 2
+    },
+    {
+      "slot": "10:10-11:40",
+      "attendanceRate": 86.3,
+      "classesCount": 30
+    },
+    {
+      "slot": "12:00-01:15",
+      "attendanceRate": 86.5,
+      "classesCount": 4
+    },
+    {
+      "slot": "12:00-01:00",
+      "attendanceRate": 86.7,
+      "classesCount": 6
+    },
+    {
+      "slot": "15:10-16:40",
+      "attendanceRate": 87.1,
+      "classesCount": 4
+    },
+    {
+      "slot": "12:00-13:30",
+      "attendanceRate": 87.2,
+      "classesCount": 5
+    },
+    {
+      "slot": "15:45-17:00",
+      "attendanceRate": 87.3,
+      "classesCount": 2
+    },
+    {
+      "slot": "13:40-03:10",
+      "attendanceRate": 87.4,
+      "classesCount": 3
+    },
+    {
+      "slot": "11:40-01:15",
+      "attendanceRate": 87.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "12:31-13:31",
+      "attendanceRate": 87.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "16:10-18:08",
+      "attendanceRate": 87.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:45-13:15",
+      "attendanceRate": 87.6,
+      "classesCount": 24
+    },
+    {
+      "slot": "20:00-05:00",
+      "attendanceRate": 87.8,
+      "classesCount": 3
+    },
+    {
+      "slot": "01:40-02:40",
+      "attendanceRate": 87.9,
+      "classesCount": 4
+    },
+    {
+      "slot": "11:30-12:45",
+      "attendanceRate": 87.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:30-11:45",
+      "attendanceRate": 88.3,
+      "classesCount": 3
+    },
+    {
+      "slot": "11:00-12:00",
+      "attendanceRate": 88.8,
+      "classesCount": 4
+    },
+    {
+      "slot": "17:15-20:30",
+      "attendanceRate": 88.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "12:00-13:50",
+      "attendanceRate": 88.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "16:10-17:10",
+      "attendanceRate": 88.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "17:00-19:30",
+      "attendanceRate": 88.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "05:00-08:00",
+      "attendanceRate": 88.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "23:30-13:00",
+      "attendanceRate": 89.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:30-15:15",
+      "attendanceRate": 89.5,
+      "classesCount": 1
+    },
+    {
+      "slot": "16:15-05:15",
+      "attendanceRate": 90,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-11:45",
+      "attendanceRate": 90.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "15:10-18:10",
+      "attendanceRate": 90.9,
+      "classesCount": 1
+    },
+    {
+      "slot": "13:40-15:10",
+      "attendanceRate": 91.5,
+      "classesCount": 6
+    },
+    {
+      "slot": "12:30-12:00",
+      "attendanceRate": 92.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "01:50-15:20",
+      "attendanceRate": 92.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:31-12:00",
+      "attendanceRate": 93.3,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:40-11:40",
+      "attendanceRate": 93.5,
+      "classesCount": 2
+    },
+    {
+      "slot": "11:00-02:00",
+      "attendanceRate": 93.8,
+      "classesCount": 2
+    },
+    {
+      "slot": "01:45-06:15",
+      "attendanceRate": 93.8,
+      "classesCount": 1
+    },
+    {
+      "slot": "12:00-14:00",
+      "attendanceRate": 94.1,
+      "classesCount": 2
+    },
+    {
+      "slot": "16:15-17:15",
+      "attendanceRate": 94.7,
+      "classesCount": 2
+    },
+    {
+      "slot": "11:55-13:00",
+      "attendanceRate": 95.3,
+      "classesCount": 2
+    },
+    {
+      "slot": "11:30-12:30",
+      "attendanceRate": 96.7,
+      "classesCount": 3
+    },
+    {
+      "slot": "11:02-02:02",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "23:40-23:40",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "18:16-19:16",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "18:00-18:15",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "01:45-04:45",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "15:10-16:10",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-11:33",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "01:00-04:00",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "12:00-16:00",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "12:30-20:00",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:00-12:45",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "11:30-11:00",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "16:05-18:10",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "14:00-18:10",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "10:45-01:45",
+      "attendanceRate": 100,
+      "classesCount": 1
+    },
+    {
+      "slot": "16:12-17:12",
+      "attendanceRate": 100,
+      "classesCount": 1
+    }
+  ],
+  "teacherBookingCount": 5,
+  "teacherRoutineCount": 466,
+  "sampleBooking": {
+    "_id": "6a2fac3daa9485ccf3e08ba5",
+    "teacherId": "6970c4839590082b816752d9",
+    "routineId": null,
+    "centreId": null,
+    "day": "Monday",
+    "startTime": "08:00",
+    "endTime": "11:00",
+    "bookedBy": "6970c4129590082b81674b65",
+    "students": [
+      {
+        "studentName": "Malay Maity",
+        "phoneNumber": "1234567890",
+        "email": "",
+        "className": "1",
+        "course": "developer",
+        "notes": "testing",
+        "_id": "6a2fac3daa9485ccf3e08ba6"
+      }
+    ],
+    "status": "confirmed",
+    "notes": "testing by malay",
+    "createdBy": "6970c4129590082b81674b65",
+    "bookingDate": "2026-06-15T07:39:41.106Z",
+    "createdAt": "2026-06-15T07:39:41.110Z",
+    "updatedAt": "2026-06-15T09:32:14.586Z",
+    "__v": 0,
+    "updatedBy": "6970c4129590082b81674b65"
+  },
+  "sampleRoutine": {
+    "_id": "69ce14f0866488f620005b2c",
+    "teacherId": "6970ce5463f133b47dc84d2f",
+    "centreId": [
+      "697088baabb4820c05aecdb0"
+    ],
+    "className": "HAZRA  WEEKEND    (6 HR)",
+    "day": "Sunday",
+    "startTime": "",
+    "endTime": "",
+    "classId": [],
+    "subjectId": [
+      "69708855abb4820c05aeccac"
+    ],
+    "amount": 0,
+    "classHours": 6,
+    "createdBy": "69ccfffdd74b678e3a08afc3",
+    "createdAt": "2026-04-02T07:04:16.389Z",
+    "updatedAt": "2026-04-02T07:28:30.149Z",
+    "__v": 0,
+    "updatedBy": "69ccfffdd74b678e3a08afc3"
+  },
+  "schedulingConflicts": [
+    {
+      "teacherName": "DEBAJYOTI SARKAR",
+      "date": "2026-04-19",
+      "class1": {
+        "name": "foundation x biology",
+        "time": "03:15-04:45",
+        "centre": "CONTAI"
+      },
+      "class2": {
+        "name": "FOUNDATION CLASS 9",
+        "time": "02:00-03:30",
+        "centre": "DIAMOND HARBOUR"
+      }
+    },
+    {
+      "teacherName": "DEBAJYOTI SARKAR",
+      "date": "2026-04-19",
+      "class1": {
+        "name": "foundation x biology",
+        "time": "03:15-04:45",
+        "centre": "CONTAI"
+      },
+      "class2": {
+        "name": "FOUNDATION CLASS 8",
+        "time": "03:30-05:00",
+        "centre": "DIAMOND HARBOUR"
+      }
+    },
+    {
+      "teacherName": "DEBAJYOTI SARKAR",
+      "date": "2026-04-19",
+      "class1": {
+        "name": "FOUNDATION CLASS 9",
+        "time": "02:00-03:30",
+        "centre": "DIAMOND HARBOUR"
+      },
+      "class2": {
+        "name": "foundation ix biology",
+        "time": "01:45-03:15",
+        "centre": "CONTAI"
+      }
+    },
+    {
+      "teacherName": "DEBAJYOTI SARKAR",
+      "date": "2026-04-19",
+      "class1": {
+        "name": "FOUNDATION CLASS 10",
+        "time": "11:00-12:30",
+        "centre": "DIAMOND HARBOUR"
+      },
+      "class2": {
+        "name": "foundation viii biology",
+        "time": "10:00-11:30",
+        "centre": "CONTAI"
+      }
+    },
+    {
+      "teacherName": "SAMUDRA CHATTERJEE",
+      "date": "2026-05-16",
+      "class1": {
+        "name": "1 YR CRP 2026-27",
+        "time": "14:00-17:00",
+        "centre": "BALLY"
+      },
+      "class2": {
+        "name": "FOUNDATION - IX",
+        "time": "14:00-15:30",
+        "centre": "KATWA"
+      }
+    },
+    {
+      "teacherName": "SAMUDRA CHATTERJEE",
+      "date": "2026-05-16",
+      "class1": {
+        "name": "1 YR CRP 2026-27",
+        "time": "14:00-17:00",
+        "centre": "BALLY"
+      },
+      "class2": {
+        "name": "FOUNDATION - X",
+        "time": "15:35-17:10",
+        "centre": "KATWA"
+      }
+    },
+    {
+      "teacherName": "Shuvam Pal",
+      "date": "2026-06-13",
+      "class1": {
+        "name": "NEET XII 2026-27",
+        "time": "14:00-16:10",
+        "centre": "TAMLUK"
+      },
+      "class2": {
+        "name": "XI ZOOLOGY NEET",
+        "time": "02:00-16:15",
+        "centre": "BAGNAN"
+      }
+    },
+    {
+      "teacherName": "Shuvam Pal",
+      "date": "2026-06-13",
+      "class1": {
+        "name": "NEET XII 2026-27",
+        "time": "14:00-16:10",
+        "centre": "TAMLUK"
+      },
+      "class2": {
+        "name": "XI ZOOLOGY NEET",
+        "time": "02:00-16:15",
+        "centre": "BAGNAN"
+      }
+    },
+    {
+      "teacherName": "Shuvam Pal",
+      "date": "2026-06-13",
+      "class1": {
+        "name": "XII ZOOLOGY NEET",
+        "time": "16:20-18:30",
+        "centre": "BAGNAN"
+      },
+      "class2": {
+        "name": "NEET XI 2026-28",
+        "time": "16:15-18:15",
+        "centre": "TAMLUK"
+      }
+    },
+    {
+      "teacherName": "PRITAM SAHA",
+      "date": "2026-06-28",
+      "class1": {
+        "name": "CLASS XI CHEMISTRY",
+        "time": "14:00-17:30",
+        "centre": "BEHALA"
+      },
+      "class2": {
+        "name": "Class 12",
+        "time": "13:45-16:45",
+        "centre": "ARAMBAGH"
+      }
+    },
+    {
+      "teacherName": "SANU PAIK",
+      "date": "2026-07-05",
+      "class1": {
+        "name": "Class 7",
+        "time": "10:10-11:40",
+        "centre": "ARAMBAGH"
+      },
+      "class2": {
+        "name": "SHM FDN MATHEMATICS 10.00AM-11.30AM",
+        "time": "10:00-11:30",
+        "centre": "DUMDUM"
+      }
+    },
+    {
+      "teacherName": "JAHIR ABBAS MIRDDE",
+      "date": "2026-07-05",
+      "class1": {
+        "name": "FOUNDATION VII MATH",
+        "time": "10:00-11:30",
+        "centre": "CONTAI"
+      },
+      "class2": {
+        "name": "FOUNDATION VIII MATH",
+        "time": "10:00-11:30",
+        "centre": "BAGNAN"
+      }
+    },
+    {
+      "teacherName": "JAHIR ABBAS MIRDDE",
+      "date": "2026-07-05",
+      "class1": {
+        "name": "FOUNDATION IX MATH",
+        "time": "01:45-03:15",
+        "centre": "CONTAI"
+      },
+      "class2": {
+        "name": "FOUNDATION IX MATH",
+        "time": "01:40-03:10",
+        "centre": "BAGNAN"
+      }
+    },
+    {
+      "teacherName": "JAHIR ABBAS MIRDDE",
+      "date": "2026-07-05",
+      "class1": {
+        "name": "FOUNDATION IX MATH",
+        "time": "01:45-03:15",
+        "centre": "CONTAI"
+      },
+      "class2": {
+        "name": "FOUNDATION X  MATH",
+        "time": "03:10-04:40",
+        "centre": "BAGNAN"
+      }
+    },
+    {
+      "teacherName": "JAHIR ABBAS MIRDDE",
+      "date": "2026-07-05",
+      "class1": {
+        "name": "FOUNDATION X MATH",
+        "time": "03:15-04:45",
+        "centre": "CONTAI"
+      },
+      "class2": {
+        "name": "FOUNDATION X  MATH",
+        "time": "03:10-04:40",
+        "centre": "BAGNAN"
+      }
+    }
+  ],
+  "chaptersCount": 738,
+  "topicsCount": 5518
+}
