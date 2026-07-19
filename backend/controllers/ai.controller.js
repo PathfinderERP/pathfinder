@@ -1018,7 +1018,7 @@ export const analyseERP = async (req, res) => {
         const targetModule = module?.toLowerCase() || "all";
 
         // Fetch module-specific data with optional date/centre filter
-        if (targetModule === "all" || targetModule === "admissions") {
+        if (targetModule === "all" || targetModule === "admissions" || targetModule === "academics") {
             const admissionQuery = {};
             if (Object.keys(dateFilter).length > 0) admissionQuery.admissionDate = dateFilter;
             if (centre) admissionQuery.centre = { $regex: centre, $options: "i" };
@@ -1553,7 +1553,7 @@ export const analyseERP = async (req, res) => {
             };
         }
 
-        if (targetModule === "all" || targetModule === "leads") {
+        if (targetModule === "all" || targetModule === "leads" || targetModule === "academics") {
             const userCentreFilter = await getCentreFilter(req.user, "centre");
             const leadQuery = { ...userCentreFilter };
             if (centre) {
@@ -2261,12 +2261,12 @@ export const analyseERP = async (req, res) => {
             };
         }
 
-        if (targetModule === "all" || targetModule === "hr") {
+        if (targetModule === "all" || targetModule === "hr" || targetModule === "academics") {
             const hrData = await fetchHRData();
             data.hr = hrData;
         }
 
-        if (targetModule === "all" || targetModule === "finance") {
+        if (targetModule === "all" || targetModule === "finance" || targetModule === "academics") {
             const finQuery = {};
             if (Object.keys(dateFilter).length > 0) finQuery.createdAt = dateFilter;
 
@@ -2284,7 +2284,7 @@ export const analyseERP = async (req, res) => {
             data.finance = { expenseStats };
         }
 
-        if (targetModule === "all" || targetModule === "tracking") {
+        if (targetModule === "all" || targetModule === "tracking" || targetModule === "academics") {
             let qaTelemetry = {};
             try {
                 // Dynamically import models we need
@@ -2604,7 +2604,7 @@ export const analyseERP = async (req, res) => {
             };
         }
 
-        if (targetModule === "all" || targetModule === "trackingLog") {
+        if (targetModule === "all" || targetModule === "trackingLog" || targetModule === "academics") {
             let qaTelemetry = {};
             try {
                 const DailyTrackingLog = (await import("../models/DailyTrackingLog.js")).default;
