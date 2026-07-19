@@ -1,5 +1,5 @@
 import Admission from "../../models/Admission/Admission.js";
-import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
+import { deleteCache } from "../../utils/redisCache.js";
 
 export const deleteAdmission = async (req, res) => {
     try {
@@ -38,9 +38,6 @@ export const deleteAdmission = async (req, res) => {
 
         await admission.save();
 
-        // Invalidate admissions list cache
-        await clearCachePattern("admissions:list:*");
-        
         // Invalidate specific student report cache
         if (admission.student) {
             await deleteCache(`student:report:${admission.student}`);
@@ -95,9 +92,6 @@ export const reactivateAdmission = async (req, res) => {
 
         await admission.save();
 
-        // Invalidate admissions list cache
-        await clearCachePattern("admissions:list:*");
-        
         // Invalidate specific student report cache
         if (admission.student) {
             await deleteCache(`student:report:${admission.student}`);

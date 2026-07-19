@@ -1327,7 +1327,6 @@ const EnrolledStudentsContent = () => {
                     }
                 }));
 
-                fetchAdmissions();
             } else {
                 toast.error(data.message || "Failed to deactivate enrollment");
             }

@@ -1,7 +1,6 @@
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
-import { getCache, setCache, generateCacheKey } from "../../utils/redisCache.js";
 
 export const getAdmissions = async (req, res) => {
     try {
@@ -68,19 +67,6 @@ export const getAdmissions = async (req, res) => {
             }
         }
 
-        const cacheKey = generateCacheKey("admissions:list", {
-            role: req.user.role,
-            userId: req.user._id ? req.user._id.toString() : "public",
-            query: {
-                ...req.query,
-                resolvedQuery: query
-            }
-        });
-
-        const cachedAdmissions = await getCache(cacheKey);
-        if (cachedAdmissions) {
-            return res.status(200).json(cachedAdmissions);
-        }
 
         // Fetch Normal Admissions
         const admissions = await Admission.find(query)
@@ -331,7 +317,6 @@ export const getAdmissions = async (req, res) => {
             return admission;
         });
 
-        await setCache(cacheKey, finalAdmissions, 300); // cache for 5 minutes
         res.status(200).json(finalAdmissions);
     } catch (err) {
         console.error("getAdmissions error:", err);
