@@ -30,10 +30,14 @@ export const toggleStudentStatus = async (req, res) => {
             const daysDeactivated = Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24));
 
             if (daysDeactivated > 0) {
-                // Shift Normal Admissions
-                const admissions = await Admission.find({ student: studentId });
-                for (const admission of admissions) {
-                    let changed = false;
+                // Fetch Normal Admissions and Board Admissions in parallel
+                const [admissions, boardAdmissions] = await Promise.all([
+                    Admission.find({ student: studentId }),
+                    BoardCourseAdmission.find({ studentId: studentId })
+                ]);
+
+                // Mutate Normal Admissions in memory (no DB calls yet)
+                admissions.forEach(admission => {
                     admission.paymentBreakdown.forEach(inst => {
                         // Only shift future or currently due installments
                         if (inst.status === 'PENDING' || inst.status === 'OVERDUE') {
@@ -45,32 +49,28 @@ export const toggleStudentStatus = async (req, res) => {
                             if (inst.status === 'OVERDUE' && oldDueDate > now) {
                                 inst.status = 'PENDING';
                             }
-
-                            changed = true;
                         }
                     });
-
                     // ALWAYS set admissionStatus back to ACTIVE when student is reactivated
                     admission.admissionStatus = 'ACTIVE';
-                    await admission.save();
-                }
+                });
 
-                // Shift Board Admissions
-                const boardAdmissions = await BoardCourseAdmission.find({ studentId: studentId });
-                for (const bAdmission of boardAdmissions) {
-                    let changed = false;
+                // Mutate Board Admissions in memory (no DB calls yet)
+                boardAdmissions.forEach(bAdmission => {
                     bAdmission.installments.forEach(inst => {
                         if (inst.status === 'PENDING' || inst.status === 'PARTIAL' || inst.status === 'PARTIALLY_PAID') {
                             const oldDueDate = new Date(inst.dueDate);
                             oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
                             inst.dueDate = oldDueDate;
-                            changed = true;
                         }
                     });
-                    if (changed) {
-                        await bAdmission.save();
-                    }
-                }
+                });
+
+                // Save all in parallel — one round-trip per document, all concurrent
+                await Promise.all([
+                    ...admissions.map(a => a.save()),
+                    ...boardAdmissions.map(b => b.save())
+                ]);
             } else {
                 // Even if 0 days, ensure admissions are set to ACTIVE
                 await Admission.updateMany(
