@@ -10,7 +10,7 @@ import { generateBillId } from "../../utils/billIdGenerator.js";
 import BoardCourseSubject from "../../models/Master_data/BoardCourseSubject.js";
 import Class from "../../models/Master_data/Class.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
-import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
+import { deleteCache } from "../../utils/redisCache.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -435,15 +435,6 @@ export const createBoardAdmission = async (req, res) => {
             { status: "ENROLLED" }
         );
 
-        // Invalidate admissions list and finance report cache
-        try {
-            const { clearCachePattern } = await import("../../utils/redisCache.js");
-            await clearCachePattern("admissions:list:*");
-            await clearCachePattern("finance:transaction_report:*");
-            await clearCachePattern("finance:daily_collection:*");
-        } catch (cacheErr) {
-            console.error("Cache invalidation error on createBoardAdmission:", cacheErr);
-        }
 
         res.status(201).json({
             message: "Board Course Admission created successfully",
@@ -1620,13 +1611,6 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
             }
         }
 
-        // Clear cache
-        try {
-            const { clearCachePattern } = await import("../../utils/redisCache.js");
-            await clearCachePattern("admissions:list:*");
-        } catch (cacheErr) {
-            console.error("Cache clear issue on board bulk update:", cacheErr);
-        }
 
         res.status(200).json({
             message: `Successfully updated ${modifiedCount} records`
@@ -1654,8 +1638,6 @@ export const deleteBoardAdmission = async (req, res) => {
             $set: { enrolledStudentsStatus: "INACTIVE" }
         });
 
-        // Invalidate admissions list cache
-        await clearCachePattern("admissions:list:*");
 
         if (admission.studentId) {
             await deleteCache(`student:report:${admission.studentId}`);
@@ -1681,9 +1663,6 @@ export const reactivateBoardAdmission = async (req, res) => {
         await BoardCourseAdmission.findByIdAndUpdate(id, {
             $set: { enrolledStudentsStatus: "ACTIVE" }
         });
-
-        // Invalidate admissions list cache
-        await clearCachePattern("admissions:list:*");
 
         if (admission.studentId) {
             await deleteCache(`student:report:${admission.studentId}`);
@@ -1742,7 +1721,7 @@ export const repairCancelledBoardAdmissions = async (req, res) => {
             repairedCount++;
         }
 
-        await clearCachePattern("admissions:list:*");
+
 
         res.status(200).json({
             message: `Repaired ${repairedCount} board admission(s). Main status restored to ACTIVE — they will now appear in the board course module. The enrolled students view still shows them as INACTIVE.`,
