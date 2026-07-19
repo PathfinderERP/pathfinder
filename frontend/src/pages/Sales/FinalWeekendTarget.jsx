@@ -28,6 +28,9 @@ const WEEK_COLS = [
     { key: "phaseTarget", label: "Weekly Target", color: "blue" },
     { key: "phaseAchieved", label: "Weekly Achieved", color: "emerald" },
     { key: "phaseShortfall", label: "Weekly Shortfall", color: "red" },
+    { key: "cumulativeTarget", label: "Cumulative Target", color: "blue" },
+    { key: "cumulativeAchieved", label: "Cumulative Achieved", color: "emerald" },
+    { key: "cumulativeShortfall", label: "Cumulative Shortfall", color: "red" },
     { key: "workingTarget", label: "Working Target", color: "indigo" },
     { key: "workingAchieved", label: "Working Achieved", color: "emerald" },
     { key: "satTarget", label: "Sat Target", color: "indigo" },
@@ -64,6 +67,9 @@ const weekMetrics = (w) => ({
     phaseTarget: w.phaseTarget,
     phaseAchieved: w.phaseAchieved,
     phaseShortfall: Math.max(0, w.phaseTarget - w.phaseAchieved),
+    cumulativeTarget: w.cumulativeTarget || 0,
+    cumulativeAchieved: w.cumulativeAchieved || 0,
+    cumulativeShortfall: w.cumulativeShortfall || 0,
     workingTarget: w.workingTarget,
     workingAchieved: w.workingAchieved,
     satTarget: w.satTarget,
@@ -88,13 +94,13 @@ const headerBg = (color, dark) => {
 };
 
 const cellColor = (key, value, dark) => {
-    if ((key === "phaseShortfall" || key === "weekendDeficit") && value > 0)
+    if ((key === "phaseShortfall" || key === "weekendDeficit" || key === "cumulativeShortfall") && value > 0)
         return dark ? "text-red-400 font-black" : "text-red-600 font-black";
-    if ((key === "phaseShortfall" || key === "weekendDeficit") && value === 0)
+    if ((key === "phaseShortfall" || key === "weekendDeficit" || key === "cumulativeShortfall") && value === 0)
         return dark ? "text-emerald-400 font-bold" : "text-emerald-600 font-bold";
-    if (key === "phaseAchieved" || key === "weekendAchieved" || key === "workingAchieved" || key === "satAchieved" || key === "sunAchieved")
+    if (key === "phaseAchieved" || key === "weekendAchieved" || key === "workingAchieved" || key === "satAchieved" || key === "sunAchieved" || key === "cumulativeAchieved")
         return dark ? "text-emerald-400 font-bold" : "text-emerald-600 font-bold";
-    if (key === "phaseTarget" || key === "adjustedWeekendTarget" || key === "workingTarget" || key === "satTarget" || key === "sunTarget")
+    if (key === "phaseTarget" || key === "adjustedWeekendTarget" || key === "workingTarget" || key === "satTarget" || key === "sunTarget" || key === "cumulativeTarget")
         return dark ? "text-blue-300 font-semibold" : "text-blue-700 font-semibold";
     return dark ? "text-gray-200" : "text-gray-700";
 };
@@ -295,6 +301,9 @@ const FinalWeekendTarget = () => {
                 row[`${label} Phase Target`] = Math.round(m.phaseTarget);
                 row[`${label} Phase Achieved`] = Math.round(m.phaseAchieved);
                 row[`${label} Phase Shortfall`] = Math.round(m.phaseShortfall);
+                row[`${label} Cumulative Target`] = Math.round(m.cumulativeTarget);
+                row[`${label} Cumulative Achieved`] = Math.round(m.cumulativeAchieved);
+                row[`${label} Cumulative Shortfall`] = Math.round(m.cumulativeShortfall);
                 row[`${label} Working Target (35%)`] = Math.round(m.workingTarget);
                 row[`${label} Working Achieved`] = Math.round(m.workingAchieved);
                 row[`${label} Sat Target (35%)`] = Math.round(m.satTarget);
@@ -603,7 +612,7 @@ const FinalWeekendTarget = () => {
                                                 const m = weekMetrics(w);
                                                 return activeCols.map((col, ci) => {
                                                     const val = m[col.key];
-                                                    const isShortfall = col.key === "phaseShortfall" || col.key === "weekendDeficit";
+                                                    const isShortfall = col.key === "phaseShortfall" || col.key === "weekendDeficit" || col.key === "cumulativeShortfall";
 
                                                     if (col.key === "phaseTarget" && isEditableRole) {
                                                         const key = `${c.centreId}-${w.weekNumber}`;

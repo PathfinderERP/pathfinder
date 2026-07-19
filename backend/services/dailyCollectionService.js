@@ -660,7 +660,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
 
                 const dayMap = achievementMap[cNameUpper] || {};
 
-                let carryoverShortfall = 0;
+                let cumulativeTarget = 0;
+                let cumulativeAchievement = 0;
                 let finalDailyTarget = 0;
 
                 for (const week of fixedWeeks) {
@@ -669,13 +670,15 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
                         : 0;
 
-                    // Add weekly shortfall from previous week
-                    let phaseTarget = basePhaseTarget + carryoverShortfall;
-
                     const overrideVal = t.weeklyTargetsOverride?.[week.weekNumber];
                     if (overrideVal !== undefined && overrideVal !== null) {
-                        phaseTarget = overrideVal;
+                        cumulativeTarget = overrideVal;
+                    } else {
+                        cumulativeTarget += basePhaseTarget;
                     }
+
+                    const prevCumulativeAchievement = cumulativeAchievement;
+                    const phaseTarget = Math.max(0, cumulativeTarget - prevCumulativeAchievement);
 
                     // Check if the selected day falls within this week
                     const isDayInWeek = selectedDayNum >= week.startDay && selectedDayNum <= week.endDay;
@@ -687,6 +690,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     });
 
                     const phaseShortfall = Math.max(0, phaseTarget - phaseAchieved);
+                    cumulativeAchievement += phaseAchieved;
 
                     if (isDayInWeek) {
                         // This is the week containing our selected date!
@@ -736,12 +740,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             const weekdayCount = week.days.filter(d => !d.isWeekend).length;
                             finalDailyTarget = weekdayCount > 0 ? workingTarget / weekdayCount : 0;
                         }
-                        
                         break;
                     }
-
-                    // Carry over the shortfall to the next week
-                    carryoverShortfall = phaseShortfall;
                 }
 
                 centreTargets[name] = finalDailyTarget;

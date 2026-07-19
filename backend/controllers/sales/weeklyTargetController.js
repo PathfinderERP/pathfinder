@@ -723,7 +723,8 @@ export const getFinalWeekendTarget = async (req, res) => {
 
                 let totalAchievedExclGST = 0;
                 let totalWeekendExclGST  = 0;
-                let carryoverShortfall = 0;
+                let cumulativeTarget = 0;
+                let cumulativeAchievement = 0;
 
                 const weekData = [];
                 for (const week of fixedWeeks) {
@@ -732,13 +733,15 @@ export const getFinalWeekendTarget = async (req, res) => {
                         ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
                         : 0;
 
-                    // Add weekly shortfall from previous week
-                    let phaseTarget = basePhaseTarget + carryoverShortfall;
-
                     const overrideVal = targetRecord?.weeklyTargetsOverride?.[week.weekNumber];
                     if (overrideVal !== undefined && overrideVal !== null) {
-                        phaseTarget = overrideVal;
+                        cumulativeTarget = overrideVal;
+                    } else {
+                        cumulativeTarget += basePhaseTarget;
                     }
+
+                    const prevCumulativeAchievement = cumulativeAchievement;
+                    const phaseTarget = Math.max(0, cumulativeTarget - prevCumulativeAchievement);
 
                     const hasWeekdays = week.days.some(d => !d.isWeekend);
                     const hasSat = week.days.some(d => d.dayName === 'Sat');
@@ -805,7 +808,7 @@ export const getFinalWeekendTarget = async (req, res) => {
                     
                     // The weekly shortfall of this week:
                     const phaseShortfall = Math.max(0, phaseTarget - phaseAchieved);
-                    carryoverShortfall = phaseShortfall;
+                    cumulativeAchievement += phaseAchieved;
 
                     const pct = phaseTarget > 0
                         ? parseFloat(((phaseAchieved / phaseTarget) * 100).toFixed(1))
@@ -834,6 +837,9 @@ export const getFinalWeekendTarget = async (req, res) => {
                         sunAchieved,
                         sunDeficit,
                         phaseAchieved,
+                        cumulativeTarget,
+                        cumulativeAchieved:     cumulativeAchievement,
+                        cumulativeShortfall:    Math.max(0, cumulativeTarget - cumulativeAchievement),
                         pct
                     });
                 }
