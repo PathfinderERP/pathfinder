@@ -212,10 +212,6 @@ export const buildLeadQuery = async (queryParams, user) => {
     if (leadType && (!Array.isArray(leadType) || leadType.length > 0)) {
         const values = Array.isArray(leadType) ? normalizeValue(leadType) : [normalizeValue(leadType)];
         query.leadType = { $in: values };
-    } else if (includeInvalid === "true" || includeInvalid === true) {
-        // Do not exclude invalid leads
-    } else {
-        query.leadType = { $ne: "INVALID LEAD" };
     }
     if (source && (!Array.isArray(source) || source.length > 0)) {
         const values = Array.isArray(source) ? normalizeValue(source) : [normalizeValue(source)];

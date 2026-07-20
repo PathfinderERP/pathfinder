@@ -160,103 +160,39 @@ const AIMarkdownText = ({ text }) => {
 };
 const leadQuestionsCategories = [
     {
-        category: "Lead Volume & Statuses",
+        category: "Lead Volume & Timelines",
         questions: [
-            "How many leads were generated today, this week and this month?",
-            "How many leads are assigned, unassigned, contacted, counselled, converted, lost or dormant?",
-            "Which leads have no next follow-up date?",
-            "How many duplicate leads exist across phone numbers, guardians or students?",
-            "Which leads have been reassigned multiple times?"
+            "How many leads were generated today, this week, and this month?",
+            "How many leads are assigned versus unassigned?",
+            "What is the breakdown of leads by their current status (contacted, counselled, converted, lost, dormant)?",
+            "How many leads are walk-ins versus online/website enquiries?"
         ]
     },
     {
-        category: "Conversions & Deficits",
-        questions: [
-            "What is the lead-to-admission conversion rate by centre?",
-            "What is the conversion rate by course, class, board and source?",
-            "Which centres have enough leads to achieve their admission targets?",
-            "Which centres have a lead deficit?",
-            "At which funnel stage are the most leads being lost?"
-        ]
-    },
-    {
-        category: "SLA & Response",
+        category: "Operations & SLA Exceptions",
         questions: [
             "How many leads are older than 24 hours without a first call?",
-            "How many hot leads have not been contacted within the defined SLA?",
-            "What is the average first-response time by telecaller and centre?",
-            "What is the average time taken from lead generation to admission?"
+            "How many hot leads have missed their SLA window without any follow-up?",
+            "How many active leads are currently missing a next follow-up date?",
+            "How many duplicate leads exist in the system by phone number?"
         ]
     },
     {
-        category: "Objections & Demands",
+        category: "Pipeline Revenue & Campaign Performance",
         questions: [
-            "Which centres are losing leads due to fee, distance, faculty, timing or brand objections?",
-            "What are the most common guardian objections by course?",
-            "Which PIN codes have high demand but weak Pathfinder presence?",
-            "Which schools or locations produce the highest-converting leads?",
-            "Which leads were marked \"Not Interested\" without a valid reason?",
-            "Which leads were closed unusually quickly?"
+            "What is the total and weighted pipeline revenue of all open leads?",
+            "Which marketing campaigns have generated the highest number of leads and counselling sessions?",
+            "What is the cost per lead for each active campaign?",
+            "What is the total lead volume and counselling conversion rate by lead source?"
         ]
     },
     {
-        category: "Campaigns & Pipeline Revenue",
+        category: "Objections & Operational Activity",
         questions: [
-            "What is the expected revenue currently available in the open pipeline?",
-            "What is the weighted pipeline value after conversion probability?",
-            "Which campaigns generated leads that actually converted?",
-            "Which campaign has the lowest cost per lead / Cost per admission?",
-            "Which campaign produces the highest realized revenue?",
-            "Which campaigns produce leads outside Pathfinder's serviceable geography?"
-        ]
-    },
-    {
-        category: "Calling Efficiency & Operations",
-        questions: [
-            "Who is available in each calling window?",
-            "Which hours generate the highest connection rate?",
-            "Which hours generate the highest conversion rate?",
-            "Is lead assignment proportional to staff availability?",
-            "Which employees have more leads than they can meaningfully handle?",
-            "Which centres need evening or weekend coverage?"
-        ]
-    },
-    {
-        category: "Marketing & Strategy",
-        questions: [
-            "Which campaign works best for each centre, course, class and board?",
-            "What is the delay between exposure, lead creation and admission?",
-            "Which creatives generate clicks but not counselling?",
-            "Which campaign's leads are being mishandled by the sales team?",
-            "What is the conversion rate of online versus physical counselling?",
-            "Which course recommendations resulted in admission?",
-            "Are counsellors recommending courses according to need or ticket size?",
-            "What is the fee realization after each counsellor's discounting?",
-            "Which centres have high counselling volume but weak admission closure?",
-            "Is poor campaign performance caused by marketing or follow-up failure?",
-            "What percentage of admissions are unattributed?",
-            "Are campaign tags and UTM parameters being captured correctly?"
-        ]
-    },
-    {
-        category: "Audits & Staff Metrics",
-        questions: [
-            "Which staff members show suspicious bulk status updates?",
-            "Which lead statuses appear manipulated near review dates?",
-            "Which counsellors have the highest conversion after adjusting for lead quality?",
-            "Which telecallers are receiving good leads but converting poorly?",
-            "Which employees are receiving low-quality leads?"
-        ]
-    },
-    {
-        category: "Academics & Faculty Support",
-        questions: [
-            "Which teachers are available for counselling support, demo classes or seminars?",
-            "Which lead-conversion activities require subject experts?",
-            "Do demo class availability and admission conversion correlate?",
-            "Which high-intent leads are waiting for faculty interaction?",
-            "Which teachers generate the strongest conversion after orientation or demo sessions?",
-            "Are sales teams promising academic slots that do not exist?"
+            "What are the counts of common lead objections (fee, distance, faculty, timing, brand)?",
+            "What is the overall calling volume (total calls, total duration, and average call duration)?",
+            "Which telecallers have the highest call volume and lead contacted rate?",
+            "What is the breakdown of total leads and counselling sessions by centre and class?"
         ]
     }
 ];

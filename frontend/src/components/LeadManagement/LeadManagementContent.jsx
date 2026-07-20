@@ -62,7 +62,9 @@ const LeadManagementContent = () => {
     const [leadStats, setLeadStats] = useState({
         contactedCount: 0,
         remainingCount: 0,
-        walkInCount: 0
+        walkInCount: 0,
+        counselledCount: 0,
+        admittedCount: 0
     });
 
     const [activityModal, setActivityModal] = useState({
@@ -1700,7 +1702,7 @@ const LeadManagementContent = () => {
                         <div
                             onClick={() => handleFollowUpStatusCardClick('walkin')}
                             className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${filters.followUpStatus?.some(item => item.value === 'walkin')
-                                ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 ring-1 ring-cyan-500' : 'bg-cyan-100 border-cyan-500 shadow-md')
+                                ? (isDarkMode ? 'bg-cyan-50/10 border-cyan-500 ring-1 ring-cyan-500' : 'bg-cyan-100 border-cyan-500 shadow-md')
                                 : (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/50' : 'bg-cyan-50 border-cyan-100 shadow-sm hover:border-cyan-300')
                                 }`}
                         >
@@ -1711,6 +1713,34 @@ const LeadManagementContent = () => {
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.3)]`}>
                                     <FaWalking size={12} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Conversion Summary Card */}
+                        <div
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${
+                                isDarkMode 
+                                    ? 'bg-purple-500/5 border-purple-500/20 hover:border-purple-500/50' 
+                                    : 'bg-purple-50 border-purple-100 shadow-sm hover:border-purple-300'
+                            }`}
+                        >
+                            <div className="flex justify-between items-start relative z-10">
+                                <div className="w-full">
+                                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-2.5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>Conversion Summary</p>
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex justify-between items-center pr-2">
+                                            <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Counselled:</span>
+                                            <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.counselledCount || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pr-2">
+                                            <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admitted:</span>
+                                            <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.admittedCount || 0}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={`p-2 rounded-[2px] bg-purple-500 text-black shadow-[0_0_10px_rgba(168,85,247,0.3)] shrink-0`}>
+                                    <FaGraduationCap size={12} />
                                 </div>
                             </div>
                         </div>

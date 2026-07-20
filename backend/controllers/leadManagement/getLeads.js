@@ -8,6 +8,8 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
 import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
+import Student from "../../models/Students.js";
+
 
 // Helper function to refresh presigned URLs for recordings
 const refreshAudioUrls = async (leads) => {
@@ -108,6 +110,26 @@ export const getLeads = async (req, res) => {
         }
         const walkInCount = await LeadManagement.countDocuments(walkInQuery);
 
+        // Compute counselled and admitted counts
+        const counselledQuery = { ...statsQuery };
+        delete counselledQuery.isCounseled;
+        if (counselledQuery.$and) {
+            counselledQuery.$and = counselledQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
+        }
+        counselledQuery.isCounseled = true;
+        const counselledCount = await LeadManagement.countDocuments(counselledQuery);
+
+        const admittedStudents = await Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum");
+        const admittedLeadQuery = { ...statsQuery };
+        delete admittedLeadQuery.isCounseled;
+        if (admittedLeadQuery.$and) {
+            admittedLeadQuery.$and = admittedLeadQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
+        }
+        const admittedCount = await LeadManagement.countDocuments({
+            ...admittedLeadQuery,
+            phoneNumber: { $in: admittedStudents }
+        });
+
         let sortOption = {};
         if (req.query.sortBy) {
             const order = req.query.sortOrder === 'desc' ? -1 : 1;
@@ -142,7 +164,9 @@ export const getLeads = async (req, res) => {
             stats: {
                 contactedCount,
                 remainingCount,
-                walkInCount
+                walkInCount,
+                counselledCount,
+                admittedCount
             }
         });
 
