@@ -1315,8 +1315,6 @@ const EnrolledStudentsContent = () => {
                         return {
                             ...ad,
                             admissionStatus: "INACTIVE",
-                            totalFees: ad.totalPaidAmount || 0,
-                            remainingAmount: 0,
                             paymentBreakdown: ad.paymentBreakdown?.map(inst => {
                                 if (inst.status !== "PAID" && inst.status !== "COMPLETED" && inst.status !== "PENDING_CLEARANCE") {
                                     return { ...inst, status: "DEACTIVATED" };
@@ -3279,7 +3277,7 @@ const EnrolledStudentsContent = () => {
                                                     <div className="bg-yellow-500/10 p-3 rounded">
                                                         <p className="text-xs text-gray-400">Pending</p>
                                                         <p className="text-lg font-bold text-yellow-400">
-                                                            ₹{fmt(admission.admissionStatus === 'INACTIVE' ? 0 : (admission.totalFees - admission.totalPaidAmount))}
+                                                            ₹{fmt(admission.totalFees - admission.totalPaidAmount)}
                                                         </p>
                                                     </div>
                                                     <div className="bg-blue-500/10 p-3 rounded relative group">

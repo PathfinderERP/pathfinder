@@ -33,8 +33,9 @@ export const deleteAdmission = async (req, res) => {
         }
 
         // Update financial amounts so they don't reflect in remaining balances
-        admission.remainingAmount = 0;
-        admission.totalFees = admission.totalPaidAmount || 0;
+        // (Requested by user to NOT zero out the pending fees when deactivated, so UI shows correct total fees)
+        // admission.remainingAmount = 0;
+        // admission.totalFees = admission.totalPaidAmount || 0;
 
         await admission.save();
 
@@ -83,9 +84,9 @@ export const reactivateAdmission = async (req, res) => {
             });
         }
 
-        // 3. Recalculate financial fields
-        admission.remainingAmount = parseFloat(restoredRemainingAmount.toFixed(3));
-        admission.totalFees = parseFloat(((admission.totalPaidAmount || 0) + restoredRemainingAmount).toFixed(3));
+        // 3. Recalculate financial fields (Not needed anymore since we don't wipe them on deactivate)
+        // admission.remainingAmount = parseFloat(restoredRemainingAmount.toFixed(3));
+        // admission.totalFees = parseFloat(((admission.totalPaidAmount || 0) + restoredRemainingAmount).toFixed(3));
         
         // Set status to ACTIVE
         admission.admissionStatus = "ACTIVE";
