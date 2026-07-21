@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
 import { MdAutoAwesome } from "react-icons/md";
 import {
-    FaTasks, FaFlag, FaHistory, FaBullseye, FaBullhorn,
-    FaUserGraduate, FaBook, FaMoneyBillWave, FaShoppingCart,
-    FaUserTie, FaChartBar, FaMoon, FaSun, FaArrowRight,
-    FaRobot, FaPaperPlane, FaSyncAlt
+    FaRobot, FaPaperPlane, FaSyncAlt, FaMoon, FaSun,
+    FaBullhorn, FaUserGraduate, FaMoneyBillWave, FaBook,
+    FaUserTie, FaFlag, FaChartBar, FaTasks, FaTrashAlt,
+    FaSearch, FaChevronRight, FaChevronDown, FaBrain
 } from "react-icons/fa";
 
 // Inline Markdown formatter for AI responses
@@ -24,7 +23,7 @@ const formatAIResponseInline = (text) => {
         if (raw.startsWith('**')) {
             parts.push(<strong key={match.index} className="font-black text-cyan-600 dark:text-cyan-400">{raw.slice(2, -2)}</strong>);
         } else if (raw.startsWith('*')) {
-            parts.push(<em key={match.index} className="italic text-gray-400 dark:text-gray-300">{raw.slice(1, -1)}</em>);
+            parts.push(<em key={match.index} className="italic text-gray-500 dark:text-gray-300">{raw.slice(1, -1)}</em>);
         } else if (raw.startsWith('`')) {
             parts.push(<code key={match.index} className="bg-gray-100 dark:bg-gray-800 rounded px-1.5 py-0.5 text-xs font-mono text-purple-500 dark:text-purple-400">{raw.slice(1, -1)}</code>);
         }
@@ -158,296 +157,114 @@ const AIMarkdownText = ({ text }) => {
         </div>
     );
 };
-const leadQuestionsCategories = [
+
+// Categorized ERP Suggested Prompts covering ALL available ERP Data
+const erpPromptCategories = [
     {
-        category: "Lead Volume & Timelines",
+        title: "CRM & Lead Pipeline",
+        icon: <FaBullhorn className="text-cyan-500" />,
+        badge: "Leads Data",
         questions: [
             "How many leads were generated today, this week, and this month?",
-            "How many leads are assigned versus unassigned?",
-            "What is the breakdown of leads by their current status (contacted, counselled, converted, lost, dormant)?",
-            "How many leads are walk-ins versus online/website enquiries?"
-        ]
-    },
-    {
-        category: "Operations & SLA Exceptions",
-        questions: [
+            "How many leads are assigned versus unassigned across centres?",
+            "What is the breakdown of leads by current status (contacted, counselled, converted, lost)?",
             "How many leads are older than 24 hours without a first call?",
-            "How many hot leads have missed their SLA window without any follow-up?",
-            "How many active leads are currently missing a next follow-up date?",
-            "How many duplicate leads exist in the system by phone number?"
-        ]
-    },
-    {
-        category: "Pipeline Revenue & Campaign Performance",
-        questions: [
             "What is the total and weighted pipeline revenue of all open leads?",
-            "Which marketing campaigns have generated the highest number of leads and counselling sessions?",
-            "What is the cost per lead for each active campaign?",
-            "What is the total lead volume and counselling conversion rate by lead source?"
+            "Which marketing campaigns generated the highest number of leads and counselling sessions?",
+            "What are the counts of common lead objections (fee, distance, faculty, timing)?",
+            "Which telecallers have the highest call volume and lead contacted rate?"
         ]
     },
     {
-        category: "Objections & Operational Activity",
+        title: "Admissions & Enrolments",
+        icon: <FaUserGraduate className="text-emerald-500" />,
+        badge: "Admissions Data",
         questions: [
-            "What are the counts of common lead objections (fee, distance, faculty, timing, brand)?",
-            "What is the overall calling volume (total calls, total duration, and average call duration)?",
-            "Which telecallers have the highest call volume and lead contacted rate?",
-            "What is the breakdown of total leads and counselling sessions by centre and class?"
+            "What are the total registrations, counselled, and enrolled student counts by centre?",
+            "What is the average conversion time from counselling to formal admission?",
+            "Which counsellors have the highest conversion rates and reliance on discounts?",
+            "What are the top 10 contributing schools for enrolled students?",
+            "How many registered students have incomplete forms or missing documents?",
+            "How many board course admissions are enrolled versus counselled?",
+            "What is the breakdown of registrations by Board, Class, and Programme?"
+        ]
+    },
+    {
+        title: "Finance & Installments",
+        icon: <FaMoneyBillWave className="text-amber-500" />,
+        badge: "Finance Data",
+        questions: [
+            "What is the total revenue collected, pending due, and overall collection rate across centres?",
+            "What is the monthly installment collection status for normal and board courses?",
+            "Which students have overdue installments past their due dates?",
+            "What is the total expense breakdown by category and centre?",
+            "How many active admissions have total paid amount as ₹0 or pending clearance?",
+            "What is the total discount given per centre and average discount per admission?"
+        ]
+    },
+    {
+        title: "Academics & Batches",
+        icon: <FaBook className="text-purple-500" />,
+        badge: "Academics Data",
+        questions: [
+            "How many registered students are not yet allotted to any batch?",
+            "Which batches are underfilled (<10 students) or overcrowded (>40 capacity)?",
+            "What is the overall student and faculty attendance rate today?",
+            "How many enrolled students have paid fees but never attended any class?",
+            "Which subjects and courses have the highest student enrollment?"
+        ]
+    },
+    {
+        title: "HR & Staffing",
+        icon: <FaUserTie className="text-indigo-500" />,
+        badge: "HR Data",
+        questions: [
+            "What is the total employee count and salary distribution across centres?",
+            "What is the counselling session count completed by each counsellor?",
+            "What is the employee attendance percentage for today across centres?",
+            "Which centres have understaffed administrative or counseling teams?"
+        ]
+    },
+    {
+        title: "Operations & Executive Red Flags",
+        icon: <FaFlag className="text-red-500" />,
+        badge: "Operations Data",
+        questions: [
+            "What are the active open Red Flags by severity, owner, and centre?",
+            "Which managers have not submitted their Daily Tracking Log today?",
+            "What are the key blockers and pending approvals reported in daily logs?",
+            "How many students have not received their books, materials, ID cards, or login credentials?",
+            "What are the unresolved activities and promises made yesterday in daily logs?"
         ]
     }
 ];
 
-const admissionQuestionsCategories = [
-    {
-        category: "Counselling & Conversion Insights",
-        questions: [
-            "How many counselling sessions were completed by centre and counsellor?",
-            "What percentage converted on the same day?",
-            "What percentage converted within 7, 15 and 30 days?",
-            "What is the average counselling-to-admission time?",
-            "Which counsellors have the strongest conversion by course?",
-            "Which counsellors rely excessively on discounts?",
-            "Which objections are most common?",
-            "Which objections are successfully overcome?",
-            "What percentage of counselled students never received a follow-up?",
-            "Which guardians requested faculty, scholarship, demo or management intervention?",
-            "Which counselling sessions ended without a clear next step?",
-            "What is the conversion rate of online versus physical counselling?",
-            "Which course recommendations resulted in admission?",
-            "Are counsellors recommending courses according to need or ticket size?",
-            "What is the fee realization after each counsellor’s discounting?",
-            "Which centres have high counselling volume but weak admission closure?"
-        ]
-    },
-    {
-        category: "Registration & Onboarding Audits",
-        questions: [
-            "How many students registered by board, class, centre and course?",
-            "Which students have incomplete forms or documentation?",
-            "Which registrations lack payment confirmation?",
-            "Which registrations have incorrect school, board or subject information?",
-            "How many students registered but were not allotted a batch?",
-            "What is the conversion from counselling to registration?",
-            "Which board-course combinations are growing or declining?",
-            "Which schools contribute the highest registrations?",
-            "Which registrations are duplicates?",
-            "Which students have not received login credentials, materials or schedules?",
-            "Which centre has unusual cancellation or correction rates?",
-            "Are promised services consistent with the registered package?"
-        ]
-    },
-    {
-        category: "Enrolled Roster & Active Batch Metrics",
-        questions: [
-            "How many active enrolled students are there by centre, course, batch and class?",
-            "How many seats remain in every batch?",
-            "Which batches are underfilled or overcrowded?",
-            "How many students have paid but not started classes?",
-            "How many enrolled students have never attended?",
-            "Which students have not received books, ID cards, app access or schedules?"
-        ]
-    },
-    {
-        category: "Retention, Refunds & Revenue Metrics",
-        questions: [
-            "What is the cancellation and refund rate?",
-            "What is the course-transfer rate?",
-            "Which centres have high admissions but poor activation?",
-            "What percentage of enrolled students continue into the next academic year?",
-            "What is the retention rate from Foundation to CRP?",
-            "What is the revenue per enrolled student?",
-            "How much discount was provided per admission?",
-            "Which cohorts show high complaint, absenteeism or dropout rates?"
-        ]
-    }
-];
+export default function CEOControlTowerContent() {
+    const { theme, toggleTheme } = useTheme();
+    const isDarkMode = theme === 'dark';
 
-const trackingQuestionsCategories = [
-    {
-        category: "Daily Centre Achievements & Targets",
-        questions: [
-            "What did each centre achieve today?",
-            "What is the current monthly target achievement?",
-            "What daily run rate is required to reach target?",
-            "Which centres are improving or declining?",
-            "Which centres have adequate leads but poor conversion?",
-            "Which have good conversion but inadequate leads?",
-            "Which have admissions but weak collections?",
-            "Which have collections but excessive dues?",
-            "Which centres had no admissions, walk-ins or collections today?"
-        ]
-    },
-    {
-        category: "Operations & Attendance",
-        questions: [
-            "How many calls, counselling sessions, walk-ins and admissions occurred?",
-            "How many classes were scheduled and delivered?",
-            "What was student and employee attendance?",
-            "What operational complaints are unresolved?",
-            "Which centres are understaffed?",
-            "Which centre managers are failing to submit reports?",
-            "What promises were made yesterday, and what was achieved?",
-            "Are reported numbers consistent with transaction-level records?"
-        ]
-    },
-    {
-        category: "Red Flags & Severity Analysis",
-        questions: [
-            "What red flags are currently open?",
-            "Which are critical, high, medium or low severity?",
-            "How old is each flag?",
-            "Who owns it?",
-            "What is the estimated financial, academic or reputational impact?",
-            "Which flags repeatedly reopen?",
-            "Which centres generate the most red flags?",
-            "Which departments fail to close flags on time?",
-            "Which flags have no owner or deadline?",
-            "Which problem categories are increasing?",
-            "Which incidents are related to one root cause?",
-            "Which red flags may affect multiple centres?"
-        ]
-    },
-    {
-        category: "Operational Disruptions & Incidents",
-        questions: [
-            "What incidents occurred by centre and department?",
-            "What are the most frequent operational disruptions?",
-            "How many classes, counselling sessions or transactions were affected?",
-            "What is the average resolution time?",
-            "Which vendors, systems or employees are repeatedly associated with failures?",
-            "Which problems occur at particular times or locations?",
-            "Are temporary workarounds being repeatedly used instead of permanent fixes?",
-            "What is the estimated revenue or service loss from downtime?",
-            "Which incidents should become formal tasks or red flags?"
-        ]
-    }
-];
-
-const trackingLogQuestionsCategories = [
-    {
-        category: "Employee Commitments & Outcomes",
-        questions: [
-            "What did each employee commit to doing?",
-            "What was actually completed?",
-            "Which work created measurable output?",
-            "Which work was only activity without outcome?",
-            "How many commitments are completed on time?",
-            "Which commitments are overdue?",
-            "Which commitments have been carried forward repeatedly?"
-        ]
-    },
-    {
-        category: "Blockers & Dependencies",
-        questions: [
-            "What blockers were reported?",
-            "What support or approval is pending?",
-            "Which dependencies are blocking progress?",
-            "Which department is waiting for another department?",
-            "What decisions require management approval?",
-            "What percentage of reported blockers are resolved?",
-            "Which issues recur across daily logs?"
-        ]
-    },
-    {
-        category: "Department Priorities & Execution",
-        questions: [
-            "What is every department’s current priority?",
-            "Which departmental targets are on track?",
-            "Are employees working on priority tasks?",
-            "Are management instructions being acknowledged and executed?",
-            "Which departments have excessive unplanned work?",
-            "Where are responsibility gaps or duplicated efforts?"
-        ]
-    },
-    {
-        category: "Log Compliance & Verification",
-        questions: [
-            "Who submits logs consistently?",
-            "Who submits late or retrospectively?",
-            "Which managers review team logs?",
-            "Do the logs match CRM, calls, admissions, payments and task records?",
-            "Are important issues mentioned in logs but never converted into tasks?",
-            "Are log summaries reliable compared with source systems?"
-        ]
-    }
-];
-
-const academicQuestionsCategories = [
-    {
-        category: "Teacher Capacity & Workload",
-        questions: [
-            "How many active teachers are available by subject, centre, board and course?",
-            "What is each teacher’s scheduled and delivered workload?",
-            "What is the teacher’s cost per delivered hour?",
-            "Which teachers are underutilized or overloaded?",
-            "What is the punctuality and cancellation rate?",
-            "How many substitutions are required?",
-            "Which subjects have no backup faculty?",
-            "Which centre depends excessively on one teacher?",
-            "Which teachers have excessive travel gaps?",
-            "Which centres need shared or online faculty?"
-        ]
-    },
-    {
-        category: "Faculty Evaluation & Outcomes",
-        questions: [
-            "What are student attendance and performance trends under each teacher?",
-            "What feedback is received from students and guardians?",
-            "Which teachers complete the syllabus on time?",
-            "Which teachers generate repeated complaints?",
-            "Which teachers create strong retention and referrals?",
-            "Are HOD observations and evaluations completed?",
-            "What is the relationship between teacher attendance and student outcomes?",
-            "Are teacher ratings being adjusted for batch difficulty and student baseline?"
-        ]
-    },
-    {
-        category: "Timetable & Batch Health",
-        questions: [
-            "How many classes were scheduled, conducted, cancelled or rescheduled?",
-            "What was the attendance rate?",
-            "What is the syllabus completion percentage?",
-            "Is the course running ahead of or behind the academic plan?",
-            "Which batches have falling attendance?",
-            "Which students are repeatedly absent?",
-            "Which students attend classes but perform poorly?",
-            "Which students perform well but show disengagement?",
-            "What is the batch size and classroom utilization?",
-            "Are there teacher, classroom or batch conflicts?",
-            "Are teachers scheduled at physically impossible locations?",
-            "Which rooms remain underused?",
-            "Which time slots have poor student attendance?",
-            "Do timetable changes increase absenteeism?",
-            "Are required academic hours being delivered?"
-        ]
-    },
-    {
-        category: "Academic Deliverables & Tracking",
-        questions: [
-            "Which chapters are producing poor test performance?",
-            "How many doubt-clearing sessions were requested and delivered?",
-            "What is the homework and DPP completion rate?",
-            "Are tests occurring according to plan?",
-            "How quickly are results and feedback released?",
-            "Which batches have high complaint, transfer or refund rates?",
-            "Which services promised in the package have not been delivered?",
-            "Are high-demand courses receiving suitable prime slots?"
-        ]
-    }
-];
-
-const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPrompts = [], isDarkMode, filters = {}, onClose }) => {
-    const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
-    const [question, setQuestion] = useState('');
-    const panelRef = useRef(null);
+    const [question, setQuestion] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [openCategory, setOpenCategory] = useState(0); // Open first category by default
+    const [searchFilter, setSearchFilter] = useState("");
 
-    const handleAskQuestion = async (e, customQ = null) => {
+    const chatEndRef = useRef(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, loading]);
+
+    const handleSendQuery = async (e, customQuery) => {
         if (e) e.preventDefault();
-        const queryText = customQ || question;
-        if (!queryText.trim() || loading) return;
+        const queryText = (customQuery || question).trim();
+        if (!queryText || loading) return;
 
-        const userMsg = { role: 'user', text: queryText };
+        const userMsg = { role: 'user', text: queryText, timestamp: new Date() };
         setMessages(prev => [...prev, userMsg]);
         setQuestion('');
         setLoading(true);
@@ -456,540 +273,310 @@ const AISectionAnalyst = ({ title, module, contextData, defaultQuestion, quickPr
             const token = localStorage.getItem('token');
             const res = await axios.post(`${import.meta.env.VITE_API_URL || '/api'}/ai/analyse`, {
                 question: queryText,
-                module: module || 'all',
-                startDate: filters?.startDate,
-                endDate: filters?.endDate,
-                centre: filters?.centre,
-                contextData
+                module: 'all' // Query across ALL ERP data
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             if (res.data?.response) {
-                setMessages(prev => [...prev, { role: 'assistant', text: res.data.response }]);
+                setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    text: res.data.response,
+                    timestamp: new Date()
+                }]);
+            } else {
+                setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    text: "⚠️ Received empty response from Pathfinder AI.",
+                    timestamp: new Date()
+                }]);
             }
         } catch (error) {
-            console.error("AI chat error:", error);
-            setMessages(prev => [...prev, { role: 'assistant', text: "⚠️ Error communicating with Pathfinder AI." }]);
+            console.error("Pathfinder AI query error:", error);
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                text: "⚠️ Error communicating with Pathfinder AI. Please ensure backend server is running.",
+                timestamp: new Date()
+            }]);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
+    };
+
+    const handleClearChat = () => {
+        setMessages([]);
     };
 
     return (
-        <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div 
-                ref={panelRef}
-                className={`w-full max-w-6xl rounded-[8px] border p-6 transition-all duration-300 text-left shadow-2xl flex flex-col h-[90vh] max-h-[90vh] ${
-                    isDarkMode 
-                        ? 'bg-[#0f1115] border-gray-800 shadow-black/60 text-white' 
-                        : 'bg-white border-gray-250 shadow-gray-200/50 text-black'
-                }`}
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between pb-3.5 border-b border-gray-200 dark:border-gray-800/55 mb-4">
-                    <div className="flex items-center gap-2.5">
-                        <span className="p-2 rounded-[4px] bg-cyan-500/10 text-cyan-500"><FaRobot size={18} /></span>
-                        <div>
-                            <h3 className={`text-sm font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                                Pathfinder AI Analyst
-                            </h3>
-                            <p className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                Section: {title}
-                            </p>
-                        </div>
+        <div className={`flex flex-col min-h-screen ${isDarkMode ? 'bg-[#0a0a0b] text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300 p-4 md:p-6 overflow-hidden`}>
+            
+            {/* Top Header Bar */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-200 dark:border-gray-800 gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 text-cyan-400 shadow-lg shadow-cyan-500/10">
+                        <FaBrain className="text-2xl animate-pulse text-cyan-400" />
                     </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[2px] bg-cyan-500/15 text-cyan-400">VITE-GEMINI</span>
-                        <button 
-                            onClick={onClose}
-                            className={`p-1.5 rounded-full transition-colors ${
-                                isDarkMode 
-                                    ? 'text-gray-400 hover:text-white hover:bg-gray-800/60' 
-                                    : 'text-gray-500 hover:text-black hover:bg-gray-100'
-                            }`}
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                    <div>
+                        <h1 className="text-xl md:text-2xl font-black tracking-tight uppercase flex items-center gap-2">
+                            Pathfinder AI Assistant
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-cyan-500/15 text-cyan-500 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+                                CEO Control Tower
+                            </span>
+                        </h1>
+                        <p className={`text-xs font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Enterprise AI Intelligence — Ask any questions about available ERP module data
+                        </p>
                     </div>
                 </div>
 
-                {/* Main Content Area split into columns */}
-                <div className="flex-1 flex gap-6 overflow-hidden min-h-0 mb-4">
-                    {/* Left Column: Suggested CEO Questions */}
-                    {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog" || module === "academics") && (
-                        <div className="w-[340px] shrink-0 flex flex-col border-r border-gray-255 dark:border-gray-800 pr-4 overflow-y-auto custom-scrollbar">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500 mb-4 select-none">
-                                {module === "leads" 
-                                    ? "CEO Control Tower CRM Prompts" 
-                                    : module === "admissions" 
-                                        ? "CEO Control Tower Admissions Prompts" 
-                                        : module === "tracking"
-                                            ? "CEO Control Tower Tracking Prompts"
-                                            : module === "academics"
-                                                ? "CEO Control Tower Academics Prompts"
-                                                : "CEO Control Tower Daily Logs Prompts"}
-                            </h4>
-                            <div className="space-y-4 pr-1">
-                                {(module === "leads" 
-                                    ? leadQuestionsCategories 
-                                    : module === "admissions" 
-                                        ? admissionQuestionsCategories 
-                                        : module === "tracking"
-                                            ? trackingQuestionsCategories
-                                            : module === "academics"
-                                                ? academicQuestionsCategories
-                                                : trackingLogQuestionsCategories
-                                ).map((cat, catIdx) => (
-                                    <div key={catIdx} className="space-y-2">
-                                        <h5 className="text-[11px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-widest border-b border-gray-200 dark:border-gray-800 pb-1.5">{cat.category}</h5>
-                                        <div className="flex flex-col gap-2">
-                                            {cat.questions.map((q, qIdx) => (
+                <div className="flex items-center gap-3 self-end md:self-auto">
+                    {messages.length > 0 && (
+                        <button
+                            onClick={handleClearChat}
+                            className={`flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider px-3.5 py-2 rounded-xl border transition-all ${
+                                isDarkMode 
+                                    ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' 
+                                    : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                            }`}
+                            title="Clear Chat History"
+                        >
+                            <FaTrashAlt size={12} /> Clear Chat
+                        </button>
+                    )}
+
+                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <button
+                            onClick={() => theme === 'light' && toggleTheme()}
+                            className={`p-2 rounded-lg transition-all ${isDarkMode ? "bg-cyan-500 text-black shadow-md shadow-cyan-500/20" : "text-gray-500 hover:text-cyan-500"}`}
+                            title="Dark Mode"
+                        >
+                            <FaMoon size={13} />
+                        </button>
+                        <button
+                            onClick={() => theme === 'dark' && toggleTheme()}
+                            className={`p-2 rounded-lg transition-all ${!isDarkMode ? "bg-cyan-500 text-black shadow-md shadow-cyan-500/20" : "text-gray-600 hover:text-cyan-500"}`}
+                            title="Light Mode"
+                        >
+                            <FaSun size={13} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Interactive Interface Layout (2 Column split) */}
+            <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0 overflow-hidden h-[calc(100vh-140px)]">
+                
+                {/* Left Sidebar: Categorized Suggested Questions */}
+                <div className={`w-full md:w-[380px] shrink-0 flex flex-col rounded-2xl border p-4 overflow-hidden shadow-xl ${
+                    isDarkMode ? 'bg-[#121418] border-gray-800/80' : 'bg-white border-gray-200'
+                }`}>
+                    <div className="mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-cyan-500 flex items-center gap-2">
+                                <MdAutoAwesome /> Suggested ERP Prompts
+                            </h3>
+                            <span className="text-[10px] font-bold text-gray-500">
+                                {erpPromptCategories.reduce((acc, cat) => acc + cat.questions.length, 0)} Prompts
+                            </span>
+                        </div>
+                        <div className="relative">
+                            <FaSearch className="absolute left-3 top-3 text-xs text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Filter questions..."
+                                value={searchFilter}
+                                onChange={(e) => setSearchFilter(e.target.value)}
+                                className={`w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border outline-none transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-black/40 border-gray-800 text-white placeholder-gray-500 focus:border-cyan-500/50' 
+                                        : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-cyan-500/50'
+                                }`}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto pr-1.5 space-y-3 custom-scrollbar">
+                        {erpPromptCategories.map((cat, catIdx) => {
+                            const filteredQuestions = searchFilter 
+                                ? cat.questions.filter(q => q.toLowerCase().includes(searchFilter.toLowerCase()))
+                                : cat.questions;
+
+                            if (searchFilter && filteredQuestions.length === 0) return null;
+
+                            const isOpen = openCategory === catIdx || searchFilter.length > 0;
+
+                            return (
+                                <div key={catIdx} className={`rounded-xl border transition-all ${
+                                    isDarkMode ? 'border-gray-800/60 bg-black/20' : 'border-gray-200 bg-gray-50/50'
+                                }`}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpenCategory(isOpen && !searchFilter ? null : catIdx)}
+                                        className={`w-full flex items-center justify-between p-3 text-left font-bold text-xs transition-colors rounded-xl ${
+                                            isDarkMode ? 'hover:bg-gray-800/40 text-gray-200' : 'hover:bg-gray-100 text-gray-800'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="p-1.5 rounded-lg bg-gray-800/10 dark:bg-gray-800">{cat.icon}</span>
+                                            <span>{cat.title}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-500">
+                                                {cat.badge}
+                                            </span>
+                                            {isOpen ? <FaChevronDown className="text-gray-400 text-xs" /> : <FaChevronRight className="text-gray-400 text-xs" />}
+                                        </div>
+                                    </button>
+
+                                    {isOpen && (
+                                        <div className="p-2 pt-0 space-y-1.5 border-t border-gray-200/50 dark:border-gray-800/50">
+                                            {filteredQuestions.map((q, qIdx) => (
                                                 <button
                                                     key={qIdx}
                                                     type="button"
                                                     disabled={loading}
-                                                    onClick={(e) => handleAskQuestion(e, q)}
-                                                    className={`text-left text-[12px] leading-snug font-bold p-3.5 rounded-[4px] border transition-all ${
+                                                    onClick={(e) => handleSendQuery(e, q)}
+                                                    className={`w-full text-left text-[11px] leading-relaxed font-bold p-2.5 rounded-lg border transition-all flex items-start justify-between gap-2 group ${
                                                         isDarkMode 
-                                                            ? 'bg-black/30 border-gray-800 hover:border-cyan-500/40 hover:bg-cyan-500/5 text-gray-300 hover:text-white' 
-                                                            : 'bg-gray-50 border-gray-200 hover:border-cyan-450 hover:bg-cyan-50/55 text-gray-750 hover:text-cyan-700 shadow-sm hover:shadow'
+                                                            ? 'bg-black/40 border-gray-800/80 text-gray-300 hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-white' 
+                                                            : 'bg-white border-gray-200 text-gray-700 hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-800 shadow-sm'
                                                     }`}
                                                 >
-                                                    {q}
+                                                    <span className="flex-1">{q}</span>
+                                                    <MdAutoAwesome className="text-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 shrink-0" />
                                                 </button>
                                             ))}
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Right Column: Chat messages and input */}
-                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                        {/* Chat Messages */}
-                        <div className="flex-1 space-y-4 overflow-y-auto pr-1.5 custom-scrollbar mb-4 min-h-[300px]">
-                            {messages.length === 0 && !loading && (
-                                <div className="flex flex-col items-center justify-center h-full py-16 text-center">
-                                    <div className="p-4 rounded-full bg-cyan-500/10 text-cyan-500 mb-4 animate-bounce">
-                                        <FaRobot size={36} />
-                                    </div>
-                                    <h4 className={`text-base font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-                                        Pathfinder AI Analyst Ready
-                                    </h4>
-                                    <p className={`text-xs max-w-md leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-650'}`}>
-                                        {(module === "leads" || module === "admissions" || module === "tracking" || module === "trackingLog" || module === "academics") 
-                                            ? "Select a suggested CEO Control Tower question from the left sidebar, or type a custom question below to start analyzing live ERP data."
-                                            : "Type a custom analysis question below to analyze this section's live ERP data."}
-                                    </p>
+                                    )}
                                 </div>
-                            )}
+                            );
+                        })}
+                    </div>
+                </div>
 
-                            {messages.map((msg, idx) => (
-                                <div 
-                                    key={idx} 
-                                    className={`flex flex-col gap-1.5 p-4 rounded-[4px] border ${
-                                        msg.role === 'user' 
-                                            ? (isDarkMode 
-                                                ? 'bg-cyan-500/5 border-cyan-500/10 align-self-end ml-12' 
-                                                : 'bg-cyan-50/50 border-cyan-200/80 align-self-end ml-12')
-                                            : (isDarkMode 
-                                                ? 'bg-black/30 border-gray-850' 
-                                                : 'bg-gray-50/75 border-gray-200/80 shadow-sm')
-                                    }`}
-                                >
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-cyan-500' : 'text-purple-500'}`}>
-                                        {msg.role === 'user' ? 'You' : 'Pathfinder AI'}
-                                    </span>
-                                    <AIMarkdownText text={msg.text} />
+                {/* Right Panel: Active Chat & Analysis Stream */}
+                <div className={`flex-1 flex flex-col rounded-2xl border p-4 md:p-6 overflow-hidden shadow-2xl ${
+                    isDarkMode ? 'bg-[#121418] border-gray-800/80' : 'bg-white border-gray-200'
+                }`}>
+                    
+                    {/* Chat Message History */}
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar mb-4">
+                        {messages.length === 0 && !loading && (
+                            <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                                <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 border border-cyan-500/20 text-cyan-400 mb-4 animate-pulse shadow-lg shadow-cyan-500/5">
+                                    <FaRobot size={44} />
                                 </div>
-                            ))}
-
-                            {loading && messages.length === 0 && (
-                                <div className="flex flex-col gap-3 py-16 items-center justify-center text-gray-500 font-bold text-sm">
-                                    <span className="animate-spin text-cyan-500"><FaSyncAlt size={24} /></span>
-                                    <span className="tracking-widest uppercase text-xs animate-pulse">Analyzing section data with Pathfinder AI...</span>
-                                </div>
-                            )}
-
-                            {loading && messages.length > 0 && (
-                                <div className="flex items-center gap-2 pl-3 text-cyan-500 text-xs font-bold">
-                                    <span className="animate-pulse">Pathfinder AI is thinking...</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer input and prompts */}
-                        <div className="pt-3 border-t border-gray-200 dark:border-gray-800/55">
-                            {quickPrompts.length > 0 && module !== "leads" && (
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                    {quickPrompts.map((promptText, pIdx) => (
+                                <h3 className={`text-lg font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
+                                    Pathfinder ERP Assistant Ready
+                                </h3>
+                                <p className={`text-xs max-w-lg leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mb-6`}>
+                                    Ask any analytical or operational questions about live ERP data — including Lead CRM, Admissions, Fee Collections, Expenses, Attendance, Batches, Staffing, or Executive Red Flags.
+                                </p>
+                                <div className="flex flex-wrap justify-center gap-2 max-w-xl">
+                                    {[
+                                        "How many total admissions were done this month across all centres?",
+                                        "What is the total fee revenue collected vs remaining due?",
+                                        "Show me all active lead conversion rates by counsellor",
+                                        "Which batches are currently overcrowded or underfilled?"
+                                    ].map((quickQ, idx) => (
                                         <button
-                                            key={pIdx}
+                                            key={idx}
                                             type="button"
-                                            onClick={(e) => handleAskQuestion(e, promptText)}
-                                            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${
+                                            onClick={(e) => handleSendQuery(e, quickQ)}
+                                            className={`text-[11px] font-bold px-3 py-2 rounded-xl border transition-all ${
                                                 isDarkMode 
-                                                    ? 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white hover:border-cyan-500/30' 
-                                                    : 'bg-white border-gray-250 text-gray-600 hover:text-cyan-600 hover:border-cyan-400 shadow-sm'
+                                                    ? 'bg-gray-900/80 border-gray-800 text-cyan-400 hover:border-cyan-500/50 hover:bg-cyan-500/10' 
+                                                    : 'bg-gray-50 border-gray-200 text-cyan-700 hover:border-cyan-400 hover:bg-cyan-50'
                                             }`}
                                         >
-                                            {promptText}
+                                            ✨ {quickQ}
                                         </button>
                                     ))}
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            <form onSubmit={handleAskQuestion} className="flex gap-2.5 items-center">
-                                <input
-                                    type="text"
-                                    value={question}
-                                    onChange={(e) => setQuestion(e.target.value)}
-                                    placeholder={`Ask AI about ${title} data...`}
-                                    className={`flex-1 text-sm font-medium p-3 rounded-[3px] border outline-none transition-all ${
-                                        isDarkMode 
-                                            ? 'bg-black border-gray-800 text-white focus:border-cyan-500' 
-                                            : 'bg-white border-gray-200 text-black focus:border-cyan-500 shadow-sm'
-                                    }`}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={loading || !question.trim()}
-                                    className={`p-3 rounded-[3px] bg-cyan-500 text-black hover:bg-cyan-600 active:scale-95 transition-all font-black flex items-center justify-center ${
-                                        (loading || !question.trim()) ? 'opacity-50 cursor-not-allowed' : ''
-                                    }`}
-                                >
-                                    <FaPaperPlane size={14} />
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
+                        {messages.map((msg, idx) => (
+                            <div 
+                                key={idx} 
+                                className={`flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                            >
+                                <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
+                                    {msg.role === 'user' ? (
+                                        <><span>You</span> <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span></>
+                                    ) : (
+                                        <><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> <span>Pathfinder AI Analyst</span></>
+                                    )}
+                                </div>
 
-const CEOControlTowerContent = () => {
-    const { theme, toggleTheme } = useTheme();
-    const isDarkMode = theme === 'dark';
-    const navigate = useNavigate();
-    const [activeAIModule, setActiveAIModule] = useState(null);
-
-    const modules = [
-        {
-            name: "Lead Management",
-            icon: <FaBullseye />,
-            color: "rose",
-            bgColor: "bg-rose-500/10",
-            textColor: "text-rose-400",
-            borderColor: "hover:border-rose-500/40",
-            shadowColor: "hover:shadow-rose-500/5",
-            description: "Oversee sales pipelines, lead distributions, telecaller console efficiency, and conversion logs.",
-            features: ["All Leads Pipeline", "Teacher Schedule", "Campaign Analysis"],
-            path: "/ceo-control-tower/lead-analytics",
-            moduleKey: "leads",
-            aiQuestion: "Analyze our lead generation and conversion trends. Which channels or sources drive most leads?",
-            aiPrompts: ["Analyze lead generation trends", "Which channels drive most leads?", "Identify low-performing sources"]
-        },
-        {
-            name: "Admissions",
-            icon: <FaUserGraduate />,
-            color: "emerald",
-            bgColor: "bg-emerald-500/10",
-            textColor: "text-emerald-400",
-            borderColor: "hover:border-emerald-500/40",
-            shadowColor: "hover:shadow-emerald-500/5",
-            description: "Track counselled students, board course registrations, payment receipts, and enrolled rosters.",
-            features: ["Counselled Students", "Board Registrations", "Enrolled Roster"],
-            path: "/admissions",
-            moduleKey: "admissions",
-            aiQuestion: "How many counselling sessions were completed by centre and counsellor?",
-            aiPrompts: ["Counselling sessions by counsellor", "Same-day conversion percentage", "Average counselling-to-admission time"]
-        },
-        {
-            name: "Tracking & Flagging",
-            icon: <FaFlag />,
-            color: "amber",
-            bgColor: "bg-amber-500/10",
-            textColor: "text-amber-400",
-            borderColor: "hover:border-amber-500/40",
-            shadowColor: "hover:shadow-amber-500/5",
-            description: "Monitor daily center performance flags, operational exceptions, and metric-based alerts.",
-            features: ["Daily Center Tracking", "Red Flag Desk", "Operational Logs"],
-            path: "/daily-center-tracking",
-            moduleKey: "tracking",
-            aiQuestion: "What did each centre achieve today?",
-            aiPrompts: ["What did each centre achieve today?", "What red flags are currently open?", "What is the current monthly target achievement?"]
-        },
-        {
-            name: "Daily Tracking Log",
-            icon: <FaHistory />,
-            color: "purple",
-            bgColor: "bg-purple-500/10",
-            textColor: "text-purple-400",
-            borderColor: "hover:border-purple-500/40",
-            shadowColor: "hover:shadow-purple-500/5",
-            description: "View department-wide logged activities, team logs, and historic operational reports.",
-            features: ["My Daily Log", "Department Board", "Log Tracking"],
-            path: "/daily-tracking-log?tab=myLog",
-            moduleKey: "trackingLog",
-            aiQuestion: "What did each employee commit to doing?",
-            aiPrompts: ["What did each employee commit to doing?", "What was actually completed?", "What blockers were reported?"]
-        },
-        {
-            name: "Marketing & CRM",
-            icon: <FaBullhorn />,
-            color: "blue",
-            bgColor: "bg-blue-500/10",
-            textColor: "text-blue-400",
-            borderColor: "hover:border-blue-500/40",
-            shadowColor: "hover:shadow-blue-500/5",
-            description: "Oversee digital acquisition campaigns, lead sources, social channel integrations, and CRM metrics.",
-            features: ["Campaign CRM", "Lead Acquisition", "Media Integration"],
-            path: "/marketing-crm",
-            moduleKey: "leads",
-            aiQuestion: "Analyze marketing campaigns and CRM lead acquisition channels.",
-            aiPrompts: ["Evaluate campaign CRM effectiveness", "Analyze acquisition channels"]
-        },
-        {
-            name: "Academics",
-            icon: <FaBook />,
-            color: "indigo",
-            bgColor: "bg-indigo-500/10",
-            textColor: "text-indigo-400",
-            borderColor: "hover:border-indigo-500/40",
-            shadowColor: "hover:shadow-indigo-500/5",
-            description: "Coordinate academic calendars, class timetables, teachers roster, routines, and HOD evaluations.",
-            features: ["Teacher & HoD Lists", "Classes & Management", "Routines Schedule"],
-            path: "/academics/teacher-list",
-            moduleKey: "academics",
-            aiQuestion: "How many active teachers are available by subject, centre, board and course?",
-            aiPrompts: ["Active teachers by subject", "Teacher workloads & costs", "Timetable & conflicts"]
-        },
-        {
-            name: "Finance & Fees",
-            icon: <FaMoneyBillWave />,
-            color: "teal",
-            bgColor: "bg-teal-500/10",
-            textColor: "text-teal-400",
-            borderColor: "hover:border-teal-500/40",
-            shadowColor: "hover:shadow-teal-500/5",
-            description: "Audit fee collections, due reports, check clearance, petty cash transfers, and expense approvals.",
-            features: ["Installment Payments", "Expense Audit", "Due & Collection Reports"],
-            path: "/finance/payment-analysis",
-            moduleKey: "finance",
-            aiQuestion: "Analyze transaction collections, method mixes, and revenue rankings.",
-            aiPrompts: ["Analyze transaction payment methods mix", "Compare digital vs cash collections", "Evaluate center revenue performance"]
-        },
-        {
-            name: "Sales & Targets",
-            icon: <FaShoppingCart />,
-            color: "orange",
-            bgColor: "bg-orange-500/10",
-            textColor: "text-orange-400",
-            borderColor: "hover:border-orange-500/40",
-            shadowColor: "hover:shadow-orange-500/5",
-            description: "Track sales performance, center-wise target achievement, rank lists, and average ticket fees.",
-            features: ["Centre Targets", "Comparison Rank", "Daily Collections"],
-            path: "/sales/comparison-analysis",
-            moduleKey: "sales",
-            aiQuestion: "Analyze sales performance, counselor conversions, and center target achievements.",
-            aiPrompts: ["Counselor conversion analysis", "Center performance rankings"]
-        },
-        {
-            name: "Employee Center",
-            icon: <FaUserTie />,
-            color: "pink",
-            bgColor: "bg-pink-500/10",
-            textColor: "text-pink-400",
-            borderColor: "hover:border-pink-500/40",
-            shadowColor: "hover:shadow-pink-500/5",
-            description: "Manage personal profiles, marking attendance logs, leaves, feedback, and document repositories.",
-            features: ["Attendance & Leave", "Document Repository", "Feedback & Evaluation"],
-            path: "/employee/attendance",
-            moduleKey: "hr",
-            aiQuestion: "Analyze employee attendance records, department headcounts, and staffing distributions.",
-            aiPrompts: ["Workforce attendance analysis", "Employee department distribution", "Employee designation distribution"]
-        },
-        {
-            name: "Task Workflow",
-            icon: <FaTasks />,
-            color: "cyan",
-            bgColor: "bg-cyan-500/10",
-            textColor: "text-cyan-400",
-            borderColor: "hover:border-cyan-500/40",
-            shadowColor: "hover:shadow-cyan-500/5",
-            description: "Manage enterprise task lifecycle, task assignment, and workflow progression tracking.",
-            features: ["Tasks Dashboard", "Assign Task", "Workflow Tracking"],
-            path: "/task-workflow/tasks",
-            moduleKey: "all",
-            aiQuestion: "Evaluate operational task lifecycle, task assignment, and assignment tracking metrics.",
-            aiPrompts: ["Track active task workflows", "Optimize operational task assignment"]
-        },
-        {
-            name: "User Management",
-            icon: <FaUserGraduate />,
-            color: "emerald",
-            bgColor: "bg-emerald-500/10",
-            textColor: "text-emerald-400",
-            borderColor: "hover:border-emerald-500/40",
-            shadowColor: "hover:shadow-emerald-500/5",
-            description: "Track counselled students, board course registrations, payment receipts, and enrolled rosters.",
-            features: ["Counselled Students", "Board Registrations", "Enrolled Roster"],
-            path: "/user-management",
-            moduleKey: "all",
-            aiQuestion: "Provide recommendations for optimizing student and user roster tracking.",
-            aiPrompts: ["Optimize student rosters", "Roster analytics"]
-        },
-        {
-            name: "Hr & Manpower",
-            icon: <FaUserGraduate />,
-            color: "emerald",
-            bgColor: "bg-emerald-500/10",
-            textColor: "text-emerald-400",
-            borderColor: "hover:border-emerald-500/40",
-            shadowColor: "hover:shadow-emerald-500/5",
-            description: "Track counselled students, board course registrations, payment receipts, and enrolled rosters.",
-            features: ["Counselled Students", "Board Registrations", "Enrolled Roster"],
-            path: "/hr/employee/list",
-            moduleKey: "hr",
-            aiQuestion: "Analyze employee metrics, salaries, and center distributions.",
-            aiPrompts: ["Salary budget overview", "Center staffing levels"]
-        }
-    ];
-
-    return (
-        <div className={`flex-1 flex flex-col min-h-screen ${isDarkMode ? 'bg-[#0a0a0b]' : 'bg-gray-50'} transition-colors duration-500 p-6 overflow-y-auto custom-scrollbar`}>
-
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-gray-800/50 pb-6">
-                <div>
-                    <h1 className={`text-2xl font-black italic tracking-tight mb-1 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <span className="p-2 border-2 border-cyan-500 rounded-[2px] text-cyan-500"><FaChartBar /></span>
-                        CEO CONTROL TOWER <span className="text-[10px] not-italic text-cyan-500 mt-2 bg-cyan-500/10 px-2 py-0.5 rounded-[1px] tracking-widest font-black uppercase">MODULE ANALYSIS</span>
-                    </h1>
-                    <p className={`text-[10px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Enterprise Dynamic Intelligence Dashboard</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-1 p-1 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <button
-                            onClick={() => theme === 'light' && toggleTheme()}
-                            className={`p-2 rounded-[1px] transition-all ${isDarkMode ? "bg-cyan-500 text-black" : "text-gray-500 hover:text-cyan-500"}`}
-                        >
-                            <FaMoon size={12} />
-                        </button>
-                        <button
-                            onClick={() => theme === 'dark' && toggleTheme()}
-                            className={`p-2 rounded-[1px] transition-all ${!isDarkMode ? "bg-cyan-500 text-black" : "text-gray-600 hover:text-cyan-500"}`}
-                        >
-                            <FaSun size={12} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modules Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                {modules.map((m, idx) => (
-                    <div
-                        key={idx}
-                        onClick={() => setActiveAIModule({
-                            title: m.name,
-                            module: m.moduleKey,
-                            defaultQuestion: m.aiQuestion,
-                            quickPrompts: m.aiPrompts
-                        })}
-                        className={`border rounded-[2px] p-6 relative group overflow-hidden transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[220px] ${isDarkMode
-                            ? `bg-[#131619] border-gray-800 ${m.borderColor} ${m.shadowColor}`
-                            : `bg-white border-gray-200 shadow-sm ${m.borderColor} ${m.shadowColor} hover:shadow-md`
-                            } hover:scale-[1.02]`}
-                    >
-                        {/* Glow effect on hover */}
-                        <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl -mr-10 -mt-10 transition-all duration-300 bg-${m.color}-500/5 group-hover:bg-${m.color}-500/20`} />
-
-                        <div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <h3 className={`text-sm font-black tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{m.name}</h3>
-                                <div className={`w-8 h-8 rounded-[2px] ${m.bgColor} flex items-center justify-center ${m.textColor} border border-${m.color}-500/20 group-hover:scale-110 transition-transform duration-300`}>
-                                    {m.icon}
+                                <div className={`p-4 rounded-2xl max-w-[92%] border transition-all ${
+                                    msg.role === 'user'
+                                        ? (isDarkMode 
+                                            ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-100 rounded-tr-none' 
+                                            : 'bg-cyan-500 text-white border-cyan-600 rounded-tr-none font-medium shadow-md')
+                                        : (isDarkMode 
+                                            ? 'bg-gray-900/90 border-gray-800 text-gray-200 rounded-tl-none shadow-lg' 
+                                            : 'bg-gray-50 border-gray-200 text-gray-900 rounded-tl-none shadow-sm')
+                                }`}>
+                                    {msg.role === 'user' ? (
+                                        <p className="text-sm font-semibold">{msg.text}</p>
+                                    ) : (
+                                        <AIMarkdownText text={msg.text} />
+                                    )}
                                 </div>
                             </div>
+                        ))}
 
-                            <p className={`text-[10px] leading-relaxed mb-4 font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                                {m.description}
-                            </p>
-                        </div>
-
-                        <div>
-                            {/* Features list */}
-                            <div className="flex flex-wrap gap-1.5 mb-4 z-10 relative">
-                                {m.features.map((feat, fIdx) => (
-                                    <span
-                                        key={fIdx}
-                                        className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-[1px] ${isDarkMode ? 'bg-gray-800/50 text-gray-400' : 'bg-gray-100 text-gray-600'
-                                            }`}
-                                    >
-                                        {feat}
-                                    </span>
-                                ))}
+                        {loading && (
+                            <div className="flex items-center gap-3 p-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 max-w-[300px]">
+                                <div className="animate-spin h-5 w-5 border-2 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_10px_rgba(6,182,212,0.5)]"></div>
+                                <span className="text-xs font-black uppercase tracking-widest text-cyan-500 animate-pulse">
+                                    Analyzing Live ERP Data...
+                                </span>
                             </div>
-
-                            <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-cyan-500 group-hover:text-cyan-400 transition-colors mb-4">
-                                View AI Insights <FaArrowRight className="group-hover:translate-x-1 transition-transform duration-300" />
-                            </div>
-
-                            <div onClick={(e) => e.stopPropagation()} className="relative z-20 mt-2 border-t border-gray-800/10 dark:border-gray-700/30 pt-4">
-                                <button
-                                    onClick={() => setActiveAIModule({
-                                        title: m.name,
-                                        module: m.moduleKey,
-                                        defaultQuestion: m.aiQuestion,
-                                        quickPrompts: m.aiPrompts
-                                    })}
-                                    className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[2px] transition-all duration-300 active:scale-95 ${
-                                        isDarkMode 
-                                            ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20' 
-                                            : 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100 border border-cyan-200'
-                                    }`}
-                                >
-                                    <MdAutoAwesome className="animate-pulse" />
-                                    Pathfinder AI Insights
-                                </button>
-                            </div>
-                        </div>
+                        )}
+                        <div ref={chatEndRef} />
                     </div>
-                ))}
-            </div>
 
-            {activeAIModule && (
-                <AISectionAnalyst
-                    title={activeAIModule.title}
-                    module={activeAIModule.module}
-                    contextData={null}
-                    defaultQuestion={activeAIModule.defaultQuestion}
-                    quickPrompts={activeAIModule.quickPrompts}
-                    isDarkMode={isDarkMode}
-                    filters={{}}
-                    onClose={() => setActiveAIModule(null)}
-                />
-            )}
+                    {/* Bottom Prompt Input Area */}
+                    <form onSubmit={(e) => handleSendQuery(e)} className="pt-3 border-t border-gray-200 dark:border-gray-800/80">
+                        <div className={`flex items-center gap-2 p-1.5 rounded-2xl border transition-all ${
+                            isDarkMode 
+                                ? 'bg-black/50 border-gray-800 focus-within:border-cyan-500/60 focus-within:bg-black/80' 
+                                : 'bg-gray-50 border-gray-300 focus-within:border-cyan-500 focus-within:bg-white'
+                        }`}>
+                            <input
+                                type="text"
+                                value={question}
+                                onChange={(e) => setQuestion(e.target.value)}
+                                placeholder="Ask any question about ERP data (e.g., total collection, unassigned leads, student counts)..."
+                                disabled={loading}
+                                className={`flex-1 bg-transparent px-4 py-2.5 text-xs md:text-sm font-semibold outline-none ${
+                                    isDarkMode ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
+                                }`}
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading || !question.trim()}
+                                className={`p-3 rounded-xl font-black uppercase text-xs tracking-wider transition-all flex items-center justify-center gap-2 ${
+                                    loading || !question.trim()
+                                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-lg shadow-cyan-500/25 hover:scale-105 active:scale-95'
+                                }`}
+                            >
+                                <FaPaperPlane size={13} />
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#e5e7eb'}; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#d1d5db'}; border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
             `}</style>
         </div>
     );
-};
-
-export default CEOControlTowerContent;
+}

@@ -19,6 +19,8 @@ const DailyCenterTracking = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCenters, setSelectedCenters] = useState([]);
+    const [zones, setZones] = useState([]);
+    const [selectedZones, setSelectedZones] = useState([]);
     const [agents, setAgents] = useState([]);
     const [selectedAgents, setSelectedAgents] = useState([]);
     const [dateRange, setDateRange] = useState("Today");
@@ -130,6 +132,10 @@ const DailyCenterTracking = () => {
                 params.append("agentIds", selectedAgents.map(sa => sa.value).join(","));
             }
 
+            if (selectedZones && selectedZones.length > 0) {
+                params.append("zoneIds", selectedZones.map(sz => sz.value).join(","));
+            }
+
             const response = await fetch(`${apiUrl}/operations/daily-tracking/details?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -184,11 +190,32 @@ const DailyCenterTracking = () => {
         }
     };
 
+    const fetchZones = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+            const response = await fetch(`${apiUrl}/zone`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const zoneList = data.data || [];
+                zoneList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setZones(zoneList);
+            }
+        } catch (error) {
+            console.error("Error fetching zones:", error);
+        }
+    };
+
     useEffect(() => {
         if (canView || user.role === 'superAdmin' || user.role === 'superadmin') {
             fetchAgents();
+            fetchZones();
         }
     }, [canView]);
+
+    const isSpecialCentre = (name) => name && (/phsps/i.test(name) || /rkm/i.test(name) || /franchise/i.test(name));
 
     const fetchCenters = async () => {
         try {
@@ -218,6 +245,10 @@ const DailyCenterTracking = () => {
                 params.append("agentIds", selectedAgents.map(sa => sa.value).join(","));
             }
 
+            if (selectedZones && selectedZones.length > 0) {
+                params.append("zoneIds", selectedZones.map(sz => sz.value).join(","));
+            }
+
             const response = await fetch(`${apiUrl}/operations/daily-tracking?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -227,8 +258,9 @@ const DailyCenterTracking = () => {
             if (response.ok) {
                 const filteredData = Array.isArray(data)
                     ? data.filter(c =>
-                        user.role === 'superAdmin' || user.role === 'superadmin' ||
-                        (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name))
+                        !isSpecialCentre(c.name) &&
+                        (user.role === 'superAdmin' || user.role === 'superadmin' ||
+                        (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name)))
                     )
                     : [];
                 filteredData.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -248,12 +280,33 @@ const DailyCenterTracking = () => {
         if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
         if (dateRange === "Custom Range" && (!customStartDate || !customEndDate)) return;
         fetchCenters();
-    }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter, selectedAgents]);
+    }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter, selectedAgents, selectedZones]);
+
+    const allowedCenterNamesInSelectedZones = new Set();
+    const allowedCenterIdsInSelectedZones = new Set();
+
+    if (selectedZones && selectedZones.length > 0) {
+        const selectedZoneIds = selectedZones.map(sz => sz.value.toString());
+        zones.forEach(z => {
+            if (z._id && selectedZoneIds.includes(z._id.toString()) && Array.isArray(z.centres)) {
+                z.centres.forEach(c => {
+                    if (c.centreName) allowedCenterNamesInSelectedZones.add(c.centreName.toLowerCase().trim());
+                    if (c._id) allowedCenterIdsInSelectedZones.add(c._id.toString());
+                });
+            }
+        });
+    }
 
     const filteredCenters = centers.filter(center => {
+        if (isSpecialCentre(center.name)) return false;
         const matchesSearch = center.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCenter = selectedCenters.length === 0 || selectedCenters.some(sc => sc.label === center.name);
         
+        const matchesZone = selectedZones.length === 0 || (
+            allowedCenterNamesInSelectedZones.has((center.name || "").toLowerCase().trim()) ||
+            allowedCenterIdsInSelectedZones.has((center.id || "").toString())
+        );
+
         const isAgentFiltered = selectedAgents && selectedAgents.length > 0;
         const isLeadTypeFiltered = leadTypeFilter !== "";
         
@@ -267,10 +320,10 @@ const DailyCenterTracking = () => {
                 (center.admissionBoard || 0) > 0 ||
                 (center.collectionsVal || 0) > 0
             );
-            return matchesSearch && matchesCenter && hasActivity;
+            return matchesSearch && matchesCenter && matchesZone && hasActivity;
         }
         
-        return matchesSearch && matchesCenter;
+        return matchesSearch && matchesCenter && matchesZone;
     });
 
     const handleExportExcel = async () => {
@@ -344,20 +397,31 @@ const DailyCenterTracking = () => {
             ]);
 
             // Sheet 1: Summary Overview
-            const summarySheetData = filteredCenters.map(center => ({
-                "Center Name": center.name,
-                "Walk-Ins": center.walkIns || 0,
-                "Daily Calls": center.dailyCalls || 0,
-                "Counselled (Normal)": center.counselledNormal || 0,
-                "Counselled (Board)": center.counselledBoard || 0,
-                "Counselled (Total)": (center.counselledNormal || 0) + (center.counselledBoard || 0),
-                "Admission (Normal)": center.admissionNormal || 0,
-                "Admission (Board)": center.admissionBoard || 0,
-                "Admission (Total)": (center.admissionNormal || 0) + (center.admissionBoard || 0),
-                "Collection (Admission) [Excl. GST]": center.collectionsAdmissionVal || 0,
-                "Collection (Installment) [Excl. GST]": center.collectionsInstallmentVal || 0,
-                "Collection (Total) [Excl. GST]": center.collectionsVal || 0
-            }));
+            const summarySheetData = filteredCenters.map(center => {
+                const cCalls = center.dailyCalls || 0;
+                const cCouns = (center.counselledNormal || 0) + (center.counselledBoard || 0);
+                const cAdm = (center.admissionNormal || 0) + (center.admissionBoard || 0);
+
+                return {
+                    "Center Name": center.name,
+                    "Walk-Ins": center.walkIns || 0,
+                    "Daily Calls (Total)": cCalls,
+                    "Daily Calls (Unique)": center.uniqueCalls || 0,
+                    "Daily Calls (Same No.)": center.sameNoCalls || 0,
+                    "Counselled (Normal)": center.counselledNormal || 0,
+                    "Counselled (Board)": center.counselledBoard || 0,
+                    "Counselled (Total)": cCouns,
+                    "Admission (Normal)": center.admissionNormal || 0,
+                    "Admission (Board)": center.admissionBoard || 0,
+                    "Admission (Total)": cAdm,
+                    "Conversion % (Calls to Counselling)": cCalls > 0 ? ((cCouns / cCalls) * 100).toFixed(1) + "%" : "0.0%",
+                    "Conversion % (Counselling to Admission)": cCouns > 0 ? ((cAdm / cCouns) * 100).toFixed(1) + "%" : "0.0%",
+                    "Conversion % (Calls to Admission)": cCalls > 0 ? ((cAdm / cCalls) * 100).toFixed(1) + "%" : "0.0%",
+                    "Collection (Admission) [Excl. GST]": center.collectionsAdmissionVal || 0,
+                    "Collection (Installment) [Excl. GST]": center.collectionsInstallmentVal || 0,
+                    "Collection (Total) [Excl. GST]": center.collectionsVal || 0
+                };
+            });
 
             // Sheet 2: Walk-Ins details
             const walkinsSheetData = walkinsData.map(d => ({
@@ -487,10 +551,25 @@ const DailyCenterTracking = () => {
                             />
                         </div>
 
+                        {/* Zone Filter (Multi Select) */}
+                        <div className="relative min-w-[180px] z-20">
+                            <CustomMultiSelect
+                                options={zones.map(z => ({ value: z._id, label: z.name }))}
+                                value={selectedZones}
+                                onChange={setSelectedZones}
+                                placeholder="All Zones"
+                                isDarkMode={isDarkMode}
+                            />
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-white text-gray-400'}`}>Zone</span>
+                        </div>
+
                         {/* Centre Filter (Multi Select) */}
                         <div className="relative min-w-[200px] z-20">
                             <CustomMultiSelect
-                                options={centers.map(c => ({ value: c.id, label: c.name }))}
+                                options={centers
+                                    .filter(c => selectedZones.length === 0 || allowedCenterNamesInSelectedZones.has((c.name || "").toLowerCase().trim()) || allowedCenterIdsInSelectedZones.has((c.id || "").toString()))
+                                    .map(c => ({ value: c.id, label: c.name }))
+                                }
                                 value={selectedCenters}
                                 onChange={setSelectedCenters}
                                 placeholder="All Centres"
@@ -603,13 +682,21 @@ const DailyCenterTracking = () => {
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                    {[
+                {(() => {
+                    const totalCallsSum = filteredCenters.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0);
+                    const totalCounsellingSum = filteredCenters.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0);
+                    const totalAdmissionSum = filteredCenters.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0);
+
+                    const callsToCounsPct = totalCallsSum > 0 ? ((totalCounsellingSum / totalCallsSum) * 100).toFixed(1) + "%" : "0.0%";
+                    const counsToAdmPct = totalCounsellingSum > 0 ? ((totalAdmissionSum / totalCounsellingSum) * 100).toFixed(1) + "%" : "0.0%";
+                    const callsToAdmPct = totalCallsSum > 0 ? ((totalAdmissionSum / totalCallsSum) * 100).toFixed(1) + "%" : "0.0%";
+
+                    const kpiCardsList = [
                         { title: getCardLabel("Walk-Ins"), category: "walkins", value: filteredCenters.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
                         {
                             title: getCardLabel("Counselling"),
                             category: "counselling",
-                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0).toString(),
+                            value: totalCounsellingSum.toString(),
                             subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
                             icon: <FaComments />,
                             color: "text-green-500",
@@ -618,13 +705,48 @@ const DailyCenterTracking = () => {
                         {
                             title: getCardLabel("Admission"),
                             category: "admission",
-                            value: filteredCenters.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0).toString(),
+                            value: totalAdmissionSum.toString(),
                             subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
                             icon: <FaUserPlus />,
                             color: "text-purple-500",
                             bg: "bg-purple-500/10"
                         },
-                        { title: getCardLabel("Calls"), category: "calls", value: filteredCenters.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0), icon: <FaPhoneAlt />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+                        {
+                            title: getCardLabel("Calls"),
+                            category: "calls",
+                            value: totalCallsSum,
+                            subtext: `Unique: ${filteredCenters.reduce((acc, curr) => acc + (curr.uniqueCalls || 0), 0)} | Same No.: ${filteredCenters.reduce((acc, curr) => acc + (curr.sameNoCalls || 0), 0)}`,
+                            icon: <FaPhoneAlt />,
+                            color: "text-yellow-500",
+                            bg: "bg-yellow-500/10"
+                        },
+                        {
+                            title: getCardLabel("Conversion % from Calls to counselling"),
+                            category: "counselling",
+                            value: callsToCounsPct,
+                            subtext: `${totalCounsellingSum.toLocaleString()} Counselled / ${totalCallsSum.toLocaleString()} Calls`,
+                            icon: <FaChartLine />,
+                            color: "text-orange-500",
+                            bg: "bg-orange-500/10"
+                        },
+                        {
+                            title: getCardLabel("Conversion % from counselling to admission"),
+                            category: "admission",
+                            value: counsToAdmPct,
+                            subtext: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCounsellingSum.toLocaleString()} Counselled`,
+                            icon: <FaChartLine />,
+                            color: "text-teal-500",
+                            bg: "bg-teal-500/10"
+                        },
+                        {
+                            title: getCardLabel("Conversion % from calls to admission"),
+                            category: "admission",
+                            value: callsToAdmPct,
+                            subtext: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCallsSum.toLocaleString()} Calls`,
+                            icon: <FaChartLine />,
+                            color: "text-indigo-500",
+                            bg: "bg-indigo-500/10"
+                        },
                         {
                             title: getCardLabel("Collection"),
                             category: "collection",
@@ -634,29 +756,35 @@ const DailyCenterTracking = () => {
                             color: "text-cyan-500",
                             bg: "bg-cyan-500/10"
                         }
-                    ].map((kpi, index) => (
-                        <div
-                            key={index}
-                            onClick={() => handleCardClick(kpi.category, kpi.title)}
-                            className={`p-5 rounded transition-all hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none hover:border-cyan-500/40 ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'
-                                }`}>
-                            <div className="flex items-start gap-3">
-                                <div className={`p-3 rounded ${kpi.bg} ${kpi.color} shrink-0`}>
-                                    {React.cloneElement(kpi.icon, { className: "text-xl" })}
+                    ];
+
+                    return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-8">
+                            {kpiCardsList.map((kpi, index) => (
+                                <div
+                                    key={index}
+                                    onClick={() => handleCardClick(kpi.category, kpi.title)}
+                                    className={`p-5 rounded transition-all hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none hover:border-cyan-500/40 ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'
+                                        }`}>
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-3 rounded ${kpi.bg} ${kpi.color} shrink-0`}>
+                                            {React.cloneElement(kpi.icon, { className: "text-xl" })}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>{kpi.title}</p>
+                                            <h3 className="text-xl font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{kpi.value}</h3>
+                                            {kpi.subtext && (
+                                                <p className={`text-[10px] mt-1 font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                    {kpi.subtext}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>{kpi.title}</p>
-                                    <h3 className="text-xl font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{kpi.value}</h3>
-                                    {kpi.subtext && (
-                                        <p className={`text-[10px] mt-1 font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            {kpi.subtext}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    );
+                })()}
 
                 {/* Main Content Area */}
                 <div className={`rounded overflow-hidden border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
@@ -719,7 +847,12 @@ const DailyCenterTracking = () => {
                                                     <div className={`w-2 h-2 rounded-full ${center.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                                     {center.name}
                                                 </td>
-                                                <td className="p-4 font-medium">{center.dailyCalls}</td>
+                                                <td className="p-4 font-medium">
+                                                    <div>{center.dailyCalls || 0}</div>
+                                                    <div className={`text-[10px] font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        Unique: {center.uniqueCalls || 0} | Same No.: {center.sameNoCalls || 0}
+                                                    </div>
+                                                </td>
                                                 <td className="p-4 font-medium">
                                                     {center.counselledNormal + center.counselledBoard}
                                                 </td>
@@ -785,7 +918,10 @@ const DailyCenterTracking = () => {
                                         <div className="grid grid-cols-2 gap-4 my-6">
                                             <div>
                                                 <p className={`text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Daily Calls</p>
-                                                <span className="font-bold text-lg">{center.dailyCalls}</span>
+                                                <span className="font-bold text-lg">{center.dailyCalls || 0}</span>
+                                                <p className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                    Unique: {center.uniqueCalls || 0} | Same No.: {center.sameNoCalls || 0}
+                                                </p>
                                             </div>
                                             <div>
                                                 <p className={`text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Counselled</p>

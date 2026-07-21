@@ -1,10 +1,93 @@
 import React from 'react';
-import Select from 'react-select';
-
+import Select, { components } from 'react-select';
 import { useTheme } from '../../context/ThemeContext';
 
-const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, isMulti = true, theme: propTheme, isDarkMode, ...rest }) => {
-    // Try to get theme from context, but don't crash if context is missing
+const ValueContainer = ({ children, getValue, hasValue, isMulti, selectProps, ...props }) => {
+    if (!isMulti || !hasValue) {
+        return <components.ValueContainer selectProps={selectProps} {...props}>{children}</components.ValueContainer>;
+    }
+
+    const selected = getValue() || [];
+    const options = selectProps.options || [];
+
+    const isDark = selectProps.activeTheme === 'dark';
+    const childrenArray = React.Children.toArray(children);
+    const input = childrenArray[childrenArray.length - 1];
+
+    // Check if 'all' option is among selected items
+    const hasAllOption = selected.some(s => s && s.value === 'all');
+    if (hasAllOption) {
+        let labelText = 'All Selected';
+        if (selectProps.placeholder && selectProps.placeholder !== 'Select...') {
+            const rawPl = selectProps.placeholder;
+            labelText = rawPl.toLowerCase().startsWith('all') ? rawPl : `All ${rawPl}`;
+        }
+
+        return (
+            <components.ValueContainer selectProps={selectProps} {...props}>
+                <span className={`px-2 py-0.5 text-xs font-bold rounded flex items-center gap-1 my-0.5 ${
+                    isDark 
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                        : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                }`}>
+                    {labelText}
+                </span>
+                {input}
+            </components.ValueContainer>
+        );
+    }
+
+    const totalOptions = options.filter(o => o.value !== 'all').length;
+    const maxShow = selectProps.maxShowTags !== undefined ? selectProps.maxShowTags : 2;
+
+    // 1. If ALL options are selected
+    if (totalOptions > 0 && selected.length >= totalOptions) {
+        let labelText = 'All Selected';
+        if (selectProps.placeholder && selectProps.placeholder !== 'Select...') {
+            const rawPl = selectProps.placeholder;
+            labelText = rawPl.toLowerCase().startsWith('all') ? rawPl : `All ${rawPl}`;
+        }
+
+        return (
+            <components.ValueContainer selectProps={selectProps} {...props}>
+                <span className={`px-2 py-0.5 text-xs font-bold rounded flex items-center gap-1 my-0.5 ${
+                    isDark 
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                        : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                }`}>
+                    {labelText} ({selected.length})
+                </span>
+                {input}
+            </components.ValueContainer>
+        );
+    }
+
+    // 2. If selected count exceeds maxShow, collapse into summary tag
+    if (selected.length > maxShow) {
+        let categoryLabel = 'Selected';
+        if (selectProps.placeholder && selectProps.placeholder !== 'Select...') {
+            const cleanPl = selectProps.placeholder.replace(/^All\s+/i, '');
+            categoryLabel = cleanPl ? `${cleanPl} Selected` : 'Selected';
+        }
+
+        return (
+            <components.ValueContainer selectProps={selectProps} {...props}>
+                <span className={`px-2 py-0.5 text-xs font-bold rounded flex items-center gap-1 my-0.5 ${
+                    isDark 
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                        : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                }`}>
+                    {selected.length} {categoryLabel}
+                </span>
+                {input}
+            </components.ValueContainer>
+        );
+    }
+
+    return <components.ValueContainer selectProps={selectProps} {...props}>{children}</components.ValueContainer>;
+};
+
+const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, isMulti = true, theme: propTheme, isDarkMode, maxShowTags, components: customComponents, ...rest }) => {
     let contextTheme = 'light';
     try {
         const context = useTheme();
@@ -13,10 +96,8 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
         // Context not found, default to light
     }
 
-    // Use prop isDarkMode, prop theme if provided, otherwise context theme
     const activeTheme = propTheme || (isDarkMode !== undefined ? (isDarkMode ? 'dark' : 'light') : contextTheme);
 
-    // Memoize styles to prevent unnecessary re-renders but update on theme change
     const styles = React.useMemo(() => {
         const isDark = activeTheme === 'dark';
         return {
@@ -103,6 +184,9 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
             isDisabled={isDisabled}
             classNamePrefix="react-select"
             menuPortalTarget={document.body}
+            activeTheme={activeTheme}
+            maxShowTags={maxShowTags}
+            components={{ ValueContainer, ...customComponents }}
             theme={(themeConfig) => ({
                 ...themeConfig,
                 colors: {
