@@ -99,18 +99,24 @@ const StudentRegistrationForm = () => {
         if (location.state?.leadData) {
             const lead = location.state.leadData;
 
-            // Extract Class
+            // Extract Class name (for the "LAST ACADEMIC CLASS" dropdown which uses name as value)
             let classVal = "";
             if (lead.className?.name) {
-                // If the class value in dropdowns is just the number (as suggested by the previous match logic)
                 const match = lead.className.name.match(/\d+/);
                 if (match) classVal = match[0];
                 else classVal = lead.className.name;
             } else if (typeof lead.className === 'string') {
-                classVal = lead.className;
+                const match = lead.className.match(/\d+/);
+                if (match) classVal = match[0];
+                else classVal = lead.className;
             } else if (lead.lastClass) {
-                classVal = lead.lastClass;
+                const match = lead.lastClass.match(/\d+/);
+                if (match) classVal = match[0];
+                else classVal = lead.lastClass;
             }
+
+            // Extract course _id (for the SELECT COURSE dropdown which uses _id as value)
+            const courseIdVal = lead.course?._id || "";
 
             setFormData(prev => ({
                 ...prev,
@@ -134,7 +140,9 @@ const StudentRegistrationForm = () => {
                 guardianMobile: lead.fatherMobile || lead.parentMobile || lead.guardianMobile || "",
                 guardianEmail: lead.guardianEmail || "",
                 occupation: lead.fatherOccupation || lead.parentOccupation || lead.occupation || "",
-                counselledBy: currentUserName
+                counselledBy: currentUserName,
+                // Auto-populate course from lead data (_id is the dropdown value)
+                ...(courseIdVal ? { course: courseIdVal } : {}),
             }));
 
             toast.info("Lead details autofilled");
@@ -385,6 +393,16 @@ const StudentRegistrationForm = () => {
         }, 600);
         return () => clearTimeout(timer);
     }, [formData.studentEmail]);
+
+    // When courses load and a course is already pre-selected (from lead autofill), auto-set programme
+    useEffect(() => {
+        if (courses.length > 0 && formData.course) {
+            const selectedCourseObj = courses.find(c => c._id === formData.course);
+            if (selectedCourseObj && selectedCourseObj.programme && !formData.programme) {
+                setFormData(prev => ({ ...prev, programme: selectedCourseObj.programme }));
+            }
+        }
+    }, [courses, formData.course]);
 
     useEffect(() => {
         let result = courses;

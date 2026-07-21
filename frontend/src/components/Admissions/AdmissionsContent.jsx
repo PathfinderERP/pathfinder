@@ -605,14 +605,14 @@ const AdmissionsContent = () => {
                         {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}
                     </button>
 
-                    {canCreate && (
+                    {/* {canCreate && (
                         <button
                             onClick={() => navigate("/student-registration")}
                             className="px-6 py-3 bg-cyan-500 text-black font-black text-[10px] uppercase tracking-widest rounded-[4px] hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex items-center gap-2"
                         >
                             <FaPlus /> New Registration
                         </button>
-                    )}
+                    )} */}
                 </div>
             </div>
 

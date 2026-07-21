@@ -382,12 +382,12 @@ const BoardAdmissionsContent = () => {
                 ];
                 const filtered = userList.filter((user) => {
                     if (user.isActive === false) return false;
-                    
+
                     const userRole = (user.role || "").toLowerCase().trim();
                     const hasAllowedRole = allowedRoles.includes(userRole) || allowedRoles.includes(userRole.replace(/\s+/g, ""));
                     if (!hasAllowedRole) return false;
 
-                    const hasMatchingCentre = 
+                    const hasMatchingCentre =
                         (user.primaryCentre && user.primaryCentre.centreName && user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase()) ||
                         (user.centres && user.centres.some(c => c.centreName && c.centreName.toLowerCase() === centreName.toLowerCase()));
 
@@ -466,6 +466,26 @@ const BoardAdmissionsContent = () => {
     useEffect(() => {
         if (location.state && location.state.leadData && !showCounsellingModal) {
             const leadData = location.state.leadData;
+
+            // Extract Class name properly (matching the digits)
+            let classVal = "";
+            if (leadData.className?.name) {
+                const match = leadData.className.name.match(/\d+/);
+                if (match) classVal = match[0];
+                else classVal = leadData.className.name;
+            } else if (typeof leadData.className === 'string') {
+                const match = leadData.className.match(/\d+/);
+                if (match) classVal = match[0];
+                else classVal = leadData.className;
+            } else if (leadData.lastClass) {
+                const match = leadData.lastClass.match(/\d+/);
+                if (match) classVal = match[0];
+                else classVal = leadData.lastClass;
+            }
+
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            const currentUserId = user._id || user.id || "";
+
             setCounsellingForm({
                 studentId: leadData._id || "",
                 studentName: leadData.studentName || leadData.name || "",
@@ -477,6 +497,7 @@ const BoardAdmissionsContent = () => {
                 gender: leadData.gender || "",
                 centre: leadData.centre?.centreName || leadData.centre || (allowedCentres && allowedCentres.length > 0 ? allowedCentres[0] : ""),
                 programme: leadData.programme || "",
+                department: leadData.department?._id || leadData.department || "",
                 board: leadData.board?.boardName || leadData.board?.boardCourse || leadData.board || "",
                 state: leadData.state || "",
                 schoolName: leadData.schoolName || "",
@@ -486,7 +507,7 @@ const BoardAdmissionsContent = () => {
                 guardianMobile: leadData.fatherMobile || leadData.parentMobile || leadData.guardianMobile || "",
                 guardianEmail: leadData.guardianEmail || "",
                 occupation: leadData.fatherOccupation || leadData.parentOccupation || leadData.occupation || "",
-                lastClass: leadData.className?.name || leadData.className || leadData.lastClass || "",
+                lastClass: classVal,
                 examStatus: "",
                 markAggregate: "",
                 scienceMathPercent: "",
@@ -494,7 +515,8 @@ const BoardAdmissionsContent = () => {
                 boardId: leadData.board?._id || "",
                 selectedSubjectIds: [],
                 remarks: leadData.remarks || "",
-                academicSession: leadData.academicSession || leadData.session || ""
+                academicSession: leadData.academicSession || leadData.session || "",
+                counselledBy: currentUserId
             });
             setShowCounsellingModal(true);
 
@@ -900,7 +922,7 @@ const BoardAdmissionsContent = () => {
         return counselledBy?.name || student?.counselledBy || "N/A";
     }).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-    const uniqueAdmissionBy = [...new Set(boardAdmissions.map(item => 
+    const uniqueAdmissionBy = [...new Set(boardAdmissions.map(item =>
         item.createdBy?.name || (item.createdBy ? "Unknown" : "System")
     ).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
@@ -1410,13 +1432,13 @@ const BoardAdmissionsContent = () => {
                         </div>
                     </div>
 
-                    <button
+                    {/* <button
                         onClick={handleOpenNewCounselling}
                         className={`p-3 rounded-[4px] border transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-cyan-500 hover:bg-cyan-500 hover:text-black' : 'bg-white border-gray-200 text-indigo-500 hover:bg-indigo-500 hover:text-white'}`}
                     >
                         <FaPlus />
                         <span>Add Counselling</span>
-                    </button>
+                    </button> */}
 
                     <button onClick={toggleTheme} className={`p-3 rounded-[4px] border transition-all text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}>
                         {isDarkMode ? <FaSun /> : <FaMoon />}
@@ -1664,339 +1686,338 @@ const BoardAdmissionsContent = () => {
                 <CentreWiseReport filteredBoardAdmissions={filteredBoardAdmissions} isDarkMode={isDarkMode} />
             ) : (
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
-                <div className="p-6 border-b flex justify-between items-center border-gray-200 dark:border-gray-800">
-                    <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {activeTab === "Potential" ? "Board Records" : activeTab === "Counselling" ? "Counselled Students" : activeTab === "Deactivated" ? "Deactivated Board Students" : "Enrolled Board Students"}
-                    </h3>
-                    <span className="text-[10px] font-black px-3 py-1 rounded-[4px] bg-cyan-500/10 text-cyan-500">
-                        {(activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions.length : filteredStudents.length} {activeTab === "Potential" ? "Candidates" : activeTab === "Counselling" ? "Counselled" : activeTab === "Deactivated" ? "Deactivated" : "Admissions"}
-                    </span>
-                </div>
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[1200px]">
-                        <thead>
-                            <tr className={`text-[11px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
-                                {activeTab !== "Potential" && (
-                                    <th className="p-4 w-12 text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={
-                                                activeData.length > 0 &&
-                                                activeData.every(item => selectedIds.includes(item._id))
-                                            }
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedIds(activeData.map(item => item._id));
-                                                } else {
-                                                    setSelectedIds([]);
+                    <div className="p-6 border-b flex justify-between items-center border-gray-200 dark:border-gray-800">
+                        <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            {activeTab === "Potential" ? "Board Records" : activeTab === "Counselling" ? "Counselled Students" : activeTab === "Deactivated" ? "Deactivated Board Students" : "Enrolled Board Students"}
+                        </h3>
+                        <span className="text-[10px] font-black px-3 py-1 rounded-[4px] bg-cyan-500/10 text-cyan-500">
+                            {(activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions.length : filteredStudents.length} {activeTab === "Potential" ? "Candidates" : activeTab === "Counselling" ? "Counselled" : activeTab === "Deactivated" ? "Deactivated" : "Admissions"}
+                        </span>
+                    </div>
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse min-w-[1200px]">
+                            <thead>
+                                <tr className={`text-[11px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                                    {activeTab !== "Potential" && (
+                                        <th className="p-4 w-12 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    activeData.length > 0 &&
+                                                    activeData.every(item => selectedIds.includes(item._id))
                                                 }
-                                            }}
-                                            className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
-                                        />
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedIds(activeData.map(item => item._id));
+                                                    } else {
+                                                        setSelectedIds([]);
+                                                    }
+                                                }}
+                                                className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                            />
+                                        </th>
+                                    )}
+                                    <th className="p-4 w-12">SL</th>
+                                    <th className="p-4">{activeTab === "Potential" ? "Reg. Date" : activeTab === "Counselling" ? "Counsel Date" : "Addon Date"}</th>
+                                    <th className="p-4">Student Name</th>
+                                    <th className="p-4">
+                                        {activeTab === "Potential" ? "Board" : activeTab === "Counselling" ? "Counselling For" : "Admission No"}
                                     </th>
-                                )}
-                                <th className="p-4 w-12">SL</th>
-                                <th className="p-4">{activeTab === "Potential" ? "Reg. Date" : activeTab === "Counselling" ? "Counsel Date" : "Addon Date"}</th>
-                                <th className="p-4">Student Name</th>
-                                <th className="p-4">
-                                    {activeTab === "Potential" ? "Board" : activeTab === "Counselling" ? "Counselling For" : "Admission No"}
-                                </th>
-                                <th className="p-4">
-                                    {activeTab === "Potential" ? "Programme" : activeTab === "Counselling" ? "Remarks" : "Course Name"}
-                                </th>
-                                <th className="p-4">Class</th>
-                                {activeTab !== "Potential" && <th className="p-4">Department</th>}
-                                {activeTab === "Potential" && <th className="p-4">Exam Tag</th>}
-                                <th className="p-4">Centre</th>
-                                <th className="p-4">Mobile</th>
-                                {activeTab === "Counselling" && <th className="p-4">Counselled By</th>}
-                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Fees Status</th>}
-                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
-                                    <>
-                                        <th className="p-4">Lead By</th>
-                                        <th className="p-4">Counselled By</th>
-                                    </>
-                                )}
-                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Admitted By</th>}
-                                <th className="p-4 text-right min-w-[200px]">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                            {(activeTab === "Potential" ? loading :
-                                activeTab === "Counselling" ? counsellingLoading :
-                                    enrolledLoading) ? (
-                                <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
-                            ) : currentPageItems.length === 0 ? (
-                                <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
-                            ) : (
-                                currentPageItems.map((item, index) => {
-                                    const student = activeTab === "Potential" ? item : item.studentId;
-                                    const details = student?.studentsDetails?.[0] || {};
-                                    const exam = student?.examSchema?.[0] || {};
-                                    const sessionExam = student?.sessionExamCourse?.[0] || {};
+                                    <th className="p-4">
+                                        {activeTab === "Potential" ? "Programme" : activeTab === "Counselling" ? "Remarks" : "Course Name"}
+                                    </th>
+                                    <th className="p-4">Class</th>
+                                    {activeTab !== "Potential" && <th className="p-4">Department</th>}
+                                    {activeTab === "Potential" && <th className="p-4">Exam Tag</th>}
+                                    <th className="p-4">Centre</th>
+                                    <th className="p-4">Mobile</th>
+                                    {activeTab === "Counselling" && <th className="p-4">Counselled By</th>}
+                                    {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Fees Status</th>}
+                                    {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
+                                        <>
+                                            <th className="p-4">Lead By</th>
+                                            <th className="p-4">Counselled By</th>
+                                        </>
+                                    )}
+                                    {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Admitted By</th>}
+                                    <th className="p-4 text-right min-w-[200px]">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                                {(activeTab === "Potential" ? loading :
+                                    activeTab === "Counselling" ? counsellingLoading :
+                                        enrolledLoading) ? (
+                                    <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
+                                ) : currentPageItems.length === 0 ? (
+                                    <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
+                                ) : (
+                                    currentPageItems.map((item, index) => {
+                                        const student = activeTab === "Potential" ? item : item.studentId;
+                                        const details = student?.studentsDetails?.[0] || {};
+                                        const exam = student?.examSchema?.[0] || {};
+                                        const sessionExam = student?.sessionExamCourse?.[0] || {};
 
-                                    return (
-                                        <tr key={item._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
-                                            {activeTab !== "Potential" && (
-                                                <td className="p-4 text-center">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedIds.includes(item._id)}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setSelectedIds(prev => [...prev, item._id]);
-                                                            } else {
-                                                                setSelectedIds(prev => prev.filter(id => id !== item._id));
-                                                            }
-                                                        }}
-                                                        className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
-                                                    />
+                                        return (
+                                            <tr key={item._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
+                                                {activeTab !== "Potential" && (
+                                                    <td className="p-4 text-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedIds.includes(item._id)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedIds(prev => [...prev, item._id]);
+                                                                } else {
+                                                                    setSelectedIds(prev => prev.filter(id => id !== item._id));
+                                                                }
+                                                            }}
+                                                            className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                                        />
+                                                    </td>
+                                                )}
+                                                <td className="p-4 font-bold text-[10px] text-gray-500">
+                                                    {(currentPage - 1) * itemsPerPage + index + 1}
                                                 </td>
-                                            )}
-                                            <td className="p-4 font-bold text-[10px] text-gray-500">
-                                                {(currentPage - 1) * itemsPerPage + index + 1}
-                                            </td>
-                                            <td className="p-4 font-bold text-[10px] text-gray-400">
-                                                {new Date(item.counselledDate || item.createdAt).toLocaleDateString('en-GB')}
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex flex-col">
-                                                    <span className={`text-[11px] font-black uppercase flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        {item.studentName || details.studentName || "N/A"}
-                                                         {student?.status === 'Deactivated' && (
-                                                             <div className="flex flex-col gap-0.5 ml-2 normal-case font-normal">
-                                                                 <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter w-fit">
-                                                                     Deactivated
-                                                                 </span>
-                                                                 {student.deactivatedBy && (
-                                                                     <span className="text-[7px] font-black text-red-500/80 uppercase tracking-tighter leading-none mt-0.5">
-                                                                         BY: {student.deactivatedBy}
-                                                                     </span>
-                                                                 )}
-                                                                 {student.deactivationDate && (
-                                                                     <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-tighter leading-none mt-0.5">
-                                                                         ON: {new Date(student.deactivationDate).toLocaleDateString('en-GB')}
-                                                                     </span>
-                                                                 )}
-                                                             </div>
-                                                         )}
-                                                    </span>
-                                                    <div className="flex flex-col gap-0.5 mt-0.5">
-                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {student?.uid || (student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
-                                                        {(item.studentEmail || details.studentEmail) && (
-                                                            <span className="text-[9px] text-cyan-500/70 font-bold lowercase tracking-tight truncate max-w-[150px]">
-                                                                {item.studentEmail || details.studentEmail}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            <td className="p-4">
-                                                <span className={`text-[11px] font-black italic tracking-wider ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                                                    {activeTab === "Potential" ? (details.board || "N/A") :
-                                                        activeTab === "Counselling" ? `${item.boardId?.boardCourse || "N/A"} Class ${item.lastClass || ""}` :
-                                                            (item.admissionNumber || "PENDING")}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                                                    {activeTab === "Potential" ? (details.programme || "N/A") :
-                                                        activeTab === "Counselling" ? (item.remarks || "No Remarks") :
-                                                            (item.boardCourseName || item.boardId?.boardCourse || "N/A")}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                    {item.lastClass || details.lastClass || "N/A"}
-                                                </span>
-                                            </td>
-                                            {activeTab !== "Potential" && (
+                                                <td className="p-4 font-bold text-[10px] text-gray-400">
+                                                    {new Date(item.counselledDate || item.createdAt).toLocaleDateString('en-GB')}
+                                                </td>
                                                 <td className="p-4">
-                                                    <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                                                        {item.department?.departmentName || item.studentId?.department?.departmentName || (typeof item.department === 'string' ? item.department : "N/A")}
-                                                    </span>
-                                                </td>
-                                            )}
-                                            {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
-                                            <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.centre || details.centre || "N/A"}</span></td>
-                                            <td className="p-4"><span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span></td>
-
-                                            {activeTab === "Counselling" && (
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
-                                                            {(item.counselledBy?.name || "A").charAt(0)}
-                                                        </div>
-                                                        <span className="text-[10px] font-black uppercase text-gray-500 truncate max-w-[100px]">{item.counselledBy?.name || "Admin"}</span>
-                                                    </div>
-                                                </td>
-                                            )}
-
-                                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
-                                                <td className="p-4">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-[9px] font-black uppercase text-gray-500">Paid: ₹{item.totalPaidAmount}</span>
-                                                        <span className="text-[9px] font-black uppercase text-cyan-500">Bal: ₹{item.totalExpectedAmount - item.totalPaidAmount}</span>
-                                                    </div>
-                                                </td>
-                                            )}
-
-                                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (() => {
-                                                const leadBy = student?.leadBy || item.leadBy;
-                                                const leadByName = typeof leadBy?.name === 'string' ? leadBy.name : (typeof leadBy === 'string' ? leadBy : "System");
-                                                const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
-                                                const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
-
-                                                const counselledBy = student?.counselledByDetails || item.counselledByDetails;
-                                                const counselledByName = typeof counselledBy?.name === 'string' ? counselledBy.name : (typeof student?.counselledBy === 'string' ? student.counselledBy : "N/A");
-                                                const counselledByDate = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleDateString('en-GB') : "N/A";
-                                                const counselledByTime = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
-
-                                                return (
-                                                    <>
-                                                        <td className="p-4">
-                                                             <div className="flex items-center gap-2">
-                                                                 <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
-                                                                     {typeof leadByName === 'string' && leadByName.length > 0 ? leadByName.charAt(0).toUpperCase() : ''}
-                                                                 </div>
-                                                                 <div className="flex flex-col">
-                                                                     <span className="text-[10px] font-black uppercase text-gray-400">{leadByName}</span>
-                                                                     <span className="text-[8px] font-bold text-gray-500">{leadByDate} {leadByTime && `| ${leadByTime}`}</span>
-                                                                 </div>
-                                                             </div>
-                                                         </td>
-                                                         <td className="p-4">
-                                                             <div className="flex items-center gap-2">
-                                                                 <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[10px] text-purple-500 font-black border border-purple-500/20">
-                                                                     {typeof counselledByName === 'string' && counselledByName.length > 0 ? counselledByName.charAt(0).toUpperCase() : ''}
-                                                                 </div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[10px] font-black uppercase text-gray-400">{counselledByName}</span>
-                                                                    <span className="text-[8px] font-bold text-gray-500">{counselledByDate} {counselledByTime && `| ${counselledByTime}`}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-[11px] font-black uppercase flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                            {item.studentName || details.studentName || "N/A"}
+                                                            {student?.status === 'Deactivated' && (
+                                                                <div className="flex flex-col gap-0.5 ml-2 normal-case font-normal">
+                                                                    <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter w-fit">
+                                                                        Deactivated
+                                                                    </span>
+                                                                    {student.deactivatedBy && (
+                                                                        <span className="text-[7px] font-black text-red-500/80 uppercase tracking-tighter leading-none mt-0.5">
+                                                                            BY: {student.deactivatedBy}
+                                                                        </span>
+                                                                    )}
+                                                                    {student.deactivationDate && (
+                                                                        <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-tighter leading-none mt-0.5">
+                                                                            ON: {new Date(student.deactivationDate).toLocaleDateString('en-GB')}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                    </>
-                                                );
-                                            })()}
-
-                                            {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
-                                                            {(item.createdBy?.name || "A").charAt(0)}
+                                                            )}
+                                                        </span>
+                                                        <div className="flex flex-col gap-0.5 mt-0.5">
+                                                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {student?.uid || (student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
+                                                            {(item.studentEmail || details.studentEmail) && (
+                                                                <span className="text-[9px] text-cyan-500/70 font-bold lowercase tracking-tight truncate max-w-[150px]">
+                                                                    {item.studentEmail || details.studentEmail}
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                        <span className="text-[10px] font-black uppercase text-gray-500 truncate max-w-[100px]">{item.createdBy?.name || "Admin"}</span>
                                                     </div>
                                                 </td>
-                                            )}
 
-                                            <td className="p-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    {activeTab === "Potential" ? (
+                                                <td className="p-4">
+                                                    <span className={`text-[11px] font-black italic tracking-wider ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                                                        {activeTab === "Potential" ? (details.board || "N/A") :
+                                                            activeTab === "Counselling" ? `${item.boardId?.boardCourse || "N/A"} Class ${item.lastClass || ""}` :
+                                                                (item.admissionNumber || "PENDING")}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                        {activeTab === "Potential" ? (details.programme || "N/A") :
+                                                            activeTab === "Counselling" ? (item.remarks || "No Remarks") :
+                                                                (item.boardCourseName || item.boardId?.boardCourse || "N/A")}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                        {item.lastClass || details.lastClass || "N/A"}
+                                                    </span>
+                                                </td>
+                                                {activeTab !== "Potential" && (
+                                                    <td className="p-4">
+                                                        <span className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                            {item.department?.departmentName || item.studentId?.department?.departmentName || (typeof item.department === 'string' ? item.department : "N/A")}
+                                                        </span>
+                                                    </td>
+                                                )}
+                                                {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
+                                                <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.centre || details.centre || "N/A"}</span></td>
+                                                <td className="p-4"><span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span></td>
+
+                                                {activeTab === "Counselling" && (
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
+                                                                {(item.counselledBy?.name || "A").charAt(0)}
+                                                            </div>
+                                                            <span className="text-[10px] font-black uppercase text-gray-500 truncate max-w-[100px]">{item.counselledBy?.name || "Admin"}</span>
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
+                                                    <td className="p-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-[9px] font-black uppercase text-gray-500">Paid: ₹{item.totalPaidAmount}</span>
+                                                            <span className="text-[9px] font-black uppercase text-cyan-500">Bal: ₹{item.totalExpectedAmount - item.totalPaidAmount}</span>
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && (() => {
+                                                    const leadBy = student?.leadBy || item.leadBy;
+                                                    const leadByName = typeof leadBy?.name === 'string' ? leadBy.name : (typeof leadBy === 'string' ? leadBy : "System");
+                                                    const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
+                                                    const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+
+                                                    const counselledBy = student?.counselledByDetails || item.counselledByDetails;
+                                                    const counselledByName = typeof counselledBy?.name === 'string' ? counselledBy.name : (typeof student?.counselledBy === 'string' ? student.counselledBy : "N/A");
+                                                    const counselledByDate = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleDateString('en-GB') : "N/A";
+                                                    const counselledByTime = counselledBy?.createdAt ? new Date(counselledBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+
+                                                    return (
                                                         <>
-                                                            <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
-                                                            <button
-                                                                onClick={() => handleOpenCounsellingModal(student)}
-                                                                className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
-                                                            >
-                                                                <span>Counsel</span>
-                                                            </button>
-                                                            {canCreate && (
+                                                            <td className="p-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
+                                                                        {typeof leadByName === 'string' && leadByName.length > 0 ? leadByName.charAt(0).toUpperCase() : ''}
+                                                                    </div>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[10px] font-black uppercase text-gray-400">{leadByName}</span>
+                                                                        <span className="text-[8px] font-bold text-gray-500">{leadByDate} {leadByTime && `| ${leadByTime}`}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[10px] text-purple-500 font-black border border-purple-500/20">
+                                                                        {typeof counselledByName === 'string' && counselledByName.length > 0 ? counselledByName.charAt(0).toUpperCase() : ''}
+                                                                    </div>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[10px] font-black uppercase text-gray-400">{counselledByName}</span>
+                                                                        <span className="text-[8px] font-bold text-gray-500">{counselledByDate} {counselledByTime && `| ${counselledByTime}`}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </>
+                                                    );
+                                                })()}
+
+                                                {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
+                                                                {(item.createdBy?.name || "A").charAt(0)}
+                                                            </div>
+                                                            <span className="text-[10px] font-black uppercase text-gray-500 truncate max-w-[100px]">{item.createdBy?.name || "Admin"}</span>
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                <td className="p-4 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        {activeTab === "Potential" ? (
+                                                            <>
+                                                                <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
                                                                 <button
-                                                                    onClick={() => navigate(`/board-course-admission/${student._id}`)}
+                                                                    onClick={() => handleOpenCounsellingModal(student)}
+                                                                    className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
+                                                                >
+                                                                    <span>Counsel</span>
+                                                                </button>
+                                                                {canCreate && (
+                                                                    <button
+                                                                        onClick={() => navigate(`/board-course-admission/${student._id}`)}
+                                                                        className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
+                                                                    >
+                                                                        <FaUserGraduate size={10} />
+                                                                        <span>Enroll</span>
+                                                                    </button>
+                                                                )}
+                                                            </>
+                                                        ) : activeTab === "Counselling" ? (
+                                                            <>
+                                                                <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
+                                                                {canEdit && (
+                                                                    <button
+                                                                        onClick={() => handleEditCounselling(item)}
+                                                                        title="Edit Counselling"
+                                                                        className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-black transition-all"
+                                                                    >
+                                                                        <FaEdit size={11} />
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => navigate(`/board-course-admission/${item._id}`)}
                                                                     className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
                                                                 >
                                                                     <FaUserGraduate size={10} />
-                                                                    <span>Enroll</span>
+                                                                    <span>Enroll Now</span>
                                                                 </button>
-                                                            )}
-                                                        </>
-                                                    ) : activeTab === "Counselling" ? (
-                                                        <>
-                                                            <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
-                                                            {canEdit && (
                                                                 <button
-                                                                    onClick={() => handleEditCounselling(item)}
-                                                                    title="Edit Counselling"
-                                                                    className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-black transition-all"
+                                                                    onClick={() => handleDeleteCounselling(item._id)}
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all"
                                                                 >
-                                                                    <FaEdit size={11} />
+                                                                    <FaTrash size={10} />
                                                                 </button>
-                                                            )}
-                                                            <button
-                                                                onClick={() => navigate(`/board-course-admission/${item._id}`)}
-                                                                className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
-                                                            >
-                                                                <FaUserGraduate size={10} />
-                                                                <span>Enroll Now</span>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteCounselling(item._id)}
-                                                                className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all"
-                                                            >
-                                                                <FaTrash size={10} />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleViewStudent(item.studentId)}
-                                                                title="View Details"
-                                                                className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"
-                                                            >
-                                                                <FaEye size={12} />
-                                                            </button>
-                                                            <button
-                                                                 onClick={() => handleEditProfile(item.studentId, item)}
-                                                                 title="Edit Profile"
-                                                                 className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-amber-500 text-gray-400 hover:text-amber-500 transition-all"
-                                                             >
-                                                                 <FaEdit size={12} />
-                                                             </button>
-                                                            <button
-                                                                onClick={() => navigate(`/manage-board-admission/${item._id}`)}
-                                                                className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
-                                                            >
-                                                                <FaSync size={10} />
-                                                                <span>Manage</span>
-                                                            </button>
-                                                             {canDeactivate && (
-                                                                 <button
-                                                                     onClick={() => handleToggleStatus(item.studentId?._id, item.studentId?.status || 'Active')}
-                                                                     className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${
-                                                                         item.studentId?.status === 'Deactivated'
-                                                                             ? (isDarkMode ? "bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500 hover:text-black" : "bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white shadow-sm")
-                                                                             : (isDarkMode ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-black" : "bg-red-50 border-red-200 text-red-600 hover:bg-red-600 hover:text-white shadow-sm")
-                                                                     }`}
-                                                                     title={item.studentId?.status === 'Deactivated' ? "Reactivate Student" : "Deactivate Student"}
-                                                                 >
-                                                                     {item.studentId?.status === 'Deactivated' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
-                                                                 </button>
-                                                             )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleViewStudent(item.studentId)}
+                                                                    title="View Details"
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"
+                                                                >
+                                                                    <FaEye size={12} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleEditProfile(item.studentId, item)}
+                                                                    title="Edit Profile"
+                                                                    className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-amber-500 text-gray-400 hover:text-amber-500 transition-all"
+                                                                >
+                                                                    <FaEdit size={12} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => navigate(`/manage-board-admission/${item._id}`)}
+                                                                    className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
+                                                                >
+                                                                    <FaSync size={10} />
+                                                                    <span>Manage</span>
+                                                                </button>
+                                                                {canDeactivate && (
+                                                                    <button
+                                                                        onClick={() => handleToggleStatus(item.studentId?._id, item.studentId?.status || 'Active')}
+                                                                        className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${item.studentId?.status === 'Deactivated'
+                                                                                ? (isDarkMode ? "bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500 hover:text-black" : "bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white shadow-sm")
+                                                                                : (isDarkMode ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-black" : "bg-red-50 border-red-200 text-red-600 hover:bg-red-600 hover:text-white shadow-sm")
+                                                                            }`}
+                                                                        title={item.studentId?.status === 'Deactivated' ? "Reactivate Student" : "Deactivate Student"}
+                                                                    >
+                                                                        {item.studentId?.status === 'Deactivated' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
+                                                                    </button>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="p-6 border-t border-gray-200 dark:border-gray-800">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalItems={(activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions.length : filteredStudents.length}
+                            itemsPerPage={itemsPerPage}
+                            onPageChange={setCurrentPage}
+                            theme={isDarkMode ? 'dark' : 'light'}
+                        />
+                    </div>
                 </div>
-                <div className="p-6 border-t border-gray-200 dark:border-gray-800">
-                    <Pagination
-                        currentPage={currentPage}
-                        totalItems={(activeTab === "Enrolled" || activeTab === "Deactivated") ? filteredBoardAdmissions.length : filteredStudents.length}
-                        itemsPerPage={itemsPerPage}
-                        onPageChange={setCurrentPage}
-                        theme={isDarkMode ? 'dark' : 'light'}
-                    />
-                </div>
-            </div>
-        )}
+            )}
 
             {showDetailsModal && selectedStudent && (
                 <StudentDetailsModal
