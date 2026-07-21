@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../../components/Layout";
-import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash, FaCheckCircle, FaSyncAlt } from "react-icons/fa";
+import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash, FaCheckCircle, FaSyncAlt, FaEye, FaEdit } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../../context/ThemeContext";
 
@@ -22,7 +22,58 @@ const MyRegularization = () => {
 
     const [showForm, setShowForm] = useState(false);
     const [selectedDateAttendance, setSelectedDateAttendance] = useState(null);
-    const [checkingDate, setCheckingDate] = useState(false);
+    // View & Edit Modal States
+    const [viewModalReq, setViewModalReq] = useState(null);
+    const [editModalReq, setEditModalReq] = useState(null);
+    const [editFormData, setEditFormData] = useState({ date: "", type: "On Duty", reason: "", fromTime: "", toTime: "" });
+    const [editSubmitting, setEditSubmitting] = useState(false);
+
+    const handleOpenEditModal = (req) => {
+        setEditModalReq(req);
+        const dateFormatted = req.date ? new Date(req.date).toISOString().split('T')[0] : "";
+        setEditFormData({
+            date: dateFormatted,
+            type: req.type || "On Duty",
+            reason: req.reason || "",
+            fromTime: req.fromTime || "",
+            toTime: req.toTime || ""
+        });
+    };
+
+    const handleUpdateSubmittedReq = async (e) => {
+        e.preventDefault();
+        if (!editModalReq) return;
+        setEditSubmitting(true);
+        try {
+            const token = localStorage.getItem("token");
+            const body = new FormData();
+            body.append("date", editFormData.date);
+            body.append("type", editFormData.type);
+            body.append("reason", editFormData.reason);
+            body.append("fromTime", editFormData.fromTime);
+            body.append("toTime", editFormData.toTime);
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/regularizations/${editModalReq._id}`, {
+                method: "PUT",
+                headers: { Authorization: `Bearer ${token}` },
+                body
+            });
+
+            if (response.ok) {
+                toast.success("Regularization updated successfully!");
+                setEditModalReq(null);
+                fetchRequests();
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Failed to update regularization");
+            }
+        } catch (error) {
+            console.error("Update Regularization error:", error);
+            toast.error("An error occurred while updating");
+        } finally {
+            setEditSubmitting(false);
+        }
+    };
 
     // Camera and Location States
     const [facingMode, setFacingMode] = useState("user");
@@ -594,25 +645,52 @@ const MyRegularization = () => {
                         <div className="grid grid-cols-1 gap-4">
                             {requests.map(req => (
                                 <div key={req._id} className="bg-white dark:bg-[#1a1f24] p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-blue-500/30 transition-all">
-                                    <div className="flex items-start gap-4">
+                                    <div className="flex items-start gap-4 flex-1">
                                         <div className={`mt-1 p-3 rounded-xl ${req.type === 'On Duty' ? 'bg-purple-100 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'}`}>
                                             {req.type === 'On Duty' ? <FaBriefcase /> : <FaClock />}
                                         </div>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-1">
                                                 <span className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(req.date).toLocaleDateString()}</span>
-                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${req.status === 'Approved' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>{req.status}</span>
+                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                                                    req.status === 'Approved' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                    req.status === 'Rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                    'bg-yellow-100 text-yellow-700 border-yellow-200'
+                                                }`}>{req.status}</span>
                                             </div>
                                             <p className="text-sm font-bold text-gray-500 uppercase">{req.type}</p>
                                             <p className="text-sm mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">"{req.reason}"</p>
+                                            {req.fromTime && req.toTime && (
+                                                <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400 mt-1">
+                                                    Timings: {req.fromTime} - {req.toTime}
+                                                </p>
+                                            )}
                                             {req.photos && req.photos.length > 0 && (
                                                 <div className="flex gap-2 mt-3 flex-wrap">
                                                     {req.photos.map((photo, idx) => (
-                                                        <img key={idx} src={photo} alt="Proof" className="w-14 h-14 rounded-lg object-cover cursor-pointer" onClick={() => window.open(photo, '_blank')} />
+                                                        <img key={idx} src={photo} alt="Proof" className="w-14 h-14 rounded-lg object-cover cursor-pointer hover:opacity-80 border border-gray-200 dark:border-gray-700" onClick={() => window.open(photo, '_blank')} />
                                                     ))}
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 self-start md:self-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewModalReq(req)}
+                                            className="px-3 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-xs font-black uppercase tracking-wider hover:bg-cyan-500/20 transition-all flex items-center gap-1.5"
+                                        >
+                                            <FaEye size={12} /> View Details
+                                        </button>
+                                        {req.status !== 'Approved' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenEditModal(req)}
+                                                className="px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all flex items-center gap-1.5"
+                                            >
+                                                <FaEdit size={12} /> Edit
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -624,6 +702,176 @@ const MyRegularization = () => {
                     )}
                 </div>
             </div>
+
+            {/* View Details Modal */}
+            {viewModalReq && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                    <div className={`w-full max-w-xl p-6 rounded-3xl border shadow-2xl space-y-6 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+                        <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-800">
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tight text-cyan-500">Regularization Details</h3>
+                                <p className="text-xs text-gray-400 font-bold uppercase">{new Date(viewModalReq.date).toLocaleDateString()}</p>
+                            </div>
+                            <button onClick={() => setViewModalReq(null)} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 text-xs">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Status</span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                                        viewModalReq.status === 'Approved' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                        viewModalReq.status === 'Rejected' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                        'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                    }`}>
+                                        {viewModalReq.status}
+                                    </span>
+                                </div>
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Type</span>
+                                    <span className="font-extrabold uppercase">{viewModalReq.type}</span>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Reason</span>
+                                <p className="font-medium italic text-gray-300">"{viewModalReq.reason}"</p>
+                            </div>
+
+                            {viewModalReq.fromTime && viewModalReq.toTime && (
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Regularized Hours</span>
+                                    <p className="font-mono font-bold text-cyan-400">{viewModalReq.fromTime} - {viewModalReq.toTime}</p>
+                                </div>
+                            )}
+
+                            {(viewModalReq.latitude || viewModalReq.longitude) && (
+                                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex items-center gap-3">
+                                    <FaMapMarkerAlt className="text-red-500" size={18} />
+                                    <div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block">GPS Coordinates</span>
+                                        <span className="font-mono text-xs font-bold text-gray-300">{viewModalReq.latitude}, {viewModalReq.longitude}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {viewModalReq.reviewedBy && (
+                                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                                    <span className="text-[9px] font-black uppercase tracking-widest block mb-1">Reviewed By Manager</span>
+                                    <p className="font-bold">{viewModalReq.reviewedBy?.name || 'Manager'}</p>
+                                    {viewModalReq.reviewRemark && <p className="italic text-xs mt-1">"{viewModalReq.reviewRemark}"</p>}
+                                </div>
+                            )}
+
+                            {viewModalReq.photos && viewModalReq.photos.length > 0 && (
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2">Attached Proof Photos</span>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {viewModalReq.photos.map((p, idx) => (
+                                            <img key={idx} src={p} alt="Proof" className="w-20 h-20 rounded-xl object-cover border border-gray-700 cursor-pointer hover:scale-105 transition-all" onClick={() => window.open(p, '_blank')} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end pt-4 border-t border-gray-800">
+                            <button onClick={() => setViewModalReq(null)} className="px-5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 font-bold uppercase text-xs tracking-wider text-white">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Regularization Modal */}
+            {editModalReq && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                    <div className={`w-full max-w-xl p-6 rounded-3xl border shadow-2xl space-y-6 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+                        <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-800">
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tight text-blue-500 flex items-center gap-2">
+                                    <FaEdit /> Edit Regularization
+                                </h3>
+                                <p className="text-xs text-gray-400 font-bold uppercase">Update your submitted regularization details</p>
+                            </div>
+                            <button onClick={() => setEditModalReq(null)} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleUpdateSubmittedReq} className="space-y-4 text-xs">
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Date</label>
+                                <input
+                                    type="date"
+                                    value={editFormData.date}
+                                    onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                                    required
+                                    className={`w-full p-3 rounded-xl border font-bold outline-none ${isDarkMode ? 'bg-black/50 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Regularization Type</label>
+                                <select
+                                    value={editFormData.type}
+                                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
+                                    className={`w-full p-3 rounded-xl border font-bold outline-none ${isDarkMode ? 'bg-black/50 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                >
+                                    <option value="On Duty">On Duty</option>
+                                    <option value="Attendance Correction">Attendance Correction</option>
+                                    <option value="Mis-punch">Mis-punch</option>
+                                    <option value="Work From Home">Work From Home</option>
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">From Time</label>
+                                    <input
+                                        type="time"
+                                        value={editFormData.fromTime}
+                                        onChange={(e) => setEditFormData({ ...editFormData, fromTime: e.target.value })}
+                                        className={`w-full p-3 rounded-xl border font-bold outline-none ${isDarkMode ? 'bg-black/50 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">To Time</label>
+                                    <input
+                                        type="time"
+                                        value={editFormData.toTime}
+                                        onChange={(e) => setEditFormData({ ...editFormData, toTime: e.target.value })}
+                                        className={`w-full p-3 rounded-xl border font-bold outline-none ${isDarkMode ? 'bg-black/50 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Reason / Explanation</label>
+                                <textarea
+                                    rows={3}
+                                    value={editFormData.reason}
+                                    onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
+                                    required
+                                    className={`w-full p-3 rounded-xl border font-medium outline-none ${isDarkMode ? 'bg-black/50 border-gray-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
+                                <button type="button" onClick={() => setEditModalReq(null)} className="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 font-bold uppercase text-xs tracking-wider text-white">
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={editSubmitting} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-black uppercase text-xs tracking-wider text-white flex items-center gap-2">
+                                    {editSubmitting ? <FaSpinner className="animate-spin" /> : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };

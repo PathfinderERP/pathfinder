@@ -148,6 +148,25 @@ export const getCourseTargetAnalysis = async (req, res) => {
             centreIds = activeCentres.map(c => c._id.toString());
         }
 
+        if (req.query.zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const rawZoneIds = typeof req.query.zoneIds === 'string' ? req.query.zoneIds.split(',') : req.query.zoneIds;
+            const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            const objectZoneIds = validZoneIds.map(id => new mongoose.Types.ObjectId(id));
+            
+            const zoneDocs = await Zone.find({ _id: { $in: objectZoneIds } }).select("centres").lean();
+            const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
+            const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id").lean();
+            const zIdStrings = zoneCentres.map(c => c._id.toString());
+            
+            if (centreIds.length > 0) {
+                const intersected = centreIds.filter(id => zIdStrings.includes(id));
+                centreIds = intersected.length > 0 ? intersected : zIdStrings;
+            } else {
+                centreIds = zIdStrings;
+            }
+        }
+
         if (centreIds.length === 0) {
             return res.status(200).json({ year: parsedYear, targetType, data: [] });
         }

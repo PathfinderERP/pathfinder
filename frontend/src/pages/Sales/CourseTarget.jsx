@@ -318,6 +318,10 @@ const CourseTarget = () => {
     }, [selectedClasses]);
 
     useEffect(() => {
+        localStorage.setItem("courseTarget_selectedZones", JSON.stringify(selectedZones));
+    }, [selectedZones]);
+
+    useEffect(() => {
         fetchCentres();
         fetchDepartments();
         fetchExamTags();
@@ -417,19 +421,33 @@ const CourseTarget = () => {
             setSelectedCentres(centres.map(c => c._id));
         } else {
             const activeZones = zones.filter(z => newSelectedZones.includes(z._id));
-            const zoneCentreIds = new Set();
+            const zoneIdentifiers = new Set();
             activeZones.forEach(z => {
-                if (z.centres) {
+                if (Array.isArray(z.centres)) {
                     z.centres.forEach(zc => {
-                        const id = zc && typeof zc === 'object' ? (zc._id || zc.id) : zc;
-                        if (id) zoneCentreIds.add(id.toString().trim().toLowerCase());
+                        if (typeof zc === 'object' && zc !== null) {
+                            if (zc._id) zoneIdentifiers.add(zc._id.toString().trim().toLowerCase());
+                            if (zc.centreName) zoneIdentifiers.add(zc.centreName.toString().trim().toLowerCase());
+                        } else if (typeof zc === 'string') {
+                            zoneIdentifiers.add(zc.trim().toLowerCase());
+                        }
                     });
                 }
             });
+
             const allowedInZones = centres
-                .filter(c => c._id && zoneCentreIds.has(c._id.toString().trim().toLowerCase()))
+                .filter(c => {
+                    const idStr = c._id ? c._id.toString().trim().toLowerCase() : "";
+                    const nameStr = c.centreName ? c.centreName.toString().trim().toLowerCase() : "";
+                    return (idStr && zoneIdentifiers.has(idStr)) || (nameStr && zoneIdentifiers.has(nameStr));
+                })
                 .map(c => c._id);
-            setSelectedCentres(allowedInZones);
+
+            if (allowedInZones.length > 0) {
+                setSelectedCentres(allowedInZones);
+            } else {
+                setSelectedCentres(centres.map(c => c._id));
+            }
         }
     };
 
@@ -526,17 +544,12 @@ const CourseTarget = () => {
     };
 
     const fetchData = useCallback(async () => {
-        if (selectedCentres.length === 0) {
-            setData([]);
-            return;
-        }
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            // selectedCentres is an array of plain _id strings
-            const centreParam = selectedCentres.join(',');
+            const centreParam = (selectedCentres && selectedCentres.length > 0) ? selectedCentres.join(',') : 'all';
             const params = {
-                centre: centreParam || 'all',
+                centre: centreParam,
                 year: selectedYear,
                 targetType: viewMode,
                 month: selectedMonth,
@@ -546,6 +559,9 @@ const CourseTarget = () => {
                 endDate: customEndDate
             };
 
+            if (selectedZones && selectedZones.length > 0) {
+                params.zoneIds = selectedZones.join(',');
+            }
             if (selectedProgrammes && selectedProgrammes.length > 0) {
                 params.programme = selectedProgrammes.join(',');
             }
@@ -572,7 +588,7 @@ const CourseTarget = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses]);
+    }, [selectedCentres, selectedZones, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses]);
 
     useEffect(() => {
         fetchData();

@@ -228,6 +228,42 @@ export const updateRegularizationStatus = async (req, res) => {
     }
 };
 
+export const updateRegularization = async (req, res) => {
+    try {
+        const regularization = await Regularization.findById(req.params.id);
+        if (!regularization) return res.status(404).json({ message: 'Regularization request not found' });
+        
+        if (regularization.status === 'Approved') {
+            return res.status(400).json({ message: 'Approved regularization requests cannot be edited.' });
+        }
+
+        const { type, reason, fromTime, toTime, date } = req.body;
+        if (type) regularization.type = type;
+        if (reason) regularization.reason = reason;
+        if (fromTime !== undefined) regularization.fromTime = fromTime;
+        if (toTime !== undefined) regularization.toTime = toTime;
+        if (date) regularization.date = date;
+
+        if (req.files && req.files.length > 0) {
+            const photoPromises = req.files.map(file => uploadToR2(file, 'regularization/photos'));
+            const newPhotos = await Promise.all(photoPromises);
+            regularization.photos = [...(regularization.photos || []), ...newPhotos];
+        }
+
+        await regularization.save();
+
+        const regObj = regularization.toObject();
+        if (regObj.photos && regObj.photos.length > 0) {
+            regObj.photos = await Promise.all(regObj.photos.map(p => getSignedFileUrl(p)));
+        }
+
+        res.status(200).json(regObj);
+    } catch (error) {
+        console.error("Update Regularization Error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const deleteRegularization = async (req, res) => {
     try {
         const regularization = await Regularization.findByIdAndDelete(req.params.id);
