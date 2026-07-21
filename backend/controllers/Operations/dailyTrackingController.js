@@ -456,13 +456,23 @@ export const getDailyTracking = async (req, res) => {
 
         const isRestricted = checkRestricted(req.user?.role);
 
-        // 1. Fetch all active centers
+        // 1. Fetch all active centers (excluding phsps, rkm, franchise)
         let centers;
         if (isRestricted) {
             const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
-            centers = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" } }).lean();
+            centers = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();
         } else {
-            centers = await CentreSchema.find({ status: { $ne: "deactive" } }).lean();
+            centers = await CentreSchema.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();
+        }
+
+        if (req.query.zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const zIdList = req.query.zoneIds.split(',').filter(Boolean).map(id => {
+                try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
+            }).filter(Boolean);
+            const zoneDocs = await Zone.find({ _id: { $in: zIdList } }).select("centres").lean();
+            const zoneCentreIds = new Set(zoneDocs.flatMap(z => (z.centres || []).map(c => c.toString())));
+            centers = centers.filter(c => zoneCentreIds.has(c._id.toString()));
         }
 
         // Prepare tracking data
@@ -492,6 +502,7 @@ export const getDailyTracking = async (req, res) => {
             const dailyCallsCountResult = await LeadManagement.aggregate([
                 { $match: leadMatch },
                 { $project: {
+                    phoneNumber: "$phoneNumber",
                     followUps: {
                         $filter: {
                             input: "$followUps",
@@ -500,10 +511,16 @@ export const getDailyTracking = async (req, res) => {
                         }
                     }
                 } },
-                { $project: { count: { $size: "$followUps" } } },
-                { $group: { _id: null, total: { $sum: "$count" } } }
+                { $match: { "followUps.0": { $exists: true } } },
+                { $group: {
+                    _id: null,
+                    total: { $sum: { $size: "$followUps" } },
+                    unique: { $sum: 1 }
+                } }
             ]);
             const dailyCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].total : 0;
+            const uniqueCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].unique : 0;
+            const sameNoCallsCount = Math.max(0, dailyCallsCount - uniqueCallsCount);
 
             // --- Daily Walk-ins ---
             const walkInsQuery = {
@@ -857,6 +874,8 @@ export const getDailyTracking = async (req, res) => {
                 staffPresent: staffPresentCount,
                 staffTotal: staffTotalCount > 0 ? staffTotalCount : 0,
                 dailyCalls: dailyCallsCount,
+                uniqueCalls: uniqueCallsCount,
+                sameNoCalls: sameNoCallsCount,
                 walkIns: walkInsCount,
                 counselledNormal: counselledNormalCount,
                 counselledBoard: counselledBoardCount,

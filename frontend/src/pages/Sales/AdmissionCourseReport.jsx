@@ -170,11 +170,13 @@ const AdmissionCourseReport = () => {
 
     // ── master data ───────────────────────────────────────────────────────────
     const [centres,  setCentres]  = useState([]);
+    const [zones,    setZones]    = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
 
     // ── filters ───────────────────────────────────────────────────────────────
     const [selCentres,  setSelCentres]  = useState([]);
+    const [selZones,    setSelZones]    = useState([]);
     const [selTags,     setSelTags]     = useState([]);
     const [selSessions, setSelSessions] = useState([]);
     const [classes,     setClasses]     = useState([]);
@@ -204,11 +206,12 @@ const AdmissionCourseReport = () => {
         const token = localStorage.getItem("token");
         const h     = { Authorization: `Bearer ${token}` };
         try {
-            const [cR, tR, sR, clR] = await Promise.all([
+            const [cR, tR, sR, clR, zR] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`,  { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/class`, { headers: h }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers: h }),
             ]);
             if (cR.ok) {
                 const d = await cR.json();
@@ -222,6 +225,11 @@ const AdmissionCourseReport = () => {
                     }
                 }
                 setCentres(list.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || "")));
+            }
+            if (zR && zR.ok) {
+                const zData = await zR.json();
+                const zoneList = (zData.data || []).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setZones(zoneList);
             }
             if (tR.ok) {
                 const tags = await tR.json();
@@ -274,6 +282,7 @@ const AdmissionCourseReport = () => {
             p.append("year", timePeriod === "This Year" ? yr : yr - 1);
         }
         if (selCentres.length) p.append("centreIds", selCentres.join(","));
+        if (selZones.length)   p.append("zoneIds",   selZones.join(","));
         if (selectedProgramme) p.append("programme", selectedProgramme);
         if (selTags.length)    p.append("examTagIds", selTags.join(","));
         if (selSessions.length) p.append("sessions", selSessions.join(","));
@@ -346,23 +355,38 @@ const AdmissionCourseReport = () => {
         } finally {
             setLoading(false);
         }
-    }, [selCentres, selTags, selSessions, selClasses, timePeriod, startDate, endDate, selectedProgramme]);
+    }, [selCentres, selZones, selTags, selSessions, selClasses, timePeriod, startDate, endDate, selectedProgramme]);
 
     // Trigger fetch on filter changes
     useEffect(() => {
         if (examTags.length > 0) fetchReport();
-    }, [selCentres, selTags, selSessions, selClasses, timePeriod, startDate, endDate, examTags, selectedProgramme]);
+    }, [selCentres, selZones, selTags, selSessions, selClasses, timePeriod, startDate, endDate, examTags, selectedProgramme]);
 
     // ── helpers ───────────────────────────────────────────────────────────────
     const toggle     = setter => id => setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    const resetAll   = () => { setSelCentres([]); setSelTags([]); setSelSessions([]); setSelClasses([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
+    const resetAll   = () => { setSelZones([]); setSelCentres([]); setSelTags([]); setSelSessions([]); setSelClasses([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
 
     // Unique tag → index for stable colour
     const tagIndexMap = {};
     [...new Set(rows.map(r => r.examTagId))].forEach((id, i) => { tagIndexMap[id] = i; });
 
+    // Allowed Centres by Selected Zones
+    const allowedCenterNamesInSelectedZones = new Set();
+    const allowedCenterIdsInSelectedZones = new Set();
+
+    if (selZones && selZones.length > 0) {
+        zones.forEach(z => {
+            if (z._id && selZones.includes(z._id.toString()) && Array.isArray(z.centres)) {
+                z.centres.forEach(c => {
+                    if (c.centreName) allowedCenterNamesInSelectedZones.add(c.centreName.toLowerCase().trim());
+                    if (c._id) allowedCenterIdsInSelectedZones.add(c._id.toString());
+                });
+            }
+        });
+    }
+
     // Build the full list of centres to display:
-    // Start from the master centres list (respecting the centre filter dropdown),
+    // Start from the master centres list (respecting the centre & zone filter dropdown),
     // then merge in any centre names that came back in the rows data (edge cases).
     // This ensures centres with 0 admissions still appear in the table and Excel export.
     const masterCentreNames = (
@@ -370,11 +394,17 @@ const AdmissionCourseReport = () => {
             ? centres.filter(c => selCentres.includes(c._id))
             : centres.filter(c => {
                 const n = (c.centreName || "").toLowerCase();
-                return !n.includes("franchise") && !n.includes("rkm") && !n.includes("phsps");
+                const matchesZone = selZones.length === 0 || (
+                    allowedCenterNamesInSelectedZones.has((c.centreName || "").toLowerCase().trim()) ||
+                    allowedCenterIdsInSelectedZones.has((c._id || "").toString())
+                );
+                return !n.includes("franchise") && !n.includes("rkm") && !n.includes("phsps") && matchesZone;
             })
     ).map(c => c.centreName);
 
-    const rowCentreNames = rows.map(r => r.centreName);
+    const rowCentreNames = rows
+        .filter(r => selZones.length === 0 || allowedCenterNamesInSelectedZones.has((r.centreName || "").toLowerCase().trim()))
+        .map(r => r.centreName);
     const allCentreNames = [...new Set([...masterCentreNames, ...rowCentreNames])];
 
     // Search (filter centres based on search term)
@@ -393,33 +423,48 @@ const AdmissionCourseReport = () => {
         "MADHYAMIK"
     ];
 
+    const normalizeDept = (rawDept) => {
+        if (!rawDept) return "OTHER";
+        const d = rawDept.trim().toUpperCase();
+        if (DEPARTMENTS_LIST.includes(d)) return d;
+        if (d.includes("ALL-INDIA + FND") || d.includes("ALL INDIA + FND")) return "ALL-INDIA + FND";
+        if (d.includes("ALL INDIA")) return "ALL INDIA";
+        if (d.includes("CBSE")) return "CBSE DEPARTMENT";
+        if (d.includes("FOUNDATION") || d.includes("FND")) return "FOUNDATION";
+        if (d.includes("MADHYAMIK") || d.includes("WBBSE")) return "MADHYAMIK";
+        if (d.includes("HS") || d.includes("WBCHSE")) return "HS";
+        if (d.includes("ICSE")) return "ICSE";
+        if (d.includes("ISC")) return "ISC";
+        return d;
+    };
+
     // Pivot Data Structure
     // pivotData[centreName][departmentName] = { count: 0, details: [] }
     const pivotData = {};
     
     rows.forEach(r => {
-        if(!pivotData[r.centreName]) pivotData[r.centreName] = {};
+        if (!pivotData[r.centreName]) pivotData[r.centreName] = {};
         
-        const dept = (r.departmentName || "").trim().toUpperCase();
-        if (DEPARTMENTS_LIST.includes(dept)) {
-            if(!pivotData[r.centreName][dept]) {
-                pivotData[r.centreName][dept] = { count: 0, details: [] };
-            }
-            pivotData[r.centreName][dept].count += r.count;
-            pivotData[r.centreName][dept].details.push(r);
+        const dept = normalizeDept(r.departmentName);
+        if (!pivotData[r.centreName][dept]) {
+            pivotData[r.centreName][dept] = { count: 0, details: [] };
         }
+        pivotData[r.centreName][dept].count += r.count;
+        pivotData[r.centreName][dept].details.push(r);
     });
 
-    const uniqueTags = DEPARTMENTS_LIST;
+    const dynamicExtraDepts = Array.from(
+        new Set(
+            rows
+                .map(r => normalizeDept(r.departmentName))
+                .filter(d => d && !DEPARTMENTS_LIST.includes(d))
+        )
+    ).sort();
+
+    const uniqueTags = [...DEPARTMENTS_LIST, ...dynamicExtraDepts];
 
     // Grand total for share %
-    const grandTotal = rows.reduce((a, r) => {
-        const dept = (r.departmentName || "").trim().toUpperCase();
-        if (DEPARTMENTS_LIST.includes(dept)) {
-            return a + r.count;
-        }
-        return a;
-    }, 0);
+    const grandTotal = rows.reduce((a, r) => a + (r.count || 0), 0);
 
 
     // ── excel export ──────────────────────────────────────────────────────────
@@ -525,12 +570,9 @@ const AdmissionCourseReport = () => {
 
     const deptsBreakdown = Object.values(
         rows.reduce((acc, r) => {
-            const key = r.departmentName || "Unknown";
-            if (DEPARTMENTS_LIST.includes(key.trim().toUpperCase())) {
-                const normKey = key.trim().toUpperCase();
-                if (!acc[normKey]) acc[normKey] = { name: normKey, count: 0 };
-                acc[normKey].count += r.count;
-            }
+            const normKey = normalizeDept(r.departmentName);
+            if (!acc[normKey]) acc[normKey] = { name: normKey, count: 0 };
+            acc[normKey].count += r.count;
             return acc;
         }, {})
     ).sort((a, b) => b.count - a.count);
@@ -619,10 +661,27 @@ const AdmissionCourseReport = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-3 items-center">
+                        {/* Zone Filter */}
+                        <MultiSelect
+                            placeholder="All Zones"
+                            options={zones}
+                            selected={selZones}
+                            onToggle={toggle(setSelZones)}
+                            labelKey="name"
+                            valueKey="_id"
+                            isDarkMode={isDark}
+                        />
+
                         {/* Centre */}
                         <MultiSelect
                             placeholder="All Centres"
-                            options={centres}
+                            options={centres.filter(c => {
+                                const n = (c.centreName || "").toLowerCase();
+                                if (n.includes("franchise") || n.includes("rkm") || n.includes("phsps")) return false;
+                                if (selZones.length === 0) return true;
+                                return allowedCenterNamesInSelectedZones.has((c.centreName || "").toLowerCase().trim()) ||
+                                       allowedCenterIdsInSelectedZones.has((c._id || "").toString());
+                            })}
                             selected={selCentres}
                             onToggle={toggle(setSelCentres)}
                             labelKey="centreName"

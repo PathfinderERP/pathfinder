@@ -99,6 +99,36 @@ export const getAdmissionReport = async (req, res) => {
             admissionQuery.centre = { $in: finalCentreNames.length > 0 ? finalCentreNames : ["__NO_MATCH__"] };
         }
 
+        // Zone Filter
+        if (req.query.zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const rawZoneIds = typeof req.query.zoneIds === 'string' ? req.query.zoneIds.split(',') : req.query.zoneIds;
+            const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            const objectZoneIds = validZoneIds.map(id => new mongoose.Types.ObjectId(id));
+            
+            const zoneDocs = await Zone.find({ _id: { $in: objectZoneIds } }).select("centres").lean();
+            const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
+            const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id centreName");
+            const zIds = zoneCentres.map(c => c._id);
+            const zNames = zoneCentres.map(c => c.centreName);
+
+            if (leadQuery.centre && leadQuery.centre.$in) {
+                const existingStr = leadQuery.centre.$in.map(id => id.toString());
+                const intersected = zIds.filter(id => existingStr.includes(id.toString()));
+                leadQuery.centre = { $in: intersected.length > 0 ? intersected : [new mongoose.Types.ObjectId()] };
+            } else {
+                leadQuery.centre = { $in: zIds.length > 0 ? zIds : [new mongoose.Types.ObjectId()] };
+            }
+
+            if (admissionQuery.centre && admissionQuery.centre.$in) {
+                const existingNames = admissionQuery.centre.$in;
+                const intersectedNames = zNames.filter(n => existingNames.includes(n));
+                admissionQuery.centre = { $in: intersectedNames.length > 0 ? intersectedNames : ["__NO_MATCH__"] };
+            } else {
+                admissionQuery.centre = { $in: zNames.length > 0 ? zNames : ["__NO_MATCH__"] };
+            }
+        }
+
         // Course Filter
         if (courseIds) {
             const rawIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
