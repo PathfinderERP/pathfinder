@@ -46,12 +46,15 @@ export default function Campaigns() {
     const [selectedCampaign, setSelectedCampaign] = useState(null);
     const [editForm, setEditForm] = useState({
         adName: "", platform: "Facebook", creativeName: "", duration: "",
-        budget: "", cpc: "", startDate: "", endDate: ""
+        budget: "", cpc: "", startDate: "", endDate: "",
+        totalLikes: "", comments: "", shares: "", imageLink: "", videoLink: ""
     });
     const [form, setForm] = useState({
         adName: "", platform: "Facebook", creativeName: "", duration: "",
-        budget: "", cpc: "", startDate: "", endDate: ""
+        budget: "", cpc: "", startDate: "", endDate: "",
+        totalLikes: "", comments: "", shares: "", imageLink: "", videoLink: ""
     });
+    const [uploadingMedia, setUploadingMedia] = useState(false);
 
     const fetchCampaigns = useCallback(async () => {
         setLoading(true);
@@ -130,7 +133,7 @@ export default function Campaigns() {
             const data = await res.json();
             if (res.ok) {
                 toast.success("Campaign added successfully!");
-                setForm({ adName: "", platform: "Facebook", creativeName: "", duration: "", budget: "", cpc: "", startDate: "", endDate: "" });
+                setForm({ adName: "", platform: "Facebook", creativeName: "", duration: "", budget: "", cpc: "", startDate: "", endDate: "", totalLikes: "", comments: "", shares: "", imageLink: "", videoLink: "" });
                 fetchCampaigns();
             } else {
                 toast.error(data.message || "Failed to add campaign");
@@ -176,8 +179,45 @@ export default function Campaigns() {
             budget: campaign.budget || "",
             cpc: campaign.cpc || "",
             startDate: formatDateForInput(campaign.startDate),
-            endDate: formatDateForInput(campaign.endDate)
+            endDate: formatDateForInput(campaign.endDate),
+            totalLikes: campaign.totalLikes || "",
+            comments: campaign.comments || "",
+            shares: campaign.shares || "",
+            imageLink: campaign.imageLink || "",
+            videoLink: campaign.videoLink || ""
         });
+    };
+
+    const handleMediaUpload = async (e) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        
+        setUploadingMedia(true);
+        const formData = new FormData();
+        Array.from(files).forEach(file => formData.append("mediaFiles", file));
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}/upload-media`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Media uploaded successfully");
+                setSelectedCampaign(data.campaign);
+                fetchCampaigns();
+            } else {
+                toast.error(data.message || "Upload failed");
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast.error("Upload failed");
+        } finally {
+            setUploadingMedia(false);
+            e.target.value = null;
+        }
     };
 
     const handleUpdate = async (e) => {
@@ -364,6 +404,18 @@ export default function Campaigns() {
                             <input type="date" name="startDate" required value={form.startDate} onChange={handleChange} className={inputCls} />
                             <input type="date" name="endDate" required value={form.endDate} onChange={handleChange} className={inputCls} />
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <input type="number" name="totalLikes" value={form.totalLikes} onChange={handleChange}
+                                placeholder="Total Likes" className={inputCls} />
+                            <input type="number" name="comments" value={form.comments} onChange={handleChange}
+                                placeholder="Comments" className={inputCls} />
+                            <input type="number" name="shares" value={form.shares} onChange={handleChange}
+                                placeholder="Shares" className={inputCls} />
+                            <input type="url" name="imageLink" value={form.imageLink} onChange={handleChange}
+                                placeholder="Image Link" className={inputCls} />
+                            <input type="url" name="videoLink" value={form.videoLink} onChange={handleChange}
+                                placeholder="Video Link" className={inputCls} />
+                        </div>
                     </div>
                 </form>
 
@@ -410,10 +462,25 @@ export default function Campaigns() {
                                             <tr key={c._id} className={`text-xs font-semibold tracking-wide border-b hover:bg-black/5 dark:hover:bg-white/5 transition-all ${isDark ? "border-gray-800 text-gray-300" : "border-gray-100 text-gray-700"}`}>
                                                 <td
                                                     onClick={() => handleOpenViewEdit(c)}
-                                                    className="py-4 pr-2 font-bold max-w-[160px] truncate cursor-pointer text-blue-500 hover:underline hover:text-blue-600 transition-all"
+                                                    className="py-4 pr-2 cursor-pointer transition-all"
                                                     title={c.adName}
                                                 >
-                                                    {c.adName}
+                                                    <div className="flex items-center gap-2 max-w-[160px]">
+                                                        {(c.imageLink || (c.uploadedMedia && c.uploadedMedia.length > 0)) ? (
+                                                            <img 
+                                                                src={c.imageLink || c.uploadedMedia[0]} 
+                                                                alt="Campaign Logo" 
+                                                                className="w-10 h-10 rounded object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-800 flex-shrink-0 flex items-center justify-center border border-gray-300 dark:border-gray-700">
+                                                                <FaBullhorn size={16} className="text-gray-400" />
+                                                            </div>
+                                                        )}
+                                                        <span className="font-bold truncate text-blue-500 hover:underline hover:text-blue-600">
+                                                            {c.adName}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                                 <td className="py-4 px-2">{c.platform}</td>
                                                 <td className="py-4 px-2 max-w-[130px] truncate" title={c.creativeName || "—"}>{c.creativeName || "—"}</td>
@@ -496,12 +563,46 @@ export default function Campaigns() {
                                     ["Start Date",   new Date(selectedCampaign.startDate).toLocaleDateString("en-IN")],
                                     ["End Date",     new Date(selectedCampaign.endDate).toLocaleDateString("en-IN")],
                                     ["Run Status",   (selectedCampaign.runStatus || "idle").toUpperCase()],
+                                    ["Likes",        selectedCampaign.totalLikes || 0],
+                                    ["Comments",     selectedCampaign.comments || 0],
+                                    ["Shares",       selectedCampaign.shares || 0],
                                 ].map(([label, val]) => (
                                     <div key={label} className="flex justify-between border-b pb-2 border-gray-800/10">
                                         <span className="font-semibold opacity-65 uppercase tracking-wider">{label}</span>
                                         <span className="font-bold">{val}</span>
                                     </div>
                                 ))}
+                                {selectedCampaign.imageLink && (
+                                    <div className="flex justify-between border-b pb-2 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider">Image Link</span>
+                                        <a href={selectedCampaign.imageLink} target="_blank" rel="noreferrer" className="font-bold text-blue-500 hover:underline">View Image</a>
+                                    </div>
+                                )}
+                                {selectedCampaign.videoLink && (
+                                    <div className="flex justify-between border-b pb-2 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider">Video Link</span>
+                                        <a href={selectedCampaign.videoLink} target="_blank" rel="noreferrer" className="font-bold text-blue-500 hover:underline">View Video</a>
+                                    </div>
+                                )}
+                                {selectedCampaign.uploadedMedia && selectedCampaign.uploadedMedia.length > 0 && (
+                                    <div className="border-b pb-2 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider block mb-2">Uploaded Media</span>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedCampaign.uploadedMedia.map((url, i) => {
+                                                const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i);
+                                                return (
+                                                    <a key={i} href={url} target="_blank" rel="noreferrer" className="block border border-gray-200 dark:border-gray-700 rounded overflow-hidden hover:opacity-80 transition-opacity" title={`View Media ${i+1}`}>
+                                                        {isVideo ? (
+                                                            <video src={url} className="w-16 h-16 object-cover" />
+                                                        ) : (
+                                                            <img src={url} alt={`Media ${i+1}`} className="w-16 h-16 object-cover" />
+                                                        )}
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Run timestamps */}
                                 {selectedCampaign.lastStartedAt && (
                                     <div className="flex justify-between border-b pb-2 border-gray-800/10">
@@ -557,6 +658,11 @@ export default function Campaigns() {
                                     { label: "Duration",      key: "duration",     type: "text" },
                                     { label: "Budget ₹",      key: "budget",       type: "number", required: true },
                                     { label: "CPC ₹",         key: "cpc",          type: "number", step: "0.01", required: true },
+                                    { label: "Total Likes",   key: "totalLikes",   type: "number" },
+                                    { label: "Comments",      key: "comments",     type: "number" },
+                                    { label: "Shares",        key: "shares",       type: "number" },
+                                    { label: "Image Link",    key: "imageLink",    type: "url" },
+                                    { label: "Video Link",    key: "videoLink",    type: "url" },
                                 ].map(({ label, key, type, required, step }) => (
                                     <div key={key}>
                                         <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">{label}</label>
@@ -591,6 +697,18 @@ export default function Campaigns() {
                                             onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
                                             className={inputCls} />
                                     </div>
+                                </div>
+                                <div className="pt-2">
+                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Upload Media (Photos/Videos)</label>
+                                    <input 
+                                        type="file" 
+                                        multiple 
+                                        accept="image/*,video/*"
+                                        onChange={handleMediaUpload} 
+                                        disabled={uploadingMedia}
+                                        className={inputCls} 
+                                    />
+                                    {uploadingMedia && <p className="text-xs text-blue-500 mt-1 font-bold">Uploading...</p>}
                                 </div>
                             </div>
                             <div className="flex justify-end gap-2 pt-4 border-t border-gray-800/10">
