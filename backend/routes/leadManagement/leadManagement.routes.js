@@ -25,7 +25,7 @@ import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentr
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
-import { getCampaigns, createCampaign, deleteCampaign, updateCampaign, runCampaignAction } from "../../controllers/leadManagement/campaignController.js";
+import { getCampaigns, createCampaign, deleteCampaign, updateCampaign, runCampaignAction, uploadCampaignMedia } from "../../controllers/leadManagement/campaignController.js";
 import { pushCampaignLeads } from "../../controllers/leadManagement/pushCampaignLeads.js";
 import multer from "multer";
 import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
@@ -75,6 +75,7 @@ router.post("/campaigns", requireAuth, requireGranularPermission("leadManagement
 router.post("/campaigns/:id/run-action", requireAuth, runCampaignAction);
 router.delete("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "delete"), deleteCampaign);
 router.put("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "edit"), updateCampaign);
+router.post("/campaigns/:id/upload-media", requireAuth, upload.array('mediaFiles'), uploadCampaignMedia);
 
 // Generic ID route must come AFTER specific routes
 router.get("/check-duplicate", requireAuth, checkDuplicatePhone);

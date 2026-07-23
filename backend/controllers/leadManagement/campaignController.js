@@ -2,6 +2,9 @@ import Campaign from "../../models/Campaign.js";
 import LeadManagement from "../../models/LeadManagement.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
+import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import s3Client from "../../config/r2Config.js";
 
 export const getCampaigns = async (req, res) => {
     try {
@@ -60,7 +63,7 @@ export const getCampaigns = async (req, res) => {
 
 export const createCampaign = async (req, res) => {
     try {
-        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate } = req.body;
+        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate, totalLikes, comments, shares, imageLink, videoLink } = req.body;
         
         if (!adName || !platform || budget === undefined || cpc === undefined || !startDate || !endDate) {
             return res.status(400).json({ message: "Required fields are missing." });
@@ -75,6 +78,11 @@ export const createCampaign = async (req, res) => {
             cpc: Number(cpc),
             startDate: new Date(startDate),
             endDate: new Date(endDate),
+            totalLikes: totalLikes ? Number(totalLikes) : 0,
+            comments: comments ? Number(comments) : 0,
+            shares: shares ? Number(shares) : 0,
+            imageLink: imageLink || "",
+            videoLink: videoLink || "",
             createdBy: req.user._id || req.user.id
         });
         
@@ -114,7 +122,7 @@ export const deleteCampaign = async (req, res) => {
 export const updateCampaign = async (req, res) => {
     try {
         const { id } = req.params;
-        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate } = req.body;
+        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate, totalLikes, comments, shares, imageLink, videoLink } = req.body;
         
         if (!adName || !platform || budget === undefined || cpc === undefined || !startDate || !endDate) {
             return res.status(400).json({ message: "Required fields are missing." });
@@ -130,7 +138,12 @@ export const updateCampaign = async (req, res) => {
                 budget: Number(budget),
                 cpc: Number(cpc),
                 startDate: new Date(startDate),
-                endDate: new Date(endDate)
+                endDate: new Date(endDate),
+                totalLikes: totalLikes ? Number(totalLikes) : 0,
+                comments: comments ? Number(comments) : 0,
+                shares: shares ? Number(shares) : 0,
+                imageLink: imageLink || "",
+                videoLink: videoLink || ""
             },
             { new: true }
         );
@@ -190,6 +203,61 @@ export const runCampaignAction = async (req, res) => {
         });
     } catch (err) {
         console.error("Error running campaign action:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+export const uploadCampaignMedia = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const files = req.files; // expecting multiple files potentially
+
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: "No files uploaded" });
+        }
+
+        const campaign = await Campaign.findById(id);
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio"; // or another bucket if configured
+        const uploadedUrls = [];
+
+        for (const file of files) {
+            const fileName = `campaigns/${id}_${Date.now()}_${file.originalname}`;
+            
+            await s3Client.send(new PutObjectCommand({
+                Bucket: bucketName,
+                Key: fileName,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+            }));
+
+            // Generate a 7-day presigned URL, matching the approach used in uploadRecording
+            const presignedUrl = await getSignedUrl(
+                s3Client,
+                new GetObjectCommand({ Bucket: bucketName, Key: fileName }),
+                { expiresIn: 604800 }
+            );
+            
+            uploadedUrls.push(presignedUrl);
+        }
+
+        // Add to campaign
+        const updatedCampaign = await Campaign.findByIdAndUpdate(
+            id,
+            { $push: { uploadedMedia: { $each: uploadedUrls } } },
+            { new: true }
+        );
+
+        res.status(200).json({
+            message: "Media uploaded successfully",
+            urls: uploadedUrls,
+            campaign: updatedCampaign
+        });
+    } catch (err) {
+        console.error("Error uploading campaign media:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

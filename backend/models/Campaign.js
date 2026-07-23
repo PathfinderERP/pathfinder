@@ -59,6 +59,29 @@ const campaignSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    totalLikes: {
+        type: Number,
+        default: 0
+    },
+    comments: {
+        type: Number,
+        default: 0
+    },
+    shares: {
+        type: Number,
+        default: 0
+    },
+    imageLink: {
+        type: String,
+        trim: true
+    },
+    videoLink: {
+        type: String,
+        trim: true
+    },
+    uploadedMedia: [{
+        type: String
+    }],
     // ── Run lifecycle tracking ──────────────────────────────────────
     runStatus: {
         type: String,
