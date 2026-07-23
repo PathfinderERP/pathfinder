@@ -96,13 +96,18 @@ const LeaveRequest = () => {
                 setShowModal(false);
                 setFormData({ leaveType: "", startDate: "", endDate: "", days: 0, reason: "" });
                 fetchMyRequests();
+                fetchLeaveTypes();
             } else {
-                toast.error("Failed to submit leave request");
+                const errData = await response.json();
+                toast.error(errData.message || "Failed to submit leave request");
             }
         } catch (error) {
             toast.error("Error submitting request");
         }
     };
+
+    const selectedType = leaveTypes.find(t => t._id === formData.leaveType);
+    const isExceedingBalance = selectedType && formData.days > (selectedType.availableDays ?? selectedType.days);
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -133,11 +138,19 @@ const LeaveRequest = () => {
 
                 {/* Leave Balance Summary */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {leaveTypes.slice(0, 3).map(type => (
-                        <div key={type._id} className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                            <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">{type.name}</h3>
-                            <p className="text-3xl font-black text-blue-600 dark:text-blue-400">{type.days}</p>
-                            <p className="text-xs text-gray-500 mt-1">Days Available</p>
+                    {leaveTypes.map(type => (
+                        <div key={type._id} className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">{type.name}</h3>
+                                <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
+                                    {type.availableDays !== undefined ? type.availableDays : type.days}
+                                </p>
+                                <p className="text-xs text-gray-500 font-semibold mt-1">Days Available</p>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 flex justify-between text-[11px] font-medium text-gray-400">
+                                <span>Used: <strong className="text-gray-700 dark:text-gray-300">{type.usedDays || 0}</strong> days</span>
+                                <span>Quota: <strong className="text-gray-700 dark:text-gray-300">{type.totalDays || type.days}</strong> days</span>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -241,7 +254,9 @@ const LeaveRequest = () => {
                                 >
                                     <option value="">Select Leave Type</option>
                                     {leaveTypes.map(type => (
-                                        <option key={type._id} value={type._id}>{type.name} ({type.days} days)</option>
+                                        <option key={type._id} value={type._id}>
+                                            {type.name} ({type.availableDays !== undefined ? type.availableDays : type.days} available of {type.totalDays || type.days} days)
+                                        </option>
                                     ))}
                                 </select>
                             </div>
@@ -270,11 +285,22 @@ const LeaveRequest = () => {
                                 </div>
                             </div>
 
-                            <div className="bg-blue-50 dark:bg-blue-500/10 p-3 rounded-lg">
-                                <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                            <div className={`p-3 rounded-lg flex items-center justify-between ${isExceedingBalance ? 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-800' : 'bg-blue-50 dark:bg-blue-500/10'}`}>
+                                <p className={`text-sm font-bold ${isExceedingBalance ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
                                     Total Days: {formData.days}
                                 </p>
+                                {selectedType && (
+                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                        (Available: {selectedType.availableDays !== undefined ? selectedType.availableDays : selectedType.days} days)
+                                    </span>
+                                )}
                             </div>
+
+                            {isExceedingBalance && (
+                                <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg text-xs font-bold text-red-700 dark:text-red-300">
+                                    ⚠️ Requested leave days ({formData.days}) exceeds your available balance ({selectedType.availableDays} days) for {selectedType.name}.
+                                </div>
+                            )}
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Reason *</label>
@@ -291,7 +317,8 @@ const LeaveRequest = () => {
                             <div className="pt-4">
                                 <button
                                     type="submit"
-                                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-all shadow-lg shadow-blue-600/20"
+                                    disabled={isExceedingBalance}
+                                    className={`w-full px-4 py-3 rounded-lg font-medium text-sm transition-all shadow-lg ${isExceedingBalance ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20'}`}
                                 >
                                     Submit Leave Request
                                 </button>

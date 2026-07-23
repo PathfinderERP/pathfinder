@@ -121,10 +121,23 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
+const formatWorkingHours = (hoursDecimal) => {
+    if (hoursDecimal === undefined || hoursDecimal === null || isNaN(hoursDecimal) || hoursDecimal === 0) {
+        return "0h 0m";
+    }
+    const h = Math.floor(hoursDecimal);
+    const m = Math.round((hoursDecimal - h) * 60);
+    if (m === 60) {
+        return `${h + 1}h 0m`;
+    }
+    return `${h}h ${m}m`;
+};
+
 const EmployeeAttendance = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
     const [attendanceData, setAttendanceData] = useState([]);
+    const [leaveRequests, setLeaveRequests] = useState([]);
     const [regularizations, setRegularizations] = useState([]);
     const [holidays, setHolidays] = useState([]);
     const [workingDays, setWorkingDays] = useState({});
@@ -160,6 +173,7 @@ const EmployeeAttendance = () => {
             if (response.ok) {
                 const data = await response.json();
                 setAttendanceData(data.attendances || []);
+                setLeaveRequests(data.leaveRequests || []);
                 setRegularizations(data.regularizations || []);
                 setHolidays(data.holidays || []);
                 setWorkingDays(data.workingDays || {});
@@ -280,6 +294,10 @@ const EmployeeAttendance = () => {
     const StatusLegend = () => (
         <div className={`flex flex-wrap gap-4 px-6 py-3 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-[2px] shadow-inner mb-6`}>
             <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-[#a855f7] rounded-[2px]" />
+                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Approved Leave (CL/ML)</span>
+            </div>
+            <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-red-500 rounded-[2px]" />
                 <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Absent (&lt;4h)</span>
             </div>
@@ -310,6 +328,31 @@ const EmployeeAttendance = () => {
         const dateStrKey = format(date, "yyyy-MM-dd");
         const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
         const regularization = regularizations.find(r => format(new Date(r.date), "yyyy-MM-dd") === dateStrKey);
+
+        // Check if there is an approved leave for this date
+        const approvedLeave = (leaveRequests || []).find(l => {
+            const s = startOfDay(new Date(l.startDate));
+            const e = startOfDay(new Date(l.endDate));
+            const d = startOfDay(date);
+            return d >= s && d <= e;
+        });
+
+        if (approvedLeave || (record && record.status === "Leave")) {
+            const leaveName = approvedLeave?.leaveType?.name || record?.remarks || "Approved Leave";
+            return {
+                type: "Leave",
+                name: leaveName,
+                status: "Leave",
+                reason: approvedLeave?.reason || record?.remarks || "Approved Leave",
+                startDate: approvedLeave?.startDate,
+                endDate: approvedLeave?.endDate,
+                days: approvedLeave?.days,
+                checkIn: null,
+                checkOut: null,
+                workingHours: 0,
+                regularization
+            };
+        }
 
         if (record) {
             return {
@@ -350,26 +393,21 @@ const EmployeeAttendance = () => {
     const stats = useMemo(() => {
         let absents = 0;
         let presents = 0;
+        let leaves = 0;
         let holidayCount = 0;
-        let offs = 0;
 
         // Month-wise data for Area/Bar Chart
         const monthsData = Array.from({ length: 12 }, (_, i) => ({
             name: format(new Date(year, i, 1), 'MMM'),
             present: 0,
             absent: 0,
+            leave: 0,
             workingHours: 0
         }));
 
-        const joiningDate = dateOfJoining ? new Date(dateOfJoining) : startOfYear(new Date(year, 0, 1));
         const today = startOfDay(new Date());
-
-        // We only calculate up to today for "Absent" count logic
-        // But for "Present" count we can look at actual records (which might be future if system allows, but usually past)
-
-        // Populate based on checking each day from Start of Year (or Joining) to Today
         const start = startOfYear(new Date(year, 0, 1));
-        const end = today; // Only calculate stats up to current moment for accurate absent count
+        const end = today;
 
         const days = eachDayOfInterval({ start, end });
 
@@ -380,10 +418,6 @@ const EmployeeAttendance = () => {
             if (status.type === 'Present') {
                 presents++;
                 monthsData[mIndex].present++;
-                // Add hours?
-                // Need to find record again or pass it back from getDayStatus? 
-                // getDayStatus is optimized for returning UI object.
-                // Let's do a quick lookup
                 const dateStrKey = format(day, "yyyy-MM-dd");
                 const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
                 if (record && record.checkIn?.time && record.checkOut?.time) {
@@ -392,29 +426,26 @@ const EmployeeAttendance = () => {
                         monthsData[mIndex].workingHours = parseFloat((monthsData[mIndex].workingHours + dur).toFixed(2));
                     }
                 }
+            } else if (status.type === 'Leave') {
+                leaves++;
+                monthsData[mIndex].leave++;
             } else if (status.type === 'Absent') {
                 absents++;
                 monthsData[mIndex].absent++;
-            } else if (status.type === 'Holiday') {
-                // holidays might be future too, this loop is only till today.
-                // So holidays count will be "Holidays Passed". 
-                // If we want total holidays in year, we use holidays.length
             }
         });
 
-        // Total holidays (whole year)
         holidayCount = holidays.length;
 
-        // Pie Data
         const pieData = [
-            { name: 'Present', value: presents, color: '#10b981' }, // Emerald
-            { name: 'Absent', value: absents, color: '#ef4444' }, // Red
-            { name: 'Holidays', value: holidayCount, color: '#3b82f6' }, // Blue
-            // Offs are tricky to count for whole year without loop, ignore for now
+            { name: 'Present', value: presents, color: '#10b981' },
+            { name: 'Approved Leave', value: leaves, color: '#a855f7' },
+            { name: 'Absent', value: absents, color: '#ef4444' },
+            { name: 'Holidays', value: holidayCount, color: '#3b82f6' },
         ];
 
-        return { absents, presents, holidayCount, monthsData, pieData };
-    }, [attendanceData, holidays, workingDays, dateOfJoining, year]);
+        return { absents, presents, leaves, holidayCount, monthsData, pieData };
+    }, [attendanceData, leaveRequests, holidays, workingDays, dateOfJoining, year]);
 
 
     const getWorkingDaysList = () => {
@@ -466,7 +497,7 @@ const EmployeeAttendance = () => {
                                     <div className="flex justify-between items-center">
                                         <div>
                                             <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Working Hours</p>
-                                            <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.workingHours?.toFixed(2)}h</p>
+                                            <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{formatWorkingHours(status.workingHours)}</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Status</p>
@@ -506,23 +537,39 @@ const EmployeeAttendance = () => {
                             </div>
                         ) : (
                             <div className={`p-12 rounded-3xl border text-center ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
+                                <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
+                                    status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
+                                    status.type === 'Leave' ? 'bg-purple-500/20 text-purple-400' :
                                     status.type === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                        'bg-gray-500/20 text-gray-400'
-                                    }`}>
-                                    {status.type === 'Holiday' ? <FaCalendarCheck size={32} /> : <FaBuilding size={32} />}
+                                    'bg-gray-500/20 text-gray-400'
+                                }`}>
+                                    {status.type === 'Holiday' ? <FaCalendarCheck size={32} /> :
+                                     status.type === 'Leave' ? <FaCalendarCheck size={32} /> :
+                                     <FaBuilding size={32} />}
                                 </div>
                                 <h3 className={`text-2xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                     {status.name || status.type}
                                 </h3>
-                                <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    {status.type === 'Holiday' ? 'Scheduled Holiday' : 'No presence recorded'}
+                                <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${
+                                    status.type === 'Leave' ? 'text-purple-400' :
+                                    status.type === 'Holiday' ? 'text-blue-400' :
+                                    isDark ? 'text-gray-500' : 'text-gray-400'
+                                }`}>
+                                    {status.type === 'Holiday' ? 'Scheduled Holiday' : status.type === 'Leave' ? 'Approved Leave' : 'No presence recorded'}
                                 </p>
                                 {status.type === 'Holiday' && status.description && (
                                     <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-100'}`}>
                                         <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Reason / Description</p>
                                         <p className={`text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                                             "{status.description}"
+                                        </p>
+                                    </div>
+                                )}
+                                {status.type === 'Leave' && (status.reason || status.name) && (
+                                    <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/20' : 'bg-purple-50/50 border-purple-100'}`}>
+                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Approved Leave Details</p>
+                                        <p className={`text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            "{status.reason || status.name}"
                                         </p>
                                     </div>
                                 )}
@@ -871,6 +918,9 @@ const EmployeeAttendance = () => {
                                                     colorClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]";
                                                     dotColor = "bg-emerald-500";
                                                 }
+                                            } else if (status.type === "Leave") {
+                                                colorClass = "bg-purple-500/20 text-purple-400 border border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.1)]";
+                                                dotColor = "bg-purple-500";
                                             } else if (status.type === "Absent") {
                                                 colorClass = "bg-red-500/20 text-red-500 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.1)]";
                                                 dotColor = "bg-red-500";

@@ -18,6 +18,18 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useTheme } from "../../context/ThemeContext";
 
+const formatWorkingHours = (hoursDecimal) => {
+    if (hoursDecimal === undefined || hoursDecimal === null || isNaN(hoursDecimal) || hoursDecimal === 0) {
+        return "0h 0m";
+    }
+    const h = Math.floor(hoursDecimal);
+    const m = Math.round((hoursDecimal - h) * 60);
+    if (m === 60) {
+        return `${h + 1}h 0m`;
+    }
+    return `${h}h ${m}m`;
+};
+
 const LegendItem = ({ color, label, isDarkMode }) => (
     <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
@@ -772,7 +784,7 @@ const EmployeesAttendance = () => {
             'Designation': att.employeeId?.designation?.name || 'N/A',
             'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
             'Check Out': att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--',
-            'Duration': att.workingHours ? `${att.workingHours.toFixed(2)}h` : '--:--',
+            'Duration': att.workingHours ? formatWorkingHours(att.workingHours) : '--:--',
             'Status': att.status === "Week Off" ? "DAY OFF" : (att.status || 'N/A'),
             'Is Regularized': att.regularization ? 'Yes' : 'No',
             'Regularization Status': att.regularization ? att.regularization.status : 'N/A',

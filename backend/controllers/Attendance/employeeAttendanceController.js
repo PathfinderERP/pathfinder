@@ -1,4 +1,5 @@
 import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
+import LeaveRequest from "../../models/Attendance/LeaveRequest.js";
 import Employee from "../../models/HR/Employee.js";
 import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
@@ -400,6 +401,16 @@ export const getMyAttendance = async (req, res) => {
             date: { $gte: start, $lte: end }
         }).populate("reviewedBy", "name");
 
+        const leaveRequests = await LeaveRequest.find({
+            employee: employee._id,
+            status: 'Approved',
+            $or: [
+                { startDate: { $gte: start, $lte: end } },
+                { endDate: { $gte: start, $lte: end } },
+                { startDate: { $lte: start }, endDate: { $gte: end } }
+            ]
+        }).populate('leaveType', 'name days');
+
         // Calculate early checkouts this week for warning
         const today = new Date();
         const startOfMarkWeek = startOfWeek(today, { weekStartsOn: 1 });
@@ -461,6 +472,7 @@ export const getMyAttendance = async (req, res) => {
                 ...employee.toObject() // Include full details if needed
             },
             attendances,
+            leaveRequests,
             regularizations,
             holidays,
             workingDays: normalizedWorkingDays,

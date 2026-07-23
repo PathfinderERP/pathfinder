@@ -59,6 +59,9 @@ const LeaveManagement = () => {
                 toast.success(`Request ${reviewData.status.toLowerCase()}`);
                 setShowStatusModal(false);
                 fetchRequests();
+            } else {
+                const errData = await response.json();
+                toast.error(errData.message || "Error updating status");
             }
         } catch (error) {
             toast.error("Error updating status");
@@ -224,7 +227,7 @@ const LeaveManagement = () => {
             </div>
 
             {/* Approval Modal */}
-            {showStatusModal && (
+            {showStatusModal && selectedRequest && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-[#1a1f24] w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                         <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
@@ -234,6 +237,26 @@ const LeaveManagement = () => {
                             </button>
                         </div>
                         <form onSubmit={handleStatusUpdate} className="p-6 space-y-6">
+                            {/* Summary snippet */}
+                            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl space-y-2 text-xs">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Employee:</span>
+                                    <span className="font-bold text-gray-800 dark:text-white uppercase">{selectedRequest.employee?.name} ({selectedRequest.employee?.employeeId})</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Leave Type & Days:</span>
+                                    <span className="font-bold text-blue-600 dark:text-blue-400">{selectedRequest.leaveType?.name} ({selectedRequest.days} days)</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Duration:</span>
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">{new Date(selectedRequest.startDate).toLocaleDateString()} - {new Date(selectedRequest.endDate).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Reason:</span>
+                                    <span className="font-medium text-gray-700 dark:text-gray-300 italic truncate max-w-[200px]">"{selectedRequest.reason}"</span>
+                                </div>
+                            </div>
+
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Update Status</label>
