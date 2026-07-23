@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
@@ -47,14 +47,25 @@ export default function Campaigns() {
     const [editForm, setEditForm] = useState({
         adName: "", platform: "Facebook", creativeName: "", duration: "",
         budget: "", cpc: "", startDate: "", endDate: "",
-        totalLikes: "", comments: "", shares: "", imageLink: "", videoLink: ""
+        totalLikes: "", totalViews: "", comments: "", shares: "", imageLink: "", videoLink: ""
     });
+    const [editMediaFiles, setEditMediaFiles] = useState(null);
     const [form, setForm] = useState({
         adName: "", platform: "Facebook", creativeName: "", duration: "",
         budget: "", cpc: "", startDate: "", endDate: "",
-        totalLikes: "", comments: "", shares: "", imageLink: "", videoLink: ""
+        totalLikes: "", totalViews: "", comments: "", shares: "", imageLink: "", videoLink: ""
     });
+    const [addMediaFiles, setAddMediaFiles] = useState(null);
     const [uploadingMedia, setUploadingMedia] = useState(false);
+
+    // ── Pagination states ──────────────────────────────────────────────────
+    const [currentPage, setCurrentPage]   = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    const totalPages = Math.ceil(campaigns.length / itemsPerPage) || 1;
+    const paginatedCampaigns = useMemo(() => {
+        return campaigns.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [campaigns, currentPage, itemsPerPage]);
 
     const fetchCampaigns = useCallback(async () => {
         setLoading(true);
@@ -125,15 +136,22 @@ export default function Campaigns() {
         setSubmitting(true);
         try {
             const token = localStorage.getItem("token");
+            const formData = new FormData();
+            Object.keys(form).forEach(key => formData.append(key, form[key]));
+            if (addMediaFiles && addMediaFiles.length > 0) {
+                Array.from(addMediaFiles).forEach(file => formData.append("mediaFiles", file));
+            }
+
             const res = await fetch(`${API_URL}/lead-management/campaigns`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify(form)
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
             });
             const data = await res.json();
             if (res.ok) {
                 toast.success("Campaign added successfully!");
-                setForm({ adName: "", platform: "Facebook", creativeName: "", duration: "", budget: "", cpc: "", startDate: "", endDate: "", totalLikes: "", comments: "", shares: "", imageLink: "", videoLink: "" });
+                setForm({ adName: "", platform: "Facebook", creativeName: "", duration: "", budget: "", cpc: "", startDate: "", endDate: "", totalLikes: "", totalViews: "", comments: "", shares: "", imageLink: "", videoLink: "" });
+                setAddMediaFiles(null);
                 fetchCampaigns();
             } else {
                 toast.error(data.message || "Failed to add campaign");
@@ -181,11 +199,13 @@ export default function Campaigns() {
             startDate: formatDateForInput(campaign.startDate),
             endDate: formatDateForInput(campaign.endDate),
             totalLikes: campaign.totalLikes || "",
+            totalViews: campaign.totalViews || "",
             comments: campaign.comments || "",
             shares: campaign.shares || "",
             imageLink: campaign.imageLink || "",
             videoLink: campaign.videoLink || ""
         });
+        setEditMediaFiles(null);
     };
 
     const handleMediaUpload = async (e) => {
@@ -229,15 +249,22 @@ export default function Campaigns() {
         setSubmitting(true);
         try {
             const token = localStorage.getItem("token");
+            const formData = new FormData();
+            Object.keys(editForm).forEach(key => formData.append(key, editForm[key]));
+            if (editMediaFiles && editMediaFiles.length > 0) {
+                Array.from(editMediaFiles).forEach(file => formData.append("mediaFiles", file));
+            }
+
             const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify(editForm)
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
             });
             const data = await res.json();
             if (res.ok) {
                 toast.success("Campaign updated successfully!");
                 setSelectedCampaign(null);
+                setEditMediaFiles(null);
                 fetchCampaigns();
             } else {
                 toast.error(data.message || "Failed to update campaign");
@@ -404,17 +431,37 @@ export default function Campaigns() {
                             <input type="date" name="startDate" required value={form.startDate} onChange={handleChange} className={inputCls} />
                             <input type="date" name="endDate" required value={form.endDate} onChange={handleChange} className={inputCls} />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <input type="number" name="totalLikes" value={form.totalLikes} onChange={handleChange}
                                 placeholder="Total Likes" className={inputCls} />
+                            <input type="number" name="totalViews" value={form.totalViews} onChange={handleChange}
+                                placeholder="Total Views" className={inputCls} />
                             <input type="number" name="comments" value={form.comments} onChange={handleChange}
                                 placeholder="Comments" className={inputCls} />
                             <input type="number" name="shares" value={form.shares} onChange={handleChange}
                                 placeholder="Shares" className={inputCls} />
-                            <input type="url" name="imageLink" value={form.imageLink} onChange={handleChange}
-                                placeholder="Image Link" className={inputCls} />
-                            <input type="url" name="videoLink" value={form.videoLink} onChange={handleChange}
-                                placeholder="Video Link" className={inputCls} />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Upload Photo / Video</label>
+                                <input 
+                                    type="file" 
+                                    multiple 
+                                    accept="image/*,video/*"
+                                    onChange={(e) => setAddMediaFiles(e.target.files)}
+                                    className={inputCls} 
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Image Link</label>
+                                <input type="url" name="imageLink" value={form.imageLink} onChange={handleChange}
+                                    placeholder="Image Link" className={inputCls} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Video Link</label>
+                                <input type="url" name="videoLink" value={form.videoLink} onChange={handleChange}
+                                    placeholder="Video Link" className={inputCls} />
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -434,6 +481,10 @@ export default function Campaigns() {
                                     <th className="pb-3 px-2">DURATION</th>
                                     <th className="pb-3 px-2 text-right">BUDGET</th>
                                     <th className="pb-3 px-2 text-right">CPC</th>
+                                    <th className="pb-3 px-2 text-right">VIEWS</th>
+                                    <th className="pb-3 px-2 text-right">LIKES</th>
+                                    <th className="pb-3 px-2 text-right">COMMENTS</th>
+                                    <th className="pb-3 px-2 text-right">SHARES</th>
                                     <th className="pb-3 px-2 text-right">LEADS</th>
                                     <th className="pb-3 px-2 text-right">CPL</th>
                                     <th className="pb-3 px-2 text-right">ADMISSION</th>
@@ -445,18 +496,18 @@ export default function Campaigns() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="11" className="text-center py-8">
+                                        <td colSpan="15" className="text-center py-8">
                                             <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
                                         </td>
                                     </tr>
                                 ) : campaigns.length === 0 ? (
                                     <tr>
-                                        <td colSpan="11" className="text-center py-8 font-semibold opacity-40 text-xs uppercase tracking-widest">
+                                        <td colSpan="15" className="text-center py-8 font-semibold opacity-40 text-xs uppercase tracking-widest">
                                             No Campaigns Registered
                                         </td>
                                     </tr>
                                 ) : (
-                                    campaigns.map(c => {
+                                    paginatedCampaigns.map(c => {
                                         const cpl = c.leads > 0 ? c.budget / c.leads : 0;
                                         return (
                                             <tr key={c._id} className={`text-xs font-semibold tracking-wide border-b hover:bg-black/5 dark:hover:bg-white/5 transition-all ${isDark ? "border-gray-800 text-gray-300" : "border-gray-100 text-gray-700"}`}>
@@ -471,6 +522,13 @@ export default function Campaigns() {
                                                                 src={c.imageLink || c.uploadedMedia[0]} 
                                                                 alt="Campaign Logo" 
                                                                 className="w-10 h-10 rounded object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700"
+                                                                onError={(e) => {
+                                                                    if (c.uploadedMedia && c.uploadedMedia[0] && e.target.src !== c.uploadedMedia[0]) {
+                                                                        e.target.src = c.uploadedMedia[0];
+                                                                    } else {
+                                                                        e.target.style.display = 'none';
+                                                                    }
+                                                                }}
                                                             />
                                                         ) : (
                                                             <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-800 flex-shrink-0 flex items-center justify-center border border-gray-300 dark:border-gray-700">
@@ -487,6 +545,10 @@ export default function Campaigns() {
                                                 <td className="py-4 px-2">{c.duration || "—"}</td>
                                                 <td className="py-4 px-2 text-right font-mono">{formatCurrency(c.budget)}</td>
                                                 <td className="py-4 px-2 text-right font-mono">₹{c.cpc.toFixed(2)}</td>
+                                                <td className="py-4 px-2 text-right font-bold text-cyan-400">{c.totalViews || 0}</td>
+                                                <td className="py-4 px-2 text-right font-bold text-rose-400">{c.totalLikes || 0}</td>
+                                                <td className="py-4 px-2 text-right font-bold text-amber-400">{c.comments || 0}</td>
+                                                <td className="py-4 px-2 text-right font-bold text-purple-400">{c.shares || 0}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-cyan-500">{c.leads}</td>
                                                 <td className="py-4 px-2 text-right font-mono">{formatCurrency(cpl)}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-green-500">{c.admission}</td>
@@ -532,6 +594,76 @@ export default function Campaigns() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Bar */}
+                    {campaigns.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-800/10 text-xs font-semibold">
+                            <div className={`flex items-center gap-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                                <span>Showing</span>
+                                <span className="font-bold text-cyan-500">
+                                    {Math.min((currentPage - 1) * itemsPerPage + 1, campaigns.length)} - {Math.min(currentPage * itemsPerPage, campaigns.length)}
+                                </span>
+                                <span>of</span>
+                                <span className="font-bold">{campaigns.length}</span>
+                                <span>campaigns</span>
+                                
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className={`ml-3 px-2 py-1 rounded border text-xs font-semibold outline-none ${isDark ? "bg-[#131619] border-gray-800 text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"}`}
+                                >
+                                    <option value={5}>5 per page</option>
+                                    <option value={10}>10 per page</option>
+                                    <option value={25}>25 per page</option>
+                                    <option value={50}>50 per page</option>
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    className={`px-3 py-1.5 rounded border transition-all cursor-pointer font-bold uppercase text-[10px] disabled:opacity-40 disabled:cursor-not-allowed ${
+                                        isDark ? "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    Previous
+                                </button>
+                                
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                    .map((p, idx, arr) => (
+                                        <Fragment key={p}>
+                                            {idx > 0 && arr[idx - 1] !== p - 1 && (
+                                                <span className="px-1 opacity-50">...</span>
+                                            )}
+                                            <button
+                                                onClick={() => setCurrentPage(p)}
+                                                className={`w-7 h-7 rounded text-xs font-bold transition-all cursor-pointer ${
+                                                    currentPage === p
+                                                        ? "bg-blue-600 text-white shadow-md"
+                                                        : isDark
+                                                            ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                                                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                                }`}
+                                            >
+                                                {p}
+                                            </button>
+                                        </Fragment>
+                                    ))}
+
+                                <button
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    className={`px-3 py-1.5 rounded border transition-all cursor-pointer font-bold uppercase text-[10px] disabled:opacity-40 disabled:cursor-not-allowed ${
+                                        isDark ? "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -564,6 +696,7 @@ export default function Campaigns() {
                                     ["End Date",     new Date(selectedCampaign.endDate).toLocaleDateString("en-IN")],
                                     ["Run Status",   (selectedCampaign.runStatus || "idle").toUpperCase()],
                                     ["Likes",        selectedCampaign.totalLikes || 0],
+                                    ["Views",        selectedCampaign.totalViews || 0],
                                     ["Comments",     selectedCampaign.comments || 0],
                                     ["Shares",       selectedCampaign.shares || 0],
                                 ].map(([label, val]) => (
@@ -659,10 +792,9 @@ export default function Campaigns() {
                                     { label: "Budget ₹",      key: "budget",       type: "number", required: true },
                                     { label: "CPC ₹",         key: "cpc",          type: "number", step: "0.01", required: true },
                                     { label: "Total Likes",   key: "totalLikes",   type: "number" },
+                                    { label: "Total Views",   key: "totalViews",   type: "number" },
                                     { label: "Comments",      key: "comments",     type: "number" },
                                     { label: "Shares",        key: "shares",       type: "number" },
-                                    { label: "Image Link",    key: "imageLink",    type: "url" },
-                                    { label: "Video Link",    key: "videoLink",    type: "url" },
                                 ].map(({ label, key, type, required, step }) => (
                                     <div key={key}>
                                         <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">{label}</label>
@@ -674,6 +806,34 @@ export default function Campaigns() {
                                         />
                                     </div>
                                 ))}
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Upload Photo / Video</label>
+                                    <input 
+                                        type="file" 
+                                        multiple 
+                                        accept="image/*,video/*"
+                                        onChange={(e) => setEditMediaFiles(e.target.files)}
+                                        className={inputCls} 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Image Link</label>
+                                    <input
+                                        type="url"
+                                        value={editForm.imageLink}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, imageLink: e.target.value }))}
+                                        className={inputCls}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Video Link</label>
+                                    <input
+                                        type="url"
+                                        value={editForm.videoLink}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, videoLink: e.target.value }))}
+                                        className={inputCls}
+                                    />
+                                </div>
                                 <div>
                                     <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Platform</label>
                                     <select required value={editForm.platform}
@@ -697,18 +857,6 @@ export default function Campaigns() {
                                             onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
                                             className={inputCls} />
                                     </div>
-                                </div>
-                                <div className="pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-wider mb-1 block opacity-60">Upload Media (Photos/Videos)</label>
-                                    <input 
-                                        type="file" 
-                                        multiple 
-                                        accept="image/*,video/*"
-                                        onChange={handleMediaUpload} 
-                                        disabled={uploadingMedia}
-                                        className={inputCls} 
-                                    />
-                                    {uploadingMedia && <p className="text-xs text-blue-500 mt-1 font-bold">Uploading...</p>}
                                 </div>
                             </div>
                             <div className="flex justify-end gap-2 pt-4 border-t border-gray-800/10">

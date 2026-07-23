@@ -41,17 +41,28 @@ export const uploadToR2 = async (file, folder = "general") => {
 
     const fileName = `${folder}/${Date.now()}_${cleanBaseName}.${extension}`;
 
+    const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio";
+
     const uploadParams = {
-        Bucket: process.env.R2_BUCKET_NAME,
+        Bucket: bucketName,
         Key: fileName,
         Body: file.buffer,
         ContentType: file.mimetype || 'application/octet-stream',
     };
 
     try {
-        console.log(`R2 Upload: Starting upload for ${fileName} to bucket ${process.env.R2_BUCKET_NAME}`);
+        console.log(`R2 Upload: Starting upload for ${fileName} to bucket ${bucketName}`);
         await s3Client.send(new PutObjectCommand(uploadParams));
-        const finalUrl = `${publicUrl}/${fileName}`;
+        let finalUrl;
+        try {
+            finalUrl = await getSignedUrl(
+                s3Client,
+                new GetObjectCommand({ Bucket: bucketName, Key: fileName }),
+                { expiresIn: 604800 }
+            );
+        } catch (e) {
+            finalUrl = `${publicUrl}/${fileName}`;
+        }
         console.log(`R2 Upload: Success. URL: ${finalUrl}`);
         return finalUrl;
     } catch (error) {
@@ -105,6 +116,10 @@ export const deleteFromR2 = async (fileUrl) => {
 export const getSignedFileUrl = async (fileUrl) => {
     if (!fileUrl) return null;
 
+    if (fileUrl.includes("X-Amz-Signature") || fileUrl.includes("X-Amz-Algorithm")) {
+        return fileUrl;
+    }
+
     if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
         console.warn("getSignedFileUrl: Missing R2 credentials, returning original URL");
         return fileUrl;
@@ -117,7 +132,7 @@ export const getSignedFileUrl = async (fileUrl) => {
         if (publicUrl && fileUrl.startsWith(publicUrl)) {
             key = fileUrl.replace(`${publicUrl}/`, "");
         } else {
-            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/", "petty_cash/", "marketing_planner/"];
+            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/", "petty_cash/", "marketing_planner/", "campaigns/"];
             for (const prefix of prefixes) {
                 const index = fileUrl.indexOf(prefix);
                 if (index !== -1) {
@@ -131,14 +146,16 @@ export const getSignedFileUrl = async (fileUrl) => {
 
         key = key.split('?')[0];
 
+        const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio";
+
         const command = new GetObjectCommand({
-            Bucket: process.env.R2_BUCKET_NAME,
+            Bucket: bucketName,
             Key: key,
             ResponseContentDisposition: "inline",
         });
 
-        // Sign for 1 hour
-        const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        // Sign for 7 days (604800 seconds)
+        const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 604800 });
         return signedUrl;
     } catch (error) {
         console.error("Error signing URL:", error, "for URL:", fileUrl);

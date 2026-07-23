@@ -71,10 +71,10 @@ router.post("/clean-duplicates", requireAuth, cleanDuplicates);
 
 // Campaign / Ads routes
 router.get("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "view"), getCampaigns);
-router.post("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "create"), createCampaign);
+router.post("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "create"), upload.array('mediaFiles'), createCampaign);
 router.post("/campaigns/:id/run-action", requireAuth, runCampaignAction);
 router.delete("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "delete"), deleteCampaign);
-router.put("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "edit"), updateCampaign);
+router.put("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "edit"), upload.array('mediaFiles'), updateCampaign);
 router.post("/campaigns/:id/upload-media", requireAuth, upload.array('mediaFiles'), uploadCampaignMedia);
 
 // Generic ID route must come AFTER specific routes
