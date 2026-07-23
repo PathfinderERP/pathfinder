@@ -395,8 +395,6 @@ const EmployeeAttendance = () => {
         let presents = 0;
         let leaves = 0;
         let holidayCount = 0;
-<<<<<<< HEAD
-=======
 
         const currentMonthIdx = getMonth(new Date());
         const currentYearNum = new Date().getFullYear();
@@ -405,7 +403,6 @@ const EmployeeAttendance = () => {
         let currentMonthPresents = 0;
         let currentMonthAbsents = 0;
         let totalYearWorkingHours = 0;
->>>>>>> main
 
         // Month-wise data for Area/Bar Chart
         const monthsData = Array.from({ length: 12 }, (_, i) => ({
@@ -416,14 +413,9 @@ const EmployeeAttendance = () => {
             workingHours: 0
         }));
 
-<<<<<<< HEAD
         const today = startOfDay(new Date());
         const start = startOfYear(new Date(year, 0, 1));
         const end = today;
-=======
-        const start = startOfYear(new Date(year, 0, 1));
-        const end = startOfDay(new Date());
->>>>>>> main
 
         const days = eachDayOfInterval({ start, end });
 
@@ -448,22 +440,6 @@ const EmployeeAttendance = () => {
             if (status.type === 'Present') {
                 presents++;
                 monthsData[mIndex].present++;
-<<<<<<< HEAD
-                const dateStrKey = format(day, "yyyy-MM-dd");
-                const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
-                if (record && record.checkIn?.time && record.checkOut?.time) {
-                    const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
-                    if (!isNaN(dur)) {
-                        monthsData[mIndex].workingHours = parseFloat((monthsData[mIndex].workingHours + dur).toFixed(2));
-                    }
-                }
-            } else if (status.type === 'Leave') {
-                leaves++;
-                monthsData[mIndex].leave++;
-            } else if (status.type === 'Absent') {
-                absents++;
-                monthsData[mIndex].absent++;
-=======
                 if (dayHours > 0) {
                     monthsData[mIndex].workingHours = parseFloat((monthsData[mIndex].workingHours + dayHours).toFixed(2));
                     totalYearWorkingHours += dayHours;
@@ -474,13 +450,15 @@ const EmployeeAttendance = () => {
                 if (isCurrMonth) {
                     currentMonthPresents++;
                 }
+            } else if (status.type === 'Leave') {
+                leaves++;
+                monthsData[mIndex].leave++;
             } else if (status.type === 'Absent') {
                 absents++;
                 monthsData[mIndex].absent++;
                 if (isCurrMonth) {
                     currentMonthAbsents++;
                 }
->>>>>>> main
             }
         });
 
@@ -488,21 +466,15 @@ const EmployeeAttendance = () => {
 
         const pieData = [
             { name: 'Present', value: presents, color: '#10b981' },
-<<<<<<< HEAD
             { name: 'Approved Leave', value: leaves, color: '#a855f7' },
-=======
->>>>>>> main
             { name: 'Absent', value: absents, color: '#ef4444' },
             { name: 'Holidays', value: holidayCount, color: '#3b82f6' },
         ];
 
-<<<<<<< HEAD
-        return { absents, presents, leaves, holidayCount, monthsData, pieData };
-    }, [attendanceData, leaveRequests, holidays, workingDays, dateOfJoining, year]);
-=======
         return {
             absents,
             presents,
+            leaves,
             holidayCount,
             monthsData,
             pieData,
@@ -511,8 +483,7 @@ const EmployeeAttendance = () => {
             currentMonthPresents,
             currentMonthAbsents
         };
-    }, [attendanceData, holidays, workingDays, dateOfJoining, year]);
->>>>>>> main
+    }, [attendanceData, leaveRequests, holidays, workingDays, dateOfJoining, year]);
 
 
     const getWorkingDaysList = () => {
