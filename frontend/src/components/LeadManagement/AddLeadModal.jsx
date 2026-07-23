@@ -88,19 +88,45 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         search: ""
     });
 
-    const filteredCourses = courses.filter(course => {
-        const matchesSearch = !courseFilters.search ||
-            course.courseName?.toLowerCase().includes(courseFilters.search.toLowerCase());
+    const filteredCourses = React.useMemo(() => {
+        return courses.filter(course => {
+            const matchesSearch = !courseFilters.search ||
+                (course.courseName && course.courseName.toLowerCase().includes(courseFilters.search.toLowerCase()));
 
-        return (
-            matchesSearch &&
-            (!courseFilters.class || (course.class?._id || course.class) === courseFilters.class) &&
-            (!courseFilters.mode || course.mode === courseFilters.mode) &&
-            (!courseFilters.examTag || (course.examTag?._id || course.examTag) === courseFilters.examTag) &&
-            (!courseFilters.type || course.courseType === courseFilters.type) &&
-            (!courseFilters.session || course.courseSession === courseFilters.session)
-        );
-    });
+            const courseClassIds = Array.isArray(course.class)
+                ? course.class.map(c => (c?._id || c)?.toString())
+                : [(course.class?._id || course.class)?.toString()].filter(Boolean);
+            const matchesClass = !courseFilters.class || courseClassIds.includes(courseFilters.class.toString());
+
+            const matchesMode = !courseFilters.mode ||
+                (course.mode && course.mode.trim().toUpperCase() === courseFilters.mode.trim().toUpperCase());
+
+            const courseExamTagIds = Array.isArray(course.examTag)
+                ? course.examTag.map(t => (t?._id || t)?.toString())
+                : [(course.examTag?._id || course.examTag)?.toString()].filter(Boolean);
+            const matchesExamTag = !courseFilters.examTag || courseExamTagIds.includes(courseFilters.examTag.toString());
+
+            const matchesType = !courseFilters.type ||
+                (course.courseType && course.courseType.trim().toUpperCase() === courseFilters.type.trim().toUpperCase());
+
+            const courseSessionStr = (course.courseSession || course.session || course.sessionName || "")?.toString().trim().toUpperCase();
+            const filterSessionStr = courseFilters.session?.toString().trim().toUpperCase();
+            const matchesSession = !courseFilters.session || (courseSessionStr === filterSessionStr);
+
+            return matchesSearch && matchesClass && matchesMode && matchesExamTag && matchesType && matchesSession;
+        });
+    }, [courses, courseFilters]);
+
+    const courseOptions = React.useMemo(() => {
+        const opts = filteredCourses.map(c => ({ value: c._id, label: c.courseName }));
+        if (formData.course && !opts.some(o => o.value === formData.course)) {
+            const selectedCourseObj = courses.find(c => c._id === formData.course);
+            if (selectedCourseObj) {
+                opts.unshift({ value: selectedCourseObj._id, label: selectedCourseObj.courseName });
+            }
+        }
+        return opts;
+    }, [filteredCourses, courses, formData.course]);
 
     const fetchDropdownData = useCallback(async () => {
         try {
@@ -136,8 +162,8 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             });
             if (courseResponse.ok) {
                 const data = await courseResponse.json();
-                const filtered = (Array.isArray(data) ? data : []).filter(c => c.department?.showInAdmission !== false);
-                setCourses(filtered.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
+                const allCourses = Array.isArray(data) ? data : [];
+                setCourses(allCourses.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
             }
 
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
@@ -506,7 +532,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                         <div className="space-y-1.5">
                             <label className={labelClasses}>Select Course ({filteredCourses.length}) *</label>
                             <CustomSearchSelect
-                                options={filteredCourses.map(c => ({ value: c._id, label: c.courseName }))}
+                                options={courseOptions}
                                 value={formData.course}
                                 onChange={(val) => setFormData({ ...formData, course: val })}
                                 placeholder="Select Course"

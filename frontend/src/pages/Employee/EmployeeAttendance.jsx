@@ -395,6 +395,17 @@ const EmployeeAttendance = () => {
         let presents = 0;
         let leaves = 0;
         let holidayCount = 0;
+<<<<<<< HEAD
+=======
+
+        const currentMonthIdx = getMonth(new Date());
+        const currentYearNum = new Date().getFullYear();
+
+        let currentMonthWorkingHours = 0;
+        let currentMonthPresents = 0;
+        let currentMonthAbsents = 0;
+        let totalYearWorkingHours = 0;
+>>>>>>> main
 
         // Month-wise data for Area/Bar Chart
         const monthsData = Array.from({ length: 12 }, (_, i) => ({
@@ -405,19 +416,39 @@ const EmployeeAttendance = () => {
             workingHours: 0
         }));
 
+<<<<<<< HEAD
         const today = startOfDay(new Date());
         const start = startOfYear(new Date(year, 0, 1));
         const end = today;
+=======
+        const start = startOfYear(new Date(year, 0, 1));
+        const end = startOfDay(new Date());
+>>>>>>> main
 
         const days = eachDayOfInterval({ start, end });
 
         days.forEach(day => {
             const status = getDayStatus(day);
             const mIndex = getMonth(day);
+            const isCurrMonth = (mIndex === currentMonthIdx && year === currentYearNum);
+
+            const dateStrKey = format(day, "yyyy-MM-dd");
+            const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
+
+            let dayHours = 0;
+            if (record) {
+                if (typeof record.workingHours === 'number' && record.workingHours > 0) {
+                    dayHours = record.workingHours;
+                } else if (record.checkIn?.time && record.checkOut?.time) {
+                    const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
+                    if (!isNaN(dur) && dur > 0) dayHours = dur;
+                }
+            }
 
             if (status.type === 'Present') {
                 presents++;
                 monthsData[mIndex].present++;
+<<<<<<< HEAD
                 const dateStrKey = format(day, "yyyy-MM-dd");
                 const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
                 if (record && record.checkIn?.time && record.checkOut?.time) {
@@ -432,6 +463,24 @@ const EmployeeAttendance = () => {
             } else if (status.type === 'Absent') {
                 absents++;
                 monthsData[mIndex].absent++;
+=======
+                if (dayHours > 0) {
+                    monthsData[mIndex].workingHours = parseFloat((monthsData[mIndex].workingHours + dayHours).toFixed(2));
+                    totalYearWorkingHours += dayHours;
+                    if (isCurrMonth) {
+                        currentMonthWorkingHours += dayHours;
+                    }
+                }
+                if (isCurrMonth) {
+                    currentMonthPresents++;
+                }
+            } else if (status.type === 'Absent') {
+                absents++;
+                monthsData[mIndex].absent++;
+                if (isCurrMonth) {
+                    currentMonthAbsents++;
+                }
+>>>>>>> main
             }
         });
 
@@ -439,13 +488,31 @@ const EmployeeAttendance = () => {
 
         const pieData = [
             { name: 'Present', value: presents, color: '#10b981' },
+<<<<<<< HEAD
             { name: 'Approved Leave', value: leaves, color: '#a855f7' },
+=======
+>>>>>>> main
             { name: 'Absent', value: absents, color: '#ef4444' },
             { name: 'Holidays', value: holidayCount, color: '#3b82f6' },
         ];
 
+<<<<<<< HEAD
         return { absents, presents, leaves, holidayCount, monthsData, pieData };
     }, [attendanceData, leaveRequests, holidays, workingDays, dateOfJoining, year]);
+=======
+        return {
+            absents,
+            presents,
+            holidayCount,
+            monthsData,
+            pieData,
+            totalYearWorkingHours: parseFloat(totalYearWorkingHours.toFixed(2)),
+            currentMonthWorkingHours: parseFloat(currentMonthWorkingHours.toFixed(2)),
+            currentMonthPresents,
+            currentMonthAbsents
+        };
+    }, [attendanceData, holidays, workingDays, dateOfJoining, year]);
+>>>>>>> main
 
 
     const getWorkingDaysList = () => {
@@ -834,24 +901,38 @@ const EmployeeAttendance = () => {
                     )}
 
                     {/* Stats Summary Cards */}
-                    {/* <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-emerald-500/30 transition-all group`}>
-                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Total Present</p>
-                            <p className="text-3xl font-black text-emerald-500 tracking-tighter">{stats.presents}</p>
+                    <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-cyan-500/30' : 'bg-cyan-50/50 border-cyan-200 shadow-md'} border p-5 rounded-[2px] hover:border-cyan-500 transition-all group`}>
+                            <div className="flex items-center justify-between mb-1">
+                                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">Month Worked Hours</p>
+                                <FaClock className="text-cyan-500" size={14} />
+                            </div>
+                            <p className="text-2xl font-black text-cyan-500 tracking-tighter">
+                                {Math.floor(stats.currentMonthWorkingHours)}h {Math.round((stats.currentMonthWorkingHours % 1) * 60)}m
+                            </p>
+                            <p className={`text-[9px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mt-1`}>
+                                {format(new Date(), 'MMMM')} ({stats.currentMonthWorkingHours} hrs)
+                            </p>
                         </div>
-                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-red-500/30 transition-all group`}>
-                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Total Absences</p>
-                            <p className="text-3xl font-black text-red-500 tracking-tighter">{stats.absents}</p>
+
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-5 rounded-[2px] hover:border-emerald-500/30 transition-all group`}>
+                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-1`}>Present (This Month)</p>
+                            <p className="text-2xl font-black text-emerald-500 tracking-tighter">{stats.currentMonthPresents} Days</p>
+                            <p className={`text-[9px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mt-1`}>Year Total: {stats.presents}</p>
                         </div>
-                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-blue-500/30 transition-all group`}>
-                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Holidays</p>
-                            <p className="text-3xl font-black text-blue-500 tracking-tighter">{stats.holidayCount}</p>
+
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-5 rounded-[2px] hover:border-red-500/30 transition-all group`}>
+                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-1`}>Absences (This Month)</p>
+                            <p className="text-2xl font-black text-red-500 tracking-tighter">{stats.currentMonthAbsents} Days</p>
+                            <p className={`text-[9px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mt-1`}>Year Total: {stats.absents}</p>
                         </div>
-                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-6 rounded-[2px] hover:border-cyan-500/30 transition-all group`}>
-                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-2`}>Current Year</p>
-                            <p className="text-3xl font-black text-cyan-500 tracking-tighter">{year}</p>
+
+                        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border p-5 rounded-[2px] hover:border-indigo-500/30 transition-all group`}>
+                            <p className={`text-[10px] font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mb-1`}>Total Hours ({year})</p>
+                            <p className="text-2xl font-black text-indigo-500 tracking-tighter">{stats.totalYearWorkingHours} hrs</p>
+                            <p className={`text-[9px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mt-1`}>Holidays: {stats.holidayCount}</p>
                         </div>
-                    </div> */}
+                    </div>
                 </div>
 
                 {/* 4. Calendar Grid */}
@@ -868,7 +949,12 @@ const EmployeeAttendance = () => {
                             return (
                                 <div key={mIdx} className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden group hover:border-gray-700 transition-all`}>
                                     <div className="flex justify-between items-center mb-6">
-                                        <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter italic`}>{format(month, 'MMMM')}</h2>
+                                        <div>
+                                            <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter italic`}>{format(month, 'MMMM')}</h2>
+                                            <p className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mt-0.5">
+                                                {stats.monthsData[mIdx]?.workingHours > 0 ? `${stats.monthsData[mIdx].workingHours} hrs worked` : '0 hrs'}
+                                            </p>
+                                        </div>
                                         <div className={`w-8 h-8 ${isDarkMode ? 'bg-gray-900 text-gray-700' : 'bg-gray-50 text-gray-400'} rounded-[2px] flex items-center justify-center text-[10px] font-black`}>
                                             {format(month, 'MM')}
                                         </div>

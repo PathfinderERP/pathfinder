@@ -22,6 +22,7 @@ const MyRegularization = () => {
 
     const [showForm, setShowForm] = useState(false);
     const [selectedDateAttendance, setSelectedDateAttendance] = useState(null);
+    const [checkingDate, setCheckingDate] = useState(false);
     // View & Edit Modal States
     const [viewModalReq, setViewModalReq] = useState(null);
     const [editModalReq, setEditModalReq] = useState(null);

@@ -365,7 +365,7 @@ const LeadManagementContent = () => {
             });
             if (courseResponse.ok) {
                 const data = await courseResponse.json();
-                setCourses((Array.isArray(data) ? data : []).filter(c => c.department?.showInAdmission !== false));
+                setCourses(Array.isArray(data) ? data : []);
             }
 
             // Fetch boards

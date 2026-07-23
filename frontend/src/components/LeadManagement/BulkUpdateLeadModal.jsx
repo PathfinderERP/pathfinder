@@ -62,15 +62,30 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, isAllFilteredSelected, filters, 
     });
     const [courseSearch, setCourseSearch] = useState("");
 
-    const filteredCourses = courses.filter(course => {
-        return (
-            (!courseFilters.class || (course.class?._id || course.class) === courseFilters.class) &&
-            (!courseFilters.mode || course.mode === courseFilters.mode) &&
-            (!courseFilters.examTag || (course.examTag?._id || course.examTag) === courseFilters.examTag) &&
-            (!courseFilters.type || course.courseType === courseFilters.type) &&
-            (!courseSearch || course.courseName.toLowerCase().includes(courseSearch.toLowerCase()))
-        );
-    });
+    const filteredCourses = React.useMemo(() => {
+        return courses.filter(course => {
+            const matchesSearch = !courseSearch ||
+                (course.courseName && course.courseName.toLowerCase().includes(courseSearch.toLowerCase()));
+
+            const courseClassIds = Array.isArray(course.class)
+                ? course.class.map(c => (c?._id || c)?.toString())
+                : [(course.class?._id || course.class)?.toString()].filter(Boolean);
+            const matchesClass = !courseFilters.class || courseClassIds.includes(courseFilters.class.toString());
+
+            const matchesMode = !courseFilters.mode ||
+                (course.mode && course.mode.trim().toUpperCase() === courseFilters.mode.trim().toUpperCase());
+
+            const courseExamTagIds = Array.isArray(course.examTag)
+                ? course.examTag.map(t => (t?._id || t)?.toString())
+                : [(course.examTag?._id || course.examTag)?.toString()].filter(Boolean);
+            const matchesExamTag = !courseFilters.examTag || courseExamTagIds.includes(courseFilters.examTag.toString());
+
+            const matchesType = !courseFilters.type ||
+                (course.courseType && course.courseType.trim().toUpperCase() === courseFilters.type.trim().toUpperCase());
+
+            return matchesSearch && matchesClass && matchesMode && matchesExamTag && matchesType;
+        });
+    }, [courses, courseFilters, courseSearch]);
 
     const toggleField = (field) => {
         setEnabledFields(prev => ({
@@ -110,8 +125,8 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, isAllFilteredSelected, filters, 
             });
             if (courseResponse.ok) {
                 const data = await courseResponse.json();
-                const filtered = (Array.isArray(data) ? data : []).filter(c => c.department?.showInAdmission !== false);
-                setCourses(filtered.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
+                const allCourses = Array.isArray(data) ? data : [];
+                setCourses(allCourses.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
             }
 
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
