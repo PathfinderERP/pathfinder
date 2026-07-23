@@ -120,12 +120,22 @@ export const getFollowUpStats = async (req, res) => {
         }
         backlogStartDate.setHours(0, 0, 0, 0);
 
+        const allowedPendingLeadTypes = [
+            "Warm Lead", "Hot Lead", "Neutral Lead",
+            "WARM LEAD", "HOT LEAD", "NEUTRAL LEAD",
+            "warm lead", "hot lead", "neutral lead"
+        ];
+
         const previousPendingMatch = { 
             ...leadOwnerMatch, 
-            nextFollowUpDate: { $lt: backlogStartDate } 
+            nextFollowUpDate: { $lt: backlogStartDate },
+            leadType: { $in: allowedPendingLeadTypes }
         };
         if (leadOwnerMatch.$and) {
-            previousPendingMatch.$and = [...leadOwnerMatch.$and];
+            previousPendingMatch.$and = [
+                ...leadOwnerMatch.$and,
+                { leadType: { $in: allowedPendingLeadTypes } }
+            ];
         }
 
         const stats = await LeadManagement.aggregate([

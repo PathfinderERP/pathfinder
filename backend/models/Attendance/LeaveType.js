@@ -17,6 +17,11 @@ const leaveTypeSchema = new mongoose.Schema({
         min: 0,
         default: null
     },
+    validity: {
+        type: String,
+        enum: ['yearly', 'monthly'],
+        default: 'yearly'
+    },
     designations: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Designation'

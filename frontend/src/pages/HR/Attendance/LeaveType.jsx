@@ -13,6 +13,7 @@ const LeaveType = () => {
         name: "",
         days: "",
         teacherDays: "",
+        validity: "yearly",
         designations: []
     });
 
@@ -90,7 +91,7 @@ const LeaveType = () => {
                 toast.success(editingType ? "Leave type updated" : "Leave type added");
                 setShowModal(false);
                 setEditingType(null);
-                setFormData({ name: "", days: "", teacherDays: "", designations: [] });
+                setFormData({ name: "", days: "", teacherDays: "", validity: "yearly", designations: [] });
                 fetchLeaveTypes();
             }
         } catch (error) {
@@ -125,7 +126,7 @@ const LeaveType = () => {
                     <button
                         onClick={() => {
                             setEditingType(null);
-                            setFormData({ name: "", days: "", teacherDays: "", designations: [] });
+                            setFormData({ name: "", days: "", teacherDays: "", validity: "yearly", designations: [] });
                             setShowModal(true);
                         }}
                         className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 font-bold text-sm"
@@ -143,6 +144,7 @@ const LeaveType = () => {
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Days (General)</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Days (Teacher)</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Cycle</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Designation</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                                 </tr>
@@ -150,53 +152,65 @@ const LeaveType = () => {
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td>
+                                        <td colSpan="7" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td>
                                     </tr>
                                 ) : leaveTypes.length > 0 ? (
-                                    leaveTypes.map((type, index) => (
-                                        <tr key={type._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                                            <td className="px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">{index + 1}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-gray-800 dark:text-white">{type.name}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400">
-                                                    {type.days}
-                                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">days</span>
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {type.teacherDays != null ? (
-                                                    <span className="inline-flex items-center gap-1 text-sm font-bold text-purple-600 dark:text-purple-400">
-                                                        {type.teacherDays}
+                                    leaveTypes.map((type, index) => {
+                                        const isMonthly = /short\s*leave|early\s*leave/i.test(type.name);
+                                        return (
+                                            <tr key={type._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-600 dark:text-gray-400">{index + 1}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-gray-800 dark:text-white">{type.name}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400">
+                                                        {type.days}
                                                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">days</span>
                                                     </span>
-                                                ) : (
-                                                    <span className="text-xs text-gray-400 italic">Same as general</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                                {type.designations && type.designations.length > 0
-                                                    ? type.designations.map(d => d.name).join(', ')
-                                                    : "All Designations"}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button onClick={() => {
-                                                        setEditingType(type);
-                                                        setFormData({
-                                                            name: type.name,
-                                                            days: type.days,
-                                                            teacherDays: type.teacherDays ?? "",
-                                                            designations: type.designations?.map(d => d._id) || []
-                                                        });
-                                                        setShowModal(true);
-                                                    }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg"><FaEdit size={14} /></button>
-                                                    <button onClick={() => handleDelete(type._id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"><FaTrash size={14} /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {type.teacherDays != null ? (
+                                                        <span className="inline-flex items-center gap-1 text-sm font-bold text-purple-600 dark:text-purple-400">
+                                                            {type.teacherDays}
+                                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">days</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400 italic">Same as general</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                                                        isMonthly
+                                                            ? "bg-amber-500/15 text-amber-500 border border-amber-500/30"
+                                                            : "bg-blue-500/15 text-blue-500 border border-blue-500/30"
+                                                    }`}>
+                                                        {isMonthly ? "Monthly" : "Yearly"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                                    {type.designations && type.designations.length > 0
+                                                        ? type.designations.map(d => d.name).join(', ')
+                                                        : "All Designations"}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button onClick={() => {
+                                                            setEditingType(type);
+                                                            setFormData({
+                                                                name: type.name,
+                                                                days: type.days,
+                                                                teacherDays: type.teacherDays ?? "",
+                                                                designations: type.designations?.map(d => d._id) || []
+                                                            });
+                                                            setShowModal(true);
+                                                        }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg"><FaEdit size={14} /></button>
+                                                        <button onClick={() => handleDelete(type._id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"><FaTrash size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 ) : (
-                                    <tr><td colSpan="6" className="px-6 py-10 text-center text-gray-500 italic text-sm">No leave types defined</td></tr>
+                                    <tr><td colSpan="7" className="px-6 py-10 text-center text-gray-500 italic text-sm">No leave types defined</td></tr>
                                 )}
                             </tbody>
                         </table>

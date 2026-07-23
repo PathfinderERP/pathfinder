@@ -2786,4 +2786,192 @@ export const bulkEndClass = async (req, res) => {
         console.error("Error bulk ending classes:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
+};
+
+export const bulkStartClass = async (req, res) => {
+    try {
+        const { ids, filters, allMatching } = req.body;
+
+        // Permission Check
+        if (!ALL_ROLES_FOR_CLASS.includes(req.user.role)) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        let query = {};
+
+        if (allMatching) {
+            query.status = "Upcoming";
+
+            const {
+                centreId,
+                batchId,
+                subjectId,
+                teacherId,
+                coordinatorId,
+                fromDate,
+                toDate,
+                search,
+                classMode,
+                startTime,
+                endTime
+            } = filters || {};
+
+            // Role-based filtering
+            const userId = req.user._id;
+            const userRole = req.user.role;
+
+            if (userRole === 'superAdmin' || userRole === 'admin' || userRole === 'Class_Coordinator' || userRole === 'coordinator') {
+                if (teacherId) {
+                    const teacherIds = teacherId.split(',').filter(id => id.trim());
+                    if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
+                }
+                if (coordinatorId) {
+                    const coordinatorIds = coordinatorId.split(',').filter(id => id.trim());
+                    if (coordinatorIds.length > 0) {
+                        query.$and = query.$and || [];
+                        query.$and.push({
+                            $or: [
+                                { coordinatorId: { $in: coordinatorIds } },
+                                { coordinatorIds: { $in: coordinatorIds } }
+                            ]
+                        });
+                    }
+                }
+            } else if (userRole === 'teacher') {
+                query.teacherId = userId;
+            } else {
+                if (teacherId) {
+                    const teacherIds = teacherId.split(',').filter(id => id.trim());
+                    if (teacherIds.length > 0) query.teacherId = { $in: teacherIds };
+                }
+            }
+
+            // Center-based filtering for Non-SuperAdmins
+            if (req.user && req.user.role !== 'superAdmin') {
+                const userCentres = req.user.centres || [];
+                if (userCentres.length > 0) {
+                    let filterCentres = userCentres;
+                    if (centreId) {
+                        const selectedCentres = centreId.split(',').filter(id => id.trim());
+                        const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
+                        if (authorized.length > 0) filterCentres = authorized;
+                    }
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { centreIds: { $in: filterCentres } },
+                            { centreId: { $in: filterCentres } }
+                        ]
+                    });
+                } else {
+                    return res.status(200).json({ message: "No centers assigned", modifiedCount: 0 });
+                }
+            } else if (centreId) {
+                const selectedCentres = centreId.split(',').filter(id => id.trim());
+                if (selectedCentres.length > 0) {
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { centreIds: { $in: selectedCentres } },
+                            { centreId: { $in: selectedCentres } }
+                        ]
+                    });
+                }
+            }
+
+            if (batchId) {
+                const batchIds = batchId.split(',').filter(id => id.trim());
+                if (batchIds.length > 0) query.batchIds = { $in: batchIds };
+            }
+            if (subjectId) {
+                const subjectIds = subjectId.split(',').filter(id => id.trim());
+                if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
+            }
+            if (classMode) {
+                const classModes = classMode.split(',').filter(m => m.trim());
+                if (classModes.length > 0) query.classMode = { $in: classModes };
+            }
+            if (fromDate || toDate) {
+                query.date = {};
+                if (fromDate) query.date.$gte = new Date(fromDate);
+                if (toDate) query.date.$lte = new Date(toDate);
+            }
+            if (startTime) query.startTime = { $gte: startTime };
+            if (endTime) query.endTime = { $lte: endTime };
+
+            if (search) {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { className: { $regex: search, $options: "i" } },
+                        { startTime: { $regex: search, $options: "i" } },
+                        { endTime: { $regex: search, $options: "i" } },
+                        { classMode: { $regex: search, $options: "i" } },
+                        { session: { $regex: search, $options: "i" } },
+                    ]
+                });
+            }
+        } else {
+            if (!ids || !Array.isArray(ids) || ids.length === 0) {
+                return res.status(400).json({ message: "No class IDs provided" });
+            }
+            query._id = { $in: ids };
+            query.status = "Upcoming";
+
+            // Center authorization check
+            if (req.user.role !== 'superAdmin') {
+                const userCentres = req.user.centres || [];
+                const userCentreStrs = userCentres.map(c => c.toString());
+
+                const classesToVerify = await ClassSchedule.find({ _id: { $in: ids } });
+                for (const cls of classesToVerify) {
+                    const finalCentreIds = cls.centreIds || (cls.centreId ? [cls.centreId] : []);
+                    const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+                    if (unauthorized.length > 0) {
+                        return res.status(403).json({ message: `You are not authorized for one or more centers of class ${cls.className}` });
+                    }
+                }
+            }
+        }
+
+        const classesToStart = await ClassSchedule.find(query);
+        const invalidClasses = classesToStart.filter(c => 
+            !c.subjectName || c.subjectName === "N/A" || 
+            !c.chapterName || c.chapterName === "N/A" || 
+            !c.topicName || c.topicName === "N/A"
+        );
+
+        if (invalidClasses.length > 0 && !allMatching) {
+            return res.status(400).json({
+                message: `${invalidClasses.length} selected class(es) are missing Subject, Chapter, or Topic. Please add them before starting.`
+            });
+        }
+
+        const validClassIds = classesToStart
+            .filter(c => c.subjectName && c.subjectName !== "N/A" && c.chapterName && c.chapterName !== "N/A" && c.topicName && c.topicName !== "N/A")
+            .map(c => c._id);
+
+        if (validClassIds.length === 0) {
+            return res.status(400).json({ message: "No eligible upcoming classes to start." });
+        }
+
+        const result = await ClassSchedule.updateMany(
+            { _id: { $in: validClassIds } },
+            {
+                $set: {
+                    status: "Ongoing",
+                    actualStartTime: new Date(),
+                    startedBy: req.user._id
+                }
+            }
+        );
+
+        res.status(200).json({
+            message: `Successfully started ${result.modifiedCount} classes!`,
+            modifiedCount: result.modifiedCount
+        });
+    } catch (error) {
+        console.error("Error bulk starting classes:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 };

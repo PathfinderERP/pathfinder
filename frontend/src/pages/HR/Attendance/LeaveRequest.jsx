@@ -141,15 +141,24 @@ const LeaveRequest = () => {
                     {leaveTypes.map(type => (
                         <div key={type._id} className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between">
                             <div>
-                                <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">{type.name}</h3>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-xs font-bold uppercase text-gray-500">{type.name}</h3>
+                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                                        type.isMonthly
+                                            ? "bg-amber-500/15 text-amber-500 border border-amber-500/30"
+                                            : "bg-blue-500/15 text-blue-500 border border-blue-500/30"
+                                    }`}>
+                                        {type.isMonthly ? "Monthly" : "Yearly"}
+                                    </span>
+                                </div>
                                 <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
                                     {type.availableDays !== undefined ? type.availableDays : type.days}
                                 </p>
-                                <p className="text-xs text-gray-500 font-semibold mt-1">Days Available</p>
+                                <p className="text-xs text-gray-500 font-semibold mt-1">Days Available {type.isMonthly ? "(This Month)" : "(This Year)"}</p>
                             </div>
                             <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 flex justify-between text-[11px] font-medium text-gray-400">
                                 <span>Used: <strong className="text-gray-700 dark:text-gray-300">{type.usedDays || 0}</strong> days</span>
-                                <span>Quota: <strong className="text-gray-700 dark:text-gray-300">{type.totalDays || type.days}</strong> days</span>
+                                <span>Quota: <strong className="text-gray-700 dark:text-gray-300">{type.totalDays || type.days}</strong> days/{type.isMonthly ? "mo" : "yr"}</span>
                             </div>
                         </div>
                     ))}

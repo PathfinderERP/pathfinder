@@ -41,15 +41,27 @@ export const getLeaveTypes = async (req, res) => {
             });
         }
 
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
         const adjustedLeaveTypes = leaveTypes.map(lt => {
             const obj = lt.toObject();
             const totalQuota = (isTeacher && obj.teacherDays != null) ? obj.teacherDays : obj.days;
             obj.days = totalQuota;
             obj.totalDays = totalQuota;
 
+            const isMonthly = /short\s*leave|early\s*leave/i.test(obj.name);
+            obj.isMonthly = isMonthly;
+
             if (targetEmployeeId) {
                 const used = approvedRequests
                     .filter(r => r.leaveType.toString() === obj._id.toString())
+                    .filter(r => {
+                        if (!isMonthly) return true;
+                        const rDate = new Date(r.startDate);
+                        return rDate.getMonth() === currentMonth && rDate.getFullYear() === currentYear;
+                    })
                     .reduce((sum, r) => sum + (r.days || 0), 0);
                 obj.usedDays = used;
                 obj.availableDays = Math.max(0, totalQuota - used);

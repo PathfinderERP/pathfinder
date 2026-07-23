@@ -26,6 +26,10 @@ const UpcomingClass = () => {
     // Global search (client-side across all visible fields)
     const [search, setSearch] = useState("");
 
+    // Bulk Selection
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [selectAllMatching, setSelectAllMatching] = useState(false);
+
     // Filter states
     const [filters, setFilters] = useState({
         teacherId: [],
@@ -191,6 +195,87 @@ const UpcomingClass = () => {
             }
         } catch {
             toast.error("Error starting class");
+        }
+    };
+
+    const handleSelectRow = (id) => {
+        if (selectAllMatching) {
+            setSelectAllMatching(false);
+            const next = new Set();
+            filteredClasses.forEach(cls => {
+                if (cls._id !== id) {
+                    next.add(cls._id);
+                }
+            });
+            setSelectedIds(next);
+        } else {
+            setSelectedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) {
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
+                return next;
+            });
+        }
+    };
+
+    const handleSelectAll = () => {
+        if (filteredClasses.length === 0) return;
+        const allSelectedOnPage = filteredClasses.every(cls => selectedIds.has(cls._id));
+        if (allSelectedOnPage || selectAllMatching) {
+            setSelectedIds(new Set());
+            setSelectAllMatching(false);
+        } else {
+            setSelectedIds(new Set(filteredClasses.map(cls => cls._id)));
+        }
+    };
+
+    const handleBulkStart = async () => {
+        if (selectedIds.size === 0 && !selectAllMatching) return;
+
+        const count = selectAllMatching ? totalRecords : selectedIds.size;
+        if (!window.confirm(`Are you sure you want to start all ${count} selected upcoming classes?`)) return;
+
+        try {
+            const token = localStorage.getItem("token");
+
+            const serializedFilters = {};
+            if (filters.teacherId?.length > 0) serializedFilters.teacherId = filters.teacherId.map(v => v.value).join(",");
+            if (filters.centreId?.length > 0) serializedFilters.centreId = filters.centreId.map(v => v.value).join(",");
+            if (filters.subjectId?.length > 0) serializedFilters.subjectId = filters.subjectId.map(v => v.value).join(",");
+            if (filters.classMode?.length > 0) serializedFilters.classMode = filters.classMode.map(v => v.value).join(",");
+            if (filters.batchId?.length > 0) serializedFilters.batchId = filters.batchId.map(v => v.value).join(",");
+            if (filters.fromDate) serializedFilters.fromDate = filters.fromDate;
+            if (filters.toDate) serializedFilters.toDate = filters.toDate;
+            if (filters.startTime) serializedFilters.startTime = filters.startTime;
+            if (filters.endTime) serializedFilters.endTime = filters.endTime;
+            if (search) serializedFilters.search = search;
+
+            const response = await fetch(`${API_URL}/academics/class-schedule/bulk-start`, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    allMatching: selectAllMatching,
+                    filters: selectAllMatching ? serializedFilters : undefined,
+                    ids: selectAllMatching ? undefined : Array.from(selectedIds)
+                })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message || "Classes started successfully!");
+                setSelectedIds(new Set());
+                setSelectAllMatching(false);
+                fetchClasses();
+            } else {
+                toast.error(data.message || "Failed to start classes");
+            }
+        } catch (error) {
+            toast.error("Error bulk starting classes");
         }
     };
 
@@ -423,6 +508,17 @@ const UpcomingClass = () => {
                                 </button>
                             )}
 
+                            {/* Bulk Start Button */}
+                            {(isAcademicAdmin || isHod) && (selectedIds.size > 0 || selectAllMatching) && (
+                                <button
+                                    onClick={handleBulkStart}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-sm transition shadow-lg shadow-green-900/25 animate-pulse"
+                                >
+                                    <FaPlay size={10} />
+                                    Start Selected ({selectAllMatching ? totalRecords : selectedIds.size})
+                                </button>
+                            )}
+
                             {/* Per Page */}
                             <select
                                 value={limit}
@@ -625,11 +721,53 @@ const UpcomingClass = () => {
                         </div>
                     )}
 
+                    {/* Select All Matching Notice Banner */}
+                    {(isAcademicAdmin || isHod) && filteredClasses.length > 0 && filteredClasses.every(cls => selectedIds.has(cls._id)) && totalRecords > filteredClasses.length && (
+                        <div className={`p-3 text-center text-sm mb-4 rounded-lg font-medium transition-colors ${
+                            isDarkMode ? 'bg-[#2a3038] text-cyan-400 border border-gray-700' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}>
+                            {!selectAllMatching ? (
+                                <span>
+                                    All {filteredClasses.length} upcoming classes on this page are selected.{" "}
+                                    <button 
+                                        onClick={() => setSelectAllMatching(true)} 
+                                        className="underline font-black hover:text-blue-500 hover:no-underline"
+                                    >
+                                        Select all {totalRecords} upcoming classes matching these filters
+                                    </button>
+                                </span>
+                            ) : (
+                                <span>
+                                    All {totalRecords} upcoming classes matching these filters are selected.{" "}
+                                    <button 
+                                        onClick={() => {
+                                            setSelectAllMatching(false);
+                                            setSelectedIds(new Set());
+                                        }} 
+                                        className="underline font-black hover:text-blue-500 hover:no-underline"
+                                    >
+                                        Clear selection
+                                    </button>
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     {/* Table */}
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className={`border-b ${isDarkMode ? "bg-[#2a3038] text-gray-300 border-gray-700" : "bg-gray-50 text-gray-600 border-gray-200"} text-xs uppercase font-bold tracking-wider`}>
+                                    {(isAcademicAdmin || isHod) && (
+                                        <th className="p-4 text-center w-12">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectAllMatching || (filteredClasses.length > 0 && filteredClasses.every(cls => selectedIds.has(cls._id)))}
+                                                onChange={handleSelectAll}
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            />
+                                        </th>
+                                    )}
                                     <th className="p-4">#</th>
                                     <th className="p-4">Class Name</th>
                                     <th className="p-4">Mode</th>
@@ -650,7 +788,7 @@ const UpcomingClass = () => {
                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-700" : "divide-gray-100"}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="15" className="p-8 text-center text-gray-500">
+                                        <td colSpan="16" className="p-8 text-center text-gray-500">
                                             <div className="flex items-center justify-center gap-2">
                                                 <svg className="animate-spin h-5 w-5 text-blue-500" viewBox="0 0 24 24" fill="none">
                                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -662,7 +800,7 @@ const UpcomingClass = () => {
                                     </tr>
                                 ) : filteredClasses.length === 0 ? (
                                     <tr>
-                                        <td colSpan="15" className="p-10 text-center text-gray-500 uppercase tracking-widest opacity-50">
+                                        <td colSpan="16" className="p-10 text-center text-gray-500 uppercase tracking-widest opacity-50">
                                             No upcoming classes found
                                         </td>
                                     </tr>
@@ -672,6 +810,16 @@ const UpcomingClass = () => {
                                             key={cls._id}
                                             className={`transition-colors text-sm ${isDarkMode ? "hover:bg-[#252b32] text-gray-300" : "hover:bg-blue-50/40 text-gray-600"}`}
                                         >
+                                            {(isAcademicAdmin || isHod) && (
+                                                <td className="p-4 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectAllMatching || selectedIds.has(cls._id)}
+                                                        onChange={() => handleSelectRow(cls._id)}
+                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    />
+                                                </td>
+                                            )}
                                             <td className={`p-4 text-xs font-mono ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                                                 {(page - 1) * limit + idx + 1}
                                             </td>

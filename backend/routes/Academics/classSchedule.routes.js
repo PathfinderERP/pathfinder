@@ -6,6 +6,7 @@ import {
     startClass,
     endClass,
     bulkEndClass,
+    bulkStartClass,
     deleteClassSchedule,
     submitFeedback,
     markTeacherAttendance,
@@ -34,6 +35,7 @@ router.get("/dropdown-data", requireAuth, getClassDropdownData);
 router.put("/start/:id", requireGranularPermission("academics", "classes", "edit"), startClass);
 router.put("/end/:id", requireGranularPermission("academics", "classes", "edit"), endClass);
 router.put("/bulk-end", requireGranularPermission("academics", "classes", "edit"), bulkEndClass);
+router.put("/bulk-start", requireGranularPermission("academics", "classes", "edit"), bulkStartClass);
 router.delete("/delete/:id", requireGranularPermission("academics", "classes", "delete"), deleteClassSchedule);
 
 router.put("/update/:id", requireGranularPermission("academics", "classes", "edit"), updateClassSchedule);

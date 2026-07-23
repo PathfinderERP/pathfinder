@@ -27,14 +27,16 @@ const findEmployeeByUser = async (userId) => {
 };
 
 // Helper to check available leave balance for an employee and leave type
-const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDays, excludeRequestId = null) => {
+const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDays, excludeRequestId = null, requestedStartDate = null) => {
     const leaveTypeObj = await LeaveType.findById(leaveTypeId);
     if (!leaveTypeObj) {
         return { valid: false, message: 'Leave type not found', availableDays: 0 };
     }
 
-    const employeeObj = await Employee.findById(employeeId);
+    const isMonthly = /short\s*leave|early\s*leave/i.test(leaveTypeObj.name);
+
     let totalQuota = leaveTypeObj.days;
+    const employeeObj = await Employee.findById(employeeId);
 
     if (employeeObj && employeeObj.user) {
         const userObj = await User.findById(employeeObj.user).select('role');
@@ -52,14 +54,27 @@ const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDay
         query._id = { $ne: excludeRequestId };
     }
 
-    const approvedRequests = await LeaveRequest.find(query);
+    let approvedRequests = await LeaveRequest.find(query);
+
+    if (isMonthly) {
+        const targetDate = requestedStartDate ? new Date(requestedStartDate) : new Date();
+        const targetMonth = targetDate.getMonth();
+        const targetYear = targetDate.getFullYear();
+
+        approvedRequests = approvedRequests.filter(r => {
+            const rDate = new Date(r.startDate);
+            return rDate.getMonth() === targetMonth && rDate.getFullYear() === targetYear;
+        });
+    }
+
     const usedDays = approvedRequests.reduce((sum, r) => sum + (r.days || 0), 0);
     const availableDays = Math.max(0, totalQuota - usedDays);
 
     if (requestingDays > availableDays) {
+        const cycleText = isMonthly ? "for this month" : "for this year";
         return {
             valid: false,
-            message: `Insufficient leave balance! You have ${availableDays} day(s) available for ${leaveTypeObj.name}, but requested ${requestingDays} day(s).`,
+            message: `Insufficient leave balance! You have ${availableDays} day(s) available for ${leaveTypeObj.name} ${cycleText}, but requested ${requestingDays} day(s).`,
             availableDays,
             totalQuota,
             usedDays
@@ -134,7 +149,7 @@ export const createLeaveRequest = async (req, res) => {
         }
 
         // Validate leave balance before creation
-        const balanceCheck = await checkAvailableLeaveBalance(employee._id, leaveType, Number(days));
+        const balanceCheck = await checkAvailableLeaveBalance(employee._id, leaveType, Number(days), null, startDate);
         if (!balanceCheck.valid) {
             return res.status(400).json({ message: balanceCheck.message });
         }
@@ -180,7 +195,8 @@ export const updateLeaveRequestStatus = async (req, res) => {
                 currentRequest.employee,
                 currentRequest.leaveType._id,
                 currentRequest.days,
-                id
+                id,
+                currentRequest.startDate
             );
 
             if (!balanceCheck.valid) {
