@@ -770,7 +770,10 @@ const CourseTarget = () => {
     // Calculate visible data for table and dynamic flash cards
     const visibleData = data.filter(centre => {
         const name = (centre.centreName || "").toLowerCase();
-        const isSpecial = name.includes("phsps") || name.includes("rkm") || name.includes("franchise");
+        if (name.includes("franchise")) {
+            return false;
+        }
+        const isSpecial = name.includes("phsps") || name.includes("rkm");
         if (isSpecial) {
             // Only hide if BOTH all zones and all centres are selected (i.e. default dashboard view)
             const isAllZonesSelected = selectedZones.length === zones.length;
@@ -1246,13 +1249,13 @@ const CourseTarget = () => {
 
                 {/* Main Table - Matrix Layout */}
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-[calc(100vh-230px)] custom-scrollbar">
                         <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                    <th className="px-6 py-4 sticky left-0 z-10 bg-inherit border-r border-inherit">Centre Name</th>
+                            <thead className="sticky top-0 z-20">
+                                <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-800' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                    <th className={`px-6 py-4 sticky top-0 left-0 z-30 border-r border-inherit ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>Centre Name</th>
                                     {uniqueDeptColumns.map(deptName => (
-                                        <th key={deptName} className="px-6 py-4 text-center border-r border-inherit min-w-[160px]">
+                                        <th key={deptName} className={`px-6 py-4 text-center border-r border-inherit min-w-[160px] sticky top-0 z-20 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>
                                             <div className="flex flex-col items-center">
                                                 <span className="text-cyan-500 mb-1">{deptName}</span>
                                                 <div className="flex gap-4 text-[9px] opacity-60">
@@ -1261,7 +1264,7 @@ const CourseTarget = () => {
                                             </div>
                                         </th>
                                     ))}
-                                    <th className="px-6 py-4 text-center border-r border-inherit bg-amber-500/5">
+                                    <th className={`px-6 py-4 text-center border-r border-inherit sticky top-0 z-20 ${isDarkMode ? 'bg-[#1e1c17]' : 'bg-amber-50'}`}>
                                         <div className="flex flex-col items-center">
                                             <span className="text-amber-500 uppercase tracking-widest">Grand Total</span>
                                         </div>
@@ -1285,7 +1288,7 @@ const CourseTarget = () => {
                                     visibleData.map((centre) => {
                                         return (
                                             <tr key={centre.centreId} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
-                                                <td className="px-6 py-5 sticky left-0 z-10 bg-inherit border-r border-inherit">
+                                                <td className={`px-6 py-5 sticky left-0 z-10 border-r border-inherit ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                                         <span className={`text-xs font-black uppercase tracking-tighter ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
@@ -1307,7 +1310,7 @@ const CourseTarget = () => {
                                                             }}
                                                         >
                                                             <div className="flex flex-col items-center gap-1">
-                                                                <span className={`text-xl font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
+                                                                <span className="text-xl font-black text-emerald-500">
                                                                     {achieved}
                                                                     <span className="text-gray-500 font-normal mx-1">/</span>
                                                                     <span className={target > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
@@ -1342,9 +1345,9 @@ const CourseTarget = () => {
                                 )}
                             </tbody>
                             {!loading && visibleData.length > 0 && (
-                                <tfoot>
-                                    <tr className={`border-t-2 font-black text-xs uppercase transition-colors ${isDarkMode ? 'bg-black/40 text-white border-gray-700' : 'bg-gray-100 text-gray-900 border-gray-300'}`}>
-                                        <td className="px-6 py-5 sticky left-0 z-10 bg-inherit border-r border-inherit font-black">
+                                <tfoot className="sticky bottom-0 z-20">
+                                    <tr className={`border-t-2 font-black text-xs uppercase transition-colors ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-100 text-gray-900 border-gray-300'}`}>
+                                        <td className={`px-6 py-5 sticky left-0 bottom-0 z-30 border-r border-inherit font-black ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>
                                             Grand Total
                                         </td>
                                         {uniqueDeptColumns.map(deptName => {
@@ -1358,7 +1361,7 @@ const CourseTarget = () => {
 
                                             return (
                                                 <td key={deptName} className="px-6 py-5 text-center border-r border-inherit">
-                                                    <span className={`text-base font-black ${deptAchievedSum > 0 ? 'text-emerald-500' : 'opacity-40'}`}>
+                                                    <span className="text-base font-black text-emerald-500">
                                                         {deptAchievedSum}
                                                         {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
                                                             <>

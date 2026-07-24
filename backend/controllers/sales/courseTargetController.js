@@ -12,14 +12,14 @@ import mongoose from "mongoose";
 const isBoardMatchingDept = (boardCourse, deptName) => {
     const bName = (boardCourse || "").toUpperCase();
     const dName = (deptName || "").toUpperCase();
-    
+
     if (dName.includes(bName) || bName.includes(dName)) return true;
-    
+
     if (bName === 'WBBSE' && dName.includes('MADHYAMIK')) return true;
     if (dName.includes('WBBSE') && bName.includes('MADHYAMIK')) return true;
-    
+
     if (bName === 'WBCHSE' && (dName.includes('HS') || dName.includes('HIGHER SECONDARY'))) return true;
-    
+
     return false;
 };
 
@@ -53,7 +53,7 @@ const getDeptForBoard = (boardName, departments) => {
         const dept = departments.find(d => d.departmentName.toUpperCase().trim() === targetDeptName);
         if (dept) return dept._id.toString();
     }
-    
+
     // Fallback to isBoardMatchingDept
     const matched = departments.find(d => isBoardMatchingDept(boardName, d.departmentName));
     return matched ? matched._id.toString() : null;
@@ -61,7 +61,7 @@ const getDeptForBoard = (boardName, departments) => {
 
 const getStudentSessionExamTag = (studentDoc, academicSession) => {
     if (!studentDoc || !studentDoc.sessionExamCourse || !Array.isArray(studentDoc.sessionExamCourse)) return null;
-    const match = studentDoc.sessionExamCourse.find(sec => 
+    const match = studentDoc.sessionExamCourse.find(sec =>
         sec && sec.session === academicSession
     );
     return match ? match.examTag : null;
@@ -70,7 +70,7 @@ const getStudentSessionExamTag = (studentDoc, academicSession) => {
 const getNormalizedExamTagName = (tagName, masterExamTags) => {
     if (!tagName) return "Uncategorized";
     const upperName = tagName.toUpperCase().trim();
-    const match = masterExamTags.find(t => 
+    const match = masterExamTags.find(t =>
         (t.name || "").toUpperCase().trim() === upperName ||
         (t.tagName || "").toUpperCase().trim() === upperName
     );
@@ -88,70 +88,52 @@ const monthNames = [
 // POST /sales/course-target and /sales/course-target/bulk
 export const saveCourseTarget = async (req, res) => {
     try {
-        const payload = req.body;
+        const { centreId, targetType, year, month, quarter, week, targetCount, department, examTags } = req.body;
 
-        // Support bulk targets array or single target payload
-        const targetsList = Array.isArray(payload.targets)
-            ? payload.targets
-            : (Array.isArray(payload) ? payload : [payload]);
-
-        if (!targetsList || targetsList.length === 0) {
-            return res.status(400).json({ message: "No target data provided" });
+        if (!centreId || !targetType || !year || !department || !targetCount) {
+            return res.status(400).json({ message: "Missing required fields" });
         }
 
-        const operations = [];
-
-        for (const item of targetsList) {
-            const centreId = item.centreId || item.centre;
-            const department = item.department || item.departmentId;
-            const targetType = item.targetType || "MONTHLY";
-            const year = parseInt(item.year, 10);
-            const targetCount = parseInt(item.targetCount, 10);
-
-            if (!centreId || !department || !targetType || isNaN(year) || isNaN(targetCount)) {
-                continue;
-            }
-
-            const filter = { centre: centreId, department, targetType, year };
-            if (targetType === 'MONTHLY') filter.month = item.month;
-            if (targetType === 'QUARTERLY') filter.quarter = item.quarter;
-            if (targetType === 'WEEKLY') {
-                filter.week = parseInt(item.week, 10);
-                filter.month = item.month; // required: distinguishes same week number across different months
-            }
-
-            const rawTags = item.examTags || [];
-            const examTags = rawTags.map(t => typeof t === 'object' && t !== null ? t.value : t).filter(Boolean);
-
-            const update = {
-                targetCount,
-                examTags,
-                createdBy: req.user._id
-            };
-
-            operations.push({
-                updateOne: {
-                    filter,
-                    update: { $set: { ...filter, ...update } },
-                    upsert: true
-                }
-            });
+        const filter = { centre: centreId, department, targetType, year };
+        if (targetType === 'MONTHLY') filter.month = item.month;
+        if (targetType === 'QUARTERLY') filter.quarter = item.quarter;
+        if (targetType === 'WEEKLY') {
+            filter.week = parseInt(item.week, 10);
+            filter.month = item.month; // required: distinguishes same week number across different months
         }
+
+        const rawTags = item.examTags || [];
+        const examTags = rawTags.map(t => typeof t === 'object' && t !== null ? t.value : t).filter(Boolean);
+
+        const update = {
+            targetCount,
+            examTags,
+            createdBy: req.user._id
+        };
+
+        operations.push({
+            updateOne: {
+                filter,
+                update: { $set: { ...filter, ...update } },
+                upsert: true
+            }
+        });
+    }
 
         if (operations.length === 0) {
-            return res.status(400).json({ message: "Missing required fields for target creation" });
-        }
-
-        const bulkResult = await CourseTarget.bulkWrite(operations);
-
-        res.status(200).json({
-            message: `Successfully saved ${operations.length} target(s)`,
-            data: bulkResult
-        });
-    } catch (error) {
-        console.error("saveCourseTarget error:", error);
-        res.status(500).json({ message: "Server error", error: error.message });
+        return res.status(400).json({ message: "Missing required fields for target creation" });
     }
+
+    const bulkResult = await CourseTarget.bulkWrite(operations);
+
+    res.status(200).json({
+        message: `Successfully saved ${operations.length} target(s)`,
+        data: bulkResult
+    });
+} catch (error) {
+    console.error("saveCourseTarget error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+}
 };
 
 // GET /sales/course-target/analysis
@@ -187,12 +169,12 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const rawZoneIds = typeof req.query.zoneIds === 'string' ? req.query.zoneIds.split(',') : req.query.zoneIds;
             const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
             const objectZoneIds = validZoneIds.map(id => new mongoose.Types.ObjectId(id));
-            
+
             const zoneDocs = await Zone.find({ _id: { $in: objectZoneIds } }).select("centres").lean();
             const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
             const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id").lean();
             const zIdStrings = zoneCentres.map(c => c._id.toString());
-            
+
             if (centreIds.length > 0) {
                 const intersected = centreIds.filter(id => zIdStrings.includes(id));
                 centreIds = intersected.length > 0 ? intersected : zIdStrings;
@@ -238,11 +220,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const daysInMonth = new Date(parsedYear, mIdx + 1, 0).getDate();
             const firstDowJS = new Date(parsedYear, mIdx, 1).getDay();
             const firstMonOffset = (firstDowJS + 6) % 7; // Mon=0, Tue=1 … Sun=6
-            
+
             const weeksList = [];
             let currentDay = 1;
             let currentWeekNum = 1;
-            
+
             while (currentDay <= daysInMonth) {
                 const startOffset = currentWeekNum === 1 ? firstMonOffset : 0;
                 let startDay = currentDay;
@@ -255,11 +237,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 weeksList.push({ weekNumber: currentWeekNum, startDay, endDay });
                 currentWeekNum++;
             }
-            
+
             const currentWeekRange = weeksList.find(w => w.weekNumber === parsedWeekNum) || weeksList[0];
             const startDay = currentWeekRange ? currentWeekRange.startDay : 1;
             const endDay = currentWeekRange ? currentWeekRange.endDay : 7;
-            
+
             startDate = new Date(parsedYear, mIdx, startDay);
             endDate = new Date(parsedYear, mIdx, endDay, 23, 59, 59, 999);
         } else if (targetType === 'CUSTOM') {
@@ -646,7 +628,7 @@ export const getAdmissionDetails = async (req, res) => {
 
         // If specific tag filtering, filter the deduplicated list to only keep matching tags
         if (isTagFiltered) {
-            uniqueCombinedResults = uniqueCombinedResults.filter(item => 
+            uniqueCombinedResults = uniqueCombinedResults.filter(item =>
                 (item.examTag || "").toLowerCase() === tagName.toLowerCase()
             );
         }

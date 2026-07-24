@@ -17,7 +17,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, onStageTarget, centres, isDa
         month: initialData?.month || new Date().toLocaleString('default', { month: 'long' }),
         quarter: initialData?.quarter || "Q1",
         week: initialData?.week || 1,
-        targetCount: initialData?.targetCount || ""
+        targetCount: (initialData?.targetCount !== undefined && initialData?.targetCount !== null) ? initialData.targetCount : ""
     });
 
     useEffect(() => {
@@ -78,7 +78,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, onStageTarget, centres, isDa
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!formData.centreId || !formData.targetCount || !formData.departmentId) {
+        if (!formData.centreId || formData.targetCount === "" || formData.targetCount === undefined || formData.targetCount === null || !formData.departmentId) {
             return toast.warn("Please select a centre, department and target count");
         }
 
@@ -244,7 +244,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, onStageTarget, centres, isDa
                             <input
                                 type="number"
                                 required
-                                min="1"
+                                min="0"
                                 placeholder="e.g. 50"
                                 value={formData.targetCount}
                                 onChange={(e) => setFormData({ ...formData, targetCount: e.target.value })}
