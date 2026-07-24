@@ -42,7 +42,18 @@ const AddCourseTargetModal = ({ onClose, onSuccess, onStageTarget, centres, isDa
                     axios.get(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
                     axios.get(`${import.meta.env.VITE_API_URL}/examTag`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
-                setAllDepartments(deptsRes.data.filter(d => d.showInAdmission !== false) || []);
+                const isExcluded = (name) => {
+                    if (!name) return true;
+                    const n = name.toLowerCase().trim();
+                    if (n.includes("fort william")) return true;
+                    if (n.includes("icse and isc") || n.includes("icse & isc")) return true;
+                    if (n.includes("madhyamik and hs") || n.includes("madhyamik & hs")) return true;
+                    if (n.includes("counselling desk") || n.includes("zall india") || n.includes("zall-india")) return true;
+                    return false;
+                };
+                const rawDepts = deptsRes.data || [];
+                const filteredDepts = rawDepts.filter(d => d.showInAdmission !== false && !isExcluded(d.departmentName));
+                setAllDepartments(filteredDepts);
                 setExamTags(examTagsRes.data || []);
             } catch (e) {
                 console.error(e);

@@ -401,4 +401,104 @@ const deleteExpense = async (req, res) => {
     }
 };
 
-export { createExpense, getAllExpence ,getSingleExpence,updateExpence, bulkImportExpenses, deleteExpense};
+const bulkDeleteExpenses = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide an array of expense IDs to delete"
+            });
+        }
+
+        const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+        if (validIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No valid expense IDs provided"
+            });
+        }
+
+        const result = await Expense.deleteMany({ _id: { $in: validIds } });
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully deleted ${result.deletedCount} expense(s)`,
+            count: result.deletedCount
+        });
+    } catch (error) {
+        console.error("Bulk delete expenses error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
+const bulkEditExpenses = async (req, res) => {
+    try {
+        const { ids, updateData } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide an array of expense IDs to edit"
+            });
+        }
+
+        if (!updateData || typeof updateData !== 'object') {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide update fields"
+            });
+        }
+
+        const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+        if (validIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No valid expense IDs provided"
+            });
+        }
+
+        const fieldsToUpdate = {};
+        if (updateData.category) fieldsToUpdate.category = updateData.category;
+        if (updateData.months) fieldsToUpdate.months = updateData.months;
+        if (updateData.week) fieldsToUpdate.week = updateData.week;
+        if (updateData.modeOfPayment) fieldsToUpdate.modeOfPayment = updateData.modeOfPayment;
+        if (updateData.financeStatus) fieldsToUpdate.financeStatus = updateData.financeStatus;
+        if (updateData.approvedBy) fieldsToUpdate.approvedBy = updateData.approvedBy;
+        if (updateData.amount !== undefined && updateData.amount !== null && updateData.amount !== '') {
+            fieldsToUpdate.amount = Number(updateData.amount);
+        }
+        if (updateData.reason !== undefined) fieldsToUpdate.reason = updateData.reason;
+        if (updateData.givenBy !== undefined) fieldsToUpdate.givenBy = updateData.givenBy;
+
+        if (Object.keys(fieldsToUpdate).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No valid fields provided for bulk edit"
+            });
+        }
+
+        const result = await Expense.updateMany(
+            { _id: { $in: validIds } },
+            { $set: fieldsToUpdate }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully updated ${result.modifiedCount} expense(s)`,
+            count: result.modifiedCount
+        });
+    } catch (error) {
+        console.error("Bulk edit expenses error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
+export { createExpense, getAllExpence, getSingleExpence, updateExpence, bulkImportExpenses, deleteExpense, bulkDeleteExpenses, bulkEditExpenses };

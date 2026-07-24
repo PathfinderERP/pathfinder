@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup, FaSave } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
@@ -855,14 +855,24 @@ const CourseTarget = () => {
         return false;
     };
 
+    const isExcludedDepartment = (deptName) => {
+        if (!deptName) return true;
+        const name = deptName.toLowerCase().trim();
+        if (name.includes("fort william")) return true;
+        if (name.includes("icse and isc") || name.includes("icse & isc")) return true;
+        if (name.includes("madhyamik and hs") || name.includes("madhyamik & hs")) return true;
+        if (name.includes("counselling desk") || name.includes("zall india") || name.includes("zall-india")) return true;
+        return false;
+    };
+
     // Fixed department columns across all tabs (weekly, monthly, quarterly, yearly, custom).
-    // Includes all master departments regardless of whether admissions exist in the selected period.
+    // Includes all master departments except explicitly excluded departments.
     // If no admissions are found for a department in a date range, it defaults to 0.
     const allDeptNamesSet = new Set();
     data.forEach(centre => {
         if (centre.departments) {
             centre.departments.forEach(dept => {
-                if (dept.name) {
+                if (dept.name && !isExcludedDepartment(dept.name)) {
                     allDeptNamesSet.add(dept.name);
                 }
             });
@@ -1234,17 +1244,6 @@ const CourseTarget = () => {
                             </button>
                         </div>
                     </div>
-                )}
-
-                {showTargetModal && (
-                    <AddCourseTargetModal
-                        onClose={() => setShowTargetModal(false)}
-                        onSuccess={handleTargetSuccess}
-                        onStageTarget={handleStageTarget}
-                        centres={centres}
-                        isDarkMode={isDarkMode}
-                        initialData={targetModalData}
-                    />
                 )}
 
                 {/* Main Table - Matrix Layout */}
@@ -1663,6 +1662,7 @@ const CourseTarget = () => {
                     <AddCourseTargetModal
                         onClose={() => setShowTargetModal(false)}
                         onSuccess={handleTargetSuccess}
+                        onStageTarget={handleStageTarget}
                         centres={centres}
                         isDarkMode={isDarkMode}
                         initialData={targetModalData}

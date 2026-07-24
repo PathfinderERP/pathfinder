@@ -103,36 +103,61 @@ export const saveCourseTarget = async (req, res) => {
 
         for (const item of targetsList) {
             const centreId = item.centreId || item.centre;
-            const department = item.department || item.departmentId;
+            let department = item.department || item.departmentId;
             const targetType = item.targetType || "MONTHLY";
             const year = parseInt(item.year, 10);
             const targetCount = parseInt(item.targetCount, 10);
 
+            // If department is passed as department name instead of ID, resolve ObjectId
+            if (department && !mongoose.Types.ObjectId.isValid(department)) {
+                const deptDoc = await Department.findOne({
+                    departmentName: new RegExp(`^${department.trim()}$`, "i")
+                }).lean();
+                if (deptDoc) department = deptDoc._id.toString();
+            }
+
             if (!centreId || !department || !targetType || isNaN(year) || isNaN(targetCount)) {
+                console.warn("Skipping invalid course target item:", item);
                 continue;
             }
 
-            const filter = { centre: centreId, department, targetType, year };
-            if (targetType === 'MONTHLY') filter.month = item.month;
-            if (targetType === 'QUARTERLY') filter.quarter = item.quarter;
-            if (targetType === 'WEEKLY') {
+            const centreObjId = mongoose.Types.ObjectId.isValid(centreId) ? new mongoose.Types.ObjectId(centreId) : centreId;
+            const deptObjId = mongoose.Types.ObjectId.isValid(department) ? new mongoose.Types.ObjectId(department) : department;
+
+            const filter = { centre: centreObjId, department: deptObjId, targetType, year };
+            if (targetType === 'MONTHLY') {
+                filter.month = item.month;
+            } else if (targetType === 'QUARTERLY') {
+                filter.quarter = item.quarter;
+            } else if (targetType === 'WEEKLY') {
                 filter.week = parseInt(item.week, 10);
-                filter.month = item.month; // required: distinguishes same week number across different months
+                if (item.month) filter.month = item.month; // required: distinguishes same week number across different months
             }
 
             const rawTags = item.examTags || [];
-            const examTags = rawTags.map(t => typeof t === 'object' && t !== null ? t.value : t).filter(Boolean);
+            const examTags = rawTags.map(t => {
+                const val = typeof t === 'object' && t !== null ? t.value : t;
+                return mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : null;
+            }).filter(Boolean);
 
-            const update = {
+            const updateFields = {
+                centre: centreObjId,
+                department: deptObjId,
+                targetType,
+                year,
                 targetCount,
                 examTags,
                 createdBy: req.user._id
             };
 
+            if (item.month) updateFields.month = item.month;
+            if (item.quarter) updateFields.quarter = item.quarter;
+            if (item.week) updateFields.week = parseInt(item.week, 10);
+
             operations.push({
                 updateOne: {
                     filter,
-                    update: { $set: { ...filter, ...update } },
+                    update: { $set: updateFields },
                     upsert: true
                 }
             });
@@ -205,7 +230,15 @@ export const getCourseTargetAnalysis = async (req, res) => {
             return res.status(200).json({ year: parsedYear, targetType, data: [] });
         }
 
-        const masterDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
+        const rawDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
+        const masterDepartments = rawDepartments.filter(d => {
+            const name = (d.departmentName || "").toLowerCase().trim();
+            if (name.includes("fort william")) return false;
+            if (name.includes("icse and isc") || name.includes("icse & isc")) return false;
+            if (name.includes("madhyamik and hs") || name.includes("madhyamik & hs")) return false;
+            if (name.includes("counselling desk") || name.includes("zall india") || name.includes("zall-india")) return false;
+            return true;
+        });
         const allCentres = await Centre.find({ _id: { $in: centreIds }, status: { $ne: 'deactive' } }).lean();
         const centreMap = {};
         allCentres.forEach(c => centreMap[c._id.toString()] = c);
@@ -280,21 +313,29 @@ export const getCourseTargetAnalysis = async (req, res) => {
         // Fetch Course Targets
         const targetFilter = {
             centre: { $in: centreIds },
-            year: parsedYear,
-            targetType
+            year: parsedYear
         };
-        if (targetType === 'MONTHLY') targetFilter.month = month;
-        if (targetType === 'QUARTERLY') targetFilter.quarter = quarter;
-        if (targetType === 'WEEKLY') {
+        if (targetType === 'MONTHLY') {
+            targetFilter.targetType = 'MONTHLY';
+            targetFilter.month = month;
+        } else if (targetType === 'QUARTERLY') {
+            targetFilter.targetType = 'QUARTERLY';
+            targetFilter.quarter = quarter;
+        } else if (targetType === 'WEEKLY') {
+            targetFilter.targetType = 'WEEKLY';
             targetFilter.week = parseInt(week, 10);
             targetFilter.month = month; // required: same week number can exist in different months
+        } else if (targetType === 'YEARLY') {
+            targetFilter.targetType = 'YEARLY';
         }
 
         const courseTargets = await CourseTarget.find(targetFilter).lean();
         const targetMap = {};
         courseTargets.forEach(t => {
             const key = `${t.centre.toString()}_${t.department.toString()}`;
-            targetMap[key] = t.targetCount;
+            if (!targetMap[key] || t.targetCount > targetMap[key]) {
+                targetMap[key] = t.targetCount;
+            }
         });
 
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];

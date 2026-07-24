@@ -166,6 +166,7 @@ const GetAllExpense = () => {
     const [typeFilter, setTypeFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
     const [modeOfPaymentFilter, setModeOfPaymentFilter] = useState("all");
+    const [createdByFilter, setCreatedByFilter] = useState("all");
     const [categories, setCategories] = useState([]);
     const { theme } = useTheme();
     const isDarkMode = theme === "dark";
@@ -217,6 +218,22 @@ const GetAllExpense = () => {
         ifscCode: "",
         modeOfPayment: "Bank",
     });
+
+    // Bulk Action States
+    const [selectedExpenseIds, setSelectedExpenseIds] = useState([]);
+    const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+    const [bulkEditFormData, setBulkEditFormData] = useState({
+        category: "",
+        months: "",
+        week: "",
+        modeOfPayment: "",
+        financeStatus: "",
+        amount: "",
+        reason: "",
+        givenBy: ""
+    });
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [bulkUpdating, setBulkUpdating] = useState(false);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = hasPermission(user, "financeFees", "expense", "create") || hasPermission(user, "financeFees", "addExpense", "create");
@@ -492,6 +509,20 @@ const GetAllExpense = () => {
         return date.toLocaleDateString();
     };
 
+    const creatorOptions = useMemo(() => {
+        const map = new Map();
+        expenses.forEach(e => {
+            if (e.createdBy) {
+                const id = typeof e.createdBy === "object" ? e.createdBy._id : e.createdBy;
+                const name = typeof e.createdBy === "object" ? (e.createdBy.name || e.createdBy.email || "Unknown") : `User (${e.createdBy})`;
+                if (id && !map.has(id.toString())) {
+                    map.set(id.toString(), name);
+                }
+            }
+        });
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    }, [expenses]);
+
     const filteredExpenses = useMemo(() => {
         return expenses.filter((expense) => {
             if (!expenseMatchesSearch(expense, searchTerm)) return false;
@@ -507,12 +538,105 @@ const GetAllExpense = () => {
             }
             if (statusFilter !== "all" && getExpenseStatusLabel(expense) !== statusFilter) return false;
             if (modeOfPaymentFilter !== "all" && (expense.modeOfPayment || "Bank") !== modeOfPaymentFilter) return false;
+            if (createdByFilter !== "all") {
+                const creatorId = expense.createdBy?._id?.toString() || expense.createdBy?.toString();
+                if (creatorId !== createdByFilter) return false;
+            }
             return true;
         });
-    }, [expenses, searchTerm, nameFilter, fromDate, toDate, typeFilter, statusFilter, modeOfPaymentFilter]);
+    }, [expenses, searchTerm, nameFilter, fromDate, toDate, typeFilter, statusFilter, modeOfPaymentFilter, createdByFilter]);
+
+    const isAllSelected = useMemo(() => {
+        if (filteredExpenses.length === 0) return false;
+        return filteredExpenses.every(e => selectedExpenseIds.includes(e._id));
+    }, [filteredExpenses, selectedExpenseIds]);
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            const allIds = filteredExpenses.map(item => item._id);
+            setSelectedExpenseIds(allIds);
+        } else {
+            setSelectedExpenseIds([]);
+        }
+    };
+
+    const handleSelectExpense = (id) => {
+        setSelectedExpenseIds(prev => {
+            if (prev.includes(id)) {
+                return prev.filter(i => i !== id);
+            } else {
+                return [...prev, id];
+            }
+        });
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedExpenseIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedExpenseIds.length} selected expense(s)? This action cannot be undone.`)) {
+            return;
+        }
+
+        setBulkDeleting(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.post(
+                `${API_URL}/finance/expense/bulk-delete`,
+                { ids: selectedExpenseIds },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(response.data?.message || `Successfully deleted ${selectedExpenseIds.length} expense(s)`);
+            setSelectedExpenseIds([]);
+            fetchExpenses();
+        } catch (err) {
+            console.error("Bulk delete expense error:", err);
+            toast.error(err.response?.data?.message || "Failed to delete selected expenses");
+        } finally {
+            setBulkDeleting(false);
+        }
+    };
+
+    const handleBulkEditSubmit = async (e) => {
+        e.preventDefault();
+        if (selectedExpenseIds.length === 0) return;
+
+        const hasFields = Object.values(bulkEditFormData).some(val => val !== "" && val !== null && val !== undefined);
+        if (!hasFields) {
+            toast.warn("Please select or enter at least one field to update.");
+            return;
+        }
+
+        setBulkUpdating(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await axios.post(
+                `${API_URL}/finance/expense/bulk-edit`,
+                { ids: selectedExpenseIds, updateData: bulkEditFormData },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(response.data?.message || `Successfully updated ${selectedExpenseIds.length} expense(s)`);
+            setShowBulkEditModal(false);
+            setSelectedExpenseIds([]);
+            setBulkEditFormData({
+                category: "",
+                months: "",
+                week: "",
+                modeOfPayment: "",
+                financeStatus: "",
+                amount: "",
+                reason: "",
+                givenBy: ""
+            });
+            fetchExpenses();
+        } catch (err) {
+            console.error("Bulk edit expense error:", err);
+            toast.error(err.response?.data?.message || "Failed to bulk update expenses");
+        } finally {
+            setBulkUpdating(false);
+        }
+    };
 
     const hasActiveFilters =
-        Boolean(searchTerm || nameFilter || fromDate || toDate || typeFilter !== "all" || statusFilter !== "all" || modeOfPaymentFilter !== "all");
+        Boolean(searchTerm || nameFilter || fromDate || toDate || typeFilter !== "all" || statusFilter !== "all" || modeOfPaymentFilter !== "all" || createdByFilter !== "all");
 
     const clearFilters = () => {
         setSearchTerm("");
@@ -522,6 +646,7 @@ const GetAllExpense = () => {
         setTypeFilter("all");
         setStatusFilter("all");
         setModeOfPaymentFilter("all");
+        setCreatedByFilter("all");
     };
 
     const handleExportToExcel = () => {
@@ -780,7 +905,7 @@ const GetAllExpense = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
                                 <div>
                                     <label className={labelClass}>Name / Employee</label>
                                     <input
@@ -853,6 +978,21 @@ const GetAllExpense = () => {
                                         <option value="Bank+Cash">Bank+Cash</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label className={labelClass}>Created By</label>
+                                    <select
+                                        value={createdByFilter}
+                                        onChange={(e) => setCreatedByFilter(e.target.value)}
+                                        className={inputClass}
+                                    >
+                                        <option value="all">All creators</option>
+                                        {creatorOptions.map((creator) => (
+                                            <option key={creator.id} value={creator.id}>
+                                                {creator.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -874,6 +1014,15 @@ const GetAllExpense = () => {
                             <table className="min-w-[1100px] w-full border-collapse text-left">
                                 <thead>
                                     <tr className={`border-b ${isDarkMode ? "border-slate-700" : "border-slate-200"}`}>
+                                        <th className={`${thClass} w-10 text-center`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isAllSelected}
+                                                onChange={handleSelectAll}
+                                                className="rounded border-slate-400 text-cyan-600 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
+                                                title="Select All"
+                                            />
+                                        </th>
                                         <th className={thClass}>Type</th>
                                         <th className={thClass}>Name / Employee</th>
                                         <th className={thClass}>Bank Account No.</th>
@@ -891,7 +1040,7 @@ const GetAllExpense = () => {
                                     {loading ? (
                                         <tr>
                                             <td
-                                                colSpan="10"
+                                                colSpan="12"
                                                 className={`px-4 py-12 text-center text-sm ${
                                                     isDarkMode ? "text-slate-400" : "text-slate-500"
                                                 }`}
@@ -902,7 +1051,7 @@ const GetAllExpense = () => {
                                     ) : filteredExpenses.length === 0 ? (
                                         <tr>
                                             <td
-                                                colSpan="10"
+                                                colSpan="12"
                                                 className={`px-4 py-12 text-center text-sm ${
                                                     isDarkMode ? "text-slate-400" : "text-slate-500"
                                                 }`}
@@ -917,11 +1066,19 @@ const GetAllExpense = () => {
                                             <tr
                                                 key={expense._id}
                                                 className={`border-b transition-colors ${
-                                                    isDarkMode
-                                                        ? "border-slate-700/80 hover:bg-slate-800/40"
-                                                        : "border-slate-100 hover:bg-slate-50"
+                                                    selectedExpenseIds.includes(expense._id)
+                                                        ? (isDarkMode ? "bg-cyan-950/40 border-cyan-700/60" : "bg-cyan-50/60 border-cyan-200")
+                                                        : (isDarkMode ? "border-slate-700/80 hover:bg-slate-800/40" : "border-slate-100 hover:bg-slate-50")
                                                 }`}
                                             >
+                                                <td className={`${tdClass} text-center`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedExpenseIds.includes(expense._id)}
+                                                        onChange={() => handleSelectExpense(expense._id)}
+                                                        className="rounded border-slate-400 text-cyan-600 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
+                                                    />
+                                                </td>
                                                 <td className={tdClass}>
                                                     <span
                                                         className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${getTypeBadgeClass(
@@ -1599,6 +1756,158 @@ const GetAllExpense = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                )}
+
+                {/* Floating Bulk Action Bar */}
+                {selectedExpenseIds.length > 0 && (
+                    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
+                        isDarkMode ? 'bg-[#1a1f24]/95 border-cyan-500/30 text-white shadow-cyan-500/10' : 'bg-white/95 border-cyan-200 text-slate-900 shadow-slate-300'
+                    }`}>
+                        <div className="flex items-center gap-2 pr-2 border-r border-gray-600/30">
+                            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                            <span className="text-xs font-black uppercase tracking-wider">{selectedExpenseIds.length} Selected</span>
+                        </div>
+                        <button
+                            onClick={() => setShowBulkEditModal(true)}
+                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all hover:scale-105"
+                        >
+                            <FaEdit /> Bulk Edit
+                        </button>
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={bulkDeleting}
+                            className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center gap-2 shadow-lg shadow-red-500/20 transition-all hover:scale-105"
+                        >
+                            <FaTrash /> {bulkDeleting ? "Deleting..." : "Bulk Delete"}
+                        </button>
+                        <button
+                            onClick={() => setSelectedExpenseIds([])}
+                            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-bold uppercase rounded-xl transition-all"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                )}
+
+                {/* Bulk Edit Modal */}
+                {showBulkEditModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden transition-all ${
+                            isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
+                        }`}>
+                            <div className={`flex items-center justify-between p-5 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                                <div>
+                                    <h3 className="text-lg font-bold">Bulk Edit Expenses</h3>
+                                    <p className="text-xs text-cyan-400 font-semibold uppercase tracking-wider">Updating {selectedExpenseIds.length} selected record(s)</p>
+                                </div>
+                                <button onClick={() => setShowBulkEditModal(false)} className="p-2 rounded-lg hover:bg-gray-700/20 text-gray-400">
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <form onSubmit={handleBulkEditSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                                <p className="text-xs text-amber-400 font-medium">Only fields you select or change will be updated across all selected expenses.</p>
+
+                                <div>
+                                    <label className={labelClass}>Category</label>
+                                    <select
+                                        value={bulkEditFormData.category}
+                                        onChange={(e) => setBulkEditFormData(prev => ({ ...prev, category: e.target.value }))}
+                                        className={inputClass}
+                                    >
+                                        <option value="">-- Leave Unchanged --</option>
+                                        {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className={labelClass}>Month</label>
+                                        <select
+                                            value={bulkEditFormData.months}
+                                            onChange={(e) => setBulkEditFormData(prev => ({ ...prev, months: e.target.value }))}
+                                            className={inputClass}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Week</label>
+                                        <select
+                                            value={bulkEditFormData.week}
+                                            onChange={(e) => setBulkEditFormData(prev => ({ ...prev, week: e.target.value }))}
+                                            className={inputClass}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            {["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"].map(w => (
+                                                <option key={w} value={w}>{w}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className={labelClass}>Mode of Payment</label>
+                                        <select
+                                            value={bulkEditFormData.modeOfPayment}
+                                            onChange={(e) => setBulkEditFormData(prev => ({ ...prev, modeOfPayment: e.target.value }))}
+                                            className={inputClass}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            <option value="Bank">Bank</option>
+                                            <option value="Cash">Cash</option>
+                                            <option value="Bank+Cash">Bank+Cash</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Finance Status</label>
+                                        <select
+                                            value={bulkEditFormData.financeStatus}
+                                            onChange={(e) => setBulkEditFormData(prev => ({ ...prev, financeStatus: e.target.value }))}
+                                            className={inputClass}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            <option value="Pending">Pending</option>
+                                            <option value="Approved">Approved</option>
+                                            <option value="Rejected">Rejected</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>Set Amount (Optional)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Leave empty to keep current amounts"
+                                        value={bulkEditFormData.amount}
+                                        onChange={(e) => setBulkEditFormData(prev => ({ ...prev, amount: e.target.value }))}
+                                        className={inputClass}
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-4 border-t border-inherit">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowBulkEditModal(false)}
+                                        className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl text-xs font-bold uppercase"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={bulkUpdating}
+                                        className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2"
+                                    >
+                                        {bulkUpdating ? "Applying..." : "Apply Bulk Updates"}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 )}
             </div>
