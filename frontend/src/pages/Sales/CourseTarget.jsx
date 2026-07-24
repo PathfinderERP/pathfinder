@@ -1205,7 +1205,7 @@ const CourseTarget = () => {
                                                             }}
                                                         >
                                                             <div className="flex flex-col items-center gap-1">
-                                                                <span className={`text-xl font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
+                                                                <span className="text-xl font-black text-emerald-500">
                                                                     {achieved}
                                                                     {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
                                                                         <>
@@ -1260,7 +1260,7 @@ const CourseTarget = () => {
 
                                             return (
                                                 <td key={deptName} className="px-6 py-5 text-center border-r border-inherit">
-                                                    <span className={`text-base font-black ${deptAchievedSum > 0 ? 'text-emerald-500' : 'opacity-40'}`}>
+                                                    <span className="text-base font-black text-emerald-500">
                                                         {deptAchievedSum}
                                                         {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
                                                             <>
