@@ -1084,8 +1084,16 @@ export const analyseERP = async (req, res) => {
                 });
                 
                 // 1. Counselling sessions completed by centre and counsellor
-                const boardCounselling = await BoardCourseCounselling.find(baseQuery).lean();
-                const leadCounselling = await LeadManagement.find({ ...baseQuery, isCounseled: true }).select("centre leadResponsibility counselledBy isCounseled").lean();
+                const boardCounselling = await BoardCourseCounselling.find(baseQuery)
+                    .sort({ createdAt: -1 })
+                    .limit(300)
+                    .select("centre counselledBy studentId counselledDate createdAt remarks mobileNum studentName status")
+                    .lean();
+                const leadCounselling = await LeadManagement.find({ ...baseQuery, isCounseled: true })
+                    .sort({ updatedAt: -1 })
+                    .limit(300)
+                    .select("centre leadResponsibility counselledBy isCounseled")
+                    .lean();
                 
                 const counsellingByCentreAndCounsellor = {};
                 const incCounselling = (centreName, counsellor) => {
@@ -1116,8 +1124,16 @@ export const analyseERP = async (req, res) => {
                 });
                 
                 // 2. Conversion times (Same day, 7 days, 15 days, 30 days) and same day conversion percentage
-                const boardAdmissions = await BoardCourseAdmission.find(baseQuery).lean();
-                const standardAdmissions = await Admission.find(baseQuery).lean();
+                const boardAdmissions = await BoardCourseAdmission.find(baseQuery)
+                    .sort({ createdAt: -1 })
+                    .limit(300)
+                    .select("studentId admissionDate createdAt mobileNum totalPaidAmount status")
+                    .lean();
+                const standardAdmissions = await Admission.find(baseQuery)
+                    .sort({ createdAt: -1 })
+                    .limit(300)
+                    .select("student admissionDate createdAt createdBy discountAmount totalPaidAmount totalFees admissionNumber centre admissionStatus paymentStatus remarks")
+                    .lean();
                 
                 const studentCounsellingMap = {};
                 boardCounselling.forEach(bc => {
@@ -1182,7 +1198,11 @@ export const analyseERP = async (req, res) => {
                 const objectionsTotal = { fee: 0, distance: 0, faculty: 0, timing: 0, brand: 0, demo: 0 };
                 const objectionsOvercome = { fee: 0, distance: 0, faculty: 0, timing: 0, brand: 0, demo: 0 };
                 
-                const leads = await LeadManagement.find(baseQuery).lean();
+                const leads = await LeadManagement.find(baseQuery)
+                    .sort({ createdAt: -1 })
+                    .limit(300)
+                    .select("phoneNumber followUps isCounseled leadType source centre")
+                    .lean();
                 leads.forEach(l => {
                     let hasObjection = false;
                     const leadObjections = { fee: false, distance: false, faculty: false, timing: false, brand: false, demo: false };
@@ -1305,7 +1325,11 @@ export const analyseERP = async (req, res) => {
                     byCourse: {}
                 };
                 
-                const allStudents = await Student.find(baseQuery).lean();
+                const allStudents = await Student.find(baseQuery)
+                    .sort({ createdAt: -1 })
+                    .limit(300)
+                    .select("studentsDetails class course isEnrolled batches allocatedItems uid status createdAt")
+                    .lean();
                 const coursesList = await Course.find({}).lean();
                 const courseNameMap = {};
                 coursesList.forEach(c => {
@@ -1450,7 +1474,9 @@ export const analyseERP = async (req, res) => {
                 });
                 
                 // 18. Paid but not started / Enrolled never attended
-                const studentsWithAttendance = await StudentAttendance.distinct("studentId");
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                const studentsWithAttendance = await StudentAttendance.distinct("studentId", { date: { $gte: thirtyDaysAgo } });
                 const attendanceSet = new Set(studentsWithAttendance.map(id => id.toString()));
                 
                 let paidButNotStarted = 0;
@@ -2034,7 +2060,7 @@ export const analyseERP = async (req, res) => {
                 const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
                 // Fetch admitted student phone numbers
-                const admittedStudents = await Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum");
+                const admittedStudents = await Student.find({ isEnrolled: true }).sort({ createdAt: -1 }).limit(1000).distinct("studentsDetails.mobileNum");
                 const admittedPhonesSet = new Set(admittedStudents.map(p => p?.toString().trim()).filter(Boolean));
 
                 // Fetch course fees mapping to calculate pipeline value
@@ -2081,7 +2107,7 @@ export const analyseERP = async (req, res) => {
                 const unassignedLeadsCount = await LeadManagement.countDocuments({ ...leadQuery, $or: [{ leadResponsibility: null }, { leadResponsibility: "" }] });
                 const contactedLeadsCount = await LeadManagement.countDocuments({ ...leadQuery, lastFollowUpDate: { $ne: null } });
                 
-                const leadsForConversionCheck = await LeadManagement.find(leadQuery).select("phoneNumber").lean();
+                const leadsForConversionCheck = await LeadManagement.find(leadQuery).sort({ createdAt: -1 }).limit(500).select("phoneNumber").lean();
                 let convertedLeadsCount = 0;
                 const convertedLeadsSet = new Set();
                 leadsForConversionCheck.forEach(l => {
@@ -2142,7 +2168,7 @@ export const analyseERP = async (req, res) => {
                     ...leadQuery,
                     _id: { $nin: Array.from(convertedLeadsSet) },
                     leadType: { $ne: "INVALID LEAD" }
-                }).select("course leadType").lean();
+                }).sort({ createdAt: -1 }).limit(500).select("course leadType").lean();
 
                 let totalPipelineRevenue = 0;
                 let weightedPipelineRevenue = 0;
@@ -2619,10 +2645,10 @@ export const analyseERP = async (req, res) => {
                 const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
                 // Fetch logs
-                const logs = await DailyTrackingLog.find({}).populate("user").lean();
+                const logs = await DailyTrackingLog.find({}).sort({ date: -1, createdAt: -1 }).limit(150).populate("user").lean();
                 
                 // Fetch tasks to cross reference
-                const tasks = await Task.find({}).populate("assignedTo").lean();
+                const tasks = await Task.find({}).sort({ createdAt: -1 }).limit(150).populate("assignedTo").lean();
 
                 // Group all logs by user name & calculate details
                 let totalCommitments = 0;
@@ -2843,6 +2869,11 @@ export const analyseERP = async (req, res) => {
 
         const currentTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
+        let erpDataStr = JSON.stringify(data, null, 2);
+        if (erpDataStr.length > 70000) {
+            erpDataStr = erpDataStr.substring(0, 70000) + "\n...[Data truncated to optimize response speed]";
+        }
+
         const prompt = `
 CURRENT DATE & TIME (IST): ${currentTime}
 APPLIED FILTERS: ${JSON.stringify(filters)}
@@ -2852,7 +2883,7 @@ ${JSON.stringify(contextData, null, 2)}
 --- END OF CLIENT DATA ---` : ''}
 
 --- LIVE ERP ANALYSIS DATA ---
-${JSON.stringify(data, null, 2)}
+${erpDataStr}
 --- END OF ERP DATA ---
 
 ANALYTICAL QUESTION: ${question}

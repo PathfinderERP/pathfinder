@@ -275,7 +275,8 @@ export default function CEOControlTowerContent() {
                 question: queryText,
                 module: 'all' // Query across ALL ERP data
             }, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                timeout: 90000 // 90 seconds timeout
             });
 
             if (res.data?.response) {
@@ -293,9 +294,13 @@ export default function CEOControlTowerContent() {
             }
         } catch (error) {
             console.error("Pathfinder AI query error:", error);
+            const isTimeout = error.response?.status === 504 || error.code === 'ECONNABORTED';
+            const errorMsg = isTimeout
+                ? "⚠️ Request timed out while compiling ERP live telemetry. Please try narrowing your query or select a specific date range."
+                : "⚠️ Error communicating with Pathfinder AI. Please ensure backend server is running.";
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                text: "⚠️ Error communicating with Pathfinder AI. Please ensure backend server is running.",
+                text: errorMsg,
                 timestamp: new Date()
             }]);
         } finally {
