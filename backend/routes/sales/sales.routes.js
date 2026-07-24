@@ -50,6 +50,7 @@ router.post("/weekly-target/override-bulk", requireAuth, overrideWeeklyTargetBul
 
 // Course Target Routes
 router.post("/course-target", requireAuth, saveCourseTarget);
+router.post("/course-target/bulk", requireAuth, saveCourseTarget);
 router.get("/course-target/analysis", requireAuth, getCourseTargetAnalysis);
 router.get("/course-target/admissions", requireAuth, getAdmissionDetails);
 

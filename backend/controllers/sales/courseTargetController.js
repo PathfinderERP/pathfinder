@@ -85,35 +85,69 @@ const monthNames = [
     "July", "August", "September", "October", "November", "December"
 ];
 
-// POST /sales/course-target
+// POST /sales/course-target and /sales/course-target/bulk
 export const saveCourseTarget = async (req, res) => {
     try {
-        const { centreId, targetType, year, month, quarter, week, targetCount, department, examTags } = req.body;
+        const payload = req.body;
 
-        if (!centreId || !targetType || !year || !department || !targetCount) {
-            return res.status(400).json({ message: "Missing required fields" });
+        // Support bulk targets array or single target payload
+        const targetsList = Array.isArray(payload.targets)
+            ? payload.targets
+            : (Array.isArray(payload) ? payload : [payload]);
+
+        if (!targetsList || targetsList.length === 0) {
+            return res.status(400).json({ message: "No target data provided" });
         }
 
-        const filter = { centre: centreId, department, targetType, year };
-        if (targetType === 'MONTHLY') filter.month = month;
-        if (targetType === 'QUARTERLY') filter.quarter = quarter;
-        if (targetType === 'WEEKLY') {
-            filter.week = week;
-            filter.month = month; // required: distinguishes same week number across different months
+        const operations = [];
+
+        for (const item of targetsList) {
+            const centreId = item.centreId || item.centre;
+            const department = item.department || item.departmentId;
+            const targetType = item.targetType || "MONTHLY";
+            const year = parseInt(item.year, 10);
+            const targetCount = parseInt(item.targetCount, 10);
+
+            if (!centreId || !department || !targetType || isNaN(year) || isNaN(targetCount)) {
+                continue;
+            }
+
+            const filter = { centre: centreId, department, targetType, year };
+            if (targetType === 'MONTHLY') filter.month = item.month;
+            if (targetType === 'QUARTERLY') filter.quarter = item.quarter;
+            if (targetType === 'WEEKLY') {
+                filter.week = parseInt(item.week, 10);
+                filter.month = item.month; // required: distinguishes same week number across different months
+            }
+
+            const rawTags = item.examTags || [];
+            const examTags = rawTags.map(t => typeof t === 'object' && t !== null ? t.value : t).filter(Boolean);
+
+            const update = {
+                targetCount,
+                examTags,
+                createdBy: req.user._id
+            };
+
+            operations.push({
+                updateOne: {
+                    filter,
+                    update: { $set: { ...filter, ...update } },
+                    upsert: true
+                }
+            });
         }
 
-        const update = { targetCount, examTags: examTags || [], createdBy: req.user._id };
+        if (operations.length === 0) {
+            return res.status(400).json({ message: "Missing required fields for target creation" });
+        }
 
-        console.log("Saving Course Target with Filter:", JSON.stringify(filter));
-        console.log("Saving Course Target with Update:", JSON.stringify(update));
+        const bulkResult = await CourseTarget.bulkWrite(operations);
 
-        const result = await CourseTarget.findOneAndUpdate(
-            filter,
-            { ...filter, ...update },
-            { upsert: true, new: true }
-        );
-
-        res.status(200).json({ message: "Target saved successfully", data: result });
+        res.status(200).json({
+            message: `Successfully saved ${operations.length} target(s)`,
+            data: bulkResult
+        });
     } catch (error) {
         console.error("saveCourseTarget error:", error);
         res.status(500).json({ message: "Server error", error: error.message });

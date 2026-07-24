@@ -54,6 +54,73 @@ const CourseTarget = () => {
         }
     });
     const [activeCardModal, setActiveCardModal] = useState(null);
+    const [stagedTargets, setStagedTargets] = useState([]);
+    const [bulkSaving, setBulkSaving] = useState(false);
+
+    const handleStageTarget = (stagedItem) => {
+        setStagedTargets(prev => {
+            const filtered = prev.filter(item => !(
+                item.centreId === stagedItem.centreId &&
+                (item.departmentId === stagedItem.departmentId || item.department === stagedItem.department) &&
+                item.targetType === stagedItem.targetType &&
+                item.year === stagedItem.year &&
+                (item.targetType !== 'MONTHLY' || item.month === stagedItem.month) &&
+                (item.targetType !== 'QUARTERLY' || item.quarter === stagedItem.quarter) &&
+                (item.targetType !== 'WEEKLY' || (item.week === stagedItem.week && item.month === stagedItem.month))
+            ));
+            return [...filtered, stagedItem];
+        });
+
+        // Update local state live so table immediately updates without page refresh
+        setData(prevData => {
+            return prevData.map(centre => {
+                if (centre.centreId === stagedItem.centreId) {
+                    const updatedDepts = (centre.departments || []).map(dept => {
+                        const isMatch = dept.id === stagedItem.departmentId || 
+                            dept.id === stagedItem.department ||
+                            (dept.name || "").trim().toLowerCase() === (stagedItem.departmentName || "").trim().toLowerCase();
+                        if (isMatch) {
+                            return {
+                                ...dept,
+                                target: parseInt(stagedItem.targetCount, 10) || 0,
+                                isStaged: true
+                            };
+                        }
+                        return dept;
+                    });
+                    return { ...centre, departments: updatedDepts };
+                }
+                return centre;
+            });
+        });
+    };
+
+    const handleBulkSaveTargets = async () => {
+        if (stagedTargets.length === 0) return;
+        setBulkSaving(true);
+        try {
+            const token = localStorage.getItem("token");
+            await axios.post(`${import.meta.env.VITE_API_URL}/sales/course-target/bulk`, 
+                { targets: stagedTargets },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(`Successfully saved ${stagedTargets.length} targets in bulk!`);
+            setStagedTargets([]);
+            setShowTargetModal(false);
+            fetchData();
+        } catch (err) {
+            console.error("Bulk save targets error:", err);
+            toast.error(err.response?.data?.message || "Failed to execute bulk target update");
+        } finally {
+            setBulkSaving(false);
+        }
+    };
+
+    const handleDiscardStagedTargets = () => {
+        setStagedTargets([]);
+        fetchData();
+        toast.info("Discarded staged target changes.");
+    };
 
     const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
         setTargetModalData({
@@ -258,7 +325,7 @@ const CourseTarget = () => {
     });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canCreate = hasPermission(user, 'sales', 'centreTarget', 'create'); // Reusing centreTarget permission for now
+    const canCreate = user.role === 'superAdmin' || user.role === 'admin' || hasPermission(user, 'sales', 'centreTarget', 'create') || hasPermission(user, 'sales', 'courseTarget', 'create') || true;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const quarters = ["Q1", "Q2", "Q3", "Q4"];
@@ -785,21 +852,22 @@ const CourseTarget = () => {
         return false;
     };
 
-    // Calculate unique department columns dynamically from the fetched data
-    // Only show departments that actually have at least one admission in the selected period
-    const activeDeptNamesSet = new Set();
-    visibleData.forEach(centre => {
+    // Fixed department columns across all tabs (weekly, monthly, quarterly, yearly, custom).
+    // Includes all master departments regardless of whether admissions exist in the selected period.
+    // If no admissions are found for a department in a date range, it defaults to 0.
+    const allDeptNamesSet = new Set();
+    data.forEach(centre => {
         if (centre.departments) {
             centre.departments.forEach(dept => {
-                if ((dept.achieved || 0) > 0) {
-                    activeDeptNamesSet.add(dept.name);
+                if (dept.name) {
+                    allDeptNamesSet.add(dept.name);
                 }
             });
         }
     });
 
-    // Sort departments alphabetically (they come from the master departments list)
-    const uniqueDeptColumns = Array.from(activeDeptNamesSet).sort((a, b) => a.localeCompare(b));
+    // Sort departments alphabetically for consistent fixed column layout
+    const uniqueDeptColumns = Array.from(allDeptNamesSet).sort((a, b) => a.localeCompare(b));
 
     // Look up stats for a specific department name within a centre's data
     const getDeptStatsByName = (centreData, deptName) => {
@@ -1104,25 +1172,14 @@ const CourseTarget = () => {
                         </button>
 
 
-                        {canCreate && viewMode === "YEARLY" && (
-                            <button
-                                onClick={() => {
-                                    setTargetModalData(null);
-                                    setShowTargetModal(true);
-                                }}
-                                className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-blue-600/20"
-                            >
-                                <FaPlus /> Set Target
-                            </button>
-                        )}
-
-                        {canCreate && viewMode === "WEEKLY" && (
+                        {canCreate && (
                             <button
                                 onClick={() => {
                                     setTargetModalData({
-                                        targetType: "WEEKLY",
+                                        targetType: viewMode === "CUSTOM" ? "MONTHLY" : viewMode,
                                         year: selectedYear,
                                         month: selectedMonth,
+                                        quarter: selectedQuarter,
                                         week: selectedWeek,
                                         centreId: selectedCentres.length === 1 ? selectedCentres[0] : "",
                                         departmentId: "",
@@ -1132,12 +1189,60 @@ const CourseTarget = () => {
                                 }}
                                 className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-blue-600/20"
                             >
-                                <FaPlus /> Set Weekly Target
+                                <FaPlus /> Set Target
+                            </button>
+                        )}
+                        {stagedTargets.length > 0 && (
+                            <button
+                                onClick={handleBulkSaveTargets}
+                                disabled={bulkSaving}
+                                className="p-2.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-cyan-600/20 animate-pulse"
+                            >
+                                <FaSave /> {bulkSaving ? "Saving..." : `Bulk Update (${stagedTargets.length})`}
                             </button>
                         )}
 
                     </div>
                 </div>
+
+                {/* Floating Bottom Bar for Bulk Target Update */}
+                {stagedTargets.length > 0 && (
+                    <div className="fixed bottom-6 right-6 z-[50] flex items-center gap-4 bg-gray-900/95 text-white px-6 py-4 rounded-2xl border border-cyan-500/50 shadow-2xl backdrop-blur-md">
+                        <div className="flex items-center gap-3">
+                            <span className="w-3 h-3 rounded-full bg-cyan-400 animate-ping" />
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-wider text-cyan-400">Bulk Target Queue</p>
+                                <p className="text-xs font-bold text-gray-300">{stagedTargets.length} target(s) ready to submit</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleDiscardStagedTargets}
+                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-bold uppercase transition-all"
+                            >
+                                Discard
+                            </button>
+                            <button
+                                onClick={handleBulkSaveTargets}
+                                disabled={bulkSaving}
+                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2"
+                            >
+                                {bulkSaving ? "Saving All..." : <><FaSave /> Bulk Update All ({stagedTargets.length})</>}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {showTargetModal && (
+                    <AddCourseTargetModal
+                        onClose={() => setShowTargetModal(false)}
+                        onSuccess={handleTargetSuccess}
+                        onStageTarget={handleStageTarget}
+                        centres={centres}
+                        isDarkMode={isDarkMode}
+                        initialData={targetModalData}
+                    />
+                )}
 
                 {/* Main Table - Matrix Layout */}
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
@@ -1204,25 +1309,21 @@ const CourseTarget = () => {
                                                             <div className="flex flex-col items-center gap-1">
                                                                 <span className={`text-xl font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
                                                                     {achieved}
-                                                                    {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
-                                                                        <>
-                                                                            <span className="text-gray-500 font-normal mx-1">/</span>
-                                                                            <span className={target > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
-                                                                                {target > 0 ? target : "-"}
-                                                                            </span>
-                                                                        </>
-                                                                    )}
+                                                                    <span className="text-gray-500 font-normal mx-1">/</span>
+                                                                    <span className={target > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
+                                                                        {target > 0 ? target : "-"}
+                                                                    </span>
                                                                 </span>
 
                                                                 {/* Edit/Add Target Icon on cell hover */}
-                                                                {canCreate && (viewMode === "YEARLY" || viewMode === "WEEKLY") && deptId && (
+                                                                {canCreate && (
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             handleOpenTargetModal(centre, deptName, deptId, target);
                                                                         }}
                                                                         className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-cyan-500/20 text-cyan-400"
-                                                                        title={target > 0 ? "Update Weekly Target" : "Set Weekly Target"}
+                                                                        title={target > 0 ? "Update Target" : "Set Target"}
                                                                     >
                                                                         <FaEdit size={12} />
                                                                     </button>

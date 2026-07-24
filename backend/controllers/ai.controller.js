@@ -17,30 +17,31 @@ const __dirname = path.dirname(__filename);
 // SYSTEM PROMPT — tells the AI who it is and how to behave
 // ─────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `
-You are "Pathfinder AI" — the official intelligent assistant for Pathfinder ERP, an educational institute management system.
+You are "Pathfinder AI" — the official executive AI intelligence for Pathfinder ERP, an educational institute management system.
 
 Your capabilities:
-- You have been given LIVE data from the ERP database for the current query.
-- You analyse the data and provide accurate, insightful, and actionable answers.
-- You understand ERP modules: Lead Management, Admissions, Student Enrollment, Finance, HR, and Academics.
-- You act as an expert ERP guide and provide EXACT, step-by-step button-click instructions for every ERP feature.
+- You are provided with a COMPLETE, LIVE multi-module snapshot from ALL ERP collections (Leads CRM, Normal & Board Admissions, Academics & Batches, Attendance, Finance & Expenses, HR & Staffing, Sales Targets, Inventory, Operations Red Flags, and Daily Tracking Logs).
+- When answering ANY executive query in CEO Control Tower, you MUST analyse the question holistically across ALL available ERP modules, checking all relevant permutations, combinations, correlations, and cause-and-effect patterns across collections.
+- You do NOT restrict your answer to a single module; you evaluate cross-module relationships (e.g., how lead sources drive admissions, how counsellor discount practices affect net fee realization, how batch capacity aligns with attendance, how staffing coverage impacts follow-up SLA, how daily commitments address red flags).
+- You act as an expert ERP guide and provide EXACT, step-by-step button-click instructions when asked how to perform operational tasks in the system.
 
 STRICT RULES:
-1. For data-related queries, only answer based on the data provided in the context. Do NOT make up numbers or names.
-2. If the user asks HOW TO do something, provide EXACT step-by-step guidance using the EXACT button names shown on screen (e.g., click the green 'Admit' button, click 'Add Counselling').
-3. If data is empty, tell the user politely that no records were found.
-4. Format answers clearly using bullet points, numbered steps, or tables where helpful.
-5. Be concise yet thorough — avoid waffle but provide all important details.
-6. If the user asks for something outside ERP scope, redirect them to ERP-related questions.
-7. For financial data, always format amounts as ₹ with commas (e.g., ₹1,25,000).
-8. Always mention the data time range or filters applied if discussing data.
-9. When asked about 'counselled' students, refer to the 'counselled' and 'boardCourseCounselled' counts from Leads data.
-10. When asked about 'enrolled students' or 'board course enrolled', refer to the 'enrolled' and 'boardCourseEnrolled' counts from Students/Admissions data.
-11. When asked about admissions, use the total admissions, normal admissions, and board admissions data.
+1. For data-related queries, base your analysis strictly on the multi-module live ERP context provided. Do NOT make up numbers or names.
+2. Check all relevant permutations and combinations across modules (e.g. Lead CRM + Admissions + Fee Collection + Staffing + Attendance + Red Flags).
+3. If the user asks HOW TO do something, provide EXACT step-by-step guidance using the exact button names on screen.
+4. If data for a specific metric is empty, state that clearly and present the metrics that ARE available.
+5. Format executive responses clearly using markdown bullet points, numbered key insights, and comparative tables.
+6. For financial numbers, always format amounts with the ₹ symbol and commas (e.g., ₹1,25,000).
+7. Always cite active filters (date range, centre) and timeframe context.
+8. When asked about 'counselled' students, refer to the 'counselled' and 'boardCourseCounselled' counts from Leads data.
+9. When asked about 'enrolled students' or 'board course enrolled', refer to the 'enrolled' and 'boardCourseEnrolled' counts from Students/Admissions data.
+10. When asked about admissions, use the total admissions, normal admissions, and board admissions data.
+`;
 
-═══════════════════════════════════════════════
-SIDEBAR / NAVIGATION MENU — EXACT MENU ITEMS
-═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// SIDEBAR / NAVIGATION MENU — EXACT MENU ITEMS
+// ═══════════════════════════════════════════════
+const SIDEBAR_GUIDE = `
 The left sidebar has a section called "Admissions" (click to expand). Sub-items under it:
 - "Counselled Students" → URL: /admissions (Normal admissions pipeline)
 - "Admissions" → URL: /enrolled-students (Enrolled / formally admitted students)
@@ -2310,6 +2311,150 @@ export const analyseERP = async (req, res) => {
             data.finance = { expenseStats };
         }
 
+        // Sales Module (Centre Targets, Course Targets, Daily Targets & Achievement)
+        if (targetModule === "all" || targetModule === "sales" || targetModule === "academics") {
+            try {
+                const CentreTarget = (await import("../models/Sales/CentreTarget.js")).default;
+                const CourseTarget = (await import("../models/Sales/CourseTarget.js")).default;
+                const DailyTarget = (await import("../models/Sales/DailyTarget.js")).default;
+
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.toLocaleString("en-US", { month: "long" });
+
+                const centreTargetQuery = { year: currentYear };
+                if (centre) {
+                    try { centreTargetQuery.centre = new mongoose.Types.ObjectId(centre); } catch(e) {}
+                }
+
+                const centreTargets = await CentreTarget.find(centreTargetQuery)
+                    .populate("centre", "centreName")
+                    .sort({ createdAt: -1 })
+                    .limit(100)
+                    .lean();
+
+                const courseTargets = await CourseTarget.find(centreTargetQuery)
+                    .populate("centre", "centreName")
+                    .populate("department", "name")
+                    .sort({ createdAt: -1 })
+                    .limit(100)
+                    .lean();
+
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const dailyTargets = await DailyTarget.find({ date: { $gte: startOfToday } })
+                    .populate("centre", "centreName")
+                    .limit(50)
+                    .lean();
+
+                let totalTargetRevenue = 0;
+                let totalAchievedRevenue = 0;
+                centreTargets.forEach(ct => {
+                    totalTargetRevenue += (ct.targetAmount || 0);
+                    totalAchievedRevenue += (ct.achievedAmount || 0);
+                });
+
+                const salesAchievementRatePct = totalTargetRevenue > 0
+                    ? Math.round((totalAchievedRevenue / totalTargetRevenue) * 100)
+                    : 0;
+
+                data.sales = {
+                    summary: {
+                        totalTargetRevenue,
+                        totalAchievedRevenue,
+                        salesAchievementRatePct,
+                        currentMonth,
+                        currentYear
+                    },
+                    centreTargets: centreTargets.map(ct => ({
+                        centreName: ct.centre?.centreName || "Unknown Centre",
+                        month: ct.month,
+                        financialYear: ct.financialYear,
+                        targetAmount: ct.targetAmount,
+                        achievedAmount: ct.achievedAmount,
+                        achievementPct: ct.targetAmount > 0 ? Math.round((ct.achievedAmount / ct.targetAmount) * 100) : 0
+                    })),
+                    courseTargets: courseTargets.map(ct => ({
+                        centreName: ct.centre?.centreName || "Unknown Centre",
+                        departmentName: ct.department?.name || "General",
+                        targetCount: ct.targetCount,
+                        targetType: ct.targetType,
+                        period: ct.month || ct.quarter || `Week ${ct.week}` || ct.year
+                    })),
+                    dailyTargets: dailyTargets.map(dt => ({
+                        centreName: dt.centre?.centreName || "Unknown Centre",
+                        date: dt.date,
+                        targetAmount: dt.targetAmount
+                    }))
+                };
+            } catch (salesErr) {
+                console.error("Failed to compile Sales Module Telemetry:", salesErr);
+            }
+        }
+
+        // Inventory Module (Kit & Material Delivery Allocations)
+        if (targetModule === "all" || targetModule === "inventory" || targetModule === "academics") {
+            try {
+                const Allocation = (await import("../models/Inventory/Allocation.js")).default;
+                const allocations = await Allocation.find({})
+                    .sort({ createdAt: -1 })
+                    .limit(100)
+                    .populate("student", "studentsDetails")
+                    .lean();
+
+                let totalAllocated = allocations.length;
+                let booksCount = 0;
+                let idCardsCount = 0;
+                let materialsCount = 0;
+                allocations.forEach(a => {
+                    const name = (a.itemName || a.item || "").toLowerCase();
+                    if (name.includes("book")) booksCount++;
+                    if (name.includes("id")) idCardsCount++;
+                    if (name.includes("material") || name.includes("bag")) materialsCount++;
+                });
+
+                data.inventory = {
+                    summary: {
+                        totalAllocatedItems: totalAllocated,
+                        booksAllocated: booksCount,
+                        idCardsAllocated: idCardsCount,
+                        materialsAllocated: materialsCount
+                    },
+                    recentAllocations: allocations.slice(0, 15).map(a => ({
+                        itemName: a.itemName || a.item || "ERP Study Material",
+                        studentName: a.student?.studentsDetails?.[0]?.studentName || "Enrolled Student",
+                        date: a.createdAt
+                    }))
+                };
+            } catch (invErr) {
+                console.error("Failed to compile Inventory Module Telemetry:", invErr);
+            }
+        }
+
+        // Executive Planners & Strategy Module (Marketing Plans, Tomorrow Planners, Drafts)
+        if (targetModule === "all" || targetModule === "planners" || targetModule === "academics") {
+            try {
+                const MarketingPlanner = (await import("../models/MarketingPlanner.js")).default;
+                const TomorrowPlanner = (await import("../models/TomorrowPlanner.js")).default;
+                const DraftPlanner = (await import("../models/DraftPlanner.js")).default;
+
+                const [marketingPlans, tomorrowPlans, draftPlans] = await Promise.all([
+                    MarketingPlanner.find({}).sort({ createdAt: -1 }).limit(20).lean(),
+                    TomorrowPlanner.find({}).sort({ createdAt: -1 }).limit(20).lean(),
+                    DraftPlanner.find({}).sort({ createdAt: -1 }).limit(20).lean()
+                ]);
+
+                data.planners = {
+                    marketingPlansCount: marketingPlans.length,
+                    tomorrowPlansCount: tomorrowPlans.length,
+                    draftPlansCount: draftPlans.length,
+                    recentMarketingStrategies: marketingPlans.slice(0, 5),
+                    recentTomorrowCommitments: tomorrowPlans.slice(0, 5)
+                };
+            } catch (plannerErr) {
+                console.error("Failed to compile Planners Telemetry:", plannerErr);
+            }
+        }
+
         if (targetModule === "all" || targetModule === "tracking" || targetModule === "academics") {
             let qaTelemetry = {};
             try {
@@ -2882,14 +3027,17 @@ ${contextData ? `--- CLIENT ON-SCREEN CONTEXT DATA ---
 ${JSON.stringify(contextData, null, 2)}
 --- END OF CLIENT DATA ---` : ''}
 
---- LIVE ERP ANALYSIS DATA ---
+--- LIVE ERP COMPREHENSIVE MULTI-MODULE & ALL COLLECTIONS DATA ---
 ${erpDataStr}
 --- END OF ERP DATA ---
 
-ANALYTICAL QUESTION: ${question}
+EXECUTIVE QUERY: ${question}
 
-Please provide a detailed analysis and insights based on the above ERP data. 
-Include trends, anomalies, recommendations, and key metrics in your response.
+MANDATORY INSTRUCTIONS FOR CEO CONTROL TOWER:
+1. You have been provided with live data from ALL ERP modules and collections (Admissions, Leads CRM, Academics, Batches, Attendance, HR/Staffing, Finance/Expenses, Sales Targets, Operations Red Flags, Daily Tracking Logs).
+2. Answer the user's question by cross-referencing and evaluating ALL relevant modules and collections in the ERP database.
+3. Check and correlate any permutation or combination of data available (e.g., lead sources vs conversion to admissions, counsellor discount usage vs net collections, batch capacity vs student attendance, staffing allocation vs follow-up SLA, manager commitments vs unresolved red flags).
+4. Provide an executive-level summary with clear numbers, comparative insights, tables, anomalies, and actionable recommendations.
 `;
 
         const aiResponse = await generateAIResponse(prompt, SYSTEM_PROMPT);
