@@ -703,7 +703,10 @@ const CourseTarget = () => {
     // Calculate visible data for table and dynamic flash cards
     const visibleData = data.filter(centre => {
         const name = (centre.centreName || "").toLowerCase();
-        const isSpecial = name.includes("phsps") || name.includes("rkm") || name.includes("franchise");
+        if (name.includes("franchise")) {
+            return false;
+        }
+        const isSpecial = name.includes("phsps") || name.includes("rkm");
         if (isSpecial) {
             // Only hide if BOTH all zones and all centres are selected (i.e. default dashboard view)
             const isAllZonesSelected = selectedZones.length === zones.length;
