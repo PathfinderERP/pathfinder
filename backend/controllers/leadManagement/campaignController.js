@@ -307,3 +307,90 @@ export const uploadCampaignMedia = async (req, res) => {
     }
 };
 
+export const deleteCampaignMedia = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { mediaIndex, mediaUrl } = req.body;
+
+        const campaign = await Campaign.findById(id);
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        let updatedMedia = [...(campaign.uploadedMedia || [])];
+
+        if (typeof mediaIndex === 'number' && mediaIndex >= 0 && mediaIndex < updatedMedia.length) {
+            updatedMedia.splice(mediaIndex, 1);
+        } else if (mediaUrl) {
+            updatedMedia = updatedMedia.filter(url => url !== mediaUrl);
+        } else {
+            return res.status(400).json({ message: "Media index or URL is required" });
+        }
+
+        campaign.uploadedMedia = updatedMedia;
+        await campaign.save();
+
+        res.status(200).json({
+            message: "Media deleted successfully",
+            campaign
+        });
+    } catch (err) {
+        console.error("Error deleting campaign media:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+export const replaceCampaignMedia = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { mediaIndex } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ message: "No replacement file provided" });
+        }
+
+        const idx = parseInt(mediaIndex, 10);
+        if (isNaN(idx) || idx < 0) {
+            return res.status(400).json({ message: "Valid media index is required" });
+        }
+
+        const campaign = await Campaign.findById(id);
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (idx >= (campaign.uploadedMedia || []).length) {
+            return res.status(400).json({ message: "Invalid media index" });
+        }
+
+        const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio";
+        const fileName = `campaigns/${id}_${Date.now()}_${file.originalname}`;
+
+        await s3Client.send(new PutObjectCommand({
+            Bucket: bucketName,
+            Key: fileName,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+        }));
+
+        const presignedUrl = await getSignedUrl(
+            s3Client,
+            new GetObjectCommand({ Bucket: bucketName, Key: fileName }),
+            { expiresIn: 604800 }
+        );
+
+        campaign.uploadedMedia[idx] = presignedUrl;
+        campaign.markModified('uploadedMedia');
+        await campaign.save();
+
+        res.status(200).json({
+            message: "Media replaced successfully",
+            campaign
+        });
+    } catch (err) {
+        console.error("Error replacing campaign media:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+

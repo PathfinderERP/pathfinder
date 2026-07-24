@@ -5,7 +5,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
 import {
     FaArrowLeft, FaBullhorn, FaSync, FaTimes, FaEye, FaEdit, FaUpload,
-    FaPlay, FaStop, FaRedo, FaClock
+    FaPlay, FaStop, FaRedo, FaClock, FaTrash, FaPencilAlt, FaExternalLinkAlt
 } from "react-icons/fa";
 import { hasPermission } from "../../config/permissions";
 
@@ -237,6 +237,60 @@ export default function Campaigns() {
         } finally {
             setUploadingMedia(false);
             e.target.value = null;
+        }
+    };
+
+    const handleDeleteMedia = async (mediaIndex) => {
+        if (!selectedCampaign) return;
+        if (!window.confirm("Are you sure you want to delete this media?")) return;
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}/media`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ mediaIndex })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Media deleted successfully");
+                setSelectedCampaign(data.campaign);
+                fetchCampaigns();
+            } else {
+                toast.error(data.message || "Failed to delete media");
+            }
+        } catch (error) {
+            console.error("Delete media error:", error);
+            toast.error("Failed to delete media");
+        }
+    };
+
+    const handleReplaceMedia = async (mediaIndex, file) => {
+        if (!selectedCampaign || !file) return;
+        try {
+            const token = localStorage.getItem("token");
+            const formData = new FormData();
+            formData.append("mediaIndex", mediaIndex);
+            formData.append("mediaFile", file);
+
+            const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}/replace-media`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Media replaced successfully");
+                setSelectedCampaign(data.campaign);
+                fetchCampaigns();
+            } else {
+                toast.error(data.message || "Failed to replace media");
+            }
+        } catch (error) {
+            console.error("Replace media error:", error);
+            toast.error("Failed to replace media");
         }
     };
 
@@ -718,19 +772,52 @@ export default function Campaigns() {
                                     </div>
                                 )}
                                 {selectedCampaign.uploadedMedia && selectedCampaign.uploadedMedia.length > 0 && (
-                                    <div className="border-b pb-2 border-gray-800/10">
-                                        <span className="font-semibold opacity-65 uppercase tracking-wider block mb-2">Uploaded Media</span>
-                                        <div className="flex flex-wrap gap-2">
+                                    <div className="border-b pb-3 border-gray-800/10">
+                                        <span className="font-semibold opacity-65 uppercase tracking-wider block mb-2">Uploaded Media ({selectedCampaign.uploadedMedia.length})</span>
+                                        <div className="flex flex-wrap gap-3">
                                             {selectedCampaign.uploadedMedia.map((url, i) => {
                                                 const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i);
                                                 return (
-                                                    <a key={i} href={url} target="_blank" rel="noreferrer" className="block border border-gray-200 dark:border-gray-700 rounded overflow-hidden hover:opacity-80 transition-opacity" title={`View Media ${i+1}`}>
+                                                    <div key={i} className="relative group w-20 h-20 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-black/20 shadow-sm">
                                                         {isVideo ? (
-                                                            <video src={url} className="w-16 h-16 object-cover" />
+                                                            <video src={url} className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <img src={url} alt={`Media ${i+1}`} className="w-16 h-16 object-cover" />
+                                                            <img src={url} alt={`Media ${i+1}`} className="w-full h-full object-cover" />
                                                         )}
-                                                    </a>
+                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1">
+                                                            <a
+                                                                href={url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="p-1.5 bg-blue-500/90 hover:bg-blue-600 text-white rounded transition-all active:scale-95 shadow"
+                                                                title="View Fullscreen"
+                                                            >
+                                                                <FaExternalLinkAlt size={10} />
+                                                            </a>
+                                                            <label className="p-1.5 bg-amber-500/90 hover:bg-amber-600 text-white rounded cursor-pointer transition-all active:scale-95 shadow" title="Replace Media">
+                                                                <FaPencilAlt size={10} />
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*,video/*"
+                                                                    className="hidden"
+                                                                    onChange={(e) => {
+                                                                        if (e.target.files && e.target.files[0]) {
+                                                                            handleReplaceMedia(i, e.target.files[0]);
+                                                                            e.target.value = null;
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteMedia(i)}
+                                                                className="p-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded transition-all active:scale-95 shadow"
+                                                                title="Delete Media"
+                                                            >
+                                                                <FaTrash size={10} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 );
                                             })}
                                         </div>
