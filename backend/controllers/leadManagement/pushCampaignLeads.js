@@ -27,6 +27,7 @@ export const pushCampaignLeads = async (req, res) => {
             return {
                 ...rest,
                 campaignFrom: campaign.adName, // Ensure campaign name is stored
+                isPriority: true,
                 assignedAt: new Date()
             };
         });

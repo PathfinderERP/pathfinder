@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
@@ -13,8 +13,8 @@ import {
 const API_URL = import.meta.env.VITE_API_URL;
 
 // Required columns for the Excel upload
-const REQUIRED_COLS = ["name", "phoneNumber", "schoolName"];
-const OPTIONAL_COLS = ["email", "secondPhoneNumber", "source", "targetExam", "leadType", "course"];
+const REQUIRED_COLS = ["name", "phoneNumber", "assignTo"];
+const OPTIONAL_COLS = ["schoolName", "email", "secondPhoneNumber", "source", "leadType", "course", "board", "center", "class"];
 const LEAD_TYPES = ["HOT LEAD", "WARM LEAD", "COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"];
 
 export default function CampaignUploadLeads() {
@@ -34,6 +34,54 @@ export default function CampaignUploadLeads() {
     const [uploadResult, setUploadResult] = useState(null);
     const [validationErrors, setValidationErrors] = useState([]);
     const [skippedRows, setSkippedRows] = useState([]);
+    
+    const [boards, setBoards] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const [centres, setCentres] = useState([]);
+    const [courses, setCourses] = useState([]);
+    const [users, setUsers] = useState([]);
+
+    useEffect(() => {
+        const fetchMasterData = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const headers = { Authorization: `Bearer ${token}` };
+                
+                const [bRes, cRes, cenRes, courseRes, userRes] = await Promise.all([
+                    fetch(`${API_URL}/board`, { headers }),
+                    fetch(`${API_URL}/class`, { headers }),
+                    fetch(`${API_URL}/centre`, { headers }),
+                    fetch(`${API_URL}/course`, { headers }),
+                    fetch(`${API_URL}/superAdmin/getAllUsers`, { headers })
+                ]);
+                
+                if(bRes.ok) {
+                    const bData = await bRes.json();
+                    setBoards(Array.isArray(bData) ? bData : bData.data || []);
+                }
+                if(cRes.ok) {
+                    const cData = await cRes.json();
+                    setClasses(Array.isArray(cData) ? cData : cData.data || []);
+                }
+                if(cenRes.ok) {
+                    const cenData = await cenRes.json();
+                    setCentres(Array.isArray(cenData) ? cenData : cenData.data || []);
+                }
+                if(courseRes.ok) {
+                    const courseData = await courseRes.json();
+                    setCourses(Array.isArray(courseData) ? courseData : courseData.data || []);
+                }
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    const activeUsers = (userData.users || []).filter(u => u.isActive !== false);
+                    setUsers(activeUsers.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+                }
+            } catch (err) {
+                console.error("Failed to fetch master data", err);
+            }
+        };
+        fetchMasterData();
+    }, []);
 
     const handlePushToLeadManagement = async () => {
         if (!campaignId) {
@@ -71,10 +119,9 @@ export default function CampaignUploadLeads() {
             : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"
     }`;
 
-    // ── Download Template ─────────────────────────────────────────────
     const downloadTemplate = () => {
-        const headers = ["name*", "phoneNumber*", "schoolName*", "email", "secondPhoneNumber", "source", "targetExam", "leadType", "course"];
-        const example = ["Rahul Sharma", "9876543210", "Delhi Public School", "rahul@email.com", "9123456789", "Campaign", "NEET", "HOT LEAD", "NEET Foundation"];
+        const headers = ["name*", "phoneNumber*", "schoolName", "email", "secondPhoneNumber", "source", "leadType", "course", "board", "center", "class", "assignTo"];
+        const example = ["Rahul Sharma", "9876543210", "Delhi Public School", "rahul@email.com", "9123456789", "Campaign", "HOT LEAD", "NEET Foundation", "CBSE", "Delhi", "11", "John Doe"];
         const ws = XLSX.utils.aoa_to_sheet([headers, example]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Leads");
@@ -114,7 +161,6 @@ export default function CampaignUploadLeads() {
                 normalized.forEach((row, i) => {
                     if (!row.name) errors.push(`Row ${i + 2}: Missing "name"`);
                     if (!row.phonenumber && !row.phoneNumber) errors.push(`Row ${i + 2}: Missing "phoneNumber"`);
-                    if (!row.schoolname && !row.schoolName) errors.push(`Row ${i + 2}: Missing "schoolName"`);
                     if (row.leadtype && row.leadType && !LEAD_TYPES.includes((row.leadType || row.leadtype || "").toUpperCase())) {
                         errors.push(`Row ${i + 2}: Invalid leadType — use: ${LEAD_TYPES.join(", ")}`);
                     }
@@ -129,9 +175,12 @@ export default function CampaignUploadLeads() {
                     secondPhoneNumber: r.secondphonenumber || r.secondPhoneNumber || "",
                     schoolName: r.schoolname || r.schoolName || "",
                     source: r.source || "Campaign",
-                    targetExam: r.targetexam || r.targetExam || "",
                     leadType: (r.leadtype || r.leadType || "").toUpperCase() || undefined,
                     course: r.course || "",
+                    board: r.board || "",
+                    centre: r.center || r.centre || "",
+                    className: r.class || r.classname || r.className || "",
+                    leadResponsibility: r.assignto || r.assignTo || r.leadresponsibility || r.leadResponsibility || "",
                 }));
                 setRows(mapped);
             } catch (err) {
@@ -219,8 +268,8 @@ export default function CampaignUploadLeads() {
         }
     };
 
-    const validRows = rows.filter(r => r.name && r.phoneNumber && r.schoolName);
-    const invalidRows = rows.filter(r => !r.name || !r.phoneNumber || !r.schoolName);
+    const validRows = rows.filter(r => r.name && r.phoneNumber && users.some(u => (u.name || "").toLowerCase() === (r.leadResponsibility || "").toLowerCase()));
+    const invalidRows = rows.filter(r => !r.name || !r.phoneNumber || !users.some(u => (u.name || "").toLowerCase() === (r.leadResponsibility || "").toLowerCase()));
 
     return (
         <Layout activePage="Lead Management">
@@ -423,6 +472,13 @@ export default function CampaignUploadLeads() {
                                 <FaTimes size={10} /> Clear All
                             </button>
                         </div>
+
+                        <datalist id="course-list">
+                            {courses.map(course => (
+                                <option key={course._id} value={course.courseName || course.name} />
+                            ))}
+                        </datalist>
+
                         <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full">
                                 <thead className={`text-[9px] font-black uppercase tracking-widest border-b ${isDark ? "bg-[#0f1215] border-gray-800 text-gray-500" : "bg-gray-50 border-gray-100 text-gray-400"}`}>
@@ -430,40 +486,74 @@ export default function CampaignUploadLeads() {
                                         <th className="px-4 py-3 text-left w-10">#</th>
                                         <th className="px-4 py-3 text-left">Name *</th>
                                         <th className="px-4 py-3 text-left">Phone *</th>
-                                        <th className="px-4 py-3 text-left">School *</th>
+                                        <th className="px-4 py-3 text-left">School</th>
                                         <th className="px-4 py-3 text-left">Email</th>
                                         <th className="px-4 py-3 text-left">2nd Phone</th>
                                         <th className="px-4 py-3 text-left">Source</th>
-                                        <th className="px-4 py-3 text-left">Target Exam</th>
                                         <th className="px-4 py-3 text-left">Lead Type</th>
                                         <th className="px-4 py-3 text-left">Course</th>
+                                        <th className="px-4 py-3 text-left">Board</th>
+                                        <th className="px-4 py-3 text-left">Center</th>
+                                        <th className="px-4 py-3 text-left">Class</th>
+                                        <th className="px-4 py-3 text-left">Assign To *</th>
                                         <th className="px-4 py-3 text-center">Valid</th>
                                         <th className="px-4 py-3 text-center">Del</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDark ? "divide-gray-800" : "divide-gray-100"}`}>
                                     {rows.map((row, idx) => {
-                                        const isValid = row.name && row.phoneNumber && row.schoolName;
+                                        const isValidUser = users.some(u => (u.name || "").toLowerCase() === (row.leadResponsibility || "").toLowerCase());
+                                        const isValid = row.name && row.phoneNumber && isValidUser;
                                         return (
                                             <tr
                                                 key={idx}
                                                 className={`transition-all group ${isValid ? "" : (isDark ? "bg-red-500/5" : "bg-red-50/50")}`}
                                             >
                                                 <td className={`px-4 py-2.5 text-[10px] font-bold ${isDark ? "text-gray-600" : "text-gray-400"}`}>{idx + 1}</td>
-                                                {["name", "phoneNumber", "schoolName", "email", "secondPhoneNumber", "source", "targetExam"].map((field) => (
+                                                {["name", "phoneNumber", "schoolName", "email", "secondPhoneNumber", "source"].map((field) => (
                                                     <td key={field} className="px-2 py-1.5">
                                                         <input
                                                             type="text"
                                                             value={row[field] || ""}
                                                             onChange={(e) => handleEdit(idx, field, e.target.value)}
                                                             className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${
-                                                                (!isValid && ["name", "phoneNumber", "schoolName"].includes(field) && !row[field])
+                                                                (!isValid && ["name", "phoneNumber"].includes(field) && !row[field])
                                                                     ? (isDark ? "bg-red-500/10 border-red-500/40 text-red-300" : "bg-red-50 border-red-300 text-red-700")
                                                                     : (isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500")
                                                             }`}
                                                         />
                                                     </td>
                                                 ))}
+                                                <td className="px-2 py-1.5">
+                                                    <select
+                                                        value={row.board || ""}
+                                                        onChange={(e) => handleEdit(idx, "board", e.target.value)}
+                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {boards.map(b => <option key={b._id} value={b.boardName || b.boardCourse || b.name}>{b.boardName || b.boardCourse || b.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                <td className="px-2 py-1.5">
+                                                    <select
+                                                        value={row.centre || ""}
+                                                        onChange={(e) => handleEdit(idx, "centre", e.target.value)}
+                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {centres.map(c => <option key={c._id} value={c.centreName || c.name}>{c.centreName || c.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                <td className="px-2 py-1.5">
+                                                    <select
+                                                        value={row.className || ""}
+                                                        onChange={(e) => handleEdit(idx, "className", e.target.value)}
+                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {classes.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                                                    </select>
+                                                </td>
                                                 <td className="px-2 py-1.5">
                                                     <select
                                                         value={row.leadType || ""}
@@ -479,11 +569,26 @@ export default function CampaignUploadLeads() {
                                                 <td className="px-2 py-1.5">
                                                     <input
                                                         type="text"
+                                                        list="course-list"
                                                         value={row.course || ""}
                                                         onChange={(e) => handleEdit(idx, "course", e.target.value)}
                                                         className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
                                                         placeholder="Course name"
                                                     />
+                                                </td>
+                                                <td className="px-2 py-1.5">
+                                                    <select
+                                                        value={row.leadResponsibility || ""}
+                                                        onChange={(e) => handleEdit(idx, "leadResponsibility", e.target.value)}
+                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${
+                                                            (!isValid && !users.some(u => (u.name || "").toLowerCase() === (row.leadResponsibility || "").toLowerCase()))
+                                                                ? (isDark ? "bg-red-500/10 border-red-500/40 text-red-300" : "bg-red-50 border-red-300 text-red-700")
+                                                                : (isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500")
+                                                        }`}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {users.map(u => <option key={u._id} value={u.name}>{u.name}</option>)}
+                                                    </select>
                                                 </td>
                                                 <td className="px-4 py-2.5 text-center">
                                                     {isValid
