@@ -10,8 +10,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
  * Compatible with @google/generative-ai v0.24.x
  */
 export const generateAIResponse = async (prompt, systemInstruction = "") => {
-    // Try gemini-3.1-pro-preview first, fallback to gemini-2.5-flash if 503/404 or other errors occur
-    const modelsToTry = ["gemini-3.1-pro-preview", "gemini-2.5-flash"];
+    // Standard valid Gemini models to try in sequence
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
     let lastError = null;
 
     for (const modelName of modelsToTry) {
@@ -48,7 +48,7 @@ export const generateAIResponse = async (prompt, systemInstruction = "") => {
  */
 export const startAIChat = async (history = [], systemInstruction = "") => {
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-2.5-flash",
         generationConfig: {
             maxOutputTokens: 8192,
             temperature: 0.4,
