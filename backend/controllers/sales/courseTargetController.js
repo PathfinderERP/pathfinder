@@ -88,52 +88,70 @@ const monthNames = [
 // POST /sales/course-target and /sales/course-target/bulk
 export const saveCourseTarget = async (req, res) => {
     try {
-        const { centreId, targetType, year, month, quarter, week, targetCount, department, examTags } = req.body;
+        const payload = req.body;
 
-        if (!centreId || !targetType || !year || !department || !targetCount) {
-            return res.status(400).json({ message: "Missing required fields" });
+        // Support bulk targets array or single target payload
+        const targetsList = Array.isArray(payload.targets)
+            ? payload.targets
+            : (Array.isArray(payload) ? payload : [payload]);
+
+        if (!targetsList || targetsList.length === 0) {
+            return res.status(400).json({ message: "No target data provided" });
         }
 
-        const filter = { centre: centreId, department, targetType, year };
-        if (targetType === 'MONTHLY') filter.month = item.month;
-        if (targetType === 'QUARTERLY') filter.quarter = item.quarter;
-        if (targetType === 'WEEKLY') {
-            filter.week = parseInt(item.week, 10);
-            filter.month = item.month; // required: distinguishes same week number across different months
-        }
+        const operations = [];
 
-        const rawTags = item.examTags || [];
-        const examTags = rawTags.map(t => typeof t === 'object' && t !== null ? t.value : t).filter(Boolean);
+        for (const item of targetsList) {
+            const centreId = item.centreId || item.centre;
+            const department = item.department || item.departmentId;
+            const targetType = item.targetType || "MONTHLY";
+            const year = parseInt(item.year, 10);
+            const targetCount = parseInt(item.targetCount, 10);
 
-        const update = {
-            targetCount,
-            examTags,
-            createdBy: req.user._id
-        };
-
-        operations.push({
-            updateOne: {
-                filter,
-                update: { $set: { ...filter, ...update } },
-                upsert: true
+            if (!centreId || !department || !targetType || isNaN(year) || isNaN(targetCount)) {
+                continue;
             }
-        });
-    }
+
+            const filter = { centre: centreId, department, targetType, year };
+            if (targetType === 'MONTHLY') filter.month = item.month;
+            if (targetType === 'QUARTERLY') filter.quarter = item.quarter;
+            if (targetType === 'WEEKLY') {
+                filter.week = parseInt(item.week, 10);
+                filter.month = item.month; // required: distinguishes same week number across different months
+            }
+
+            const rawTags = item.examTags || [];
+            const examTags = rawTags.map(t => typeof t === 'object' && t !== null ? t.value : t).filter(Boolean);
+
+            const update = {
+                targetCount,
+                examTags,
+                createdBy: req.user._id
+            };
+
+            operations.push({
+                updateOne: {
+                    filter,
+                    update: { $set: { ...filter, ...update } },
+                    upsert: true
+                }
+            });
+        }
 
         if (operations.length === 0) {
-        return res.status(400).json({ message: "Missing required fields for target creation" });
+            return res.status(400).json({ message: "Missing required fields for target creation" });
+        }
+
+        const bulkResult = await CourseTarget.bulkWrite(operations);
+
+        res.status(200).json({
+            message: `Successfully saved ${operations.length} target(s)`,
+            data: bulkResult
+        });
+    } catch (error) {
+        console.error("saveCourseTarget error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
-
-    const bulkResult = await CourseTarget.bulkWrite(operations);
-
-    res.status(200).json({
-        message: `Successfully saved ${operations.length} target(s)`,
-        data: bulkResult
-    });
-} catch (error) {
-    console.error("saveCourseTarget error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-}
 };
 
 // GET /sales/course-target/analysis
