@@ -90,7 +90,7 @@ export const saveCourseTarget = async (req, res) => {
     try {
         const { centreId, targetType, year, month, quarter, week, targetCount, department, examTags } = req.body;
 
-        if (!centreId || !targetType || !year || !department || !targetCount) {
+        if (!centreId || !targetType || !year || !department || targetCount === undefined || targetCount === null || targetCount === "") {
             return res.status(400).json({ message: "Missing required fields" });
         }
 
