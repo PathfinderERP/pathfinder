@@ -971,6 +971,7 @@ const DailyCenterTracking = () => {
                 data={detailsData}
                 loading={loadingDetails}
                 isDarkMode={isDarkMode}
+                activeCenters={filteredCenters}
             />
 
             <ActiveCentresCallsReportModal
