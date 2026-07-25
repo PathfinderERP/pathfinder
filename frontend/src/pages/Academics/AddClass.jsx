@@ -651,6 +651,7 @@ const AddClass = () => {
                                 placeholder="Select chapters"
                                 isDarkMode={isDarkMode}
                                 isDisabled={!formData.acadSubjectId}
+                                showAllTags={true}
                             />
                         </div>
 
@@ -665,6 +666,7 @@ const AddClass = () => {
                                 placeholder="Select topics"
                                 isDarkMode={isDarkMode}
                                 isDisabled={formData.chapterIds.length === 0}
+                                showAllTags={true}
                             />
                         </div>
 

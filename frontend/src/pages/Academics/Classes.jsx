@@ -2805,6 +2805,7 @@ const Classes = () => {
                                                 placeholder="Select Chapters"
                                                 isDarkMode={isDarkMode}
                                                 isDisabled={!editingClassData.acadSubjectId}
+                                                showAllTags={true}
                                             />
                                         </div>
                                         <div className="flex flex-col gap-2">
@@ -2822,6 +2823,7 @@ const Classes = () => {
                                                 placeholder="Select Topics"
                                                 isDarkMode={isDarkMode}
                                                 isDisabled={!editingClassData.chapterIds || editingClassData.chapterIds.length === 0}
+                                                showAllTags={true}
                                             />
                                         </div>
                                     </div>

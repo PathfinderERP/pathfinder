@@ -7,6 +7,10 @@ const ValueContainer = ({ children, getValue, hasValue, isMulti, selectProps, ..
         return <components.ValueContainer selectProps={selectProps} {...props}>{children}</components.ValueContainer>;
     }
 
+    if (selectProps.showAllTags || selectProps.maxShowTags === Infinity) {
+        return <components.ValueContainer selectProps={selectProps} {...props}>{children}</components.ValueContainer>;
+    }
+
     const selected = getValue() || [];
     const options = selectProps.options || [];
 
@@ -87,7 +91,7 @@ const ValueContainer = ({ children, getValue, hasValue, isMulti, selectProps, ..
     return <components.ValueContainer selectProps={selectProps} {...props}>{children}</components.ValueContainer>;
 };
 
-const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, isMulti = true, theme: propTheme, isDarkMode, maxShowTags, components: customComponents, ...rest }) => {
+const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, isMulti = true, theme: propTheme, isDarkMode, maxShowTags, showAllTags = false, components: customComponents, ...rest }) => {
     let contextTheme = 'light';
     try {
         const context = useTheme();
@@ -186,6 +190,7 @@ const CustomMultiSelect = ({ options, value, onChange, placeholder, isDisabled, 
             menuPortalTarget={document.body}
             activeTheme={activeTheme}
             maxShowTags={maxShowTags}
+            showAllTags={showAllTags}
             components={{ ValueContainer, ...customComponents }}
             theme={(themeConfig) => ({
                 ...themeConfig,
