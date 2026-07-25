@@ -218,12 +218,12 @@ export default function CampaignUploadLeads() {
             const row = rows[i];
             const primaryPhone = row.phoneNumber ? String(row.phoneNumber).trim() : "";
             if (!primaryPhone || !phoneRegex.test(primaryPhone)) {
-                toast.error("enter the correct phone number");
+                toast.error(`Row ${i + 1}: Invalid primary phone — "${primaryPhone || "(empty)"}"`);
                 return;
             }
             const secPhone = row.secondPhoneNumber ? String(row.secondPhoneNumber).trim() : "";
             if (secPhone && secPhone !== "0" && secPhone !== "0.0" && !phoneRegex.test(secPhone)) {
-                toast.error("enter the correct phone number");
+                toast.error(`Row ${i + 1}: Invalid 2nd phone — "${secPhone}"`);
                 return;
             }
         }
