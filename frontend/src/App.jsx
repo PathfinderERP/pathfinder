@@ -26,6 +26,7 @@ import WeeklyTarget from "./pages/Sales/WeeklyTarget";
 import AverageAdmissionFee from "./pages/Sales/AverageAdmissionFee";
 import FinalWeekendTarget from "./pages/Sales/FinalWeekendTarget";
 import CourseTarget from "./pages/Sales/CourseTarget";
+import ManpowerTarget from "./pages/Sales/ManpowerTarget";
 import TransactionList from "./pages/Finance/TransactionList";
 import HR from "./pages/HR";
 import EnrolledStudents from "./pages/EnrolledStudents";
@@ -268,6 +269,7 @@ function App() {
         <Route path="/sales/weekly-target" element={<ProtectedRoute><WeeklyTarget /></ProtectedRoute>} />
         <Route path="/sales/final-weekend-target" element={<ProtectedRoute><FinalWeekendTarget /></ProtectedRoute>} />
         <Route path="/sales/course-target" element={<ProtectedRoute><CourseTarget /></ProtectedRoute>} />
+        <Route path="/sales/manpower-target" element={<ProtectedRoute><ManpowerTarget /></ProtectedRoute>} />
         <Route path="/hr" element={<ProtectedRoute><HR /></ProtectedRoute>} />
         <Route path="/hr/salary-expense" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><SalaryExpenseHub /></ProtectedRoute>} />
         <Route path="/hr/employee/list" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
