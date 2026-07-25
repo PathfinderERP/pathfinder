@@ -182,7 +182,7 @@ export const saveCourseTarget = async (req, res) => {
 // GET /sales/course-target/analysis
 export const getCourseTargetAnalysis = async (req, res) => {
     try {
-        const { centre, year, month, quarter, week, targetType, programme, sessions, classIds } = req.query;
+        const { centre, year, month, quarter, week, targetType, programme, sessions, classIds, courseIds } = req.query;
 
         if (!centre || !year || !targetType) {
             return res.status(400).json({ message: "Centre(s), Year, and Target Type are required" });
@@ -227,7 +227,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
         }
 
         if (centreIds.length === 0) {
-            return res.status(200).json({ year: parsedYear, targetType, data: [] });
+            return res.status(200).json({ year: parsedYear, targetType, data: [], admissionCourses: [] });
         }
 
         const rawDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
@@ -341,6 +341,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
         const classIdList = classIds ? classIds.split(',').map(s => s.trim()).filter(id => mongoose.Types.ObjectId.isValid(id)) : [];
+        const courseIdList = courseIds ? (typeof courseIds === 'string' ? courseIds.split(',') : courseIds).map(s => s.trim()).filter(Boolean) : [];
 
         let boardClassMatches = [];
         if (classIdList.length > 0) {
@@ -351,7 +352,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
             boardClassMatches = [...new Set([...classNames, ...classDigits])];
         }
 
-        console.log(`Analyzing ${centreIds.length} centres from ${startDate.toISOString()} to ${endDate.toISOString()} | Sessions: ${sessionList} | Programs: ${programList}`);
+        const uniqueAdmissionCoursesMap = new Map();
 
         for (const centreId of centreIds) {
             const centreDoc = centreMap[centreId];
@@ -387,6 +388,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const [normalAdmissions, boardAdmissions] = await Promise.all([
                 Admission.find(normalMatch)
+                    .populate('course', 'courseName programme')
                     .populate('examTag')
                     .populate('student')
                     .lean(),
@@ -398,11 +400,27 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     .lean()
             ]);
 
+            // Track all unique courses for this period
+            normalAdmissions.forEach(a => {
+                const cId = a.course?._id?.toString() || a.course?.toString();
+                const cName = a.course?.courseName;
+                if (cId && cName) {
+                    uniqueAdmissionCoursesMap.set(cId, { _id: cId, courseName: cName });
+                }
+            });
+            boardAdmissions.forEach(a => {
+                const bId = a.boardId?._id?.toString() || a.boardCourseName || a.boardId?.boardCourse;
+                const bName = a.boardCourseName || a.boardId?.boardCourse;
+                if (bId && bName) {
+                    uniqueAdmissionCoursesMap.set(bId, { _id: bId, courseName: bName });
+                }
+            });
+
             // Filter in memory by programme list
             let filteredNormal = normalAdmissions;
             if (programList.length > 0) {
                 filteredNormal = normalAdmissions.filter(a => {
-                    const prog = a.student?.studentsDetails?.[0]?.programme;
+                    const prog = a.student?.studentsDetails?.[0]?.programme || a.course?.programme;
                     return prog && programList.includes(prog);
                 });
             }
@@ -412,6 +430,20 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 filteredBoard = boardAdmissions.filter(a => {
                     const prog = a.studentId?.studentsDetails?.[0]?.programme || a.programme;
                     return prog && programList.includes(prog);
+                });
+            }
+
+            // Filter by courseIds if passed
+            if (courseIdList.length > 0) {
+                filteredNormal = filteredNormal.filter(a => {
+                    const cId = a.course?._id?.toString() || a.course?.toString();
+                    const cName = a.course?.courseName;
+                    return courseIdList.includes(cId) || courseIdList.includes(cName);
+                });
+                filteredBoard = filteredBoard.filter(a => {
+                    const bId = a.boardId?._id?.toString() || a.boardId?.toString();
+                    const bName = a.boardCourseName || a.boardId?.boardCourse;
+                    return courseIdList.includes(bId) || courseIdList.includes(bName);
                 });
             }
 
@@ -472,7 +504,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const uniqueAdmissions = Array.from(uniqueMap.values());
 
-            console.log(`Centre: ${centreName} | Normal raw: ${normalAdmissions.length} | Board raw: ${boardAdmissions.length} | Unique combined: ${uniqueAdmissions.length}`);
+            // console.log(`Centre: ${centreName} | Normal raw: ${normalAdmissions.length} | Board raw: ${boardAdmissions.length} | Unique combined: ${uniqueAdmissions.length}`);
 
             const deptAdmissionMap = {};
             const deptExamTagBreakdown = {};
@@ -519,7 +551,10 @@ export const getCourseTargetAnalysis = async (req, res) => {
             });
         }
 
-        res.status(200).json({ success: true, year: parsedYear, targetType, data: results });
+        const admissionCourses = Array.from(uniqueAdmissionCoursesMap.values())
+            .sort((a, b) => (a.courseName || "").localeCompare(b.courseName || ""));
+
+        res.status(200).json({ success: true, year: parsedYear, targetType, data: results, admissionCourses });
 
     } catch (error) {
         console.error("getCourseTargetAnalysis error:", error);
@@ -530,7 +565,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 // GET /sales/course-target/admissions
 export const getAdmissionDetails = async (req, res) => {
     try {
-        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName, classIds } = req.query;
+        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName, classIds, courseIds } = req.query;
 
         if (!centreName || !departmentId || !startDate || !endDate) {
             return res.status(400).json({ message: "Missing required parameters" });
@@ -545,6 +580,7 @@ export const getAdmissionDetails = async (req, res) => {
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
         const classIdList = classIds ? classIds.split(',').map(s => s.trim()).filter(id => mongoose.Types.ObjectId.isValid(id)) : [];
+        const courseIdList = courseIds ? (typeof courseIds === 'string' ? courseIds.split(',') : courseIds).map(s => s.trim()).filter(Boolean) : [];
 
         let boardClassMatches = [];
         if (classIdList.length > 0) {
@@ -606,6 +642,9 @@ export const getAdmissionDetails = async (req, res) => {
         if (programList.length > 0) {
             normalResults = normalResults.filter(a => programList.includes(a.programme));
         }
+        if (courseIdList.length > 0) {
+            normalResults = normalResults.filter(a => courseIdList.includes(a.course) || courseIdList.includes(a.course?._id?.toString()));
+        }
 
         // Fetch Board Course Admissions matching
         let boardResults = [];
@@ -643,6 +682,7 @@ export const getAdmissionDetails = async (req, res) => {
                 admissionDate: a.admissionDate,
                 examTag: origTagName,
                 course: a.boardCourseName || a.boardId?.boardCourse || "N/A",
+                boardId: a.boardId?._id?.toString() || a.boardId?.toString(),
                 programme: a.studentId?.studentsDetails?.[0]?.programme || a.programme || "",
                 downPayment: a.totalPaidAmount || a.admissionFee || 0,
                 totalFees: a.totalExpectedAmount || 0,
@@ -652,6 +692,9 @@ export const getAdmissionDetails = async (req, res) => {
 
         if (programList.length > 0) {
             boardResults = boardResults.filter(a => programList.includes(a.programme));
+        }
+        if (courseIdList.length > 0) {
+            boardResults = boardResults.filter(a => courseIdList.includes(a.course) || courseIdList.includes(a.boardId));
         }
 
         // Filter board results by matching tag column or department mapping

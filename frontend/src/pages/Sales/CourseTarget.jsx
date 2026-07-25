@@ -53,6 +53,15 @@ const CourseTarget = () => {
             return [];
         }
     });
+    const [selectedCourses, setSelectedCourses] = useState(() => {
+        try {
+            const saved = localStorage.getItem("courseTarget_selectedCourses");
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [availableCourses, setAvailableCourses] = useState([]);
     const [activeCardModal, setActiveCardModal] = useState(null);
     const [stagedTargets, setStagedTargets] = useState([]);
     const [bulkSaving, setBulkSaving] = useState(false);
@@ -252,6 +261,9 @@ const CourseTarget = () => {
             if (selectedClasses && selectedClasses.length > 0) {
                 params.append("classIds", selectedClasses.join(','));
             }
+            if (selectedCourses && selectedCourses.length > 0) {
+                params.append("courseIds", selectedCourses.join(','));
+            }
             const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-target/admissions?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -385,8 +397,13 @@ const CourseTarget = () => {
     }, [selectedClasses]);
 
     useEffect(() => {
+        localStorage.setItem("courseTarget_selectedCourses", JSON.stringify(selectedCourses));
+    }, [selectedCourses]);
+
+    useEffect(() => {
         localStorage.setItem("courseTarget_selectedZones", JSON.stringify(selectedZones));
     }, [selectedZones]);
+
 
     useEffect(() => {
         fetchCentres();
@@ -521,17 +538,24 @@ const CourseTarget = () => {
     const fetchDepartments = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/department`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Filter by showInAdmission if the API doesn't already
-            const visibleDepts = res.data
-                .filter(d => d.showInAdmission !== false)
-                .map(d => d.departmentName)
-                .sort();
-            setDepartments(visibleDepts);
-        } catch (e) {
-            console.error(e);
+            if (res.ok) {
+                const allDepts = await res.json();
+                const visibleDepts = allDepts.filter(dept => {
+                    if (dept.showInAdmission === false) return false;
+                    const name = (dept.departmentName || "").toLowerCase().trim();
+                    if (name.includes("fort william")) return false;
+                    if (name.includes("icse and isc") || name.includes("icse & isc")) return false;
+                    if (name.includes("madhyamik and hs") || name.includes("madhyamik & hs")) return false;
+                    if (name.includes("counselling desk") || name.includes("zall india") || name.includes("zall-india")) return false;
+                    return true;
+                });
+                setDepartments(visibleDepts);
+            }
+        } catch (error) {
+            console.error("Error fetching departments:", error);
         }
     };
 
@@ -540,41 +564,39 @@ const CourseTarget = () => {
     const fetchExamTags = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/examTag`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setAllExamTags(res.data || []);
+            if (res.ok) {
+                const data = await res.json();
+                setAllExamTags(data || []);
+            }
         } catch (e) {
-            console.error(e);
+            console.error("Error fetching exam tags:", e);
         }
     };
 
     const fetchSessions = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/session/list`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/session/list`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const sessionList = (Array.isArray(res.data) ? res.data : [])
-                .filter(s => s.isGlobalActive)
-                .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
-            setSessions(sessionList);
-            const saved = localStorage.getItem("courseTarget_selectedSessions");
-            if (saved) {
+            if (res.ok) {
+                const sessionData = await res.json();
+                const sessionList = (Array.isArray(sessionData) ? sessionData : [])
+                    .filter(s => s.isGlobalActive)
+                    .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                setSessions(sessionList);
                 try {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        const validSessions = parsed.filter(name => sessionList.some(s => s.sessionName === name));
-                        if (validSessions.length > 0) {
-                            setSelectedSessions(validSessions);
-                            return;
-                        }
+                    const saved = localStorage.getItem("courseTarget_selectedSessions");
+                    if (!saved || JSON.parse(saved).length === 0) {
+                        setSelectedSessions(sessionList.map(s => s.sessionName));
                     }
                 } catch (e) {
-                    console.error(e);
+                    setSelectedSessions(sessionList.map(s => s.sessionName));
                 }
             }
-            setSelectedSessions(sessionList.map(s => s.sessionName));
         } catch (e) {
             console.error("Error fetching sessions:", e);
         }
@@ -583,20 +605,19 @@ const CourseTarget = () => {
     const fetchClasses = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/class`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const classList = res.data || [];
-            classList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-            setClasses(classList);
-            const saved = localStorage.getItem("courseTarget_selectedClasses");
-            if (saved) {
+            if (res.ok) {
+                const classData = await res.json();
+                const classList = (Array.isArray(classData) ? classData : classData.data || [])
+                    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setClasses(classList);
                 try {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        const validClasses = parsed.filter(id => classList.some(c => c._id === id));
-                        if (validClasses.length > 0) {
-                            setSelectedClasses(validClasses);
+                    const saved = localStorage.getItem("courseTarget_selectedClasses");
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.length > 0) {
                             return;
                         }
                     }
@@ -604,7 +625,6 @@ const CourseTarget = () => {
                     console.error(e);
                 }
             }
-            setSelectedClasses(classList.map(c => c._id));
         } catch (e) {
             console.error("Error fetching classes:", e);
         }
@@ -638,6 +658,9 @@ const CourseTarget = () => {
             if (selectedClasses && selectedClasses.length > 0) {
                 params.classIds = selectedClasses.join(',');
             }
+            if (selectedCourses && selectedCourses.length > 0) {
+                params.courseIds = selectedCourses.join(',');
+            }
 
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/course-target/analysis`, {
                 params,
@@ -649,17 +672,34 @@ const CourseTarget = () => {
             fetchedData.sort((a, b) => (a.centreName || "").localeCompare((b.centreName || ""), undefined, { sensitivity: 'base' }));
             setData(fetchedData);
 
+            if (selectedCourses.length === 0) {
+                setAvailableCourses(res.data.admissionCourses || []);
+            }
+
         } catch (e) {
             console.error(e);
             toast.error("Failed to load course target analysis");
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedZones, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses]);
+    }, [selectedCentres, selectedZones, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses, selectedCourses]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const courseOptionsMap = new Map();
+    (availableCourses || []).forEach(c => {
+        if (c._id && c.courseName) {
+            courseOptionsMap.set(c._id.toString(), { value: c._id.toString(), label: c.courseName });
+        }
+    });
+    (selectedCourses || []).forEach(selectedId => {
+        if (!courseOptionsMap.has(selectedId)) {
+            courseOptionsMap.set(selectedId, { value: selectedId, label: selectedId });
+        }
+    });
+    const courseOptions = Array.from(courseOptionsMap.values()).sort((a, b) => (a.label || "").localeCompare(b.label || ""));
 
     const getDeptStats = (centreData, deptName) => {
         if (!centreData || !centreData.departments) return { target: 0, achieved: 0, pct: 0 };
@@ -1105,6 +1145,27 @@ const CourseTarget = () => {
                                     }
                                 }}
                                 placeholder="Select Classes"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        {/* Course Filter */}
+                        <div className="min-w-[180px] z-20 w-full sm:w-56">
+                            <CustomMultiSelect
+                                options={[{ value: 'all', label: 'All Courses' }, ...courseOptions]}
+                                value={
+                                    selectedCourses.length === courseOptions.length && courseOptions.length > 0
+                                        ? [{ value: 'all', label: 'All Courses' }]
+                                        : courseOptions.filter(opt => selectedCourses.includes(opt.value))
+                                }
+                                onChange={(selected) => {
+                                    if (selected && selected.some(o => o.value === 'all')) {
+                                        setSelectedCourses(courseOptions.map(c => c.value));
+                                    } else {
+                                        setSelectedCourses(selected ? selected.map(o => o.value) : []);
+                                    }
+                                }}
+                                placeholder="Select Courses"
                                 isDarkMode={isDarkMode}
                             />
                         </div>
