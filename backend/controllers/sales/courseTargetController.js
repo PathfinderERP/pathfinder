@@ -614,11 +614,19 @@ export const getAdmissionDetails = async (req, res) => {
             normalQuery.class = { $in: classIdList.map(id => new mongoose.Types.ObjectId(id)) };
         }
 
-        const admissions = await Admission.find(normalQuery)
+        let admissions = await Admission.find(normalQuery)
             .populate('course', 'courseName programme')
             .populate('examTag', 'name tagName')
             .populate('student', 'studentsDetails mobileNum sessionExamCourse')
             .lean();
+
+        if (courseIdList.length > 0) {
+            admissions = admissions.filter(a => {
+                const cId = a.course?._id?.toString() || a.course?.toString();
+                const cName = a.course?.courseName;
+                return courseIdList.includes(cId) || courseIdList.includes(cName);
+            });
+        }
 
         let normalResults = admissions.map(a => {
             const studentTag = getStudentSessionExamTag(a.student, a.academicSession);
@@ -642,9 +650,6 @@ export const getAdmissionDetails = async (req, res) => {
         if (programList.length > 0) {
             normalResults = normalResults.filter(a => programList.includes(a.programme));
         }
-        if (courseIdList.length > 0) {
-            normalResults = normalResults.filter(a => courseIdList.includes(a.course) || courseIdList.includes(a.course?._id?.toString()));
-        }
 
         // Fetch Board Course Admissions matching
         let boardResults = [];
@@ -662,12 +667,20 @@ export const getAdmissionDetails = async (req, res) => {
             boardQuery.lastClass = { $in: boardClassMatches };
         }
 
-        const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
+        let boardAdmissions = await BoardCourseAdmission.find(boardQuery)
             .populate('studentId')
             .populate('boardId')
             .populate('examTag')
             .populate('department')
             .lean();
+
+        if (courseIdList.length > 0) {
+            boardAdmissions = boardAdmissions.filter(a => {
+                const bId = a.boardId?._id?.toString() || a.boardId?.toString();
+                const bName = a.boardCourseName || a.boardId?.boardCourse;
+                return courseIdList.includes(bId) || courseIdList.includes(bName);
+            });
+        }
 
         boardResults = boardAdmissions.map(a => {
             const studentTag = getStudentSessionExamTag(a.studentId, a.academicSession);
@@ -692,9 +705,6 @@ export const getAdmissionDetails = async (req, res) => {
 
         if (programList.length > 0) {
             boardResults = boardResults.filter(a => programList.includes(a.programme));
-        }
-        if (courseIdList.length > 0) {
-            boardResults = boardResults.filter(a => courseIdList.includes(a.course) || courseIdList.includes(a.boardId));
         }
 
         // Filter board results by matching tag column or department mapping
