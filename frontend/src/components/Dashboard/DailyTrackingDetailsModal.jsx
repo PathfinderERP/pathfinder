@@ -41,35 +41,36 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
             const cName = c.name || c.centreName || "N/A";
             centerCollectionMap[cName] = {
                 centreName: cName,
-                admission: c.collectionsAdmissionVal || 0,
-                installment: c.collectionsInstallmentVal || 0,
-                total: c.collectionsVal || 0,
+                admission: safeData.length === 0 ? (c.collectionsAdmissionVal || 0) : 0,
+                installment: safeData.length === 0 ? (c.collectionsInstallmentVal || 0) : 0,
+                total: safeData.length === 0 ? (c.collectionsVal || 0) : 0,
                 paymentCount: 0
             };
         });
     }
 
-    // Override/supplement with actual payments data matching
-    safeData.forEach(item => {
-        const cName = item.centreName || "N/A";
-        if (!centerCollectionMap[cName]) {
-            centerCollectionMap[cName] = {
-                centreName: cName,
-                admission: 0,
-                installment: 0,
-                total: 0,
-                paymentCount: 0
-            };
-        }
-        const amt = item.amount || 0;
-        if (item.isAdmission) {
-            centerCollectionMap[cName].admission += amt;
-        } else {
-            centerCollectionMap[cName].installment += amt;
-        }
-        centerCollectionMap[cName].total = centerCollectionMap[cName].admission + centerCollectionMap[cName].installment;
-        centerCollectionMap[cName].paymentCount += 1;
-    });
+    if (safeData.length > 0) {
+        safeData.forEach(item => {
+            const cName = item.centreName || "N/A";
+            if (!centerCollectionMap[cName]) {
+                centerCollectionMap[cName] = {
+                    centreName: cName,
+                    admission: 0,
+                    installment: 0,
+                    total: 0,
+                    paymentCount: 0
+                };
+            }
+            const amt = item.amount || 0;
+            if (item.isAdmission) {
+                centerCollectionMap[cName].admission += amt;
+            } else {
+                centerCollectionMap[cName].installment += amt;
+            }
+            centerCollectionMap[cName].total += amt;
+            centerCollectionMap[cName].paymentCount += 1;
+        });
+    }
 
     const centerCollectionList = Object.values(centerCollectionMap).sort((a, b) => b.total - a.total);
 
