@@ -15,14 +15,14 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
         state: student.studentsDetails?.[0]?.state || '',
         schoolName: student.studentsDetails?.[0]?.schoolName || '',
         address: student.studentsDetails?.[0]?.address || '',
-        programme: student.studentsDetails?.[0]?.programme || '',
+        programme: admission?.programme || student.studentsDetails?.[0]?.programme || '',
         pincode: student.studentsDetails?.[0]?.pincode || '',
-        class: student.examSchema?.[0]?.class || '',
+        class: admission?.lastClass || admission?.class?.className || admission?.class?.name || student.examSchema?.[0]?.class || '',
         scienceMathPercent: student.examSchema?.[0]?.scienceMathPercent || student.examSchema?.[0]?.scienceMathParcent || '',
         markAggregate: student.examSchema?.[0]?.markAggregate || student.examSchema?.[0]?.markAgregate || '',
-        examTag: student.sessionExamCourse?.[0]?.examTag || '',
+        examTag: admission?.examTag?._id || (typeof admission?.examTag === 'string' ? admission.examTag : admission?.examTag?.name) || student.sessionExamCourse?.[0]?.examTag || '',
         targetExams: student.sessionExamCourse?.[0]?.targetExams || '',
-        session: student.sessionExamCourse?.[0]?.session || '',
+        session: admission?.academicSession || student.sessionExamCourse?.[0]?.session || '',
         uid: student.uid || student._id || '',
         admissionNumber: admission?.admissionNumber || '',
         guardianName: student.guardians?.[0]?.guardianName || '',
@@ -33,7 +33,7 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
         qualification: student.guardians?.[0]?.qualification || '',
         course: student.course?._id || student.course || '',
         batches: student.batches ? student.batches.map(b => b._id || b) : [],
-        department: student.department?._id || student.department || '',
+        department: admission?.department?._id || admission?.department || student.department?._id || student.department || '',
         leadBy: (() => {
             const lb = student.leadBy || admission?.leadBy;
             if (!lb) return '';
@@ -324,11 +324,13 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                     markAggregate: formData.markAggregate || null,
                     scienceMathPercent: formData.scienceMathPercent || null,
                 }],
-                sessionExamCourse: [{
-                    examTag: formData.examTag || null,
-                    targetExams: formData.targetExams || null,
-                    session: formData.session || null,
-                }],
+                sessionExamCourse: (admission?.boardCourseName || admission?.boardId)
+                    ? (student.sessionExamCourse || [])
+                    : [{
+                        examTag: formData.examTag || null,
+                        targetExams: formData.targetExams || null,
+                        session: formData.session || null,
+                    }],
                 guardians: [{
                     guardianName: formData.guardianName || null,
                     guardianEmail: formData.guardianEmail || null,
@@ -369,7 +371,8 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                             centre: formData.centre,
                             academicSession: formData.session,
                             createdBy: formData.createdBy || null,
-                            department: formData.department || null
+                            department: formData.department || null,
+                            examTag: formData.examTag || null
                         };
                         if (formData.admissionNumber !== (admission.admissionNumber || '')) {
                             admissionUpdates.admissionNumber = formData.admissionNumber;

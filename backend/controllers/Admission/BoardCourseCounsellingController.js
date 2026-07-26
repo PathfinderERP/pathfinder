@@ -381,13 +381,16 @@ export const updateBoardCourseCounselling = async (req, res) => {
             
             if (examName || academicSession) {
                 const studentObj = await Student.findById(counselling.studentId);
-                const currentTag = examName || studentObj?.sessionExamCourse?.[0]?.examTag || "";
-                const currentSession = academicSession || studentObj?.sessionExamCourse?.[0]?.session || "";
-                updateSet["sessionExamCourse"] = [{
-                    examTag: currentTag,
-                    session: currentSession,
-                    targetExams: studentObj?.sessionExamCourse?.[0]?.targetExams || ""
-                }];
+                // Only update sessionExamCourse if student has no existing normal exam tag
+                if (!studentObj?.sessionExamCourse?.[0]?.examTag) {
+                    const currentTag = examName || studentObj?.sessionExamCourse?.[0]?.examTag || "";
+                    const currentSession = academicSession || studentObj?.sessionExamCourse?.[0]?.session || "";
+                    updateSet["sessionExamCourse"] = [{
+                        examTag: currentTag,
+                        session: currentSession,
+                        targetExams: studentObj?.sessionExamCourse?.[0]?.targetExams || ""
+                    }];
+                }
             }
             if (department) {
                 updateSet["department"] = department;

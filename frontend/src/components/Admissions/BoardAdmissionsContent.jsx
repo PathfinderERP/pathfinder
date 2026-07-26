@@ -1331,8 +1331,9 @@ const BoardAdmissionsContent = () => {
         return data;
     }, [filteredStudents, activeTab, boardAdmissions]);
 
-    const handleViewStudent = (student) => {
+    const handleViewStudent = (student, admission = null) => {
         setSelectedStudent(student);
+        setSelectedAdmission(admission);
         setShowDetailsModal(true);
     };
 
@@ -1964,7 +1965,7 @@ const BoardAdmissionsContent = () => {
                                                         ) : (
                                                             <>
                                                                 <button
-                                                                    onClick={() => handleViewStudent(item.studentId)}
+                                                                    onClick={() => handleViewStudent(item.studentId, item)}
                                                                     title="View Details"
                                                                     className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"
                                                                 >
@@ -2022,8 +2023,9 @@ const BoardAdmissionsContent = () => {
             {showDetailsModal && selectedStudent && (
                 <StudentDetailsModal
                     student={selectedStudent}
+                    admission={selectedAdmission}
                     isOpen={showDetailsModal}
-                    onClose={() => { setShowDetailsModal(false); setSelectedStudent(null); }}
+                    onClose={() => { setShowDetailsModal(false); setSelectedStudent(null); setSelectedAdmission(null); }}
                     isDarkMode={isDarkMode}
                 />
             )}

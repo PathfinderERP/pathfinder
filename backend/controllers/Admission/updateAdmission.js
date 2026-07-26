@@ -75,8 +75,8 @@ export const updateAdmission = async (req, res) => {
             );
         }
 
-        // Sync examTag updates to student's sessionExamCourse
-        if (updates.examTag) {
+        // Sync examTag updates to student's sessionExamCourse ONLY for normal course admissions
+        if (updates.examTag && !isBoard) {
             const examTagDoc = await ExamTag.findById(updates.examTag);
             if (examTagDoc) {
                 const newTagName = examTagDoc.tagName || examTagDoc.name;

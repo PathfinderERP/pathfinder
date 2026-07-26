@@ -67,32 +67,10 @@ export const updateStudent = async (req, res) => {
                     if (details.studentName) updateFields.studentName = details.studentName;
                     if (details.mobileNum) updateFields.mobileNum = details.mobileNum;
                     if (details.centre) updateFields.centre = details.centre;
-                    if (details.programme) updateFields.programme = details.programme;
-                    if (exam.class) updateFields.lastClass = exam.class;
-                    if (sessionCourse.session) updateFields.academicSession = sessionCourse.session;
- 
-                    if (details.board) {
-                         const boardDoc = await Boards.findOne({
-                             $or: [
-                                 { boardName: { $regex: new RegExp(`^${details.board.trim()}$`, "i") } },
-                                 { boardCourse: { $regex: new RegExp(`^${details.board.trim()}$`, "i") } }
-                             ]
-                         });
-                         if (boardDoc) {
-                             updateFields.boardId = boardDoc._id;
-                         }
-                    }
- 
-                    const board = await Boards.findById(updateFields.boardId || admission.boardId);
-                    if (board) {
-                        updateFields.boardCourseName = `${board.boardCourse} Class ${updateFields.lastClass || admission.lastClass || ''} ${updateFields.programme || admission.programme || ''} ${updateFields.academicSession || admission.academicSession || ''}`;
-                    }
 
-                    if (!admission.department && student.department) {
-                        updateFields.department = student.department;
+                    if (Object.keys(updateFields).length > 0) {
+                        await BoardCourseAdmission.updateOne({ _id: admission._id }, { $set: updateFields });
                     }
- 
-                    await BoardCourseAdmission.updateOne({ _id: admission._id }, { $set: updateFields });
                 }
             }
         } catch (syncErr) {

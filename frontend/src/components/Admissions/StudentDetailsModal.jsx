@@ -1,7 +1,7 @@
 import React from 'react';
 import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaBook, FaMapMarkerAlt, FaEdit, FaUserGraduate, FaPhoneAlt } from 'react-icons/fa';
 
-const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) => {
+const StudentDetailsModal = ({ student, admission, onClose, onEdit, canEdit, isDarkMode }) => {
     if (!student) return null;
 
     const details = student.studentsDetails?.[0] || {};
@@ -125,12 +125,12 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                 </div>
                                 <div>
                                     <p className={labelClass}>EDUCATIONAL BOARD</p>
-                                    <p className={valueClass}>{details.board || "NOT SET"}</p>
+                                    <p className={valueClass}>{admission?.boardId?.boardCourse || admission?.boardId?.boardName || details.board || "NOT SET"}</p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>CURRENT CLASS</p>
                                     <span className={`px-3 py-1 rounded-[4px] text-[10px] font-black uppercase border inline-block ${isDarkMode ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
-                                        {exam.class || details.class || "UNSET"}
+                                        {admission?.lastClass || admission?.class?.className || admission?.class?.name || exam.class || details.class || "UNSET"}
                                     </span>
                                 </div>
                                 <div>
@@ -157,11 +157,19 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                                 <div>
                                     <p className={labelClass}>ACADEMIC PROGRAMME</p>
-                                    <p className={valueClass}>{details.programme || "N/A"}</p>
+                                    <p className={valueClass}>{admission?.programme || details.programme || "N/A"}</p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>EXAM TAG (TARGET)</p>
-                                    <p className={valueClass}>{sessionExam.examTag || exam.examName || "NONE"}</p>
+                                    <p className={valueClass}>
+                                        {admission?.examTag?.name || 
+                                         admission?.examTag?.tagName || 
+                                         (typeof admission?.examTag === 'string' ? admission.examTag : null) || 
+                                         admission?.examName || 
+                                         sessionExam.examTag || 
+                                         exam.examName || 
+                                         "NONE"}
+                                    </p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>TARGET MATRIX</p>
@@ -169,15 +177,19 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                 </div>
                                 <div className="col-span-2">
                                     <p className={labelClass}>CORE TRACK COURSE</p>
-                                    <p className={`${valueClass} text-cyan-500`}>{student.course?.courseName || "PENDING SELECTION"}</p>
+                                    <p className={`${valueClass} text-cyan-500`}>
+                                        {admission?.boardCourseName || admission?.course?.courseName || student.course?.courseName || "PENDING SELECTION"}
+                                    </p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>DEPARTMENT HQ</p>
-                                    <p className={valueClass}>{student.department?.departmentName || "GENERAL"}</p>
+                                    <p className={valueClass}>
+                                        {admission?.department?.departmentName || admission?.department?.name || student.department?.departmentName || "GENERAL"}
+                                    </p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>ACTIVE SESSION</p>
-                                    <p className={valueClass}>{sessionExam.session || "2024-25"}</p>
+                                    <p className={valueClass}>{admission?.academicSession || sessionExam.session || "N/A"}</p>
                                 </div>
                                 <div className="col-span-2">
                                     <p className={labelClass}>BATCH ALLOCATIONS</p>

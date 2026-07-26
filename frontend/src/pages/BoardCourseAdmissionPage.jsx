@@ -208,9 +208,6 @@ const BoardCourseAdmissionPage = () => {
 
             if (studentRes.ok) {
                 setStudent(studentData);
-                if (!prefilledTag) {
-                    prefilledTag = studentData?.sessionExamCourse?.[0]?.examTag || "";
-                }
                 // Priority: counselling record session > console session > student details session > active master session
                 const sessionFromCounselling = prefilledSession;
                 const sessionFromConsole = studentData?.sessionExamCourse?.[0]?.session;

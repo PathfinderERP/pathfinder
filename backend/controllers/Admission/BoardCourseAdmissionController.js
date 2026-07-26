@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import Admission from "../../models/Admission/Admission.js";
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Subject from "../../models/Master_data/Subject.js";
@@ -390,22 +391,11 @@ export const createBoardAdmission = async (req, res) => {
         const studentUpdatePayload = { 
             isEnrolled: true,
             updatedBy: req.user?.name || "System",
-            updatedByUserId: req.user?._id,
-            department
+            updatedByUserId: req.user?._id
         };
 
-        if (examTagName) {
-            studentUpdatePayload.sessionExamCourse = [{
-                examTag: examTagName,
-                session: academicSession || student.sessionExamCourse?.[0]?.session || "",
-                targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
-            }];
-        } else if (academicSession) {
-            studentUpdatePayload.sessionExamCourse = [{
-                examTag: student.sessionExamCourse?.[0]?.examTag || "",
-                session: academicSession,
-                targetExams: student.sessionExamCourse?.[0]?.targetExams || ""
-            }];
+        if (!student.department && department) {
+            studentUpdatePayload.department = department;
         }
 
         await Students.findByIdAndUpdate(studentId, studentUpdatePayload);
@@ -468,6 +458,7 @@ export const getBoardAdmissions = async (req, res) => {
             })
             .populate('department')
             .populate('boardId')
+            .populate('examTag')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId')
             .populate('createdBy', 'name')
@@ -673,6 +664,8 @@ export const getBoardAdmissionById = async (req, res) => {
                 ]
             })
             .populate('boardId')
+            .populate('department')
+            .populate('examTag')
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
@@ -1524,14 +1517,7 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
                             studentUpdates.counselledBy = cleanUpdateData.counselledBy;
                             studentModified = true;
                         }
-                        if (cleanUpdateData.lastClass !== undefined && student.examSchema?.[0]) {
-                            studentUpdates["examSchema.0.class"] = cleanUpdateData.lastClass;
-                            studentModified = true;
-                        }
-                        if (examTagName && student.sessionExamCourse?.[0]) {
-                            studentUpdates["sessionExamCourse.0.examTag"] = examTagName;
-                            studentModified = true;
-                        }
+                        // Do not update examSchema or sessionExamCourse on Student from board admission bulk update
                         if (studentModified) {
                             studentUpdates.updatedBy = req.user?.name || "System";
                             studentUpdates.updatedByUserId = req.user?._id;
@@ -1586,14 +1572,6 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
                         }
                         if (cleanUpdateData.counselledBy !== undefined) {
                             studentUpdates.counselledBy = cleanUpdateData.counselledBy;
-                            studentModified = true;
-                        }
-                        if (cleanUpdateData.lastClass !== undefined && student.examSchema?.[0]) {
-                            studentUpdates["examSchema.0.class"] = cleanUpdateData.lastClass;
-                            studentModified = true;
-                        }
-                        if (examTagName && student.sessionExamCourse?.[0]) {
-                            studentUpdates["sessionExamCourse.0.examTag"] = examTagName;
                             studentModified = true;
                         }
                         if (studentModified) {

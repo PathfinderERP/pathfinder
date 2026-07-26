@@ -50,7 +50,7 @@ const CentreWiseReport = ({ filteredStudents, isDarkMode, resolveClassName }) =>
             const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
             const itemExamTags = item.admissions.map(a => {
                 const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === a.academicSession);
-                return matchedSessionExam?.examTag || studentExamTag || a.examTag?.name;
+                return a.examTag?.name || matchedSessionExam?.examTag || studentExamTag;
             }).filter(Boolean);
             const examTag = (itemExamTags[0] || "N/A").toUpperCase();
             data[centreName].examTags[examTag] = (data[centreName].examTags[examTag] || 0) + 1;
@@ -926,7 +926,7 @@ const EnrolledStudentsContent = () => {
                 const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
                 return item.admissions.some(admission => {
                     const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === admission.academicSession);
-                    const tag = matchedSessionExam?.examTag || studentExamTag || admission.examTag?.name || "";
+                    const tag = admission.examTag?.name || matchedSessionExam?.examTag || studentExamTag || "";
                     return filterExamTag.includes(tag);
                 });
             });
@@ -1205,7 +1205,7 @@ const EnrolledStudentsContent = () => {
         const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
         return item.admissions.map(a => {
             const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === a.academicSession);
-            return matchedSessionExam?.examTag || studentExamTag || a.examTag?.name;
+            return a.examTag?.name || matchedSessionExam?.examTag || studentExamTag;
         });
     }).filter(Boolean))];
     const uniqueProgrammes = [...new Set(masterCourses.map(c => c.programme).filter(Boolean))];
@@ -1678,7 +1678,7 @@ const EnrolledStudentsContent = () => {
                 examTag: {
                     name: (() => {
                         const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === admission.academicSession);
-                        return matchedSessionExam?.examTag || student.sessionExamCourse?.[0]?.examTag || admission.examTag?.name || '';
+                        return admission.examTag?.name || matchedSessionExam?.examTag || student.sessionExamCourse?.[0]?.examTag || '';
                     })()
                 },
                 admissionNumber: admission.admissionNumber || '',
@@ -1756,7 +1756,7 @@ const EnrolledStudentsContent = () => {
             const studentExamTag = student.sessionExamCourse?.[0]?.examTag;
             const itemExamTags = item.admissions.map(a => {
                 const matchedSessionExam = student.sessionExamCourse?.find(sec => sec.session === a.academicSession);
-                return matchedSessionExam?.examTag || studentExamTag || a.examTag?.name;
+                return a.examTag?.name || matchedSessionExam?.examTag || studentExamTag;
             }).filter(Boolean);
             const examTag = (itemExamTags[0] || "N/A").toUpperCase();
             data[centreName].examTags[examTag] = (data[centreName].examTags[examTag] || 0) + 1;
