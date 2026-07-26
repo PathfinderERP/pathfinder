@@ -683,6 +683,9 @@ const DailyCenterTracking = () => {
 
                 {/* KPI Cards */}
                 {(() => {
+                    const totalWalkInsSum = filteredCenters.reduce((acc, curr) => acc + (curr.walkIns || 0), 0);
+                    const totalWalkInsCounselledSum = filteredCenters.reduce((acc, curr) => acc + (curr.walkInsCounselled || 0), 0);
+                    const totalWalkInsAdmissionSum = filteredCenters.reduce((acc, curr) => acc + (curr.walkInsAdmission || 0), 0);
                     const totalCallsSum = filteredCenters.reduce((acc, curr) => acc + (curr.dailyCalls || 0), 0);
                     const totalCounsellingSum = filteredCenters.reduce((acc, curr) => acc + ((curr.counselledNormal || 0) + (curr.counselledBoard || 0)), 0);
                     const totalAdmissionSum = filteredCenters.reduce((acc, curr) => acc + ((curr.admissionNormal || 0) + (curr.admissionBoard || 0)), 0);
@@ -691,15 +694,39 @@ const DailyCenterTracking = () => {
                     const counsToAdmPct = totalCounsellingSum > 0 ? ((totalAdmissionSum / totalCounsellingSum) * 100).toFixed(1) + "%" : "0.0%";
                     const callsToAdmPct = totalCallsSum > 0 ? ((totalAdmissionSum / totalCallsSum) * 100).toFixed(1) + "%" : "0.0%";
 
+                    const walkInsShortfall = Math.max(0, totalWalkInsSum - totalWalkInsCounselledSum);
+                    const walkInsShortfallPct = totalWalkInsSum > 0 ? ((walkInsShortfall / totalWalkInsSum) * 100).toFixed(1) + "%" : "0.0%";
+
+                    const callsToCounsShortfall = Math.max(0, totalCallsSum - totalCounsellingSum);
+                    const callsToCounsShortfallPct = totalCallsSum > 0 ? ((callsToCounsShortfall / totalCallsSum) * 100).toFixed(1) + "%" : "0.0%";
+
+                    const counsToAdmShortfall = Math.max(0, totalCounsellingSum - totalAdmissionSum);
+                    const counsToAdmShortfallPct = totalCounsellingSum > 0 ? ((counsToAdmShortfall / totalCounsellingSum) * 100).toFixed(1) + "%" : "0.0%";
+
+                    const callsToAdmShortfall = Math.max(0, totalCallsSum - totalAdmissionSum);
+                    const callsToAdmShortfallPct = totalCallsSum > 0 ? ((callsToAdmShortfall / totalCallsSum) * 100).toFixed(1) + "%" : "0.0%";
+
                     const kpiCardsList = [
-                        { title: getCardLabel("Walk-Ins"), category: "walkins", value: filteredCenters.reduce((acc, curr) => acc + (curr.walkIns || 0), 0).toString(), icon: <FaWalking />, color: "text-blue-500", bg: "bg-blue-500/10" },
+                        {
+                            title: getCardLabel("Walk-Ins"),
+                            category: "walkins",
+                            value: totalWalkInsSum.toString(),
+                            subtext: (
+                                <span>
+                                    Counselling: {totalWalkInsCounselledSum.toLocaleString()} | Admission: {totalWalkInsAdmissionSum.toLocaleString()} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {walkInsShortfall.toLocaleString()} ({walkInsShortfallPct})</span>
+                                </span>
+                            ),
+                            icon: <FaWalking />,
+                            color: "text-blue-500",
+                            bg: "bg-blue-500/10"
+                        },
                         {
                             title: getCardLabel("Counselling"),
                             category: "counselling",
                             value: totalCounsellingSum.toString(),
                             subtext: (
                                 <span>
-                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)} | <span className="text-red-500 font-bold text-[12px] uppercase">Shortfall: {totalCallsSum - totalCounsellingSum}</span>
+                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}
                                 </span>
                             ),
                             icon: <FaComments />,
@@ -712,7 +739,7 @@ const DailyCenterTracking = () => {
                             value: totalAdmissionSum.toString(),
                             subtext: (
                                 <span>
-                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)} | <span className="text-red-500 font-bold text-[12px] uppercase">Shortfall: {totalCounsellingSum - totalAdmissionSum}</span>
+                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}
                                 </span>
                             ),
                             icon: <FaUserPlus />,
@@ -732,7 +759,11 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Conversion % from Calls to counselling"),
                             category: "counselling",
                             value: callsToCounsPct,
-                            subtext: `${totalCounsellingSum.toLocaleString()} Counselled / ${totalCallsSum.toLocaleString()} Calls`,
+                            subtext: (
+                                <span>
+                                    {totalCounsellingSum.toLocaleString()} Counselled / {totalCallsSum.toLocaleString()} Calls | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToCounsShortfall.toLocaleString()} ({callsToCounsShortfallPct})</span>
+                                </span>
+                            ),
                             icon: <FaChartLine />,
                             color: "text-orange-500",
                             bg: "bg-orange-500/10"
@@ -741,7 +772,11 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Conversion % from counselling to admission"),
                             category: "admission",
                             value: counsToAdmPct,
-                            subtext: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCounsellingSum.toLocaleString()} Counselled`,
+                            subtext: (
+                                <span>
+                                    {totalAdmissionSum.toLocaleString()} Admissions / {totalCounsellingSum.toLocaleString()} Counselled | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {counsToAdmShortfall.toLocaleString()} ({counsToAdmShortfallPct})</span>
+                                </span>
+                            ),
                             icon: <FaChartLine />,
                             color: "text-teal-500",
                             bg: "bg-teal-500/10"
@@ -750,7 +785,11 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Conversion % from calls to admission"),
                             category: "admission",
                             value: callsToAdmPct,
-                            subtext: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCallsSum.toLocaleString()} Calls`,
+                            subtext: (
+                                <span>
+                                    {totalAdmissionSum.toLocaleString()} Admissions / {totalCallsSum.toLocaleString()} Calls | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToAdmShortfall.toLocaleString()} ({callsToAdmShortfallPct})</span>
+                                </span>
+                            ),
                             icon: <FaChartLine />,
                             color: "text-indigo-500",
                             bg: "bg-indigo-500/10"
@@ -800,7 +839,7 @@ const DailyCenterTracking = () => {
                                             </div>
                                             <h3 className={`text-xl font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis ${kpi.navigateTo ? kpi.color : ''}`}>{kpi.value}</h3>
                                             {kpi.subtext && (
-                                                <p className={`text-[10px] mt-1 font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                <p className={`text-[10px] mt-1 font-semibold leading-normal break-words ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                     {kpi.subtext}
                                                 </p>
                                             )}

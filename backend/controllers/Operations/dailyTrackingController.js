@@ -544,7 +544,10 @@ export const getDailyTracking = async (req, res) => {
             if (leadType) {
                 walkInsQuery.leadType = leadType;
             }
-            const walkInsCount = await LeadManagement.countDocuments(walkInsQuery);
+            const walkInsLeads = await LeadManagement.find(walkInsQuery).select('_id isCounseled status isAdmitted').lean();
+            const walkInsCount = walkInsLeads.length;
+            const walkInsCounselledCount = walkInsLeads.filter(l => l.isCounseled || /counsel/i.test(l.status || '')).length;
+            const walkInsAdmissionCount = walkInsLeads.filter(l => l.isAdmitted || /admi/i.test(l.status || '')).length;
 
             // Counseling Analysis (Union of direct records and admissions)
             const counsellingNormalQuery = {
@@ -877,6 +880,8 @@ export const getDailyTracking = async (req, res) => {
                 uniqueCalls: uniqueCallsCount,
                 sameNoCalls: sameNoCallsCount,
                 walkIns: walkInsCount,
+                walkInsCounselled: walkInsCounselledCount,
+                walkInsAdmission: walkInsAdmissionCount,
                 counselledNormal: counselledNormalCount,
                 counselledBoard: counselledBoardCount,
                 admissionNormal: admissionNormalCount,
