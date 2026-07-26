@@ -697,7 +697,11 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Counselling"),
                             category: "counselling",
                             value: totalCounsellingSum.toString(),
-                            subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
+                            subtext: (
+                                <span>
+                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)} | <span className="text-red-500 font-bold text-[12px] uppercase">Shortfall: {totalCallsSum - totalCounsellingSum}</span>
+                                </span>
+                            ),
                             icon: <FaComments />,
                             color: "text-green-500",
                             bg: "bg-green-500/10"
@@ -706,7 +710,11 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Admission"),
                             category: "admission",
                             value: totalAdmissionSum.toString(),
-                            subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
+                            subtext: (
+                                <span>
+                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)} | <span className="text-red-500 font-bold text-[12px] uppercase">Shortfall: {totalCounsellingSum - totalAdmissionSum}</span>
+                                </span>
+                            ),
                             icon: <FaUserPlus />,
                             color: "text-purple-500",
                             bg: "bg-purple-500/10"
