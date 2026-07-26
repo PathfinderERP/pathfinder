@@ -5,6 +5,7 @@ import LeadJourneyModal from '../LeadManagement/LeadJourneyModal';
 const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading, isDarkMode, activeCenters = [] }) => {
     const [selectedSubCategory, setSelectedSubCategory] = useState(null);
     const [selectedCentreFilter, setSelectedCentreFilter] = useState(null);
+    const [selectedTags, setSelectedTags] = useState([]);
     const [showJourneyModal, setShowJourneyModal] = useState(false);
     const [journeyLeadIdOrPhone, setJourneyLeadIdOrPhone] = useState(null);
 
@@ -12,6 +13,7 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
     useEffect(() => {
         setSelectedSubCategory(null);
         setSelectedCentreFilter(null);
+        setSelectedTags([]);
     }, [isOpen, title]);
 
     const handleViewJourney = (idOrPhone) => {
@@ -83,7 +85,21 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
         if (selectedCentreFilter) {
             filteredList = filteredList.filter(item => (item.centreName || "").trim().toLowerCase() === selectedCentreFilter.trim().toLowerCase());
         }
+    } else {
+        if (selectedTags.length > 0) {
+            filteredList = filteredList.filter(item => selectedTags.includes(item.tag || 'UNCATEGORIZED'));
+        }
     }
+
+    // Compute tag counts for non-collection types
+    const tagCounts = {};
+    if (!isCollectionType) {
+        safeData.forEach(item => {
+            const tag = item.tag || 'UNCATEGORIZED';
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        });
+    }
+
 
     const getTagStyles = (tag) => {
         if (tag?.startsWith('₹')) {
@@ -365,14 +381,65 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                 )}
                             </div>
                         </>
-                    ) : filteredList.length === 0 ? (
-                        <div className="py-20 text-center">
-                            <FaHistory className={`mx-auto mb-4 text-4xl ${isDarkMode ? 'text-gray-800' : 'text-gray-200'}`} />
-                            <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>No activities found for this category</p>
-                        </div>
                     ) : (
                         <div className="space-y-4">
-                            {filteredList.map((item, index) => {
+                            {!isCollectionType && Object.keys(tagCounts).length > 0 && (
+                                <div className={`p-4 rounded border mb-2 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
+                                        <FaLayerGroup className="text-cyan-500" /> Filter by Lead Type / Tag (Multi-Select)
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {Object.entries(tagCounts).map(([tag, count]) => {
+                                            const isSelected = selectedTags.includes(tag);
+                                            const styles = getTagStyles(tag);
+                                            return (
+                                                <button
+                                                    key={tag}
+                                                    onClick={() => {
+                                                        if (isSelected) {
+                                                            setSelectedTags(selectedTags.filter(t => t !== tag));
+                                                        } else {
+                                                            setSelectedTags([...selectedTags, tag]);
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-1 rounded text-[10px] font-black uppercase border transition-all duration-150 flex items-center gap-1.5 ${
+                                                        isSelected
+                                                            ? `${styles.bg} ${styles.text} ${styles.border} ring-1 ring-offset-1 ring-offset-transparent ${isDarkMode ? 'ring-cyan-500' : 'ring-cyan-400'}`
+                                                            : isDarkMode 
+                                                                ? 'bg-[#1a1f24] border-gray-800 text-gray-400 hover:border-gray-700 hover:text-gray-200' 
+                                                                : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                                                    }`}
+                                                >
+                                                    <span>{isSelected ? '✓' : ''} {tag}</span>
+                                                    <span className={`px-1.5 py-0.25 rounded-full text-[9px] font-black ${
+                                                        isSelected 
+                                                            ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-300' : 'bg-cyan-100 text-cyan-700') 
+                                                            : (isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400')
+                                                    }`}>
+                                                        {count}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                        {selectedTags.length > 0 && (
+                                            <button
+                                                onClick={() => setSelectedTags([])}
+                                                className="px-3 py-1 rounded text-[10px] font-black uppercase text-red-500 hover:text-red-400 hover:underline"
+                                            >
+                                                Clear Filter
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {filteredList.length === 0 ? (
+                                <div className="py-20 text-center">
+                                    <FaHistory className={`mx-auto mb-4 text-4xl ${isDarkMode ? 'text-gray-800' : 'text-gray-200'}`} />
+                                    <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>No activities match active filters</p>
+                                </div>
+                            ) : (
+                                filteredList.map((item, index) => {
                                 const styles = getTagStyles(item.tag);
                                 return (
                                     <div key={index} className={`group p-5 rounded-[2px] border transition-all hover:scale-[1.01] ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-cyan-500/30' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
@@ -441,7 +508,8 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                         </div>
                                     </div>
                                 );
-                            })}
+                            })
+                            )}
                         </div>
                     )}
                 </div>
