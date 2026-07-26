@@ -697,7 +697,11 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Counselling"),
                             category: "counselling",
                             value: totalCounsellingSum.toString(),
-                            subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)}`,
+                            subtext: (
+                                <span>
+                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.counselledBoard || 0), 0)} | <span className="text-red-500 font-bold text-[12px] uppercase">Shortfall: {totalCallsSum - totalCounsellingSum}</span>
+                                </span>
+                            ),
                             icon: <FaComments />,
                             color: "text-green-500",
                             bg: "bg-green-500/10"
@@ -706,7 +710,11 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Admission"),
                             category: "admission",
                             value: totalAdmissionSum.toString(),
-                            subtext: `Normal: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: ${filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}`,
+                            subtext: (
+                                <span>
+                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)} | <span className="text-red-500 font-bold text-[12px] uppercase">Shortfall: {totalCounsellingSum - totalAdmissionSum}</span>
+                                </span>
+                            ),
                             icon: <FaUserPlus />,
                             color: "text-purple-500",
                             bg: "bg-purple-500/10"
@@ -755,6 +763,16 @@ const DailyCenterTracking = () => {
                             icon: <FaRupeeSign />,
                             color: "text-cyan-500",
                             bg: "bg-cyan-500/10"
+                        },
+                        {
+                            title: "Manpower Wise Target",
+                            category: null,
+                            value: "Set Targets",
+                            subtext: "Per employee — Calls, Counselling, Admissions, Collection",
+                            icon: <FaUsers />,
+                            color: "text-indigo-400",
+                            bg: "bg-indigo-500/10",
+                            navigateTo: "/sales/manpower-target"
                         }
                     ];
 
@@ -763,16 +781,24 @@ const DailyCenterTracking = () => {
                             {kpiCardsList.map((kpi, index) => (
                                 <div
                                     key={index}
-                                    onClick={() => handleCardClick(kpi.category, kpi.title)}
-                                    className={`p-5 rounded transition-all hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none hover:border-cyan-500/40 ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white border border-gray-100 shadow-sm'
-                                        }`}>
+                                    onClick={() => kpi.navigateTo ? navigate(kpi.navigateTo) : handleCardClick(kpi.category, kpi.title)}
+                                    className={`p-5 rounded transition-all hover:shadow-lg cursor-pointer hover:scale-[1.02] active:scale-[0.98] select-none ${
+                                        kpi.navigateTo
+                                            ? (isDarkMode ? 'bg-[#1a1f24] border border-indigo-500/40 hover:border-indigo-400/70' : 'bg-white border border-indigo-200 hover:border-indigo-400 shadow-sm')
+                                            : (isDarkMode ? 'bg-[#1a1f24] border border-gray-800 hover:border-cyan-500/40' : 'bg-white border border-gray-100 shadow-sm hover:border-cyan-300')
+                                    }`}>
                                     <div className="flex items-start gap-3">
                                         <div className={`p-3 rounded ${kpi.bg} ${kpi.color} shrink-0`}>
                                             {React.cloneElement(kpi.icon, { className: "text-xl" })}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>{kpi.title}</p>
-                                            <h3 className="text-xl font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{kpi.value}</h3>
+                                            <div className="flex items-center gap-1.5">
+                                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>{kpi.title}</p>
+                                                {kpi.navigateTo && (
+                                                    <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400">→ View</span>
+                                                )}
+                                            </div>
+                                            <h3 className={`text-xl font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis ${kpi.navigateTo ? kpi.color : ''}`}>{kpi.value}</h3>
                                             {kpi.subtext && (
                                                 <p className={`text-[10px] mt-1 font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                     {kpi.subtext}
@@ -971,6 +997,7 @@ const DailyCenterTracking = () => {
                 data={detailsData}
                 loading={loadingDetails}
                 isDarkMode={isDarkMode}
+                activeCenters={filteredCenters}
             />
 
             <ActiveCentresCallsReportModal

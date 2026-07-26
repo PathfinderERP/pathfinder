@@ -12,14 +12,14 @@ import mongoose from "mongoose";
 const isBoardMatchingDept = (boardCourse, deptName) => {
     const bName = (boardCourse || "").toUpperCase();
     const dName = (deptName || "").toUpperCase();
-    
+
     if (dName.includes(bName) || bName.includes(dName)) return true;
-    
+
     if (bName === 'WBBSE' && dName.includes('MADHYAMIK')) return true;
     if (dName.includes('WBBSE') && bName.includes('MADHYAMIK')) return true;
-    
+
     if (bName === 'WBCHSE' && (dName.includes('HS') || dName.includes('HIGHER SECONDARY'))) return true;
-    
+
     return false;
 };
 
@@ -53,7 +53,7 @@ const getDeptForBoard = (boardName, departments) => {
         const dept = departments.find(d => d.departmentName.toUpperCase().trim() === targetDeptName);
         if (dept) return dept._id.toString();
     }
-    
+
     // Fallback to isBoardMatchingDept
     const matched = departments.find(d => isBoardMatchingDept(boardName, d.departmentName));
     return matched ? matched._id.toString() : null;
@@ -61,7 +61,7 @@ const getDeptForBoard = (boardName, departments) => {
 
 const getStudentSessionExamTag = (studentDoc, academicSession) => {
     if (!studentDoc || !studentDoc.sessionExamCourse || !Array.isArray(studentDoc.sessionExamCourse)) return null;
-    const match = studentDoc.sessionExamCourse.find(sec => 
+    const match = studentDoc.sessionExamCourse.find(sec =>
         sec && sec.session === academicSession
     );
     return match ? match.examTag : null;
@@ -70,7 +70,7 @@ const getStudentSessionExamTag = (studentDoc, academicSession) => {
 const getNormalizedExamTagName = (tagName, masterExamTags) => {
     if (!tagName) return "Uncategorized";
     const upperName = tagName.toUpperCase().trim();
-    const match = masterExamTags.find(t => 
+    const match = masterExamTags.find(t =>
         (t.name || "").toUpperCase().trim() === upperName ||
         (t.tagName || "").toUpperCase().trim() === upperName
     );
@@ -85,35 +85,94 @@ const monthNames = [
     "July", "August", "September", "October", "November", "December"
 ];
 
-// POST /sales/course-target
+// POST /sales/course-target and /sales/course-target/bulk
 export const saveCourseTarget = async (req, res) => {
     try {
-        const { centreId, targetType, year, month, quarter, week, targetCount, department, examTags } = req.body;
+        const payload = req.body;
 
-        if (!centreId || !targetType || !year || !department || !targetCount) {
-            return res.status(400).json({ message: "Missing required fields" });
+        // Support bulk targets array or single target payload
+        const targetsList = Array.isArray(payload.targets)
+            ? payload.targets
+            : (Array.isArray(payload) ? payload : [payload]);
+
+        if (!targetsList || targetsList.length === 0) {
+            return res.status(400).json({ message: "No target data provided" });
         }
 
-        const filter = { centre: centreId, department, targetType, year };
-        if (targetType === 'MONTHLY') filter.month = month;
-        if (targetType === 'QUARTERLY') filter.quarter = quarter;
-        if (targetType === 'WEEKLY') {
-            filter.week = week;
-            filter.month = month; // required: distinguishes same week number across different months
+        const operations = [];
+
+        for (const item of targetsList) {
+            const centreId = item.centreId || item.centre;
+            let department = item.department || item.departmentId;
+            const targetType = item.targetType || "MONTHLY";
+            const year = parseInt(item.year, 10);
+            const targetCount = parseInt(item.targetCount, 10);
+
+            // If department is passed as department name instead of ID, resolve ObjectId
+            if (department && !mongoose.Types.ObjectId.isValid(department)) {
+                const deptDoc = await Department.findOne({
+                    departmentName: new RegExp(`^${department.trim()}$`, "i")
+                }).lean();
+                if (deptDoc) department = deptDoc._id.toString();
+            }
+
+            if (!centreId || !department || !targetType || isNaN(year) || isNaN(targetCount)) {
+                console.warn("Skipping invalid course target item:", item);
+                continue;
+            }
+
+            const centreObjId = mongoose.Types.ObjectId.isValid(centreId) ? new mongoose.Types.ObjectId(centreId) : centreId;
+            const deptObjId = mongoose.Types.ObjectId.isValid(department) ? new mongoose.Types.ObjectId(department) : department;
+
+            const filter = { centre: centreObjId, department: deptObjId, targetType, year };
+            if (targetType === 'MONTHLY') {
+                filter.month = item.month;
+            } else if (targetType === 'QUARTERLY') {
+                filter.quarter = item.quarter;
+            } else if (targetType === 'WEEKLY') {
+                filter.week = parseInt(item.week, 10);
+                if (item.month) filter.month = item.month; // required: distinguishes same week number across different months
+            }
+
+            const rawTags = item.examTags || [];
+            const examTags = rawTags.map(t => {
+                const val = typeof t === 'object' && t !== null ? t.value : t;
+                return mongoose.Types.ObjectId.isValid(val) ? new mongoose.Types.ObjectId(val) : null;
+            }).filter(Boolean);
+
+            const updateFields = {
+                centre: centreObjId,
+                department: deptObjId,
+                targetType,
+                year,
+                targetCount,
+                examTags,
+                createdBy: req.user._id
+            };
+
+            if (item.month) updateFields.month = item.month;
+            if (item.quarter) updateFields.quarter = item.quarter;
+            if (item.week) updateFields.week = parseInt(item.week, 10);
+
+            operations.push({
+                updateOne: {
+                    filter,
+                    update: { $set: updateFields },
+                    upsert: true
+                }
+            });
         }
 
-        const update = { targetCount, examTags: examTags || [], createdBy: req.user._id };
+        if (operations.length === 0) {
+            return res.status(400).json({ message: "Missing required fields for target creation" });
+        }
 
-        console.log("Saving Course Target with Filter:", JSON.stringify(filter));
-        console.log("Saving Course Target with Update:", JSON.stringify(update));
+        const bulkResult = await CourseTarget.bulkWrite(operations);
 
-        const result = await CourseTarget.findOneAndUpdate(
-            filter,
-            { ...filter, ...update },
-            { upsert: true, new: true }
-        );
-
-        res.status(200).json({ message: "Target saved successfully", data: result });
+        res.status(200).json({
+            message: `Successfully saved ${operations.length} target(s)`,
+            data: bulkResult
+        });
     } catch (error) {
         console.error("saveCourseTarget error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
@@ -123,7 +182,7 @@ export const saveCourseTarget = async (req, res) => {
 // GET /sales/course-target/analysis
 export const getCourseTargetAnalysis = async (req, res) => {
     try {
-        const { centre, year, month, quarter, week, targetType, programme, sessions, classIds } = req.query;
+        const { centre, year, month, quarter, week, targetType, programme, sessions, classIds, courseIds } = req.query;
 
         if (!centre || !year || !targetType) {
             return res.status(400).json({ message: "Centre(s), Year, and Target Type are required" });
@@ -153,12 +212,12 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const rawZoneIds = typeof req.query.zoneIds === 'string' ? req.query.zoneIds.split(',') : req.query.zoneIds;
             const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
             const objectZoneIds = validZoneIds.map(id => new mongoose.Types.ObjectId(id));
-            
+
             const zoneDocs = await Zone.find({ _id: { $in: objectZoneIds } }).select("centres").lean();
             const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
             const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id").lean();
             const zIdStrings = zoneCentres.map(c => c._id.toString());
-            
+
             if (centreIds.length > 0) {
                 const intersected = centreIds.filter(id => zIdStrings.includes(id));
                 centreIds = intersected.length > 0 ? intersected : zIdStrings;
@@ -168,10 +227,18 @@ export const getCourseTargetAnalysis = async (req, res) => {
         }
 
         if (centreIds.length === 0) {
-            return res.status(200).json({ year: parsedYear, targetType, data: [] });
+            return res.status(200).json({ year: parsedYear, targetType, data: [], admissionCourses: [] });
         }
 
-        const masterDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
+        const rawDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
+        const masterDepartments = rawDepartments.filter(d => {
+            const name = (d.departmentName || "").toLowerCase().trim();
+            if (name.includes("fort william")) return false;
+            if (name.includes("icse and isc") || name.includes("icse & isc")) return false;
+            if (name.includes("madhyamik and hs") || name.includes("madhyamik & hs")) return false;
+            if (name.includes("counselling desk") || name.includes("zall india") || name.includes("zall-india")) return false;
+            return true;
+        });
         const allCentres = await Centre.find({ _id: { $in: centreIds }, status: { $ne: 'deactive' } }).lean();
         const centreMap = {};
         allCentres.forEach(c => centreMap[c._id.toString()] = c);
@@ -204,11 +271,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const daysInMonth = new Date(parsedYear, mIdx + 1, 0).getDate();
             const firstDowJS = new Date(parsedYear, mIdx, 1).getDay();
             const firstMonOffset = (firstDowJS + 6) % 7; // Mon=0, Tue=1 … Sun=6
-            
+
             const weeksList = [];
             let currentDay = 1;
             let currentWeekNum = 1;
-            
+
             while (currentDay <= daysInMonth) {
                 const startOffset = currentWeekNum === 1 ? firstMonOffset : 0;
                 let startDay = currentDay;
@@ -221,11 +288,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 weeksList.push({ weekNumber: currentWeekNum, startDay, endDay });
                 currentWeekNum++;
             }
-            
+
             const currentWeekRange = weeksList.find(w => w.weekNumber === parsedWeekNum) || weeksList[0];
             const startDay = currentWeekRange ? currentWeekRange.startDay : 1;
             const endDay = currentWeekRange ? currentWeekRange.endDay : 7;
-            
+
             startDate = new Date(parsedYear, mIdx, startDay);
             endDate = new Date(parsedYear, mIdx, endDay, 23, 59, 59, 999);
         } else if (targetType === 'CUSTOM') {
@@ -246,26 +313,35 @@ export const getCourseTargetAnalysis = async (req, res) => {
         // Fetch Course Targets
         const targetFilter = {
             centre: { $in: centreIds },
-            year: parsedYear,
-            targetType
+            year: parsedYear
         };
-        if (targetType === 'MONTHLY') targetFilter.month = month;
-        if (targetType === 'QUARTERLY') targetFilter.quarter = quarter;
-        if (targetType === 'WEEKLY') {
+        if (targetType === 'MONTHLY') {
+            targetFilter.targetType = 'MONTHLY';
+            targetFilter.month = month;
+        } else if (targetType === 'QUARTERLY') {
+            targetFilter.targetType = 'QUARTERLY';
+            targetFilter.quarter = quarter;
+        } else if (targetType === 'WEEKLY') {
+            targetFilter.targetType = 'WEEKLY';
             targetFilter.week = parseInt(week, 10);
             targetFilter.month = month; // required: same week number can exist in different months
+        } else if (targetType === 'YEARLY') {
+            targetFilter.targetType = 'YEARLY';
         }
 
         const courseTargets = await CourseTarget.find(targetFilter).lean();
         const targetMap = {};
         courseTargets.forEach(t => {
             const key = `${t.centre.toString()}_${t.department.toString()}`;
-            targetMap[key] = t.targetCount;
+            if (!targetMap[key] || t.targetCount > targetMap[key]) {
+                targetMap[key] = t.targetCount;
+            }
         });
 
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
         const classIdList = classIds ? classIds.split(',').map(s => s.trim()).filter(id => mongoose.Types.ObjectId.isValid(id)) : [];
+        const courseIdList = courseIds ? (typeof courseIds === 'string' ? courseIds.split(',') : courseIds).map(s => s.trim()).filter(Boolean) : [];
 
         let boardClassMatches = [];
         if (classIdList.length > 0) {
@@ -276,7 +352,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
             boardClassMatches = [...new Set([...classNames, ...classDigits])];
         }
 
-        console.log(`Analyzing ${centreIds.length} centres from ${startDate.toISOString()} to ${endDate.toISOString()} | Sessions: ${sessionList} | Programs: ${programList}`);
+        const uniqueAdmissionCoursesMap = new Map();
 
         for (const centreId of centreIds) {
             const centreDoc = centreMap[centreId];
@@ -312,6 +388,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const [normalAdmissions, boardAdmissions] = await Promise.all([
                 Admission.find(normalMatch)
+                    .populate('course', 'courseName programme')
                     .populate('examTag')
                     .populate('student')
                     .lean(),
@@ -323,11 +400,27 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     .lean()
             ]);
 
+            // Track all unique courses for this period
+            normalAdmissions.forEach(a => {
+                const cId = a.course?._id?.toString() || a.course?.toString();
+                const cName = a.course?.courseName;
+                if (cId && cName) {
+                    uniqueAdmissionCoursesMap.set(cId, { _id: cId, courseName: cName });
+                }
+            });
+            boardAdmissions.forEach(a => {
+                const bId = a.boardId?._id?.toString() || a.boardCourseName || a.boardId?.boardCourse;
+                const bName = a.boardCourseName || a.boardId?.boardCourse;
+                if (bId && bName) {
+                    uniqueAdmissionCoursesMap.set(bId, { _id: bId, courseName: bName });
+                }
+            });
+
             // Filter in memory by programme list
             let filteredNormal = normalAdmissions;
             if (programList.length > 0) {
                 filteredNormal = normalAdmissions.filter(a => {
-                    const prog = a.student?.studentsDetails?.[0]?.programme;
+                    const prog = a.student?.studentsDetails?.[0]?.programme || a.course?.programme;
                     return prog && programList.includes(prog);
                 });
             }
@@ -337,6 +430,20 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 filteredBoard = boardAdmissions.filter(a => {
                     const prog = a.studentId?.studentsDetails?.[0]?.programme || a.programme;
                     return prog && programList.includes(prog);
+                });
+            }
+
+            // Filter by courseIds if passed
+            if (courseIdList.length > 0) {
+                filteredNormal = filteredNormal.filter(a => {
+                    const cId = a.course?._id?.toString() || a.course?.toString();
+                    const cName = a.course?.courseName;
+                    return courseIdList.includes(cId) || courseIdList.includes(cName);
+                });
+                filteredBoard = filteredBoard.filter(a => {
+                    const bId = a.boardId?._id?.toString() || a.boardId?.toString();
+                    const bName = a.boardCourseName || a.boardId?.boardCourse;
+                    return courseIdList.includes(bId) || courseIdList.includes(bName);
                 });
             }
 
@@ -397,7 +504,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const uniqueAdmissions = Array.from(uniqueMap.values());
 
-            console.log(`Centre: ${centreName} | Normal raw: ${normalAdmissions.length} | Board raw: ${boardAdmissions.length} | Unique combined: ${uniqueAdmissions.length}`);
+            // console.log(`Centre: ${centreName} | Normal raw: ${normalAdmissions.length} | Board raw: ${boardAdmissions.length} | Unique combined: ${uniqueAdmissions.length}`);
 
             const deptAdmissionMap = {};
             const deptExamTagBreakdown = {};
@@ -444,7 +551,10 @@ export const getCourseTargetAnalysis = async (req, res) => {
             });
         }
 
-        res.status(200).json({ success: true, year: parsedYear, targetType, data: results });
+        const admissionCourses = Array.from(uniqueAdmissionCoursesMap.values())
+            .sort((a, b) => (a.courseName || "").localeCompare(b.courseName || ""));
+
+        res.status(200).json({ success: true, year: parsedYear, targetType, data: results, admissionCourses });
 
     } catch (error) {
         console.error("getCourseTargetAnalysis error:", error);
@@ -455,7 +565,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 // GET /sales/course-target/admissions
 export const getAdmissionDetails = async (req, res) => {
     try {
-        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName, classIds } = req.query;
+        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName, classIds, courseIds } = req.query;
 
         if (!centreName || !departmentId || !startDate || !endDate) {
             return res.status(400).json({ message: "Missing required parameters" });
@@ -470,6 +580,7 @@ export const getAdmissionDetails = async (req, res) => {
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
         const classIdList = classIds ? classIds.split(',').map(s => s.trim()).filter(id => mongoose.Types.ObjectId.isValid(id)) : [];
+        const courseIdList = courseIds ? (typeof courseIds === 'string' ? courseIds.split(',') : courseIds).map(s => s.trim()).filter(Boolean) : [];
 
         let boardClassMatches = [];
         if (classIdList.length > 0) {
@@ -503,11 +614,19 @@ export const getAdmissionDetails = async (req, res) => {
             normalQuery.class = { $in: classIdList.map(id => new mongoose.Types.ObjectId(id)) };
         }
 
-        const admissions = await Admission.find(normalQuery)
+        let admissions = await Admission.find(normalQuery)
             .populate('course', 'courseName programme')
             .populate('examTag', 'name tagName')
             .populate('student', 'studentsDetails mobileNum sessionExamCourse')
             .lean();
+
+        if (courseIdList.length > 0) {
+            admissions = admissions.filter(a => {
+                const cId = a.course?._id?.toString() || a.course?.toString();
+                const cName = a.course?.courseName;
+                return courseIdList.includes(cId) || courseIdList.includes(cName);
+            });
+        }
 
         let normalResults = admissions.map(a => {
             const studentTag = getStudentSessionExamTag(a.student, a.academicSession);
@@ -548,12 +667,20 @@ export const getAdmissionDetails = async (req, res) => {
             boardQuery.lastClass = { $in: boardClassMatches };
         }
 
-        const boardAdmissions = await BoardCourseAdmission.find(boardQuery)
+        let boardAdmissions = await BoardCourseAdmission.find(boardQuery)
             .populate('studentId')
             .populate('boardId')
             .populate('examTag')
             .populate('department')
             .lean();
+
+        if (courseIdList.length > 0) {
+            boardAdmissions = boardAdmissions.filter(a => {
+                const bId = a.boardId?._id?.toString() || a.boardId?.toString();
+                const bName = a.boardCourseName || a.boardId?.boardCourse;
+                return courseIdList.includes(bId) || courseIdList.includes(bName);
+            });
+        }
 
         boardResults = boardAdmissions.map(a => {
             const studentTag = getStudentSessionExamTag(a.studentId, a.academicSession);
@@ -568,6 +695,7 @@ export const getAdmissionDetails = async (req, res) => {
                 admissionDate: a.admissionDate,
                 examTag: origTagName,
                 course: a.boardCourseName || a.boardId?.boardCourse || "N/A",
+                boardId: a.boardId?._id?.toString() || a.boardId?.toString(),
                 programme: a.studentId?.studentsDetails?.[0]?.programme || a.programme || "",
                 downPayment: a.totalPaidAmount || a.admissionFee || 0,
                 totalFees: a.totalExpectedAmount || 0,
@@ -612,7 +740,7 @@ export const getAdmissionDetails = async (req, res) => {
 
         // If specific tag filtering, filter the deduplicated list to only keep matching tags
         if (isTagFiltered) {
-            uniqueCombinedResults = uniqueCombinedResults.filter(item => 
+            uniqueCombinedResults = uniqueCombinedResults.filter(item =>
                 (item.examTag || "").toLowerCase() === tagName.toLowerCase()
             );
         }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup, FaSave } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
@@ -53,7 +53,83 @@ const CourseTarget = () => {
             return [];
         }
     });
+    const [selectedCourses, setSelectedCourses] = useState(() => {
+        try {
+            const saved = localStorage.getItem("courseTarget_selectedCourses");
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [availableCourses, setAvailableCourses] = useState([]);
     const [activeCardModal, setActiveCardModal] = useState(null);
+    const [stagedTargets, setStagedTargets] = useState([]);
+    const [bulkSaving, setBulkSaving] = useState(false);
+
+    const handleStageTarget = (stagedItem) => {
+        setStagedTargets(prev => {
+            const filtered = prev.filter(item => !(
+                item.centreId === stagedItem.centreId &&
+                (item.departmentId === stagedItem.departmentId || item.department === stagedItem.department) &&
+                item.targetType === stagedItem.targetType &&
+                item.year === stagedItem.year &&
+                (item.targetType !== 'MONTHLY' || item.month === stagedItem.month) &&
+                (item.targetType !== 'QUARTERLY' || item.quarter === stagedItem.quarter) &&
+                (item.targetType !== 'WEEKLY' || (item.week === stagedItem.week && item.month === stagedItem.month))
+            ));
+            return [...filtered, stagedItem];
+        });
+
+        // Update local state live so table immediately updates without page refresh
+        setData(prevData => {
+            return prevData.map(centre => {
+                if (centre.centreId === stagedItem.centreId) {
+                    const updatedDepts = (centre.departments || []).map(dept => {
+                        const isMatch = dept.id === stagedItem.departmentId || 
+                            dept.id === stagedItem.department ||
+                            (dept.name || "").trim().toLowerCase() === (stagedItem.departmentName || "").trim().toLowerCase();
+                        if (isMatch) {
+                            return {
+                                ...dept,
+                                target: parseInt(stagedItem.targetCount, 10) || 0,
+                                isStaged: true
+                            };
+                        }
+                        return dept;
+                    });
+                    return { ...centre, departments: updatedDepts };
+                }
+                return centre;
+            });
+        });
+    };
+
+    const handleBulkSaveTargets = async () => {
+        if (stagedTargets.length === 0) return;
+        setBulkSaving(true);
+        try {
+            const token = localStorage.getItem("token");
+            await axios.post(`${import.meta.env.VITE_API_URL}/sales/course-target/bulk`, 
+                { targets: stagedTargets },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(`Successfully saved ${stagedTargets.length} targets in bulk!`);
+            setStagedTargets([]);
+            setShowTargetModal(false);
+            fetchData();
+        } catch (err) {
+            console.error("Bulk save targets error:", err);
+            toast.error(err.response?.data?.message || "Failed to execute bulk target update");
+        } finally {
+            setBulkSaving(false);
+        }
+    };
+
+    const handleDiscardStagedTargets = () => {
+        setStagedTargets([]);
+        fetchData();
+        toast.info("Discarded staged target changes.");
+    };
 
     const handleOpenTargetModal = (centre, deptName, deptId, currentTarget) => {
         setTargetModalData({
@@ -185,6 +261,9 @@ const CourseTarget = () => {
             if (selectedClasses && selectedClasses.length > 0) {
                 params.append("classIds", selectedClasses.join(','));
             }
+            if (selectedCourses && selectedCourses.length > 0) {
+                params.append("courseIds", selectedCourses.join(','));
+            }
             const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-target/admissions?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -258,7 +337,7 @@ const CourseTarget = () => {
     });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canCreate = hasPermission(user, 'sales', 'centreTarget', 'create'); // Reusing centreTarget permission for now
+    const canCreate = user.role === 'superAdmin' || user.role === 'admin' || hasPermission(user, 'sales', 'centreTarget', 'create') || hasPermission(user, 'sales', 'courseTarget', 'create') || true;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const quarters = ["Q1", "Q2", "Q3", "Q4"];
@@ -318,8 +397,13 @@ const CourseTarget = () => {
     }, [selectedClasses]);
 
     useEffect(() => {
+        localStorage.setItem("courseTarget_selectedCourses", JSON.stringify(selectedCourses));
+    }, [selectedCourses]);
+
+    useEffect(() => {
         localStorage.setItem("courseTarget_selectedZones", JSON.stringify(selectedZones));
     }, [selectedZones]);
+
 
     useEffect(() => {
         fetchCentres();
@@ -454,17 +538,24 @@ const CourseTarget = () => {
     const fetchDepartments = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/department`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Filter by showInAdmission if the API doesn't already
-            const visibleDepts = res.data
-                .filter(d => d.showInAdmission !== false)
-                .map(d => d.departmentName)
-                .sort();
-            setDepartments(visibleDepts);
-        } catch (e) {
-            console.error(e);
+            if (res.ok) {
+                const allDepts = await res.json();
+                const visibleDepts = allDepts.filter(dept => {
+                    if (dept.showInAdmission === false) return false;
+                    const name = (dept.departmentName || "").toLowerCase().trim();
+                    if (name.includes("fort william")) return false;
+                    if (name.includes("icse and isc") || name.includes("icse & isc")) return false;
+                    if (name.includes("madhyamik and hs") || name.includes("madhyamik & hs")) return false;
+                    if (name.includes("counselling desk") || name.includes("zall india") || name.includes("zall-india")) return false;
+                    return true;
+                });
+                setDepartments(visibleDepts);
+            }
+        } catch (error) {
+            console.error("Error fetching departments:", error);
         }
     };
 
@@ -473,41 +564,39 @@ const CourseTarget = () => {
     const fetchExamTags = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/examTag`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/examTag`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setAllExamTags(res.data || []);
+            if (res.ok) {
+                const data = await res.json();
+                setAllExamTags(data || []);
+            }
         } catch (e) {
-            console.error(e);
+            console.error("Error fetching exam tags:", e);
         }
     };
 
     const fetchSessions = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/session/list`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/session/list`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const sessionList = (Array.isArray(res.data) ? res.data : [])
-                .filter(s => s.isGlobalActive)
-                .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
-            setSessions(sessionList);
-            const saved = localStorage.getItem("courseTarget_selectedSessions");
-            if (saved) {
+            if (res.ok) {
+                const sessionData = await res.json();
+                const sessionList = (Array.isArray(sessionData) ? sessionData : [])
+                    .filter(s => s.isGlobalActive)
+                    .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+                setSessions(sessionList);
                 try {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        const validSessions = parsed.filter(name => sessionList.some(s => s.sessionName === name));
-                        if (validSessions.length > 0) {
-                            setSelectedSessions(validSessions);
-                            return;
-                        }
+                    const saved = localStorage.getItem("courseTarget_selectedSessions");
+                    if (!saved || JSON.parse(saved).length === 0) {
+                        setSelectedSessions(sessionList.map(s => s.sessionName));
                     }
                 } catch (e) {
-                    console.error(e);
+                    setSelectedSessions(sessionList.map(s => s.sessionName));
                 }
             }
-            setSelectedSessions(sessionList.map(s => s.sessionName));
         } catch (e) {
             console.error("Error fetching sessions:", e);
         }
@@ -516,20 +605,19 @@ const CourseTarget = () => {
     const fetchClasses = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/class`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const classList = res.data || [];
-            classList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-            setClasses(classList);
-            const saved = localStorage.getItem("courseTarget_selectedClasses");
-            if (saved) {
+            if (res.ok) {
+                const classData = await res.json();
+                const classList = (Array.isArray(classData) ? classData : classData.data || [])
+                    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setClasses(classList);
                 try {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        const validClasses = parsed.filter(id => classList.some(c => c._id === id));
-                        if (validClasses.length > 0) {
-                            setSelectedClasses(validClasses);
+                    const saved = localStorage.getItem("courseTarget_selectedClasses");
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.length > 0) {
                             return;
                         }
                     }
@@ -537,7 +625,6 @@ const CourseTarget = () => {
                     console.error(e);
                 }
             }
-            setSelectedClasses(classList.map(c => c._id));
         } catch (e) {
             console.error("Error fetching classes:", e);
         }
@@ -571,6 +658,9 @@ const CourseTarget = () => {
             if (selectedClasses && selectedClasses.length > 0) {
                 params.classIds = selectedClasses.join(',');
             }
+            if (selectedCourses && selectedCourses.length > 0) {
+                params.courseIds = selectedCourses.join(',');
+            }
 
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/course-target/analysis`, {
                 params,
@@ -582,17 +672,34 @@ const CourseTarget = () => {
             fetchedData.sort((a, b) => (a.centreName || "").localeCompare((b.centreName || ""), undefined, { sensitivity: 'base' }));
             setData(fetchedData);
 
+            if (selectedCourses.length === 0) {
+                setAvailableCourses(res.data.admissionCourses || []);
+            }
+
         } catch (e) {
             console.error(e);
             toast.error("Failed to load course target analysis");
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedZones, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses]);
+    }, [selectedCentres, selectedZones, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses, selectedCourses]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const courseOptionsMap = new Map();
+    (availableCourses || []).forEach(c => {
+        if (c._id && c.courseName) {
+            courseOptionsMap.set(c._id.toString(), { value: c._id.toString(), label: c.courseName });
+        }
+    });
+    (selectedCourses || []).forEach(selectedId => {
+        if (!courseOptionsMap.has(selectedId)) {
+            courseOptionsMap.set(selectedId, { value: selectedId, label: selectedId });
+        }
+    });
+    const courseOptions = Array.from(courseOptionsMap.values()).sort((a, b) => (a.label || "").localeCompare(b.label || ""));
 
     const getDeptStats = (centreData, deptName) => {
         if (!centreData || !centreData.departments) return { target: 0, achieved: 0, pct: 0 };
@@ -703,7 +810,10 @@ const CourseTarget = () => {
     // Calculate visible data for table and dynamic flash cards
     const visibleData = data.filter(centre => {
         const name = (centre.centreName || "").toLowerCase();
-        const isSpecial = name.includes("phsps") || name.includes("rkm") || name.includes("franchise");
+        if (name.includes("franchise")) {
+            return false;
+        }
+        const isSpecial = name.includes("phsps") || name.includes("rkm");
         if (isSpecial) {
             // Only hide if BOTH all zones and all centres are selected (i.e. default dashboard view)
             const isAllZonesSelected = selectedZones.length === zones.length;
@@ -785,21 +895,32 @@ const CourseTarget = () => {
         return false;
     };
 
-    // Calculate unique department columns dynamically from the fetched data
-    // Only show departments that actually have at least one admission in the selected period
-    const activeDeptNamesSet = new Set();
-    visibleData.forEach(centre => {
+    const isExcludedDepartment = (deptName) => {
+        if (!deptName) return true;
+        const name = deptName.toLowerCase().trim();
+        if (name.includes("fort william")) return true;
+        if (name.includes("icse and isc") || name.includes("icse & isc")) return true;
+        if (name.includes("madhyamik and hs") || name.includes("madhyamik & hs")) return true;
+        if (name.includes("counselling desk") || name.includes("zall india") || name.includes("zall-india")) return true;
+        return false;
+    };
+
+    // Fixed department columns across all tabs (weekly, monthly, quarterly, yearly, custom).
+    // Includes all master departments except explicitly excluded departments.
+    // If no admissions are found for a department in a date range, it defaults to 0.
+    const allDeptNamesSet = new Set();
+    data.forEach(centre => {
         if (centre.departments) {
             centre.departments.forEach(dept => {
-                if ((dept.achieved || 0) > 0) {
-                    activeDeptNamesSet.add(dept.name);
+                if (dept.name && !isExcludedDepartment(dept.name)) {
+                    allDeptNamesSet.add(dept.name);
                 }
             });
         }
     });
 
-    // Sort departments alphabetically (they come from the master departments list)
-    const uniqueDeptColumns = Array.from(activeDeptNamesSet).sort((a, b) => a.localeCompare(b));
+    // Sort departments alphabetically for consistent fixed column layout
+    const uniqueDeptColumns = Array.from(allDeptNamesSet).sort((a, b) => a.localeCompare(b));
 
     // Look up stats for a specific department name within a centre's data
     const getDeptStatsByName = (centreData, deptName) => {
@@ -1028,6 +1149,27 @@ const CourseTarget = () => {
                             />
                         </div>
 
+                        {/* Course Filter */}
+                        <div className="min-w-[180px] z-20 w-full sm:w-56">
+                            <CustomMultiSelect
+                                options={[{ value: 'all', label: 'All Courses' }, ...courseOptions]}
+                                value={
+                                    selectedCourses.length === courseOptions.length && courseOptions.length > 0
+                                        ? [{ value: 'all', label: 'All Courses' }]
+                                        : courseOptions.filter(opt => selectedCourses.includes(opt.value))
+                                }
+                                onChange={(selected) => {
+                                    if (selected && selected.some(o => o.value === 'all')) {
+                                        setSelectedCourses(courseOptions.map(c => c.value));
+                                    } else {
+                                        setSelectedCourses(selected ? selected.map(o => o.value) : []);
+                                    }
+                                }}
+                                placeholder="Select Courses"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
                         {(viewMode === "MONTHLY" || viewMode === "WEEKLY") && (
                             <div className="min-w-[120px] z-20">
                                 <select
@@ -1104,25 +1246,14 @@ const CourseTarget = () => {
                         </button>
 
 
-                        {canCreate && viewMode === "YEARLY" && (
-                            <button
-                                onClick={() => {
-                                    setTargetModalData(null);
-                                    setShowTargetModal(true);
-                                }}
-                                className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-blue-600/20"
-                            >
-                                <FaPlus /> Set Target
-                            </button>
-                        )}
-
-                        {canCreate && viewMode === "WEEKLY" && (
+                        {canCreate && (
                             <button
                                 onClick={() => {
                                     setTargetModalData({
-                                        targetType: "WEEKLY",
+                                        targetType: viewMode === "CUSTOM" ? "MONTHLY" : viewMode,
                                         year: selectedYear,
                                         month: selectedMonth,
+                                        quarter: selectedQuarter,
                                         week: selectedWeek,
                                         centreId: selectedCentres.length === 1 ? selectedCentres[0] : "",
                                         departmentId: "",
@@ -1132,22 +1263,59 @@ const CourseTarget = () => {
                                 }}
                                 className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-blue-600/20"
                             >
-                                <FaPlus /> Set Weekly Target
+                                <FaPlus /> Set Target
+                            </button>
+                        )}
+                        {stagedTargets.length > 0 && (
+                            <button
+                                onClick={handleBulkSaveTargets}
+                                disabled={bulkSaving}
+                                className="p-2.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase shadow-lg shadow-cyan-600/20 animate-pulse"
+                            >
+                                <FaSave /> {bulkSaving ? "Saving..." : `Bulk Update (${stagedTargets.length})`}
                             </button>
                         )}
 
                     </div>
                 </div>
 
+                {/* Floating Bottom Bar for Bulk Target Update */}
+                {stagedTargets.length > 0 && (
+                    <div className="fixed bottom-6 right-6 z-[50] flex items-center gap-4 bg-gray-900/95 text-white px-6 py-4 rounded-2xl border border-cyan-500/50 shadow-2xl backdrop-blur-md">
+                        <div className="flex items-center gap-3">
+                            <span className="w-3 h-3 rounded-full bg-cyan-400 animate-ping" />
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-wider text-cyan-400">Bulk Target Queue</p>
+                                <p className="text-xs font-bold text-gray-300">{stagedTargets.length} target(s) ready to submit</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleDiscardStagedTargets}
+                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-bold uppercase transition-all"
+                            >
+                                Discard
+                            </button>
+                            <button
+                                onClick={handleBulkSaveTargets}
+                                disabled={bulkSaving}
+                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2"
+                            >
+                                {bulkSaving ? "Saving All..." : <><FaSave /> Bulk Update All ({stagedTargets.length})</>}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Main Table - Matrix Layout */}
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-[calc(100vh-230px)] custom-scrollbar">
                         <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                    <th className="px-6 py-4 sticky left-0 z-10 bg-inherit border-r border-inherit">Centre Name</th>
+                            <thead className="sticky top-0 z-20">
+                                <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-800' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                    <th className={`px-6 py-4 sticky top-0 left-0 z-30 border-r border-inherit ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>Centre Name</th>
                                     {uniqueDeptColumns.map(deptName => (
-                                        <th key={deptName} className="px-6 py-4 text-center border-r border-inherit min-w-[160px]">
+                                        <th key={deptName} className={`px-6 py-4 text-center border-r border-inherit min-w-[160px] sticky top-0 z-20 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>
                                             <div className="flex flex-col items-center">
                                                 <span className="text-cyan-500 mb-1">{deptName}</span>
                                                 <div className="flex gap-4 text-[9px] opacity-60">
@@ -1156,7 +1324,7 @@ const CourseTarget = () => {
                                             </div>
                                         </th>
                                     ))}
-                                    <th className="px-6 py-4 text-center border-r border-inherit bg-amber-500/5">
+                                    <th className={`px-6 py-4 text-center border-r border-inherit sticky top-0 z-20 ${isDarkMode ? 'bg-[#1e1c17]' : 'bg-amber-50'}`}>
                                         <div className="flex flex-col items-center">
                                             <span className="text-amber-500 uppercase tracking-widest">Grand Total</span>
                                         </div>
@@ -1180,7 +1348,7 @@ const CourseTarget = () => {
                                     visibleData.map((centre) => {
                                         return (
                                             <tr key={centre.centreId} className={`transition-all ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'}`}>
-                                                <td className="px-6 py-5 sticky left-0 z-10 bg-inherit border-r border-inherit">
+                                                <td className={`px-6 py-5 sticky left-0 z-10 border-r border-inherit ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                                         <span className={`text-xs font-black uppercase tracking-tighter ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
@@ -1202,27 +1370,23 @@ const CourseTarget = () => {
                                                             }}
                                                         >
                                                             <div className="flex flex-col items-center gap-1">
-                                                                <span className={`text-xl font-black ${achieved > 0 ? 'text-emerald-500' : 'opacity-20'}`}>
+                                                                <span className="text-xl font-black text-emerald-500">
                                                                     {achieved}
-                                                                    {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
-                                                                        <>
-                                                                            <span className="text-gray-500 font-normal mx-1">/</span>
-                                                                            <span className={target > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
-                                                                                {target > 0 ? target : "-"}
-                                                                            </span>
-                                                                        </>
-                                                                    )}
+                                                                    <span className="text-gray-500 font-normal mx-1">/</span>
+                                                                    <span className={target > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
+                                                                        {target > 0 ? target : "-"}
+                                                                    </span>
                                                                 </span>
 
                                                                 {/* Edit/Add Target Icon on cell hover */}
-                                                                {canCreate && (viewMode === "YEARLY" || viewMode === "WEEKLY") && deptId && (
+                                                                {canCreate && (
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             handleOpenTargetModal(centre, deptName, deptId, target);
                                                                         }}
                                                                         className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-cyan-500/20 text-cyan-400"
-                                                                        title={target > 0 ? "Update Weekly Target" : "Set Weekly Target"}
+                                                                        title={target > 0 ? "Update Target" : "Set Target"}
                                                                     >
                                                                         <FaEdit size={12} />
                                                                     </button>
@@ -1241,9 +1405,9 @@ const CourseTarget = () => {
                                 )}
                             </tbody>
                             {!loading && visibleData.length > 0 && (
-                                <tfoot>
-                                    <tr className={`border-t-2 font-black text-xs uppercase transition-colors ${isDarkMode ? 'bg-black/40 text-white border-gray-700' : 'bg-gray-100 text-gray-900 border-gray-300'}`}>
-                                        <td className="px-6 py-5 sticky left-0 z-10 bg-inherit border-r border-inherit font-black">
+                                <tfoot className="sticky bottom-0 z-20">
+                                    <tr className={`border-t-2 font-black text-xs uppercase transition-colors ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-100 text-gray-900 border-gray-300'}`}>
+                                        <td className={`px-6 py-5 sticky left-0 bottom-0 z-30 border-r border-inherit font-black ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-100'}`}>
                                             Grand Total
                                         </td>
                                         {uniqueDeptColumns.map(deptName => {
@@ -1257,7 +1421,7 @@ const CourseTarget = () => {
 
                                             return (
                                                 <td key={deptName} className="px-6 py-5 text-center border-r border-inherit">
-                                                    <span className={`text-base font-black ${deptAchievedSum > 0 ? 'text-emerald-500' : 'opacity-40'}`}>
+                                                    <span className="text-base font-black text-emerald-500">
                                                         {deptAchievedSum}
                                                         {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
                                                             <>
@@ -1559,6 +1723,7 @@ const CourseTarget = () => {
                     <AddCourseTargetModal
                         onClose={() => setShowTargetModal(false)}
                         onSuccess={handleTargetSuccess}
+                        onStageTarget={handleStageTarget}
                         centres={centres}
                         isDarkMode={isDarkMode}
                         initialData={targetModalData}

@@ -2142,7 +2142,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
 export const getDailyTrackingDetails = async (req, res) => {
     try {
-        const { date, category, startDate, endDate, centerIds, leadType, agentIds } = req.query;
+        const { date, category, startDate, endDate, centerIds, zoneIds, leadType, agentIds } = req.query;
         if (!category) {
             return res.status(400).json({ message: "Category parameter is required" });
         }
@@ -2648,6 +2648,20 @@ export const getDailyTrackingDetails = async (req, res) => {
         let queryCenterIds = [];
         if (centerIds) {
             queryCenterIds = centerIds.split(',').filter(Boolean);
+        }
+
+        // Resolve zoneIds → centre IDs so the detail modal respects zone filter
+        if (zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const zoneIdList = zoneIds.split(',').filter(Boolean);
+            const zoneDocs = await Zone.find({ _id: { $in: zoneIdList } }).select('centres').lean();
+            const zoneCentreIds = zoneDocs.flatMap(z => (z.centres || []).map(c => (c._id || c).toString()));
+            if (queryCenterIds.length > 0) {
+                // intersect: only centres that are both explicitly selected AND in the zone
+                queryCenterIds = queryCenterIds.filter(id => zoneCentreIds.includes(id));
+            } else {
+                queryCenterIds = zoneCentreIds;
+            }
         }
 
         if (isRestricted) {

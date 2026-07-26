@@ -27,7 +27,7 @@ export const getAdmissionReport = async (req, res) => {
             sessions
         } = req.query;
 
-        console.log("Admission Report Query:", req.query);
+        // console.log("Admission Report Query:", req.query);
 
         // Filters
         let admissionQuery = {};
@@ -105,7 +105,7 @@ export const getAdmissionReport = async (req, res) => {
             const rawZoneIds = typeof req.query.zoneIds === 'string' ? req.query.zoneIds.split(',') : req.query.zoneIds;
             const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
             const objectZoneIds = validZoneIds.map(id => new mongoose.Types.ObjectId(id));
-            
+
             const zoneDocs = await Zone.find({ _id: { $in: objectZoneIds } }).select("centres").lean();
             const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
             const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id centreName");
@@ -150,10 +150,10 @@ export const getAdmissionReport = async (req, res) => {
             // For leadQuery, filter by course programme since leads don't have student profiles
             const coursesWithProg = await Course.find({ programme }).select("_id").lean();
             const courseIdsWithProg = coursesWithProg.map(c => c._id);
-            
+
             if (leadQuery.course) {
                 const existingLeadCourseIds = leadQuery.course.$in || [];
-                const intersectedLeadIds = existingLeadCourseIds.filter(id => 
+                const intersectedLeadIds = existingLeadCourseIds.filter(id =>
                     courseIdsWithProg.some(pid => pid.toString() === id.toString())
                 );
                 leadQuery.course = { $in: intersectedLeadIds };
@@ -171,7 +171,7 @@ export const getAdmissionReport = async (req, res) => {
 
             if (objectIds.length > 0) {
                 admissionQuery.class = { $in: objectIds };
-                
+
                 // Resolve Class names/digits for boardcourseadmissions
                 const ClassModel = mongoose.model("Class");
                 const classDocs = await ClassModel.find({ _id: { $in: objectIds } }).select("name");
@@ -189,7 +189,7 @@ export const getAdmissionReport = async (req, res) => {
             if (validTagIds.length > 0) {
                 const objectTagIds = validTagIds.map(id => new mongoose.Types.ObjectId(id));
                 admissionQuery.examTag = { $in: objectTagIds };
-                
+
                 const tagDocs = await ExamTag.find({ _id: { $in: objectTagIds } }).select("examName");
                 const examNames = tagDocs.map(t => t.examName).filter(Boolean);
                 if (examNames.length > 0) {
@@ -203,12 +203,12 @@ export const getAdmissionReport = async (req, res) => {
             const sessionList = typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions;
             if (sessionList.length > 0) {
                 admissionQuery.academicSession = { $in: sessionList };
-                
+
                 const coursesInSessions = await Course.find({ courseSession: { $in: sessionList } }).select("_id").lean();
                 const courseIdsInSessions = coursesInSessions.map(c => c._id);
                 if (leadQuery.course) {
                     const existingLeadCourseIds = leadQuery.course.$in || [];
-                    const intersectedLeadIds = existingLeadCourseIds.filter(id => 
+                    const intersectedLeadIds = existingLeadCourseIds.filter(id =>
                         courseIdsInSessions.some(pid => pid.toString() === id.toString())
                     );
                     leadQuery.course = { $in: intersectedLeadIds };
@@ -223,11 +223,23 @@ export const getAdmissionReport = async (req, res) => {
         if (boardAdmissionQuery.class) {
             delete boardAdmissionQuery.class;
         }
+        if (boardAdmissionQuery.course) {
+            delete boardAdmissionQuery.course;
+        }
+        if (courseIds) {
+            const rawIds = typeof courseIds === 'string' ? courseIds.split(',') : courseIds;
+            const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+
+            boardAdmissionQuery.$or = [
+                { boardId: { $in: objectIds } },
+                { boardCourseName: { $in: rawIds } }
+            ];
+        }
         if (boardClassMatches.length > 0) {
             boardAdmissionQuery.lastClass = { $in: boardClassMatches };
         }
         if (programme) {
-            delete boardAdmissionQuery.course;
             delete boardAdmissionQuery.student;
             const studentsWithProg = await Student.find({ "studentsDetails.programme": programme }).select("_id").lean();
             const studentIdsWithProg = studentsWithProg.map(s => s._id);
@@ -340,7 +352,7 @@ export const getAdmissionReport = async (req, res) => {
                 if (!boardTrendMapD[d]) boardTrendMapD[d] = { monthName: d };
                 boardTrendMapD[d][b] = item.count;
             });
-            const boardTrendD = Object.values(boardTrendMapD).sort((a,b) => a.monthName.localeCompare(b.monthName));
+            const boardTrendD = Object.values(boardTrendMapD).sort((a, b) => a.monthName.localeCompare(b.monthName));
 
             return res.status(200).json({
                 trend: trendData,
@@ -599,6 +611,7 @@ export const getAdmissionReport = async (req, res) => {
                     centre: "$_id.centre",
                     examTagId: { $ifNull: ["$_id.examTag", "board"] },
                     examTagName: { $ifNull: ["$examTagInfo.name", "$_id.boardCourseName", "Board Course"] },
+                    courseId: "$_id.course",
                     courseName: { $ifNull: ["$courseInfo.courseName", "$_id.boardCourseName", "$examTagInfo.name", "Generic Admission"] },
                     className: { $ifNull: ["$classInfo.name", { $ifNull: ["$_id.class", "N/A"] }] },
                     departmentName: "$_id.departmentName",
@@ -702,7 +715,7 @@ export const getAdmissionReport = async (req, res) => {
             boardSubjectMap[sub].total += item.count;
         });
 
-        const boardAnalysisData = Object.values(boardSubjectMap).sort((a,b) => b.total - a.total);
+        const boardAnalysisData = Object.values(boardSubjectMap).sort((a, b) => b.total - a.total);
         const boardClasses = Array.from(new Set(boardAnalysisRaw.map(item => item._id.className || "Unknown Class")));
 
         const boardAnalysis = {
@@ -772,7 +785,7 @@ export const getAdmissionReport = async (req, res) => {
             const b = item._id.boardName;
             allBoards.add(b);
             const monthName = new Date(2000, m - 1, 1).toLocaleString('default', { month: 'short' });
-            
+
             if (!boardTrendMap[monthName]) boardTrendMap[monthName] = { monthName };
             boardTrendMap[monthName][b] = item.count;
         });

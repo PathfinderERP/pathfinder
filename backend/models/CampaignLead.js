@@ -64,6 +64,10 @@ const campaignLeadSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    isPriority: {
+        type: Boolean,
+        default: true
+    },
     marketingBy: {
         type: String,
     },

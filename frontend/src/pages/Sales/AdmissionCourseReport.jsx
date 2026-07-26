@@ -16,7 +16,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Searchable Multi-Select ──────────────────────────────────────────────────
-const MultiSelect = ({ placeholder, options, selected, onToggle, labelKey = "name", valueKey = "_id", isDarkMode }) => {
+const MultiSelect = ({ placeholder, options, selected, onToggle, onSelectAll, onClearAll, labelKey = "name", valueKey = "_id", isDarkMode }) => {
     const [open, setOpen] = useState(false);
     const [q, setQ]       = useState("");
     const ref             = useRef(null);
@@ -33,6 +33,18 @@ const MultiSelect = ({ placeholder, options, selected, onToggle, labelKey = "nam
         ? "bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-blue-500"
         : "bg-white border-gray-300 text-gray-700 hover:border-blue-500 shadow-sm";
 
+    const handleSelectAll = () => {
+        if (onSelectAll) {
+            onSelectAll(opts.map(o => o[valueKey]));
+        }
+    };
+
+    const handleClearAll = () => {
+        if (onClearAll) {
+            onClearAll();
+        }
+    };
+
     return (
         <div className="relative" ref={ref}>
             <div onClick={() => setOpen(!open)} className={`${base} ${dm}`}>
@@ -43,16 +55,32 @@ const MultiSelect = ({ placeholder, options, selected, onToggle, labelKey = "nam
                 {open && (
                     <motion.div
                         initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className={`absolute top-full left-0 mt-1 w-64 z-50 border rounded-xl shadow-2xl max-h-64 flex flex-col
+                        className={`absolute top-full left-0 mt-1 w-64 z-50 border rounded-xl shadow-2xl max-h-80 flex flex-col
                             ${isDarkMode ? "bg-[#1a1f24] border-gray-700" : "bg-white border-gray-200"}`}
                     >
-                        <div className={`p-2 border-b ${isDarkMode ? "border-gray-700" : "border-gray-100"}`}>
+                        <div className={`p-2 border-b flex flex-col gap-2 ${isDarkMode ? "border-gray-700" : "border-gray-100"}`}>
                             <input autoFocus type="text" placeholder="Search..."
                                 value={q} onChange={e => setQ(e.target.value)}
                                 className={`w-full px-2 py-1.5 text-sm rounded-md outline-none border
                                     ${isDarkMode ? "bg-gray-800 border-gray-600 text-white placeholder-gray-500"
                                                  : "bg-gray-50 border-gray-200 text-gray-800"}`}
                             />
+                            <div className="flex items-center justify-between px-1 text-xs font-bold">
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    className="text-blue-500 hover:text-blue-400 cursor-pointer transition-colors"
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleClearAll}
+                                    className="text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
                         </div>
                         <div className="overflow-y-auto flex-1">
                             {opts.length > 0 ? opts.map(opt => (
@@ -173,12 +201,14 @@ const AdmissionCourseReport = () => {
     const [zones,    setZones]    = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
+    const [courses,  setCourses]  = useState([]);
 
     // ── filters ───────────────────────────────────────────────────────────────
     const [selCentres,  setSelCentres]  = useState([]);
     const [selZones,    setSelZones]    = useState([]);
     const [selTags,     setSelTags]     = useState([]);
     const [selSessions, setSelSessions] = useState([]);
+    const [selCourses,  setSelCourses]  = useState([]);
     const [classes,     setClasses]     = useState([]);
     const [selClasses,  setSelClasses]  = useState([]);
     const [selectedProgramme, setSelectedProgramme] = useState("");
@@ -192,6 +222,7 @@ const AdmissionCourseReport = () => {
     // ── data ──────────────────────────────────────────────────────────────────
     // Each row: { examTagId, examTagName, centreName, courseName, month, count }
     const [rows,    setRows]    = useState([]);
+    const [availableCourses, setAvailableCourses] = useState([]);
     const [summary, setSummary] = useState({ total: 0, departments: 0, centres: 0, courses: 0 });
     const [loading, setLoading] = useState(false);
 
@@ -206,12 +237,13 @@ const AdmissionCourseReport = () => {
         const token = localStorage.getItem("token");
         const h     = { Authorization: `Bearer ${token}` };
         try {
-            const [cR, tR, sR, clR, zR] = await Promise.all([
+            const [cR, tR, sR, clR, zR, crR] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`,  { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/class`, { headers: h }),
                 fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers: h }),
+                fetch(`${import.meta.env.VITE_API_URL}/course`, { headers: h }),
             ]);
             if (cR.ok) {
                 const d = await cR.json();
@@ -247,6 +279,12 @@ const AdmissionCourseReport = () => {
                 const sortedClasses = (Array.isArray(classData) ? classData : classData.data || [])
                     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
                 setClasses(sortedClasses);
+            }
+            if (crR && crR.ok) {
+                const courseData = await crR.json();
+                const sortedCourses = (Array.isArray(courseData) ? courseData : courseData.data || [])
+                    .sort((a, b) => (a.courseName || "").localeCompare(b.courseName || ""));
+                setCourses(sortedCourses);
             }
         } catch (e) { console.error(e); }
     };
@@ -287,6 +325,7 @@ const AdmissionCourseReport = () => {
         if (selTags.length)    p.append("examTagIds", selTags.join(","));
         if (selSessions.length) p.append("sessions", selSessions.join(","));
         if (selClasses.length) p.append("classIds", selClasses.join(","));
+        if (selCourses.length) p.append("courseIds", selCourses.join(","));
         return p.toString();
     };
 
@@ -324,6 +363,7 @@ const AdmissionCourseReport = () => {
                 examTagId:   r.examTagId   || "board",
                 examTagName: r.examTagName || "Board Course",
                 centreName:  r.centre      || "—",
+                courseId:    r.courseId    || null,
                 courseName:  r.courseName  || "—",
                 className:   r.className   || "—",
                 monthName:   r.monthName   || (r.month ? MONTHS[r.month - 1] : "—"),
@@ -348,23 +388,71 @@ const AdmissionCourseReport = () => {
             const cntrs   = new Set(mapped.map(r => r.centreName)).size;
             const courses = new Set(mapped.map(r => r.courseName)).size;
             setSummary({ total, departments: depts, centres: cntrs, courses });
+
+            // Update available admission courses for the active period & filters (only when selCourses is empty)
+            if (selCourses.length === 0) {
+                const uniqueCoursesMap = new Map();
+                mapped.forEach(r => {
+                    if (r.courseName && r.courseName !== "—") {
+                        const key = r.courseId ? r.courseId.toString() : r.courseName;
+                        if (!uniqueCoursesMap.has(key)) {
+                            uniqueCoursesMap.set(key, { _id: key, courseName: r.courseName });
+                        }
+                    }
+                });
+                const courseList = Array.from(uniqueCoursesMap.values())
+                    .sort((a, b) => (a.courseName || "").localeCompare(b.courseName || ""));
+                setAvailableCourses(courseList);
+            }
         } catch (e) {
             console.error(e);
             setRows([]);
             setSummary({ total: 0, tags: 0, centres: 0, courses: 0 });
+            if (selCourses.length === 0) setAvailableCourses([]);
         } finally {
             setLoading(false);
         }
-    }, [selCentres, selZones, selTags, selSessions, selClasses, timePeriod, startDate, endDate, selectedProgramme]);
+    }, [selCentres, selZones, selTags, selSessions, selClasses, selCourses, timePeriod, startDate, endDate, selectedProgramme]);
 
     // Trigger fetch on filter changes
     useEffect(() => {
         if (examTags.length > 0) fetchReport();
-    }, [selCentres, selZones, selTags, selSessions, selClasses, timePeriod, startDate, endDate, examTags, selectedProgramme]);
+    }, [selCentres, selZones, selTags, selSessions, selClasses, selCourses, timePeriod, startDate, endDate, examTags, selectedProgramme]);
 
     // ── helpers ───────────────────────────────────────────────────────────────
     const toggle     = setter => id => setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    const resetAll   = () => { setSelZones([]); setSelCentres([]); setSelTags([]); setSelSessions([]); setSelClasses([]); setSelectedProgramme(""); setTimePeriod("Today"); setStartDate(""); setEndDate(""); setSearch(""); };
+    const resetAll   = () => {
+        setSelZones([]);
+        setSelCentres([]);
+        setSelTags([]);
+        setSelSessions([]);
+        setSelClasses([]);
+        setSelCourses([]);
+        setSelectedProgramme("");
+        setTimePeriod("Today");
+        setStartDate("");
+        setEndDate("");
+        setSearch("");
+        setAvailableCourses([]);
+    };
+
+    // Course options for the filter (shows ONLY courses where students actually took admission in selected period)
+    const courseOptionsMap = new Map();
+    (availableCourses || []).forEach(c => {
+        if (c._id && c.courseName) {
+            courseOptionsMap.set(c._id.toString(), c);
+        }
+    });
+    (selCourses || []).forEach(selectedId => {
+        if (!courseOptionsMap.has(selectedId)) {
+            const match = rows.find(r => (r.courseId && r.courseId.toString() === selectedId) || r.courseName === selectedId);
+            if (match) {
+                courseOptionsMap.set(selectedId, { _id: selectedId, courseName: match.courseName });
+            }
+        }
+    });
+    const courseOptions = Array.from(courseOptionsMap.values())
+        .sort((a, b) => (a.courseName || "").localeCompare(b.courseName || ""));
 
     // Unique tag → index for stable colour
     const tagIndexMap = {};
@@ -667,6 +755,8 @@ const AdmissionCourseReport = () => {
                             options={zones}
                             selected={selZones}
                             onToggle={toggle(setSelZones)}
+                            onSelectAll={ids => setSelZones(prev => Array.from(new Set([...prev, ...ids])))}
+                            onClearAll={() => setSelZones([])}
                             labelKey="name"
                             valueKey="_id"
                             isDarkMode={isDark}
@@ -684,6 +774,8 @@ const AdmissionCourseReport = () => {
                             })}
                             selected={selCentres}
                             onToggle={toggle(setSelCentres)}
+                            onSelectAll={ids => setSelCentres(prev => Array.from(new Set([...prev, ...ids])))}
+                            onClearAll={() => setSelCentres([])}
                             labelKey="centreName"
                             isDarkMode={isDark}
                         />
@@ -694,6 +786,8 @@ const AdmissionCourseReport = () => {
                             options={examTags}
                             selected={selTags}
                             onToggle={toggle(setSelTags)}
+                            onSelectAll={ids => setSelTags(prev => Array.from(new Set([...prev, ...ids])))}
+                            onClearAll={() => setSelTags([])}
                             labelKey="name"
                             isDarkMode={isDark}
                         />
@@ -704,6 +798,8 @@ const AdmissionCourseReport = () => {
                             options={sessions}
                             selected={selSessions}
                             onToggle={toggle(setSelSessions)}
+                            onSelectAll={ids => setSelSessions(prev => Array.from(new Set([...prev, ...ids])))}
+                            onClearAll={() => setSelSessions([])}
                             labelKey="sessionName"
                             valueKey="sessionName"
                             isDarkMode={isDark}
@@ -715,7 +811,22 @@ const AdmissionCourseReport = () => {
                             options={classes}
                             selected={selClasses}
                             onToggle={toggle(setSelClasses)}
+                            onSelectAll={ids => setSelClasses(prev => Array.from(new Set([...prev, ...ids])))}
+                            onClearAll={() => setSelClasses([])}
                             labelKey="name"
+                            valueKey="_id"
+                            isDarkMode={isDark}
+                        />
+
+                        {/* Courses */}
+                        <MultiSelect
+                            placeholder="All Courses"
+                            options={courseOptions}
+                            selected={selCourses}
+                            onToggle={toggle(setSelCourses)}
+                            onSelectAll={ids => setSelCourses(prev => Array.from(new Set([...prev, ...ids])))}
+                            onClearAll={() => setSelCourses([])}
+                            labelKey="courseName"
                             valueKey="_id"
                             isDarkMode={isDark}
                         />

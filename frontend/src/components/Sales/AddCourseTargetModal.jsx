@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaSave } from "react-icons/fa";
+import { FaTimes, FaSave, FaPlus } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
 import CustomMultiSelect from "../common/CustomMultiSelect";
 
-const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initialData }) => {
+const AddCourseTargetModal = ({ onClose, onSuccess, onStageTarget, centres, isDarkMode, initialData }) => {
     const [loading, setLoading] = useState(false);
     const [allDepartments, setAllDepartments] = useState([]);
     const [examTags, setExamTags] = useState([]);
@@ -17,7 +17,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
         month: initialData?.month || new Date().toLocaleString('default', { month: 'long' }),
         quarter: initialData?.quarter || "Q1",
         week: initialData?.week || 1,
-        targetCount: initialData?.targetCount || ""
+        targetCount: (initialData?.targetCount !== undefined && initialData?.targetCount !== null) ? initialData.targetCount : ""
     });
 
     useEffect(() => {
@@ -42,7 +42,18 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
                     axios.get(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
                     axios.get(`${import.meta.env.VITE_API_URL}/examTag`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
-                setAllDepartments(deptsRes.data.filter(d => d.showInAdmission !== false) || []);
+                const isExcluded = (name) => {
+                    if (!name) return true;
+                    const n = name.toLowerCase().trim();
+                    if (n.includes("fort william")) return true;
+                    if (n.includes("icse and isc") || n.includes("icse & isc")) return true;
+                    if (n.includes("madhyamik and hs") || n.includes("madhyamik & hs")) return true;
+                    if (n.includes("counselling desk") || n.includes("zall india") || n.includes("zall-india")) return true;
+                    return false;
+                };
+                const rawDepts = deptsRes.data || [];
+                const filteredDepts = rawDepts.filter(d => d.showInAdmission !== false && !isExcluded(d.departmentName));
+                setAllDepartments(filteredDepts);
                 setExamTags(examTagsRes.data || []);
             } catch (e) {
                 console.error(e);
@@ -51,10 +62,34 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
         fetchData();
     }, []);
 
+    const handleStage = (e) => {
+        e.preventDefault();
+        if (!formData.centreId || !formData.targetCount || !formData.departmentId) {
+            return toast.warn("Please select a centre, department and target count");
+        }
+
+        const selectedCentre = centres.find(c => c._id === formData.centreId);
+        const selectedDept = allDepartments.find(d => d._id === formData.departmentId);
+
+        const stagedItem = {
+            ...formData,
+            centreName: selectedCentre?.centreName || "Centre",
+            departmentName: selectedDept?.departmentName || "Department",
+            department: formData.departmentId,
+            examTags: (formData.examTags || []).map(tag => typeof tag === 'object' ? tag.value : tag)
+        };
+
+        if (onStageTarget) {
+            onStageTarget(stagedItem);
+            toast.info(`Target for ${selectedCentre?.centreName || "Centre"} - ${selectedDept?.departmentName || "Dept"} added to Bulk Queue!`);
+            setFormData(prev => ({ ...prev, targetCount: "" }));
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!formData.centreId || !formData.targetCount || !formData.departmentId) {
+        if (!formData.centreId || formData.targetCount === "" || formData.targetCount === undefined || formData.targetCount === null || !formData.departmentId) {
             return toast.warn("Please select a centre, department and target count");
         }
 
@@ -64,7 +99,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
             const finalPayload = { 
                 ...formData,
                 department: formData.departmentId,
-                examTags: formData.examTags.map(tag => tag.value) // Extract IDs only
+                examTags: formData.examTags.map(tag => typeof tag === 'object' ? tag.value : tag) // Extract IDs only
             };
 
             await axios.post(`${import.meta.env.VITE_API_URL}/sales/course-target`, finalPayload, {
@@ -183,10 +218,9 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
                                     onChange={(e) => setFormData({ ...formData, quarter: e.target.value })}
                                     className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                 >
-                                    <option value="Q1">Q1 (Apr-Jun)</option>
-                                    <option value="Q2">Q2 (Jul-Sep)</option>
-                                    <option value="Q3">Q3 (Oct-Dec)</option>
-                                    <option value="Q4">Q4 (Jan-Mar)</option>
+                                    {["Q1", "Q2", "Q3", "Q4"].map(q => (
+                                        <option key={q} value={q}>{q}</option>
+                                    ))}
                                 </select>
                             </div>
                         )}
@@ -197,7 +231,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
                                     <select
                                         value={formData.month}
                                         onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                                        className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                        className={`w-full border rounded-xl p-3 text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 text-white focus:border-cyan-500'}`}
                                     >
                                         {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
                                             <option key={m} value={m}>{m}</option>
@@ -221,7 +255,7 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
                             <input
                                 type="number"
                                 required
-                                min="1"
+                                min="0"
                                 placeholder="e.g. 50"
                                 value={formData.targetCount}
                                 onChange={(e) => setFormData({ ...formData, targetCount: e.target.value })}
@@ -230,13 +264,24 @@ const AddCourseTargetModal = ({ onClose, onSuccess, centres, isDarkMode, initial
                         </div>
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black uppercase tracking-widest py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-95 mt-4"
-                    >
-                        {loading ? "Establishing Goal..." : <><FaSave /> {initialData ? 'Update Admission Goal' : 'Set Admission Goal'}</>}
-                    </button>
+                    <div className="flex gap-3 pt-2">
+                        {onStageTarget && (
+                            <button
+                                type="button"
+                                onClick={handleStage}
+                                className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase text-xs tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.01] active:scale-95"
+                            >
+                                <FaPlus /> Add to Bulk Queue
+                            </button>
+                        )}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black uppercase text-xs tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 transition-all hover:scale-[1.01] active:scale-95"
+                        >
+                            {loading ? "Saving..." : <><FaSave /> {initialData ? 'Update Goal' : 'Save Immediately'}</>}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

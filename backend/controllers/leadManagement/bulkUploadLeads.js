@@ -64,8 +64,8 @@ export const bulkUploadLeads = async (req, res) => {
         const invalidSources = [];
         for (let i = 0; i < leads.length; i++) {
             const row = leads[i];
-            // Only validate rows that aren't skipped (i.e. must have name and schoolName)
-            if (!row.name || !row.schoolName) {
+            // Only validate rows that aren't skipped (i.e. must have name)
+            if (!row.name) {
                 continue;
             }
             const sourceStr = (row.source || "").trim();
@@ -108,13 +108,14 @@ export const bulkUploadLeads = async (req, res) => {
                 phoneNumber:        row.phoneNumber ? String(row.phoneNumber).trim() : "",
                 secondPhoneNumber:  row.secondPhoneNumber && String(row.secondPhoneNumber).trim() !== "0" && String(row.secondPhoneNumber).trim() !== "0.0" ? String(row.secondPhoneNumber).trim() : "",
                 schoolName:         row.schoolName || "",
-                targetExam:         row.targetExam || "",
+
                 leadResponsibility: resolvedResponsibility,
                 createdBy:          uploaderId,
                 marketingBy:        uploaderName,
                 assignedAt:         new Date(),
                 marks:              row.marks !== undefined && row.marks !== "" ? parseFloat(row.marks) : undefined,
-                isBulkUpload:       true
+                isBulkUpload:       true,
+                isPriority:         true
             };
 
             // Link to campaign if valid
@@ -228,10 +229,9 @@ export const bulkUploadLeads = async (req, res) => {
             const row = prepared[idx];
             const originalRowIndex = idx + 1;
 
-            if (!row.name || !row.schoolName) {
+            if (!row.name) {
                 const missing = [];
                 if (!row.name) missing.push("Name");
-                if (!row.schoolName) missing.push("School Name");
                 skippedDetails.push({
                     row: originalRowIndex,
                     name: row.name || "Unknown Name",
