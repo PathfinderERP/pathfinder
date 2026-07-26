@@ -677,7 +677,7 @@ export const getFinalWeekendTarget = async (req, res) => {
             }
         } else {
             centreQuery = {
-                centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] }
+                centreName: { $nin: [/franchise/i, /rkm/i] }
             };
             if (req.user.role !== "superAdmin") {
                 centreQuery._id = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
@@ -702,13 +702,14 @@ export const getFinalWeekendTarget = async (req, res) => {
 
         const results = await Promise.all(
             centres.map(async (c) => {
-                const targetRecord = await CentreTarget.findOne({
+                const isPhsps = c.centreName && /phsps/i.test(c.centreName);
+                const targetRecord = isPhsps ? null : await CentreTarget.findOne({
                     centre: c._id,
                     year:   parsedYear,
                     month:  month
                 });
 
-                const monthlyTargetExclGST = targetRecord ? targetRecord.targetAmount : 0;
+                const monthlyTargetExclGST = (isPhsps || !targetRecord) ? 0 : targetRecord.targetAmount;
 
                 // Retrieve daily raw records from our preloaded batch map
                 const dailyRaw = centreDailyMap[c.centreName] || [];
@@ -728,86 +729,30 @@ export const getFinalWeekendTarget = async (req, res) => {
 
                 const weekData = [];
                 for (const week of fixedWeeks) {
-                    // Proportional target for this week's days
-                    const basePhaseTarget = daysInMonth > 0
+                    // Proportional target for this week's days (0 for PHSPS)
+                    const basePhaseTarget = (!isPhsps && daysInMonth > 0)
                         ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
                         : 0;
 
-                    const overrideVal = targetRecord?.weeklyTargetsOverride?.[week.weekNumber];
+                    const overrideVal = isPhsps ? null : targetRecord?.weeklyTargetsOverride?.[week.weekNumber];
                     if (overrideVal !== undefined && overrideVal !== null) {
                         cumulativeTarget = overrideVal;
-                    } else {
+                    } else if (!isPhsps) {
                         cumulativeTarget += basePhaseTarget;
+                    } else {
+                        cumulativeTarget = 0;
                     }
 
                     const prevCumulativeAchievement = cumulativeAchievement;
-                    const phaseTarget = Math.max(0, cumulativeTarget - prevCumulativeAchievement);
+                    const phaseTarget = isPhsps ? 0 : Math.max(0, cumulativeTarget - prevCumulativeAchievement);
 
-                    const hasWeekdays = week.days.some(d => !d.isWeekend);
-                    const hasSat = week.days.some(d => d.dayName === 'Sat');
-                    const hasSun = week.days.some(d => d.dayName === 'Sun');
-                    const hasWeekend = hasSat || hasSun;
-
-                    let workingTarget = 0;
-                    let baseWeekendTarget = 0;
-
-                    if (hasWeekdays && !hasWeekend) {
-                        workingTarget = phaseTarget;
-                        baseWeekendTarget = 0;
-                    } else if (!hasWeekdays && hasWeekend) {
-                        workingTarget = 0;
-                        baseWeekendTarget = phaseTarget;
-                    } else if (hasWeekdays && hasWeekend) {
-                        workingTarget = phaseTarget * 0.35;
-                        baseWeekendTarget = phaseTarget * 0.65;
-                    }
-
-                    let phaseAchieved   = 0;
-                    let weekendAchieved = 0;
-                    let workingAchieved = 0;
-                    let satAchieved     = 0;
-                    let sunAchieved     = 0;
-
+                    let phaseAchieved = 0;
                     week.days.forEach(d => {
                         const achieved = dayMap[d.day]?.exclGST || 0;
                         phaseAchieved += achieved;
-                        if (d.isWeekend) {
-                            weekendAchieved += achieved;
-                            if (d.dayName === 'Sat') satAchieved += achieved;
-                            if (d.dayName === 'Sun') sunAchieved += achieved;
-                        }
-                        else {
-                            workingAchieved += achieved;
-                        }
                     });
 
                     totalAchievedExclGST += phaseAchieved;
-                    totalWeekendExclGST  += weekendAchieved;
-
-                    const workingDeficit        = Math.max(0, workingTarget - workingAchieved);
-                    const adjustedWeekendTarget = baseWeekendTarget;
-                    
-                    let satTarget = 0;
-                    let sunTarget = 0;
-
-                    if (hasSat && hasSun) {
-                        satTarget = adjustedWeekendTarget * 0.35;
-                        sunTarget = adjustedWeekendTarget * 0.65;
-                    } else if (hasSat && !hasSun) {
-                        satTarget = adjustedWeekendTarget;
-                        sunTarget = 0;
-                    } else if (!hasSat && hasSun) {
-                        satTarget = 0;
-                        sunTarget = adjustedWeekendTarget;
-                    }
-
-                    const satDeficit = Math.max(0, satTarget - satAchieved);
-                    const sunDeficit = Math.max(0, sunTarget - sunAchieved);
-
-                    const weekendDeficit        = Math.max(0, adjustedWeekendTarget - weekendAchieved);
-                    
-                    // The weekly shortfall of this week:
-                    const phaseShortfall = Math.max(0, phaseTarget - phaseAchieved);
                     cumulativeAchievement += phaseAchieved;
 
                     const pct = phaseTarget > 0
@@ -819,27 +764,11 @@ export const getFinalWeekendTarget = async (req, res) => {
                         startDay:               week.startDay,
                         endDay:                 week.endDay,
                         actualDays:             week.actualDays,
-                        hasWeekdays,
-                        hasSat,
-                        hasSun,
                         phaseTarget,
-                        workingTarget,
-                        baseWeekendTarget,
-                        workingAchieved,
-                        workingDeficit,
-                        weekendAchieved,
-                        adjustedWeekendTarget,
-                        weekendDeficit,
-                        satTarget,
-                        satAchieved,
-                        satDeficit,
-                        sunTarget,
-                        sunAchieved,
-                        sunDeficit,
                         phaseAchieved,
                         cumulativeTarget,
                         cumulativeAchieved:     cumulativeAchievement,
-                        cumulativeShortfall:    Math.max(0, cumulativeTarget - cumulativeAchievement),
+                        cumulativeShortfall:    isPhsps ? 0 : Math.max(0, cumulativeTarget - cumulativeAchievement),
                         pct
                     });
                 }

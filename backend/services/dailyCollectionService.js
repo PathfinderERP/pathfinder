@@ -693,52 +693,15 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     cumulativeAchievement += phaseAchieved;
 
                     if (isDayInWeek) {
-                        // This is the week containing our selected date!
-                        const hasWeekdays = week.days.some(d => !d.isWeekend);
-                        const hasSat = week.days.some(d => d.dayName === 'Sat');
-                        const hasSun = week.days.some(d => d.dayName === 'Sun');
-                        const hasWeekend = hasSat || hasSun;
-
-                        let workingTarget = 0;
-                        let baseWeekendTarget = 0;
-
-                        if (hasWeekdays && !hasWeekend) {
-                            workingTarget = phaseTarget;
-                            baseWeekendTarget = 0;
-                        } else if (!hasWeekdays && hasWeekend) {
-                            workingTarget = 0;
-                            baseWeekendTarget = phaseTarget;
-                        } else if (hasWeekdays && hasWeekend) {
-                            workingTarget = phaseTarget * 0.35;
-                            baseWeekendTarget = phaseTarget * 0.65;
-                        }
-
                         const dayIndex = selectedDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-                        const isWeekend = dayIndex === 0 || dayIndex === 6;
+                        const isSunday = dayIndex === 0;
+                        const isMonthEnd = selectedDayNum === daysInMonth;
 
-                        if (isWeekend) {
-                            let satTarget = 0;
-                            let sunTarget = 0;
-
-                            if (hasSat && hasSun) {
-                                satTarget = baseWeekendTarget * 0.35;
-                                sunTarget = baseWeekendTarget * 0.65;
-                            } else if (hasSat && !hasSun) {
-                                satTarget = baseWeekendTarget;
-                                sunTarget = 0;
-                            } else if (!hasSat && hasSun) {
-                                satTarget = 0;
-                                sunTarget = baseWeekendTarget;
-                            }
-
-                            if (dayIndex === 6) {
-                                finalDailyTarget = satTarget;
-                            } else {
-                                finalDailyTarget = sunTarget;
-                            }
+                        if (isSunday || isMonthEnd) {
+                            finalDailyTarget = Math.max(0, cumulativeTarget - cumulativeAchievement);
                         } else {
-                            const weekdayCount = week.days.filter(d => !d.isWeekend).length;
-                            finalDailyTarget = weekdayCount > 0 ? workingTarget / weekdayCount : 0;
+                            // Monday to Saturday (divided by 6)
+                            finalDailyTarget = phaseTarget / 6;
                         }
                         break;
                     }

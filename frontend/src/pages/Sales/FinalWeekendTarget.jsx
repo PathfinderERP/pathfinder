@@ -27,58 +27,20 @@ const fmtPct = (n) =>
 const WEEK_COLS = [
     { key: "phaseTarget", label: "Weekly Target", color: "blue" },
     { key: "phaseAchieved", label: "Weekly Achieved", color: "emerald" },
-    { key: "phaseShortfall", label: "Weekly Shortfall", color: "red" },
     { key: "cumulativeTarget", label: "Cumulative Target", color: "blue" },
     { key: "cumulativeAchieved", label: "Cumulative Achieved", color: "emerald" },
     { key: "cumulativeShortfall", label: "Cumulative Shortfall", color: "red" },
-    { key: "workingTarget", label: "Working Target", color: "indigo" },
-    { key: "workingAchieved", label: "Working Achieved", color: "emerald" },
-    { key: "satTarget", label: "Sat Target", color: "indigo" },
-    { key: "satAchieved", label: "Sat Achieved", color: "emerald" },
-    { key: "sunTarget", label: "Sun Target", color: "indigo" },
-    { key: "sunAchieved", label: "Sun Achieved", color: "emerald" },
-    { key: "adjustedWeekendTarget", label: "Weekend Target", color: "purple" },
-    { key: "weekendAchieved", label: "Weekend Achieved", color: "purple" },
-    { key: "weekendDeficit", label: "Weekend Shortfall", color: "red" },
 ];
 
-const getActiveCols = (w) => {
-    if (!w) return WEEK_COLS;
-    return WEEK_COLS.filter(col => {
-        if (w.hasWeekdays === false && (col.key === "workingTarget" || col.key === "workingAchieved")) {
-            return false;
-        }
-        if (w.hasSat === false && (col.key === "satTarget" || col.key === "satAchieved")) {
-            return false;
-        }
-        if (w.hasSun === false && (col.key === "sunTarget" || col.key === "sunAchieved")) {
-            return false;
-        }
-        const hasWeekend = w.hasSat !== false || w.hasSun !== false;
-        if (!hasWeekend && (col.key === "adjustedWeekendTarget" || col.key === "weekendAchieved" || col.key === "weekendDeficit")) {
-            return false;
-        }
-        return true;
-    });
-};
+const getActiveCols = () => WEEK_COLS;
 
 // Compute derived values for a single week object from backend
 const weekMetrics = (w) => ({
-    phaseTarget: w.phaseTarget,
-    phaseAchieved: w.phaseAchieved,
-    phaseShortfall: Math.max(0, w.phaseTarget - w.phaseAchieved),
-    cumulativeTarget: w.cumulativeTarget || 0,
-    cumulativeAchieved: w.cumulativeAchieved || 0,
-    cumulativeShortfall: w.cumulativeShortfall || 0,
-    workingTarget: w.workingTarget,
-    workingAchieved: w.workingAchieved,
-    satTarget: w.satTarget,
-    satAchieved: w.satAchieved,
-    sunTarget: w.sunTarget,
-    sunAchieved: w.sunAchieved,
-    adjustedWeekendTarget: w.adjustedWeekendTarget,
-    weekendAchieved: w.weekendAchieved,
-    weekendDeficit: w.weekendDeficit,
+    phaseTarget: w?.phaseTarget || 0,
+    phaseAchieved: w?.phaseAchieved || 0,
+    cumulativeTarget: w?.cumulativeTarget || 0,
+    cumulativeAchieved: w?.cumulativeAchieved || 0,
+    cumulativeShortfall: w?.cumulativeShortfall || 0,
 });
 
 // Header colour helpers
@@ -293,33 +255,20 @@ const FinalWeekendTarget = () => {
                 "Centre": c.centreName,
                 "Monthly Target": Math.round(c.monthlyTargetExclGST),
             };
-            let sumShortfalls = 0;
 
             (c.weeks || []).forEach(w => {
                 const m = weekMetrics(w);
                 const label = `W${w.weekNumber} (${w.startDay}-${w.endDay})`;
-                row[`${label} Phase Target`] = Math.round(m.phaseTarget);
-                row[`${label} Phase Achieved`] = Math.round(m.phaseAchieved);
-                row[`${label} Phase Shortfall`] = Math.round(m.phaseShortfall);
+                row[`${label} Weekly Target`] = Math.round(m.phaseTarget);
+                row[`${label} Weekly Achieved`] = Math.round(m.phaseAchieved);
                 row[`${label} Cumulative Target`] = Math.round(m.cumulativeTarget);
                 row[`${label} Cumulative Achieved`] = Math.round(m.cumulativeAchieved);
                 row[`${label} Cumulative Shortfall`] = Math.round(m.cumulativeShortfall);
-                row[`${label} Working Target (35%)`] = Math.round(m.workingTarget);
-                row[`${label} Working Achieved`] = Math.round(m.workingAchieved);
-                row[`${label} Sat Target (35%)`] = Math.round(m.satTarget);
-                row[`${label} Sat Achieved`] = Math.round(m.satAchieved);
-                row[`${label} Sun Target (65%)`] = Math.round(m.sunTarget);
-                row[`${label} Sun Achieved`] = Math.round(m.sunAchieved);
-                row[`${label} Weekend Target (65%)`] = Math.round(m.adjustedWeekendTarget);
-                row[`${label} Weekend Achieved`] = Math.round(m.weekendAchieved);
-                row[`${label} Weekend Shortfall`] = Math.round(m.weekendDeficit);
-                sumShortfalls += m.phaseShortfall + m.weekendDeficit;
             });
 
             const totalShortfall = Math.max(0, c.monthlyTargetExclGST - c.totalAchievedExclGST);
             row["Total %"] = c.overallPct.toFixed(1) + "%";
             row["Total Shortfall"] = Math.round(totalShortfall);
-            row["Sum of Shortfalls"] = Math.round(sumShortfalls);
             rows.push(row);
         });
 
@@ -468,7 +417,7 @@ const FinalWeekendTarget = () => {
                     {[
                         { label: "Total Monthly Target", value: totalTarget, color: "text-blue-500", border: "border-blue-500/20" },
                         { label: "Total Achieved", value: totalAchieved, color: "text-emerald-500", border: "border-emerald-500/20" },
-                        { label: "Weekend Gain", value: totalWeekend, color: "text-purple-500", border: "border-purple-500/20" },
+                        { label: "Total Shortfall", value: Math.max(0, totalTarget - totalAchieved), color: "text-red-500", border: "border-red-500/20" },
                     ].map((c, i) => (
                         <div key={i} className={`${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200"} p-4 rounded-2xl border shadow-sm`}>
                             <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{c.label}</p>
@@ -486,7 +435,7 @@ const FinalWeekendTarget = () => {
                                 Verified Centre Performance
                             </h2>
                             <p className={`text-xs mt-0.5 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                                {selectedMonth} {selectedYear} · Each row = one centre · Each group of 12 cols = one week
+                                {selectedMonth} {selectedYear} · Each row = one centre · Each group of 5 cols = one week
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -496,7 +445,7 @@ const FinalWeekendTarget = () => {
                     </div>
 
                     <div className="overflow-auto max-h-[65vh]">
-                        <table className="text-left border-collapse" style={{ minWidth: `${200 + 140 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) * 110 + 340}px` }}>
+                        <table className="text-left border-collapse" style={{ minWidth: `${200 + 140 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) * 110 + 240}px` }}>
                             <thead className="sticky top-0 z-30 shadow-md">
                                 {/* ── Row 1: Week group headers ─────────────────── */}
                                 <tr className={isDarkMode ? "bg-[#0d1015]" : "bg-gray-100"}>
@@ -522,7 +471,7 @@ const FinalWeekendTarget = () => {
                                         );
                                     })}
                                     {/* Summary group */}
-                                    <th colSpan={3}
+                                    <th colSpan={2}
                                         className={`px-3 py-2 text-[11px] font-black uppercase tracking-widest text-center border-l-2 ${isDarkMode ? "text-amber-300 border-amber-500/30 bg-amber-500/10" : "text-amber-700 border-amber-300 bg-amber-50"}`}>
                                         Summary
                                     </th>
@@ -543,7 +492,6 @@ const FinalWeekendTarget = () => {
                                     {[
                                         { label: "Total %", color: "amber" },
                                         { label: "Total Shortfall", color: "red" },
-                                        { label: "Sum of Shortfalls", color: "red" },
                                     ].map((col, i) => (
                                         <th key={`sum-${i}`}
                                             className={`px-3 py-2 text-[9px] font-black uppercase tracking-wide text-center whitespace-nowrap border-l-2 ${i === 0 ? isDarkMode ? "border-amber-500/30" : "border-amber-300" : ""} ${headerBg(col.color, isDarkMode)}`}>
@@ -557,27 +505,18 @@ const FinalWeekendTarget = () => {
                                 {loading ? (
                                     [1, 2, 3].map(i => (
                                         <tr key={i}>
-                                            <td colSpan={2 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) + 3} className="h-14 animate-pulse bg-gray-500/5" />
+                                            <td colSpan={2 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) + 2} className="h-14 animate-pulse bg-gray-500/5" />
                                         </tr>
                                     ))
                                 ) : activeCentres.length === 0 ? (
                                     <tr>
-                                        <td colSpan={2 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) + 3} className={`px-6 py-16 text-center text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                                        <td colSpan={2 + weekList.reduce((acc, w) => acc + getActiveCols(w).length, 0) + 2} className={`px-6 py-16 text-center text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                                             No data available for the selected filters.
                                         </td>
                                     </tr>
                                 ) : activeCentres.map((c, ri) => {
                                     const weeks = c.weeks || [];
-
-                                    // Summary calculations
-                                    let sumPhaseShortfalls = 0;
-                                    let sumWeekendShortfalls = 0;
-                                    weeks.forEach(w => {
-                                        sumPhaseShortfalls += Math.max(0, w.phaseTarget - w.phaseAchieved);
-                                        sumWeekendShortfalls += w.weekendDeficit;
-                                    });
                                     const totalShortfall = Math.max(0, c.monthlyTargetExclGST - c.totalAchievedExclGST);
-                                    const sumOfAllShortfalls = sumPhaseShortfalls + sumWeekendShortfalls;
                                     const overallPct = c.overallPct || 0;
 
                                     const rowBg = ri % 2 === 0
@@ -612,7 +551,7 @@ const FinalWeekendTarget = () => {
                                                 const m = weekMetrics(w);
                                                 return activeCols.map((col, ci) => {
                                                     const val = m[col.key];
-                                                    const isShortfall = col.key === "phaseShortfall" || col.key === "weekendDeficit" || col.key === "cumulativeShortfall";
+                                                    const isShortfall = col.key === "cumulativeShortfall";
 
                                                     if (col.key === "phaseTarget" && isEditableRole) {
                                                         const key = `${c.centreId}-${w.weekNumber}`;
@@ -671,10 +610,6 @@ const FinalWeekendTarget = () => {
                                             <td className={`px-3 py-4 text-center text-xs whitespace-nowrap ${totalShortfall > 0 ? "text-red-500 font-black" : "text-emerald-500 font-black"}`}>
                                                 {totalShortfall > 0 ? `−${fmt(totalShortfall)}` : <span className="text-emerald-500 text-[10px]">✓ Achieved</span>}
                                             </td>
-                                            {/* Sum of Shortfalls */}
-                                            <td className={`px-3 py-4 text-center text-xs whitespace-nowrap ${sumOfAllShortfalls > 0 ? "text-red-500 font-black" : "text-emerald-500 font-black"}`}>
-                                                {sumOfAllShortfalls > 0 ? `−${fmt(sumOfAllShortfalls)}` : <span className="text-emerald-500 text-[10px]">✓ Zero</span>}
-                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -693,15 +628,17 @@ const FinalWeekendTarget = () => {
                                             const activeCols = getActiveCols(w);
                                             // Sum each metric across centres for this week
                                             const totals = activeCols.reduce((acc, col) => {
-                                                const sum = activeCentres.reduce((s, c) => {
-                                                    const m = weekMetrics(c.weeks?.[wi] || {
-                                                        phaseTarget: 0, phaseAchieved: 0, workingTarget: 0, workingAchieved: 0,
-                                                        satTarget: 0, satAchieved: 0, sunTarget: 0, sunAchieved: 0,
-                                                        adjustedWeekendTarget: 0, weekendAchieved: 0, weekendDeficit: 0
-                                                    });
-                                                    return s + (m[col.key] || 0);
-                                                }, 0);
-                                                acc[col.key] = sum;
+                                                if (col.key === "cumulativeShortfall") {
+                                                    const totalCumTarget = activeCentres.reduce((s, c) => s + (c.weeks?.[wi]?.cumulativeTarget || 0), 0);
+                                                    const totalCumAchieved = activeCentres.reduce((s, c) => s + (c.weeks?.[wi]?.cumulativeAchieved || 0), 0);
+                                                    acc[col.key] = Math.max(0, totalCumTarget - totalCumAchieved);
+                                                } else {
+                                                    const sum = activeCentres.reduce((s, c) => {
+                                                        const m = weekMetrics(c.weeks?.[wi] || {});
+                                                        return s + (m[col.key] || 0);
+                                                    }, 0);
+                                                    acc[col.key] = sum;
+                                                }
                                                 return acc;
                                             }, {});
 
@@ -718,13 +655,6 @@ const FinalWeekendTarget = () => {
                                         </td>
                                         <td className={`px-3 py-3 text-center text-xs font-black ${isDarkMode ? "text-red-400" : "text-red-600"}`}>
                                             {fmt(Math.max(0, totalTarget - totalAchieved))}
-                                        </td>
-                                        <td className={`px-3 py-3 text-center text-xs font-black ${isDarkMode ? "text-red-400" : "text-red-600"}`}>
-                                            {fmt(activeCentres.reduce((s, c) => {
-                                                return s + (c.weeks || []).reduce((ws, w) => {
-                                                    return ws + Math.max(0, w.phaseTarget - w.phaseAchieved) + w.weekendDeficit;
-                                                }, 0);
-                                            }, 0))}
                                         </td>
                                     </tr>
                                 )}
