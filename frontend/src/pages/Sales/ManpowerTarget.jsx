@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { useTheme } from "../../context/ThemeContext";
-import { FaUsers, FaBuilding, FaChartBar, FaFilter, FaSync, FaDownload, FaBullseye, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
+import { FaUsers, FaBuilding, FaChartBar, FaFilter, FaSync, FaDownload, FaBullseye, FaEdit, FaCheck, FaTimes, FaCalendarAlt, FaCalendar } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
@@ -36,6 +36,62 @@ const ManpowerTarget = () => {
     const [editValue, setEditValue] = useState("");
     const [targets, setTargets] = useState({});
     const [saving, setSaving] = useState(false);
+    const [dateFilterType, setDateFilterType] = useState("This Month");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
+
+    const resolveDateRange = useCallback((filterType, customStart, customEnd) => {
+        const now = new Date();
+        let start = new Date();
+        let end = new Date();
+
+        switch (filterType) {
+            case "Today":
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+                break;
+            case "Yesterday":
+                start.setDate(now.getDate() - 1);
+                start.setHours(0, 0, 0, 0);
+                end.setDate(now.getDate() - 1);
+                end.setHours(23, 59, 59, 999);
+                break;
+            case "This Month":
+                start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                break;
+            case "Previous Month":
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+                end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+                break;
+            case "This Year":
+                start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+                end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+                break;
+            case "Previous Year":
+                start = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0, 0);
+                end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+                break;
+            case "Custom":
+                if (customStart && customEnd) {
+                    start = new Date(customStart);
+                    start.setHours(0, 0, 0, 0);
+                    end = new Date(customEnd);
+                    end.setHours(23, 59, 59, 999);
+                } else {
+                    start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+                    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                }
+                break;
+            default:
+                start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        }
+        return {
+            startDate: start.toISOString(),
+            endDate: end.toISOString()
+        };
+    }, []);
 
     const fetchZones = useCallback(async () => {
         try {
@@ -76,8 +132,9 @@ const ManpowerTarget = () => {
     const fetchTargets = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
+            const { startDate, endDate } = resolveDateRange(dateFilterType, customStartDate, customEndDate);
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/manpower-target`, {
-                params: { month: selectedMonth, year: selectedYear, viewMode },
+                params: { month: selectedMonth, year: selectedYear, viewMode, startDate, endDate },
                 headers: { Authorization: `Bearer ${token}` }
             });
             const map = {};
@@ -95,10 +152,10 @@ const ManpowerTarget = () => {
             });
             setTargets(map);
         } catch (e) { setTargets({}); }
-    }, [selectedMonth, selectedYear, viewMode]);
+    }, [selectedMonth, selectedYear, viewMode, dateFilterType, customStartDate, customEndDate, resolveDateRange]);
 
     useEffect(() => { fetchZones(); fetchCentres(); fetchEmployees(); }, []);
-    useEffect(() => { fetchTargets(); }, [selectedMonth, selectedYear, viewMode]);
+    useEffect(() => { fetchTargets(); }, [selectedMonth, selectedYear, viewMode, dateFilterType, customStartDate, customEndDate, fetchTargets]);
 
     const filteredCentreOptions = selectedZones.length > 0
         ? centres.filter(c => {
@@ -155,10 +212,19 @@ const ManpowerTarget = () => {
         const blob = new Blob([csvContent], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url; a.download = `Manpower_Target_${selectedMonth}_${selectedYear}.csv`; a.click();
+        a.href = url; a.download = `Manpower_Target_${dateFilterType.replace(/\s+/g,"_")}.csv`; a.click();
         URL.revokeObjectURL(url);
         toast.success("Exported!");
     };
+
+    const DATE_FILTERS = ["Today", "Yesterday", "This Month", "Previous Month", "This Year", "Previous Year", "Custom"];
+
+    const activeDateLabel = (() => {
+        const { startDate, endDate } = resolveDateRange(dateFilterType, customStartDate, customEndDate);
+        const fmt = (d) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        if (dateFilterType === "Today" || dateFilterType === "Yesterday") return fmt(startDate);
+        return `${fmt(startDate)} — ${fmt(endDate)}`;
+    })();
 
     const metrics = [
         { key: "calls", label: "Calls", color: "text-yellow-400" },
@@ -191,9 +257,12 @@ const ManpowerTarget = () => {
                 </div>
 
                 {/* Filters */}
-                <div className={`p-4 rounded-xl border mb-6 flex flex-wrap items-center gap-4 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-md"}`}>
-                    <span className={`font-semibold flex items-center gap-2 text-sm ${isDarkMode ? "text-white" : "text-gray-700"}`}><FaFilter className="text-cyan-400" /> Filters</span>
+                <div className={`p-4 rounded-xl border mb-2 flex flex-wrap items-center gap-3 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-md"}`}>
+                    <span className={`font-semibold flex items-center gap-2 text-sm shrink-0 ${isDarkMode ? "text-white" : "text-gray-700"}`}>
+                        <FaFilter className="text-cyan-400" /> Filters
+                    </span>
 
+                    {/* Target Period Mode */}
                     <div className={`flex p-1 rounded-lg border ${isDarkMode ? "bg-black/20 border-gray-800" : "bg-gray-100 border-gray-200"}`}>
                         {["MONTHLY","QUARTERLY","YEARLY"].map(mode => (
                             <button key={mode} onClick={() => setViewMode(mode)}
@@ -204,35 +273,94 @@ const ManpowerTarget = () => {
                         ))}
                     </div>
 
-                    <div className="min-w-[150px]">
+                    {/* Zone / Centre / Role filters */}
+                    <div className="min-w-[140px]">
                         <CustomMultiSelect options={zones.map(z => ({ value: z._id, label: z.name }))} value={selectedZones} onChange={setSelectedZones} placeholder="All Zones" isDarkMode={isDarkMode} />
                     </div>
-                    <div className="min-w-[170px]">
+                    <div className="min-w-[160px]">
                         <CustomMultiSelect options={filteredCentreOptions.map(c => ({ value: c._id, label: c.centreName }))} value={selectedCentres} onChange={setSelectedCentres} placeholder="All Centres" isDarkMode={isDarkMode} />
                     </div>
-                    <div className="min-w-[170px]">
+                    <div className="min-w-[160px]">
                         <CustomMultiSelect options={ROLES.map(r => ({ value: r, label: r }))} value={selectedRoles} onChange={setSelectedRoles} placeholder="All Roles" isDarkMode={isDarkMode} />
                     </div>
 
+                    {/* Month + Year for target period */}
                     {viewMode === "MONTHLY" && (
                         <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                             className={`border text-xs rounded-lg px-3 py-2 outline-none font-bold ${isDarkMode ? "bg-[#1a1f24] border-gray-700 text-gray-300" : "bg-white border-gray-300 text-gray-700 shadow-sm"}`}>
                             {monthNames.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     )}
-
                     <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}
                         className={`border text-xs rounded-lg px-3 py-2 outline-none font-bold w-24 ${isDarkMode ? "bg-[#1a1f24] border-gray-700 text-gray-300" : "bg-white border-gray-300 text-gray-700 shadow-sm"}`}>
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
 
+                    {/* Search */}
                     <input type="text" placeholder="Search by name..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                        className={`border text-xs rounded-lg px-3 py-2 outline-none min-w-[160px] ${isDarkMode ? "bg-[#1a1f24] border-gray-700 text-gray-300 placeholder-gray-600" : "bg-white border-gray-300 text-gray-700 shadow-sm"}`} />
+                        className={`border text-xs rounded-lg px-3 py-2 outline-none min-w-[150px] ${isDarkMode ? "bg-[#1a1f24] border-gray-700 text-gray-300 placeholder-gray-600" : "bg-white border-gray-300 text-gray-700 shadow-sm"}`} />
 
+                    {/* Sync */}
                     <button onClick={() => { fetchEmployees(); fetchTargets(); }}
-                        className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold uppercase transition-colors">
+                        className="ml-auto flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold uppercase transition-colors">
                         <FaSync className={loading ? "animate-spin" : ""} /> Sync
                     </button>
+                </div>
+
+                {/* Date Range Filter Bar */}
+                <div className={`px-4 py-3 rounded-xl border mb-6 flex flex-wrap items-center gap-2 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`}>
+                    <FaCalendarAlt className={`text-sm shrink-0 ${isDarkMode ? "text-indigo-400" : "text-indigo-500"}`} />
+                    <span className={`text-[10px] font-black uppercase tracking-widest shrink-0 mr-1 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Achievement Period:</span>
+
+                    {/* Pill buttons */}
+                    <div className="flex flex-wrap gap-1.5">
+                        {DATE_FILTERS.map(f => (
+                            <button
+                                key={f}
+                                onClick={() => { setDateFilterType(f); if (f !== "Custom") { setCustomStartDate(""); setCustomEndDate(""); } }}
+                                className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${
+                                    dateFilterType === f
+                                        ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-500/30"
+                                        : isDarkMode
+                                            ? "bg-transparent border-gray-700 text-gray-500 hover:border-indigo-500/50 hover:text-gray-300"
+                                            : "bg-transparent border-gray-200 text-gray-500 hover:border-indigo-400 hover:text-gray-700"
+                                }`}>
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Custom date pickers */}
+                    {dateFilterType === "Custom" && (
+                        <div className="flex items-center gap-2 ml-2">
+                            <FaCalendar className={`text-xs ${isDarkMode ? "text-gray-600" : "text-gray-400"}`} />
+                            <input
+                                type="date"
+                                value={customStartDate}
+                                onChange={e => setCustomStartDate(e.target.value)}
+                                className={`border text-xs rounded-lg px-3 py-1.5 outline-none font-bold transition-all ${
+                                    isDarkMode ? "bg-[#131619] border-indigo-500/50 text-gray-200 focus:border-indigo-400" : "bg-white border-indigo-300 text-gray-700 focus:border-indigo-500 shadow-sm"
+                                }`}
+                            />
+                            <span className={`text-xs font-black ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>to</span>
+                            <input
+                                type="date"
+                                value={customEndDate}
+                                onChange={e => setCustomEndDate(e.target.value)}
+                                className={`border text-xs rounded-lg px-3 py-1.5 outline-none font-bold transition-all ${
+                                    isDarkMode ? "bg-[#131619] border-indigo-500/50 text-gray-200 focus:border-indigo-400" : "bg-white border-indigo-300 text-gray-700 focus:border-indigo-500 shadow-sm"
+                                }`}
+                            />
+                        </div>
+                    )}
+
+                    {/* Active date range badge */}
+                    <div className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                        isDarkMode ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-600"
+                    }`}>
+                        <FaCalendarAlt size={9} />
+                        {activeDateLabel}
+                    </div>
                 </div>
 
                 {/* Summary KPIs */}
