@@ -1,4 +1,5 @@
 import LeadManagement from "../../models/LeadManagement.js";
+import CampaignLead from "../../models/CampaignLead.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
@@ -26,7 +27,7 @@ export const getLeadJourney = async (req, res) => {
             };
         }
 
-        const lead = await LeadManagement.findOne(query)
+        let lead = await LeadManagement.findOne(query)
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
@@ -34,6 +35,17 @@ export const getLeadJourney = async (req, res) => {
             .populate('campaign', 'adName')
             .populate('createdBy', 'name email')
             .lean();
+
+        if (!lead) {
+            lead = await CampaignLead.findOne(query)
+                .populate('className', 'name')
+                .populate('centre', 'centreName')
+                .populate('course', 'courseName')
+                .populate('board', 'boardCourse')
+                .populate('campaign', 'adName')
+                .populate('createdBy', 'name email')
+                .lean();
+        }
 
         if (!lead) {
             return res.status(404).json({ message: "Lead not found" });

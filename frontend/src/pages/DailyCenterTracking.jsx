@@ -769,6 +769,15 @@ const DailyCenterTracking = () => {
                             bg: "bg-orange-500/10"
                         },
                         {
+                            title: getCardLabel("Shortfall % from calls to counselling"),
+                            category: "shortfall_calls_counselling",
+                            value: callsToCounsShortfallPct,
+                            subtext: `${callsToCounsShortfall.toLocaleString()} Shortfall Leads / ${totalCallsSum.toLocaleString()} Calls`,
+                            icon: <FaChartLine />,
+                            color: "text-red-500",
+                            bg: "bg-red-500/10"
+                        },
+                        {
                             title: getCardLabel("Conversion % from counselling to admission"),
                             category: "admission",
                             value: counsToAdmPct,
@@ -782,6 +791,15 @@ const DailyCenterTracking = () => {
                             bg: "bg-teal-500/10"
                         },
                         {
+                            title: getCardLabel("Shortfall % from counselling to admission"),
+                            category: "shortfall_counselling_admission",
+                            value: counsToAdmShortfallPct,
+                            subtext: `${counsToAdmShortfall.toLocaleString()} Shortfall Leads / ${totalCounsellingSum.toLocaleString()} Counselled`,
+                            icon: <FaChartLine />,
+                            color: "text-rose-500",
+                            bg: "bg-rose-500/10"
+                        },
+                        {
                             title: getCardLabel("Conversion % from calls to admission"),
                             category: "admission",
                             value: callsToAdmPct,
@@ -793,6 +811,15 @@ const DailyCenterTracking = () => {
                             icon: <FaChartLine />,
                             color: "text-indigo-500",
                             bg: "bg-indigo-500/10"
+                        },
+                        {
+                            title: getCardLabel("Shortfall % from calls to admission"),
+                            category: "shortfall_calls_admission",
+                            value: callsToAdmShortfallPct,
+                            subtext: `${callsToAdmShortfall.toLocaleString()} Shortfall Leads / ${totalCallsSum.toLocaleString()} Calls`,
+                            icon: <FaChartLine />,
+                            color: "text-pink-500",
+                            bg: "bg-pink-500/10"
                         },
                         {
                             title: getCardLabel("Collection"),

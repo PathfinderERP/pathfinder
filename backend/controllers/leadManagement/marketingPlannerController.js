@@ -195,9 +195,10 @@ export const getPlanners = async (req, res) => {
             }
         }
 
+        const isExport = req.query.export === 'true';
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const limit = isExport ? 0 : (parseInt(req.query.limit) || 10);
+        const skip = isExport ? 0 : (page - 1) * limit;
 
         const { search, type, owner, status, startDate, endDate, centres } = req.query;
 

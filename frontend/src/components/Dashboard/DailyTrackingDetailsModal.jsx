@@ -131,6 +131,10 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                 return { bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-500/20' };
             case 'WALK-IN':
                 return { bg: isDarkMode ? 'bg-indigo-500/10' : 'bg-indigo-50', text: 'text-indigo-500', border: 'border-indigo-500/20' };
+            case 'CALL SHORTFALL':
+            case 'COUNSEL SHORTFALL':
+            case 'CALL ADM SHORTFALL':
+                return { bg: isDarkMode ? 'bg-red-500/15' : 'bg-red-50', text: 'text-red-400 font-extrabold', border: 'border-red-500/30' };
             default:
                 return { bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50', text: isDarkMode ? 'text-gray-300' : 'text-gray-600', border: 'border-gray-500/20' };
         }
