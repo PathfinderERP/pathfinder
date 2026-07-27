@@ -20,6 +20,8 @@ import { getWeeklyTarget, getFinalWeekendTarget, overrideWeeklyTarget, overrideW
 import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
 import { getComparisonAnalysis, saveComparisonManualData } from "../../controllers/sales/comparisonAnalysisController.js";
 import { getAverageAdmissionFee } from "../../controllers/sales/averageAdmissionFeeController.js";
+import { getManpowerTargets, saveManpowerTarget } from "../../controllers/sales/manpowerTargetController.js";
+
 
 const router = express.Router();
 
@@ -53,5 +55,9 @@ router.post("/course-target", requireAuth, saveCourseTarget);
 router.post("/course-target/bulk", requireAuth, saveCourseTarget);
 router.get("/course-target/analysis", requireAuth, getCourseTargetAnalysis);
 router.get("/course-target/admissions", requireAuth, getAdmissionDetails);
+
+// Manpower Target Routes
+router.get("/manpower-target", requireAuth, getManpowerTargets);
+router.post("/manpower-target", requireAuth, saveManpowerTarget);
 
 export default router;

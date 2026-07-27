@@ -82,7 +82,16 @@ const ManpowerTarget = () => {
             });
             const map = {};
             (res.data.data || []).forEach(t => {
-                map[t.userId] = { calls: t.calls || 0, counselling: t.counselling || 0, admissions: t.admissions || 0, collection: t.collection || 0 };
+                map[t.userId] = {
+                    calls: t.calls || 0,
+                    callsAchieved: t.callsAchieved || 0,
+                    counselling: t.counselling || 0,
+                    counsellingAchieved: t.counsellingAchieved || 0,
+                    admissions: t.admissions || 0,
+                    admissionsAchieved: t.admissionsAchieved || 0,
+                    collection: t.collection || 0,
+                    collectionAchieved: t.collectionAchieved || 0
+                };
             });
             setTargets(map);
         } catch (e) { setTargets({}); }
@@ -230,15 +239,32 @@ const ManpowerTarget = () => {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     {[
                         { label: "Total Employees", value: filteredEmployees.length, colorClass: "bg-indigo-500/15 text-indigo-400", icon: <FaUsers /> },
-                        { label: "Avg Call Target", value: filteredEmployees.length > 0 ? Math.round(filteredEmployees.reduce((s, e) => s + (targets[e._id]?.calls || 0), 0) / filteredEmployees.length) : 0, colorClass: "bg-yellow-500/15 text-yellow-400", icon: <FaChartBar /> },
-                        { label: "Total Adm. Target", value: filteredEmployees.reduce((s, e) => s + (targets[e._id]?.admissions || 0), 0), colorClass: "bg-purple-500/15 text-purple-400", icon: <FaBullseye /> },
-                        { label: "Collection Target", value: `₹${filteredEmployees.reduce((s, e) => s + (targets[e._id]?.collection || 0), 0).toLocaleString("en-IN")}`, colorClass: "bg-cyan-500/15 text-cyan-400", icon: <FaBuilding /> },
+                        {
+                            label: "Avg Calls (Ach/Tgt)",
+                            value: filteredEmployees.length > 0
+                                ? `${Math.round(filteredEmployees.reduce((s, e) => s + (targets[e._id]?.callsAchieved || 0), 0) / filteredEmployees.length)} / ${Math.round(filteredEmployees.reduce((s, e) => s + (targets[e._id]?.calls || 0), 0) / filteredEmployees.length)}`
+                                : "0 / 0",
+                            colorClass: "bg-yellow-500/15 text-yellow-400",
+                            icon: <FaChartBar />
+                        },
+                        {
+                            label: "Total Admissions (Ach/Tgt)",
+                            value: `${filteredEmployees.reduce((s, e) => s + (targets[e._id]?.admissionsAchieved || 0), 0)} / ${filteredEmployees.reduce((s, e) => s + (targets[e._id]?.admissions || 0), 0)}`,
+                            colorClass: "bg-purple-500/15 text-purple-400",
+                            icon: <FaBullseye />
+                        },
+                        {
+                            label: "Collection (Ach/Tgt)",
+                            value: `₹${filteredEmployees.reduce((s, e) => s + (targets[e._id]?.collectionAchieved || 0), 0).toLocaleString("en-IN")} / ₹${filteredEmployees.reduce((s, e) => s + (targets[e._id]?.collection || 0), 0).toLocaleString("en-IN")}`,
+                            colorClass: "bg-cyan-500/15 text-cyan-400",
+                            icon: <FaBuilding />
+                        },
                     ].map((stat, i) => (
                         <div key={i} className={`rounded-xl border p-4 flex items-center gap-4 ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`}>
                             <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${stat.colorClass}`}>{stat.icon}</div>
                             <div>
                                 <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>{stat.label}</p>
-                                <p className={`text-xl font-black mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{stat.value}</p>
+                                <p className={`text-sm font-black mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{stat.value}</p>
                             </div>
                         </div>
                     ))}
@@ -287,7 +313,9 @@ const ManpowerTarget = () => {
                                         </td>
                                         {metrics.map(m => {
                                             const isEditing = editingCell?.empId === emp._id && editingCell?.metric === m.key;
-                                            const val = targets[emp._id]?.[m.key] || 0;
+                                            const targetVal = targets[emp._id]?.[m.key] || 0;
+                                            const achievedVal = targets[emp._id]?.[`${m.key}Achieved`] || 0;
+                                            const hasValue = targetVal > 0 || achievedVal > 0;
                                             return (
                                                 <td key={m.key} className="px-6 py-3 text-center border-r border-inherit group/cell">
                                                     {isEditing ? (
@@ -309,8 +337,10 @@ const ManpowerTarget = () => {
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center justify-center gap-2">
-                                                            <span className={`text-sm font-black ${val > 0 ? m.color : (isDarkMode ? "text-gray-700" : "text-gray-300")}`}>
-                                                                {m.key === "collection" && val > 0 ? `₹${val.toLocaleString("en-IN")}` : (val > 0 ? val : "—")}
+                                                            <span className={`text-sm font-black ${hasValue ? m.color : (isDarkMode ? "text-gray-700" : "text-gray-300")}`}>
+                                                                {m.key === "collection" 
+                                                                    ? `₹${achievedVal.toLocaleString("en-IN")} / ₹${targetVal.toLocaleString("en-IN")}`
+                                                                    : `${achievedVal} / ${targetVal}`}
                                                             </span>
                                                             <button onClick={() => startEdit(emp._id, m.key)}
                                                                 className="opacity-0 group-hover/cell:opacity-100 p-1 rounded hover:bg-cyan-500/20 text-cyan-400 transition-all"
@@ -331,15 +361,19 @@ const ManpowerTarget = () => {
                                         <td className={`px-6 py-4 sticky left-0 z-30 border-r border-inherit ${isDarkMode ? "bg-[#131619]" : "bg-gray-100"}`}>TOTAL ({filteredEmployees.length})</td>
                                         <td className="px-6 py-4 border-r border-inherit" />
                                         <td className="px-6 py-4 border-r border-inherit" />
-                                        {metrics.map(m => (
-                                            <td key={m.key} className="px-6 py-4 text-center border-r border-inherit">
-                                                <span className={`text-sm font-black ${m.color}`}>
-                                                    {m.key === "collection"
-                                                        ? `₹${filteredEmployees.reduce((s, e) => s + (targets[e._id]?.[m.key] || 0), 0).toLocaleString("en-IN")}`
-                                                        : filteredEmployees.reduce((s, e) => s + (targets[e._id]?.[m.key] || 0), 0)}
-                                                </span>
-                                            </td>
-                                        ))}
+                                        {metrics.map(m => {
+                                            const totalTarget = filteredEmployees.reduce((s, e) => s + (targets[e._id]?.[m.key] || 0), 0);
+                                            const totalAchieved = filteredEmployees.reduce((s, e) => s + (targets[e._id]?.[`${m.key}Achieved`] || 0), 0);
+                                            return (
+                                                <td key={m.key} className="px-6 py-4 text-center border-r border-inherit">
+                                                    <span className={`text-sm font-black ${m.color}`}>
+                                                        {m.key === "collection"
+                                                            ? `₹${totalAchieved.toLocaleString("en-IN")} / ₹${totalTarget.toLocaleString("en-IN")}`
+                                                            : `${totalAchieved} / ${totalTarget}`}
+                                                    </span>
+                                                </td>
+                                            );
+                                        })}
                                     </tr>
                                 </tfoot>
                             )}
