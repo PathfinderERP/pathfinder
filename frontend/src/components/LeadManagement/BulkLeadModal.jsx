@@ -29,6 +29,9 @@ const COL_MAP = {
     "LeadResponse":       "leadResponsibility",
     "Lead Response":      "leadResponsibility",
     "Marks":              "marks",
+    "Priority":           "isPriority",
+    "IsPriority":         "isPriority",
+    "Is Priority":        "isPriority",
 };
 
 const LEAD_TYPE_OPTIONS = ["HOT LEAD", "WARM LEAD", "COLD LEAD", "NEUTRAL LEAD", "INVALID LEAD"];
@@ -98,6 +101,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             LeadType: "WARM LEAD",
             LeadResponse: "Telecaller Name",
             Marks: "95",
+            Priority: "No",
         }];
         const ws = XLSX.utils.json_to_sheet(templateData);
         const wb = XLSX.utils.book_new();
@@ -402,7 +406,7 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                     <table className="w-full text-left border-collapse min-w-[1100px]">
                                         <thead className={`sticky top-0 z-10 ${d ? "bg-[#1a1f24]" : "bg-white"}`}>
                                             <tr className={`border-b ${d ? "border-gray-800" : "border-gray-100"}`}>
-                                                {["#", "Name *", "PhoneNumber", "SecondPhone", "School Name *", "Class", "Board", "Centre", "Course", "Source", "LeadType", "Marks", "LeadResponse", "Actions"].map(h => (
+                                                {["#", "Name *", "PhoneNumber", "SecondPhone", "School Name *", "Class", "Board", "Centre", "Course", "Source", "LeadType", "Marks", "LeadResponse", "Priority", "Actions"].map(h => (
                                                     <th key={h} className={`px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-gray-500`}>{h}</th>
                                                 ))}
                                             </tr>
@@ -439,6 +443,16 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                                             onChange={e => updateRow(idx, "leadResponsibility", e.target.value)}
                                                             placeholder={currentUser.name || "You"}
                                                         />
+                                                    </td>
+                                                    <td className="px-2 py-2 min-w-[100px]">
+                                                        <select
+                                                            className={inp}
+                                                            value={row.isPriority === true || String(row.isPriority).toLowerCase() === 'yes' || String(row.isPriority).toLowerCase() === 'true' ? "Yes" : "No"}
+                                                            onChange={e => updateRow(idx, "isPriority", e.target.value === "Yes")}
+                                                        >
+                                                            <option value="No">No</option>
+                                                            <option value="Yes">Yes</option>
+                                                        </select>
                                                     </td>
                                                     <td className="px-2 py-2">
                                                         <button onClick={() => removeRow(idx)} className="p-1.5 rounded text-red-400 hover:bg-red-500/10 transition-colors" title="Remove row">

@@ -115,7 +115,7 @@ export const bulkUploadLeads = async (req, res) => {
                 assignedAt:         new Date(),
                 marks:              row.marks !== undefined && row.marks !== "" ? parseFloat(row.marks) : undefined,
                 isBulkUpload:       true,
-                isPriority:         true
+                isPriority:         row.isPriority === true || row.isPriority === 'true' || String(row.isPriority || '').toLowerCase().trim() === 'true' || String(row.isPriority || '').toLowerCase().trim() === 'yes' || String(row.isPriority || '').toLowerCase().trim() === '1'
             };
 
             // Link to campaign if valid
