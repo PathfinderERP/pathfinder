@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import * as XLSX from 'xlsx';
+import { downloadExcel } from "../utils/exportUtils";
 import {
     AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar,
     CartesianGrid, Legend, PieChart, Pie, Cell, LabelList
@@ -84,6 +85,7 @@ const MarketingCRM = () => {
     const [auditDateRange, setAuditDateRange] = useState("Today");
     const [auditStartDate, setAuditStartDate] = useState("");
     const [auditEndDate, setAuditEndDate] = useState("");
+    const [exportingAudit, setExportingAudit] = useState(false);
 
     // Filtered marketing performance data
     const marketingPerformance = allPerformance.filter(u => {
@@ -854,6 +856,75 @@ const MarketingCRM = () => {
         setItemsPerPage(parseInt(e.target.value));
         setCurrentPage(1);
         setPageInput("1");
+    };
+
+    const handleExportAuditExcel = async () => {
+        setExportingAudit(true);
+        const toastId = toast.info("Preparing Activity Excel export, please wait...", { autoClose: false });
+        try {
+            const token = localStorage.getItem("token");
+            const dateLimits = getDateRangeLimits(auditDateRange, auditStartDate, auditEndDate);
+            const params = new URLSearchParams({
+                export: "true",
+                search: auditSearch,
+                ...(auditFilterType && auditFilterType.length > 0 ? { type: auditFilterType.map(t => t.value).join(",") } : {}),
+                ...(auditFilterOwner && auditFilterOwner.length > 0 ? { owner: auditFilterOwner.map(o => o.value).join(",") } : {}),
+                ...(auditFilterStatus && auditFilterStatus.length > 0 ? { status: auditFilterStatus.map(s => s.value).join(",") } : {}),
+                ...(auditFilterCentres && auditFilterCentres.length > 0 ? { centres: auditFilterCentres.map(c => c.value).join(",") } : {}),
+                startDate: dateLimits.start,
+                endDate: dateLimits.end
+            });
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const records = data.records || [];
+                if (records.length === 0) {
+                    toast.dismiss(toastId);
+                    toast.warn("No activity data available to export");
+                    return;
+                }
+
+                const exportRows = records.map(row => {
+                    const approval = approvalState[row.id] || { status: row.status || "Pending", remarks: row.remarks || "", approvedBy: row.approvedBy || "" };
+                    const allPhotos = row.photos?.length > 0 ? row.photos : (row.photo ? [row.photo] : []);
+                    return {
+                        "Date": row.date || '—',
+                        "Centre": row.user?.centres?.[0]?.centreName || '—',
+                        "Type": row.type || '—',
+                        "Institution": row.institution || '—',
+                        "Owner": row.owner || '—',
+                        "Plan Time": row.plan || '—',
+                        "Actual Time": row.actual || '—',
+                        "Duration": row.estimatedDuration || '—',
+                        "Notes": row.notes || '—',
+                        "Priority": row.priority || 'Medium',
+                        "Leads": row.leads ?? 0,
+                        "Proof Count": allPhotos.length,
+                        "Proof Links": allPhotos.join(', ') || 'No photo',
+                        "Status": approval.status || row.status || 'Pending',
+                        "Approved By": approval.approvedBy || row.approvedBy || '—',
+                        "Remarks": approval.remarks || row.remarks || '—'
+                    };
+                });
+
+                downloadExcel(exportRows, `Activity_Audit_${auditDateRange.replace(/\s+/g, '_')}`);
+                toast.dismiss(toastId);
+                toast.success("Activity Excel report downloaded successfully!");
+            } else {
+                toast.dismiss(toastId);
+                toast.error("Failed to fetch activity records for export");
+            }
+        } catch (error) {
+            console.error("Error exporting audit excel:", error);
+            toast.dismiss(toastId);
+            toast.error("Error generating Excel file");
+        } finally {
+            setExportingAudit(false);
+        }
     };
 
     // Debounced search/filter watcher
@@ -2950,9 +3021,19 @@ const MarketingCRM = () => {
                                             <h2 className="text-3xl font-black tracking-tighter">Activity Audit</h2>
                                             <p className="text-gray-500 text-[11px] font-bold mt-1">Every submitted field plan is audited here — plan time vs actual time, proof photos, leads and CI/ZM approval.</p>
                                         </div>
-                                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full self-start md:self-auto ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
-                                            {totalRecords} Record{totalRecords !== 1 ? 's' : ''}
-                                        </span>
+                                        <div className="flex items-center gap-3 self-start md:self-auto">
+                                            <button
+                                                onClick={handleExportAuditExcel}
+                                                disabled={exportingAudit}
+                                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-500 text-white shadow-md hover:shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                                            >
+                                                <FaFileExcel className="w-3.5 h-3.5" />
+                                                {exportingAudit ? "Exporting..." : "Export Excel"}
+                                            </button>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-3.5 py-2 rounded-xl ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                                                {totalRecords} Record{totalRecords !== 1 ? 's' : ''}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Search + Filter bar */}
@@ -3260,26 +3341,24 @@ const MarketingCRM = () => {
                                                                         {canApproveOrReject && (
                                                                             <td className="px-5 py-4 min-w-[180px]">
                                                                                 {canUserApproveRecord(currentUser, row) ? (
-                                                                                    <div className="flex gap-2">
-                                                                                        <button
-                                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
-                                                                                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Approved"
-                                                                                                ? 'bg-green-500/15 text-green-500 border border-green-500/30 cursor-default'
-                                                                                                : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20'
-                                                                                                }`}
-                                                                                        >
-                                                                                            ✓ Approve
-                                                                                        </button>
-                                                                                        <button
-                                                                                            onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
-                                                                                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${approval.status === "Rejected"
-                                                                                                ? 'bg-red-500/15 text-red-500 border border-red-500/30 cursor-default'
-                                                                                                : 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20'
-                                                                                                }`}
-                                                                                        >
-                                                                                            ✕ Reject
-                                                                                        </button>
-                                                                                    </div>
+                                                                                    (!approval.status || approval.status === "Pending") ? (
+                                                                                        <div className="flex gap-2">
+                                                                                            <button
+                                                                                                onClick={() => handleUpdateApprovalStatus(row.id, "Approved")}
+                                                                                                className="flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 bg-green-500 text-white hover:bg-green-600 hover:shadow-md hover:shadow-green-500/20 cursor-pointer"
+                                                                                            >
+                                                                                                ✓ Approve
+                                                                                            </button>
+                                                                                            <button
+                                                                                                onClick={() => handleUpdateApprovalStatus(row.id, "Rejected")}
+                                                                                                className="flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20 cursor-pointer"
+                                                                                            >
+                                                                                                ✕ Reject
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <span className="text-[10px] text-gray-400 font-bold uppercase italic block text-center">—</span>
+                                                                                    )
                                                                                 ) : (
                                                                                     <span className="text-[9px] text-gray-400 font-bold uppercase italic text-center block">No Action Allowed</span>
                                                                                 )}

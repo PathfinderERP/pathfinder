@@ -2183,470 +2183,554 @@ export const getDailyTrackingDetails = async (req, res) => {
             const users = await User.find({ _id: { $in: agentObjectIdList } }).select('name').lean();
             agentNames = users.map(u => u.name).filter(Boolean);
         }
-        
+
         const isRestricted = checkRestricted(req.user?.role);
-        let detailsList = [];
 
-        if (category === "walkins") {
-            // Daily Walk-Ins
-            const walkinsQuery = {
-                $or: [
-                    { isWalkIn: true, walkInDate: dateFilter },
-                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter }
-                ]
-            };
-            if (agentIds) {
-                walkinsQuery.$or = [
-                    { isWalkIn: true, walkInDate: dateFilter, walkInBy: { $in: agentObjectIdList } },
-                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: { $in: agentObjectIdList } }
-                ];
-            } else if (isRestricted) {
-                walkinsQuery.$or = [
-                    { isWalkIn: true, walkInDate: dateFilter, walkInBy: req.user._id },
-                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: req.user._id }
-                ];
-            }
-            if (leadType) {
-                walkinsQuery.leadType = leadType;
-            }
-            const walkins = await LeadManagement.find(walkinsQuery).populate('centre').populate('createdBy').populate('walkInBy').lean();
+        // Resolve Center IDs & Center Names
+        let centerObjectIdList = [];
+        let centerNamesList = [];
 
-            detailsList = walkins.map(lead => ({
-                id: lead._id,
-                name: lead.name,
-                phone: lead.phoneNumber || 'N/A',
-                email: lead.email || 'N/A',
-                handledBy: lead.walkInBy?.name || lead.createdBy?.name || 'System',
-                centreName: lead.centre?.centreName || 'N/A',
-                dateTime: lead.createdAt || lead.walkInDate,
-                tag: lead.leadType || 'WALK-IN',
-                feedback: lead.remarks || 'No remarks recorded'
-            }));
+        if (centerIds) {
+            const cIdList = centerIds.split(',').filter(Boolean);
+            centerObjectIdList = cIdList.map(id => {
+                try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
+            }).filter(Boolean);
 
-        } else if (category === "counselling") {
-            // Daily Counselling
-            // 1. Normal Counselling
-            const normalQuery = {
-                isCounseled: true,
-                updatedAt: dateFilter
-            };
-            if (agentIds) {
-                normalQuery.$or = [
-                    { createdBy: { $in: agentObjectIdList } },
-                    { followUps: { $elemMatch: { updatedBy: { $in: agentNames }, date: dateFilter } } }
-                ];
-            } else if (isRestricted) {
-                normalQuery.$or = [
-                    { createdBy: req.user._id },
-                    { followUps: { $elemMatch: { updatedBy: req.user.name, date: dateFilter } } }
-                ];
-            }
-            if (leadType) {
-                normalQuery.leadType = leadType;
-            }
-            const normalLeads = await LeadManagement.find(normalQuery).populate('centre').populate('createdBy').lean();
+            const cDocs = await CentreSchema.find({ _id: { $in: centerObjectIdList } }).select('centreName').lean();
+            centerNamesList = cDocs.map(c => c.centreName).filter(Boolean);
+        } else if (zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const zIdList = zoneIds.split(',').filter(Boolean).map(id => {
+                try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
+            }).filter(Boolean);
+            const zoneDocs = await Zone.find({ _id: { $in: zIdList } }).select("centres").lean();
+            centerObjectIdList = zoneDocs.flatMap(z => (z.centres || []));
+            const cDocs = await CentreSchema.find({ _id: { $in: centerObjectIdList } }).select('centreName').lean();
+            centerNamesList = cDocs.map(c => c.centreName).filter(Boolean);
+        } else if (isRestricted) {
+            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+            centerObjectIdList = userCenterIds.map(id => {
+                try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
+            }).filter(Boolean);
+            const cDocs = await CentreSchema.find({ _id: { $in: centerObjectIdList } }).select('centreName').lean();
+            centerNamesList = cDocs.map(c => c.centreName).filter(Boolean);
+        }
 
-            const normalDetails = normalLeads.map(lead => ({
-                id: lead._id.toString(),
-                name: lead.name,
-                phone: lead.phoneNumber || 'N/A',
-                email: lead.email || 'N/A',
-                handledBy: lead.createdBy?.name || 'System',
-                centreName: lead.centre?.centreName || 'N/A',
-                dateTime: lead.updatedAt,
-                tag: lead.leadType || 'COUNSELLED',
-                feedback: 'Normal Course Counselling'
-            }));
-
-            // Admitted Normal (counted as counselled in KPI card)
-            const admittedNormalQuery = {
-                createdAt: dateFilter
-            };
-            if (agentIds) {
-                admittedNormalQuery.createdBy = { $in: agentObjectIdList };
-            } else if (isRestricted) {
-                admittedNormalQuery.createdBy = req.user._id;
-            }
-            let normalAdmissions = await Admission.find(admittedNormalQuery).populate('student').populate('createdBy').lean();
-            if (leadType) {
-                const phones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
-                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+        const fetchDetailsForCategory = async (catName) => {
+            let list = [];
+            if (catName === "walkins") {
+                const walkinsQuery = {
                     $or: [
-                        { phoneNumber: { $in: phones } },
-                        { secondPhoneNumber: { $in: phones } }
-                    ],
-                    leadType: leadType
-                }).lean() : [];
-                const matchingPhones = new Set(
-                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
-                );
-                normalAdmissions = normalAdmissions.filter(adm => {
-                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
-                    return phone && matchingPhones.has(phone);
-                });
-            }
-            const admittedNormalDetails = normalAdmissions.map(adm => {
-                const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
-                const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
-                return {
-                    id: adm.student?._id?.toString() || adm._id.toString(),
-                    name: studentName,
-                    phone: phone,
-                    email: email,
-                    handledBy: adm.createdBy?.name || 'System',
-                    centreName: adm.centre || 'N/A',
-                    dateTime: adm.createdAt,
-                    tag: 'COUNSELLED',
-                    feedback: 'Normal Course Counselling (Admitted)'
+                        { isWalkIn: true, walkInDate: dateFilter },
+                        { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter }
+                    ]
                 };
-            });
+                if (centerObjectIdList.length > 0) walkinsQuery.centre = { $in: centerObjectIdList };
+                if (agentIds) {
+                    walkinsQuery.$or = [
+                        { isWalkIn: true, walkInDate: dateFilter, walkInBy: { $in: agentObjectIdList } },
+                        { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: { $in: agentObjectIdList } }
+                    ];
+                } else if (isRestricted) {
+                    walkinsQuery.$or = [
+                        { isWalkIn: true, walkInDate: dateFilter, walkInBy: req.user._id },
+                        { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: req.user._id }
+                    ];
+                }
+                if (leadType) walkinsQuery.leadType = leadType;
 
-            const uniqueNormalMap = {};
-            normalDetails.forEach(d => { uniqueNormalMap[d.id] = d; });
-            admittedNormalDetails.forEach(d => { uniqueNormalMap[d.id] = d; });
-            const finalNormalDetails = Object.values(uniqueNormalMap);
+                const walkins = await LeadManagement.find(walkinsQuery).populate('centre').populate('createdBy').populate('walkInBy').lean();
+                list = walkins.map(lead => ({
+                    id: lead._id.toString(),
+                    name: lead.name,
+                    phone: lead.phoneNumber || 'N/A',
+                    email: lead.email || 'N/A',
+                    handledBy: lead.walkInBy?.name || lead.createdBy?.name || 'System',
+                    centreName: lead.centre?.centreName || 'N/A',
+                    dateTime: lead.createdAt || lead.walkInDate,
+                    tag: lead.leadType || 'WALK-IN',
+                    feedback: lead.remarks || 'No remarks recorded'
+                }));
 
-            // 2. Board Counselling
-            const boardQuery = {
-                counselledDate: dateFilter
-            };
-            if (agentIds) {
-                boardQuery.counselledBy = { $in: agentObjectIdList };
-            } else if (isRestricted) {
-                boardQuery.counselledBy = req.user._id;
-            }
-            let boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('studentId').populate('counselledBy').lean();
-            if (leadType) {
-                const phones = boardCounsellings.map(bc => bc.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
-                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+            } else if (catName === "counselling") {
+                const normalQueryCondition = {
                     $or: [
-                        { phoneNumber: { $in: phones } },
-                        { secondPhoneNumber: { $in: phones } }
-                    ],
-                    leadType: leadType
-                }).lean() : [];
-                const matchingPhones = new Set(
-                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
-                );
-                boardCounsellings = boardCounsellings.filter(bc => {
-                    const phone = bc.studentId?.studentsDetails?.[0]?.mobileNum;
-                    return phone && matchingPhones.has(phone);
-                });
-            }
-            const boardDetails = boardCounsellings.map(bc => {
-                const studentName = bc.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
-                const phone = bc.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                return {
-                    id: bc.studentId?._id?.toString() || bc._id.toString(),
-                    name: studentName,
-                    phone: phone,
-                    email: 'N/A',
-                    handledBy: bc.counselledBy?.name || 'System',
-                    centreName: bc.centre || 'N/A',
-                    dateTime: bc.createdAt || bc.counselledDate,
-                    tag: 'BOARD COUNSEL',
-                    feedback: 'Board Course Counselling'
+                        { isCounseled: true, updatedAt: dateFilter },
+                        { isCounseled: true, "followUps.date": dateFilter },
+                        { followUps: { $elemMatch: { date: dateFilter, status: { $regex: /counsel/i } } } },
+                        { status: { $regex: /counsel/i }, updatedAt: dateFilter }
+                    ]
                 };
-            });
 
-            // Admitted Board (counted as counselled in KPI card)
-            const admittedBoardQuery = {
-                createdAt: dateFilter
-            };
-            if (agentIds) {
-                admittedBoardQuery.createdBy = { $in: agentObjectIdList };
-            } else if (isRestricted) {
-                admittedBoardQuery.createdBy = req.user._id;
-            }
-            let boardAdmissions = await BoardCourseAdmission.find(admittedBoardQuery).populate('studentId').populate('createdBy').lean();
-            if (leadType) {
-                const phones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
-                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
-                    $or: [
-                        { phoneNumber: { $in: phones } },
-                        { secondPhoneNumber: { $in: phones } }
-                    ],
-                    leadType: leadType
-                }).lean() : [];
-                const matchingPhones = new Set(
-                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
-                );
-                boardAdmissions = boardAdmissions.filter(adm => {
-                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
-                    return phone && matchingPhones.has(phone);
-                });
-            }
-            const admittedBoardDetails = boardAdmissions.map(adm => {
-                const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
-                const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
-                return {
-                    id: adm.studentId?._id?.toString() || adm._id.toString(),
-                    name: studentName,
-                    phone: phone,
-                    email: email,
-                    handledBy: adm.createdBy?.name || 'System',
-                    centreName: adm.centre || 'N/A',
-                    dateTime: adm.createdAt,
-                    tag: 'BOARD COUNSEL',
-                    feedback: 'Board Course Counselling (Admitted)'
-                };
-            });
+                const andConditions = [normalQueryCondition];
 
-            const uniqueBoardMap = {};
-            boardDetails.forEach(d => { uniqueBoardMap[d.id] = d; });
-            admittedBoardDetails.forEach(d => { uniqueBoardMap[d.id] = d; });
-            const finalBoardDetails = Object.values(uniqueBoardMap);
+                if (centerObjectIdList.length > 0 || centerNamesList.length > 0) {
+                    const centerOrs = [];
+                    if (centerObjectIdList.length > 0) centerOrs.push({ centre: { $in: centerObjectIdList } });
+                    if (centerNamesList.length > 0) centerOrs.push({ centre: { $in: centerNamesList } });
+                    andConditions.push({ $or: centerOrs });
+                }
 
-            detailsList = [...finalNormalDetails, ...finalBoardDetails];
+                if (agentIds) {
+                    andConditions.push({
+                        $or: [
+                            { createdBy: { $in: agentObjectIdList } },
+                            { followUps: { $elemMatch: { updatedBy: { $in: agentNames }, date: dateFilter } } }
+                        ]
+                    });
+                } else if (isRestricted) {
+                    andConditions.push({
+                        $or: [
+                            { createdBy: req.user._id },
+                            { followUps: { $elemMatch: { updatedBy: req.user.name, date: dateFilter } } }
+                        ]
+                    });
+                }
 
-        } else if (category === "admission") {
-            // Daily Admission
-            // 1. Normal Admission
-            const normalQuery = {
-                createdAt: dateFilter
-            };
-            if (agentIds) {
-                normalQuery.createdBy = { $in: agentObjectIdList };
-            } else if (isRestricted) {
-                normalQuery.createdBy = req.user._id;
-            }
-            let normalAdmissions = await Admission.find(normalQuery)
-                .populate('student')
-                .populate('course', 'courseName')
-                .populate('createdBy')
-                .lean();
-            if (leadType) {
-                const phones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
-                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
-                    $or: [
-                        { phoneNumber: { $in: phones } },
-                        { secondPhoneNumber: { $in: phones } }
-                    ],
-                    leadType: leadType
-                }).lean() : [];
-                const matchingPhones = new Set(
-                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
-                );
-                normalAdmissions = normalAdmissions.filter(adm => {
-                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
-                    return phone && matchingPhones.has(phone);
-                });
-            }
+                if (leadType) {
+                    andConditions.push({ leadType });
+                }
 
-            const normalDetails = normalAdmissions.map(adm => {
-                const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
-                const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
-                return {
-                    id: adm._id,
-                    name: studentName,
-                    phone: phone,
-                    email: email,
-                    handledBy: adm.createdBy?.name || 'System',
-                    centreName: adm.centre || 'N/A',
-                    dateTime: adm.createdAt,
-                    tag: 'NORMAL ADM',
-                    course: adm.course?.courseName || 'N/A',
-                    amount: adm.downPayment || 0,
-                    feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
-                };
-            });
+                const normalQuery = { $and: andConditions };
 
-            // 2. Board Admission
-            const boardQuery = {
-                createdAt: dateFilter
-            };
-            if (agentIds) {
-                boardQuery.createdBy = { $in: agentObjectIdList };
-            } else if (isRestricted) {
-                boardQuery.createdBy = req.user._id;
-            }
-            let boardAdmissions = await BoardCourseAdmission.find(boardQuery)
-                .populate('studentId')
-                .populate('createdBy')
-                .lean();
-            if (leadType) {
-                const phones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
-                const matchingLeads = phones.length > 0 ? await LeadManagement.find({
-                    $or: [
-                        { phoneNumber: { $in: phones } },
-                        { secondPhoneNumber: { $in: phones } }
-                    ],
-                    leadType: leadType
-                }).lean() : [];
-                const matchingPhones = new Set(
-                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
-                );
-                boardAdmissions = boardAdmissions.filter(adm => {
-                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
-                    return phone && matchingPhones.has(phone);
-                });
-            }
+                const normalLeads = await LeadManagement.find(normalQuery).populate('centre').populate('createdBy').lean();
+                const normalDetails = normalLeads.map(lead => ({
+                    id: lead._id.toString(),
+                    name: lead.name,
+                    phone: lead.phoneNumber || 'N/A',
+                    email: lead.email || 'N/A',
+                    handledBy: lead.createdBy?.name || 'System',
+                    centreName: lead.centre?.centreName || 'N/A',
+                    dateTime: lead.updatedAt,
+                    tag: lead.leadType || 'COUNSELLED',
+                    feedback: 'Normal Course Counselling'
+                }));
 
-            const boardDetails = boardAdmissions.map(adm => {
-                const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
-                const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
-                const dpAmount = (adm.installments && adm.installments.length > 0) ? (adm.installments[0].paidAmount || 0) : (adm.totalPaidAmount || 0);
-                return {
-                    id: adm._id,
-                    name: studentName,
-                    phone: phone,
-                    email: email,
-                    handledBy: adm.createdBy?.name || 'System',
-                    centreName: adm.centre || 'N/A',
-                    dateTime: adm.createdAt,
-                    tag: 'BOARD ADM',
-                    course: adm.boardCourseName || 'N/A',
-                    amount: dpAmount,
-                    feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
-                };
-            });
+                const admittedNormalQuery = { createdAt: dateFilter };
+                if (centerNamesList.length > 0) {
+                    admittedNormalQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+                }
+                if (agentIds) admittedNormalQuery.createdBy = { $in: agentObjectIdList };
+                else if (isRestricted) admittedNormalQuery.createdBy = req.user._id;
 
-            detailsList = [...normalDetails, ...boardDetails];
-
-        } else if (category === "calls") {
-            // Daily Calls
-            const callsQuery = {
-                "followUps.date": dateFilter
-            };
-            if (agentIds) {
-                callsQuery["followUps.updatedBy"] = { $in: agentNames };
-            } else if (isRestricted) {
-                callsQuery["followUps.updatedBy"] = req.user.name;
-            }
-            if (leadType) {
-                callsQuery.leadType = leadType;
-            }
-            const leadsWithCalls = await LeadManagement.find(callsQuery).populate('centre').lean();
-
-            leadsWithCalls.forEach(lead => {
-                const matchingFollowups = (lead.followUps || []).filter(fu => {
-                    const fuDate = new Date(fu.date);
-                    return fuDate >= start && fuDate <= end && 
-                        (!isRestricted || fu.updatedBy === req.user.name) &&
-                        (!agentIds || agentNames.includes(fu.updatedBy));
+                let normalAdmissions = await Admission.find(admittedNormalQuery).populate('student').populate('createdBy').lean();
+                if (leadType) {
+                    const phones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                    const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                        $or: [
+                            { phoneNumber: { $in: phones } },
+                            { secondPhoneNumber: { $in: phones } }
+                        ],
+                        leadType: leadType
+                    }).lean() : [];
+                    const matchingPhones = new Set(matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean));
+                    normalAdmissions = normalAdmissions.filter(adm => {
+                        const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                        return phone && matchingPhones.has(phone);
+                    });
+                }
+                const admittedNormalDetails = normalAdmissions.map(adm => {
+                    const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
+                    return {
+                        id: adm.student?._id?.toString() || adm._id.toString(),
+                        name: studentName,
+                        phone: phone,
+                        email: email,
+                        handledBy: adm.createdBy?.name || 'System',
+                        centreName: adm.centre || 'N/A',
+                        dateTime: adm.createdAt,
+                        tag: 'COUNSELLED',
+                        feedback: 'Normal Course Counselling (Admitted)',
+                        isAdmission: true
+                    };
                 });
 
-                matchingFollowups.forEach(fu => {
-                    detailsList.push({
-                        id: fu._id || lead._id + fu.date.toString(),
-                        name: lead.name,
-                        phone: lead.phoneNumber || 'N/A',
-                        email: lead.email || 'N/A',
-                        handledBy: fu.updatedBy || 'System',
-                        centreName: lead.centre?.centreName || 'N/A',
-                        dateTime: fu.date,
-                        tag: fu.status || 'CALL',
-                        feedback: fu.feedback || fu.remarks || 'No feedback recorded'
+                const uniqueNormalMap = {};
+                normalDetails.forEach(d => { uniqueNormalMap[d.id] = d; });
+                admittedNormalDetails.forEach(d => { uniqueNormalMap[d.id] = d; });
+                const finalNormalDetails = Object.values(uniqueNormalMap);
+
+                const boardQuery = { counselledDate: dateFilter };
+                if (centerNamesList.length > 0) boardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+                if (agentIds) boardQuery.counselledBy = { $in: agentObjectIdList };
+                else if (isRestricted) boardQuery.counselledBy = req.user._id;
+
+                let boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('studentId').populate('counselledBy').lean();
+                if (leadType) {
+                    const phones = boardCounsellings.map(bc => bc.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                    const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                        $or: [
+                            { phoneNumber: { $in: phones } },
+                            { secondPhoneNumber: { $in: phones } }
+                        ],
+                        leadType: leadType
+                    }).lean() : [];
+                    const matchingPhones = new Set(matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean));
+                    boardCounsellings = boardCounsellings.filter(bc => {
+                        const phone = bc.studentId?.studentsDetails?.[0]?.mobileNum;
+                        return phone && matchingPhones.has(phone);
+                    });
+                }
+                const boardDetails = boardCounsellings.map(bc => {
+                    const studentName = bc.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                    const phone = bc.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    return {
+                        id: bc.studentId?._id?.toString() || bc._id.toString(),
+                        name: studentName,
+                        phone: phone,
+                        email: 'N/A',
+                        handledBy: bc.counselledBy?.name || 'System',
+                        centreName: bc.centre || 'N/A',
+                        dateTime: bc.createdAt || bc.counselledDate,
+                        tag: 'BOARD COUNSEL',
+                        feedback: 'Board Course Counselling'
+                    };
+                });
+
+                const admittedBoardQuery = { createdAt: dateFilter };
+                if (centerNamesList.length > 0) admittedBoardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+                if (agentIds) admittedBoardQuery.createdBy = { $in: agentObjectIdList };
+                else if (isRestricted) admittedBoardQuery.createdBy = req.user._id;
+
+                let boardAdmissions = await BoardCourseAdmission.find(admittedBoardQuery).populate('studentId').populate('createdBy').lean();
+                if (leadType) {
+                    const phones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                    const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                        $or: [
+                            { phoneNumber: { $in: phones } },
+                            { secondPhoneNumber: { $in: phones } }
+                        ],
+                        leadType: leadType
+                    }).lean() : [];
+                    const matchingPhones = new Set(matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean));
+                    boardAdmissions = boardAdmissions.filter(adm => {
+                        const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                        return phone && matchingPhones.has(phone);
+                    });
+                }
+                const admittedBoardDetails = boardAdmissions.map(adm => {
+                    const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
+                    return {
+                        id: adm.studentId?._id?.toString() || adm._id.toString(),
+                        name: studentName,
+                        phone: phone,
+                        email: email,
+                        handledBy: adm.createdBy?.name || 'System',
+                        centreName: adm.centre || 'N/A',
+                        dateTime: adm.createdAt,
+                        tag: 'BOARD COUNSEL',
+                        feedback: 'Board Course Counselling (Admitted)',
+                        isAdmission: true
+                    };
+                });
+
+                const uniqueBoardMap = {};
+                boardDetails.forEach(d => { uniqueBoardMap[d.id] = d; });
+                admittedBoardDetails.forEach(d => { uniqueBoardMap[d.id] = d; });
+                const finalBoardDetails = Object.values(uniqueBoardMap);
+
+                list = [...finalNormalDetails, ...finalBoardDetails];
+
+            } else if (catName === "admission") {
+                const normalQuery = { createdAt: dateFilter };
+                if (centerNamesList.length > 0) normalQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+                if (agentIds) normalQuery.createdBy = { $in: agentObjectIdList };
+                else if (isRestricted) normalQuery.createdBy = req.user._id;
+
+                let normalAdmissions = await Admission.find(normalQuery).populate('student').populate('course', 'courseName').populate('createdBy').lean();
+                if (leadType) {
+                    const phones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                    const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                        $or: [
+                            { phoneNumber: { $in: phones } },
+                            { secondPhoneNumber: { $in: phones } }
+                        ],
+                        leadType: leadType
+                    }).lean() : [];
+                    const matchingPhones = new Set(matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean));
+                    normalAdmissions = normalAdmissions.filter(adm => {
+                        const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                        return phone && matchingPhones.has(phone);
+                    });
+                }
+                const normalDetails = normalAdmissions.map(adm => {
+                    const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
+                    return {
+                        id: adm._id.toString(),
+                        name: studentName,
+                        phone: phone,
+                        email: email,
+                        handledBy: adm.createdBy?.name || 'System',
+                        centreName: adm.centre || 'N/A',
+                        dateTime: adm.createdAt,
+                        tag: 'NORMAL ADM',
+                        course: adm.course?.courseName || 'N/A',
+                        amount: adm.downPayment || 0,
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
+                    };
+                });
+
+                const boardQuery = { createdAt: dateFilter };
+                if (centerNamesList.length > 0) boardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+                if (agentIds) boardQuery.createdBy = { $in: agentObjectIdList };
+                else if (isRestricted) boardQuery.createdBy = req.user._id;
+
+                let boardAdmissions = await BoardCourseAdmission.find(boardQuery).populate('studentId').populate('createdBy').lean();
+                if (leadType) {
+                    const phones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                    const matchingLeads = phones.length > 0 ? await LeadManagement.find({
+                        $or: [
+                            { phoneNumber: { $in: phones } },
+                            { secondPhoneNumber: { $in: phones } }
+                        ],
+                        leadType: leadType
+                    }).lean() : [];
+                    const matchingPhones = new Set(matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean));
+                    boardAdmissions = boardAdmissions.filter(adm => {
+                        const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                        return phone && matchingPhones.has(phone);
+                    });
+                }
+                const boardDetails = boardAdmissions.map(adm => {
+                    const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
+                    const dpAmount = (adm.installments && adm.installments.length > 0) ? (adm.installments[0].paidAmount || 0) : (adm.totalPaidAmount || 0);
+                    return {
+                        id: adm._id.toString(),
+                        name: studentName,
+                        phone: phone,
+                        email: email,
+                        handledBy: adm.createdBy?.name || 'System',
+                        centreName: adm.centre || 'N/A',
+                        dateTime: adm.createdAt,
+                        tag: 'BOARD ADM',
+                        course: adm.boardCourseName || 'N/A',
+                        amount: dpAmount,
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
+                    };
+                });
+
+                list = [...normalDetails, ...boardDetails];
+
+            } else if (catName === "calls") {
+                const callsQuery = { "followUps.date": dateFilter };
+                if (centerObjectIdList.length > 0) callsQuery.centre = { $in: centerObjectIdList };
+                if (agentIds) callsQuery["followUps.updatedBy"] = { $in: agentNames };
+                else if (isRestricted) callsQuery["followUps.updatedBy"] = req.user.name;
+                if (leadType) callsQuery.leadType = leadType;
+
+                const leadsWithCalls = await LeadManagement.find(callsQuery).populate('centre').lean();
+                leadsWithCalls.forEach(lead => {
+                    const matchingFollowups = (lead.followUps || []).filter(fu => {
+                        const fuDate = new Date(fu.date);
+                        return fuDate >= start && fuDate <= end && 
+                            (!isRestricted || fu.updatedBy === req.user.name) &&
+                            (!agentIds || agentNames.includes(fu.updatedBy));
+                    });
+
+                    matchingFollowups.forEach(fu => {
+                        list.push({
+                            id: fu._id || lead._id + (fu.date ? fu.date.toString() : ''),
+                            name: lead.name,
+                            phone: lead.phoneNumber || 'N/A',
+                            email: lead.email || 'N/A',
+                            handledBy: fu.updatedBy || 'System',
+                            centreName: lead.centre?.centreName || 'N/A',
+                            dateTime: fu.date,
+                            tag: fu.status || 'CALL',
+                            feedback: fu.feedback || fu.remarks || 'No feedback recorded'
+                        });
                     });
                 });
-            });
 
-        } else if (category === "collection") {
-            // Total Collection Details from Payment model directly
-            const queryPaymentsMatch = {
-                paidAmount: { $gt: 0 },
-                billId: { $regex: /^PATH/i },
-                $or: [
-                    { status: { $in: ["PAID", "PARTIAL"] } },
-                    {
-                        paymentMethod: "CHEQUE",
-                        status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                    }
-                ],
-                $expr: {
-                    $and: [
-                        { $gte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, start] },
-                        { $lte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, end] }
-                    ]
-                }
-            };
-            if (agentIds) {
-                queryPaymentsMatch.recordedBy = { $in: agentObjectIdList };
-            } else if (isRestricted) {
-                queryPaymentsMatch.recordedBy = req.user._id;
-            }
-
-            const payments = await Payment.find(queryPaymentsMatch).populate('recordedBy').lean();
-
-            const admissionIdsForPayments = payments.map(p => p.admission).filter(Boolean);
-            const [normalAdms, boardAdms] = await Promise.all([
-                Admission.find({ _id: { $in: admissionIdsForPayments } }).populate('student').populate('course', 'courseName').lean(),
-                BoardCourseAdmission.find({ _id: { $in: admissionIdsForPayments } }).populate('studentId').lean()
-            ]);
-
-            let filteredNormalAdms = normalAdms;
-            let filteredBoardAdms = boardAdms;
-            if (leadType) {
-                const normalPhones = normalAdms.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
-                const boardPhones = boardAdms.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
-                const allPhones = Array.from(new Set([...normalPhones, ...boardPhones]));
-
-                const matchingLeads = allPhones.length > 0 ? await LeadManagement.find({
+            } else if (catName === "collection") {
+                const queryPaymentsMatch = {
+                    paidAmount: { $gt: 0 },
+                    billId: { $regex: /^PATH/i },
                     $or: [
-                        { phoneNumber: { $in: allPhones } },
-                        { secondPhoneNumber: { $in: allPhones } }
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        {
+                            paymentMethod: "CHEQUE",
+                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                        }
                     ],
-                    leadType: leadType
-                }).lean() : [];
-                
-                const matchingPhones = new Set(
-                    matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
-                );
-
-                filteredNormalAdms = normalAdms.filter(adm => {
-                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
-                    return phone && matchingPhones.has(phone);
-                });
-                filteredBoardAdms = boardAdms.filter(adm => {
-                    const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
-                    return phone && matchingPhones.has(phone);
-                });
-            }
-
-            const admissionMap = {};
-            filteredNormalAdms.forEach(adm => {
-                const studentName = adm.student?.studentsDetails?.[0]?.studentName || "Unknown Student";
-                const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
-                const courseName = adm.course?.courseName || "N/A";
-                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName, admissionNumber: adm.admissionNumber };
-            });
-            filteredBoardAdms.forEach(adm => {
-                const studentName = adm.studentName || adm.studentId?.studentsDetails?.[0]?.studentName || "Unknown Student";
-                const phone = adm.mobileNum || adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
-                const courseName = adm.boardCourseName || (adm.boardId ? "Board Course" : "N/A");
-                admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName, admissionNumber: adm.admissionNumber };
-            });
-
-            detailsList = payments.map(p => {
-                const admInfo = admissionMap[p.admission?.toString()];
-                if (leadType && !admInfo) return null;
-                const amountWithoutGst = Math.round(p.paidAmount / 1.18);
-                const centreName = admInfo?.centreName || 'N/A';
-                const isAdmission = p.installmentNumber === 0;
-                
-                return {
-                    id: p._id.toString(),
-                    name: admInfo?.studentName || "Unknown Student",
-                    phone: admInfo?.phone || 'N/A',
-                    email: admInfo?.email || 'N/A',
-                    handledBy: p.recordedBy?.name || 'System',
-                    centreName,
-                    dateTime: p.createdAt || p.receivedDate || p.paidDate,
-                    tag: `₹${amountWithoutGst.toLocaleString()}`,
-                    amount: amountWithoutGst,
-                    course: admInfo?.courseName || "N/A",
-                    isAdmission,
-                    feedback: isAdmission 
-                        ? `Admission No: ${admInfo?.admissionNumber || 'N/A'} | Admission Fee (excl. GST)`
-                        : `Method: ${p.paymentMethod || 'Other'} | Installment #${p.installmentNumber}`
+                    $expr: {
+                        $and: [
+                            { $gte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, start] },
+                            { $lte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, end] }
+                        ]
+                    }
                 };
-            }).filter(Boolean);
+                if (agentIds) {
+                    queryPaymentsMatch.recordedBy = { $in: agentObjectIdList };
+                } else if (isRestricted) {
+                    queryPaymentsMatch.recordedBy = req.user._id;
+                }
+
+                const payments = await Payment.find(queryPaymentsMatch).populate('recordedBy').lean();
+
+                const admissionIdsForPayments = payments.map(p => p.admission).filter(Boolean);
+                const [normalAdms, boardAdms] = await Promise.all([
+                    Admission.find({ _id: { $in: admissionIdsForPayments } }).populate('student').populate('course', 'courseName').lean(),
+                    BoardCourseAdmission.find({ _id: { $in: admissionIdsForPayments } }).populate('studentId').lean()
+                ]);
+
+                let filteredNormalAdms = normalAdms;
+                let filteredBoardAdms = boardAdms;
+                if (leadType) {
+                    const normalPhones = normalAdms.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                    const boardPhones = boardAdms.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
+                    const allPhones = Array.from(new Set([...normalPhones, ...boardPhones]));
+
+                    const matchingLeads = allPhones.length > 0 ? await LeadManagement.find({
+                        $or: [
+                            { phoneNumber: { $in: allPhones } },
+                            { secondPhoneNumber: { $in: allPhones } }
+                        ],
+                        leadType: leadType
+                    }).lean() : [];
+                    
+                    const matchingPhones = new Set(
+                        matchingLeads.map(l => l.phoneNumber).concat(matchingLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
+                    );
+
+                    filteredNormalAdms = normalAdms.filter(adm => {
+                        const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
+                        return phone && matchingPhones.has(phone);
+                    });
+                    filteredBoardAdms = boardAdms.filter(adm => {
+                        const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
+                        return phone && matchingPhones.has(phone);
+                    });
+                }
+
+                const admissionMap = {};
+                filteredNormalAdms.forEach(adm => {
+                    const studentName = adm.student?.studentsDetails?.[0]?.studentName || "Unknown Student";
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
+                    const courseName = adm.course?.courseName || "N/A";
+                    admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName, admissionNumber: adm.admissionNumber };
+                });
+                filteredBoardAdms.forEach(adm => {
+                    const studentName = adm.studentName || adm.studentId?.studentsDetails?.[0]?.studentName || "Unknown Student";
+                    const phone = adm.mobileNum || adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
+                    const courseName = adm.boardCourseName || (adm.boardId ? "Board Course" : "N/A");
+                    admissionMap[adm._id.toString()] = { studentName, phone, email, centreName: adm.centre, courseName, admissionNumber: adm.admissionNumber };
+                });
+
+                list = payments.map(p => {
+                    const admId = p.admission ? p.admission.toString() : null;
+                    const admInfo = admId ? admissionMap[admId] : null;
+                    const amountWithoutGst = Math.round((p.paidAmount || 0) / 1.18);
+                    const isAdmission = Boolean(p.isAdmissionPayment || p.installmentNumber === 1);
+                    const centreName = admInfo?.centreName || p.centreName || 'N/A';
+
+                    return {
+                        id: p._id.toString(),
+                        name: admInfo?.studentName || 'Unknown Student',
+                        phone: admInfo?.phone || 'N/A',
+                        email: admInfo?.email || 'N/A',
+                        handledBy: p.recordedBy?.name || 'System',
+                        centreName,
+                        dateTime: p.createdAt || p.receivedDate || p.paidDate,
+                        tag: `₹${amountWithoutGst.toLocaleString()}`,
+                        amount: amountWithoutGst,
+                        course: admInfo?.courseName || "N/A",
+                        isAdmission,
+                        feedback: isAdmission 
+                            ? `Admission No: ${admInfo?.admissionNumber || 'N/A'} | Admission Fee (excl. GST)`
+                            : `Method: ${p.paymentMethod || 'Other'} | Installment #${p.installmentNumber}`
+                    };
+                }).filter(Boolean);
+            }
+            return list;
+        };
+
+        const normalizePhone = (ph) => {
+            if (!ph || ph === 'N/A') return '';
+            const cleaned = ph.toString().replace(/\D/g, '');
+            return cleaned.length >= 10 ? cleaned.slice(-10) : cleaned;
+        };
+
+        let detailsList = [];
+
+        if (category === "shortfall_calls_counselling") {
+            const callsList = await fetchDetailsForCategory("calls");
+            const counsList = await fetchDetailsForCategory("counselling");
+            const counselledPhones = new Set(counsList.map(c => normalizePhone(c.phone)).filter(Boolean));
+
+            const uniqueMap = new Map();
+            callsList.forEach(item => {
+                const normPhone = normalizePhone(item.phone);
+                const isCounselled = normPhone && counselledPhones.has(normPhone);
+                if (!isCounselled) {
+                    const key = normPhone || item.id;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, {
+                            ...item,
+                            tag: 'CALL SHORTFALL',
+                            feedback: 'Called lead - Not Counselled'
+                        });
+                    }
+                }
+            });
+            detailsList = Array.from(uniqueMap.values());
+
+        } else if (category === "shortfall_counselling_admission") {
+            const counsList = await fetchDetailsForCategory("counselling");
+            const admsList = await fetchDetailsForCategory("admission");
+            const admittedPhones = new Set(admsList.map(a => normalizePhone(a.phone)).filter(Boolean));
+
+            const uniqueMap = new Map();
+            counsList.forEach(item => {
+                const normPhone = normalizePhone(item.phone);
+                const isAlreadyAdmitted = item.isAdmission || (normPhone && admittedPhones.has(normPhone)) || (item.feedback && item.feedback.includes('(Admitted)'));
+                if (!isAlreadyAdmitted) {
+                    const key = normPhone || item.id;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, {
+                            ...item,
+                            tag: 'COUNSEL SHORTFALL',
+                            feedback: 'Counselled lead - Admission Pending'
+                        });
+                    }
+                }
+            });
+            detailsList = Array.from(uniqueMap.values());
+
+        } else if (category === "shortfall_calls_admission") {
+            const callsList = await fetchDetailsForCategory("calls");
+            const admsList = await fetchDetailsForCategory("admission");
+            const admittedPhones = new Set(admsList.map(a => normalizePhone(a.phone)).filter(Boolean));
+
+            const uniqueMap = new Map();
+            callsList.forEach(item => {
+                const normPhone = normalizePhone(item.phone);
+                const isAdmitted = normPhone && admittedPhones.has(normPhone);
+                if (!isAdmitted) {
+                    const key = normPhone || item.id;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, {
+                            ...item,
+                            tag: 'CALL ADM SHORTFALL',
+                            feedback: 'Called lead - Admission Pending'
+                        });
+                    }
+                }
+            });
+            detailsList = Array.from(uniqueMap.values());
+
+        } else {
+            detailsList = await fetchDetailsForCategory(category);
         }
 
         let activeCenters;
@@ -2662,28 +2746,32 @@ export const getDailyTrackingDetails = async (req, res) => {
             const zoneDocs = await Zone.find({ _id: { $in: zoneIdList } }).select('centres').lean();
             const zoneCentreIds = zoneDocs.flatMap(z => (z.centres || []).map(c => (c._id || c).toString()));
             if (queryCenterIds.length > 0) {
-                // intersect: only centres that are both explicitly selected AND in the zone
                 queryCenterIds = queryCenterIds.filter(id => zoneCentreIds.includes(id));
             } else {
                 queryCenterIds = zoneCentreIds;
             }
         }
 
-        if (isRestricted) {
-            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
-            const allowedCenterIds = queryCenterIds.length > 0
-                ? queryCenterIds.filter(id => userCenterIds.includes(id))
-                : userCenterIds;
-            activeCenters = await CentreSchema.find({ _id: { $in: allowedCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
-        } else {
-            if (queryCenterIds.length > 0) {
-                activeCenters = await CentreSchema.find({ _id: { $in: queryCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
+        if (queryCenterIds.length > 0 || isRestricted) {
+            if (isRestricted) {
+                const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+                const allowedCenterIds = queryCenterIds.length > 0
+                    ? queryCenterIds.filter(id => userCenterIds.includes(id))
+                    : userCenterIds;
+                activeCenters = await CentreSchema.find({ _id: { $in: allowedCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
             } else {
-                activeCenters = await CentreSchema.find({ status: { $ne: "deactive" } }).select('centreName').lean();
+                activeCenters = await CentreSchema.find({ _id: { $in: queryCenterIds }, status: { $ne: "deactive" } }).select('centreName').lean();
+            }
+
+            const activeCenterNames = activeCenters.map(c => (c.centreName || '').trim().toLowerCase()).filter(Boolean);
+            if (activeCenterNames.length > 0) {
+                detailsList = detailsList.filter(d => {
+                    if (!d.centreName || d.centreName.toUpperCase() === 'N/A' || d.centreName.toUpperCase() === 'UNCATEGORIZED') return true;
+                    const cTrim = d.centreName.trim().toLowerCase();
+                    return activeCenterNames.some(ac => ac === cTrim || cTrim.includes(ac) || ac.includes(cTrim));
+                });
             }
         }
-        const activeCenterNames = activeCenters.map(c => c.centreName.toLowerCase());
-        detailsList = detailsList.filter(d => d.centreName && activeCenterNames.includes(d.centreName.toLowerCase()));
 
         // Sort detailsList: newest first by dateTime
         detailsList.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));

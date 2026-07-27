@@ -1,5 +1,6 @@
 import Campaign from "../../models/Campaign.js";
 import LeadManagement from "../../models/LeadManagement.js";
+import CampaignLead from "../../models/CampaignLead.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import { uploadToR2, getSignedFileUrl } from "../../utils/r2Upload.js";
@@ -13,13 +14,17 @@ export const getCampaigns = async (req, res) => {
 
         // Enhance campaigns with dynamic lead and admission counts
         const enhancedCampaigns = await Promise.all(campaigns.map(async (campaign) => {
-            // Count leads linked to this campaign
-            const leadsCount = await LeadManagement.countDocuments({ campaign: campaign._id });
+            // Count leads linked to this campaign from both LeadManagement and unpushed CampaignLead
+            const lmLeadsCount = await LeadManagement.countDocuments({ campaign: campaign._id });
+            const clUnpushedCount = await CampaignLead.countDocuments({ campaign: campaign._id, isPushed: false });
+            const totalLeadsCount = lmLeadsCount + clUnpushedCount;
 
             // Get all lead phone numbers for this campaign
-            const campaignLeads = await LeadManagement.find({ campaign: campaign._id })
-                .select('phoneNumber secondPhoneNumber')
-                .lean();
+            const [lmLeads, clLeads] = await Promise.all([
+                LeadManagement.find({ campaign: campaign._id }).select('phoneNumber secondPhoneNumber').lean(),
+                CampaignLead.find({ campaign: campaign._id, isPushed: false }).select('phoneNumber secondPhoneNumber').lean()
+            ]);
+            const campaignLeads = [...lmLeads, ...clLeads];
 
             const phoneNumbers = campaignLeads.map(l => l.phoneNumber).filter(Boolean);
             const secondPhoneNumbers = campaignLeads.map(l => l.secondPhoneNumber).filter(Boolean);
@@ -65,7 +70,7 @@ export const getCampaigns = async (req, res) => {
                 imageLink: signedImageLink,
                 videoLink: signedVideoLink,
                 uploadedMedia: signedMedia,
-                leads: leadsCount,
+                leads: totalLeadsCount,
                 admission: admissionsCount
             };
         }));
@@ -77,6 +82,88 @@ export const getCampaigns = async (req, res) => {
     } catch (err) {
         console.error("Error fetching campaigns:", err);
         res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+export const getCampaignLeadsDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ message: "Campaign ID is required." });
+        }
+
+        const campaign = await Campaign.findById(id).lean();
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found." });
+        }
+
+        // Fetch leads from LeadManagement (pushed leads)
+        const pushedLeads = await LeadManagement.find({ campaign: id })
+            .populate('className', 'name')
+            .populate('centre', 'centreName name')
+            .populate('course', 'name courseName')
+            .populate('board', 'name boardName')
+            .populate('createdBy', 'name email')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Fetch unpushed leads from CampaignLead
+        const unpushedLeads = await CampaignLead.find({ campaign: id, isPushed: false })
+            .populate('className', 'name')
+            .populate('centre', 'centreName name')
+            .populate('course', 'name courseName')
+            .populate('board', 'name boardName')
+            .populate('createdBy', 'name email')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const formatLeadDoc = (l, isPushed) => {
+            const classNameStr = l.className?.name || l.className?.className || (typeof l.className === 'string' && l.className.trim() ? l.className.trim() : '') || '—';
+            const centreStr = l.centre?.centreName || l.centre?.name || (typeof l.centre === 'string' && l.centre.trim() ? l.centre.trim() : '') || '—';
+            const courseStr = l.course?.courseName || l.course?.name || l.courseText || l.courseName || (typeof l.course === 'string' && l.course.trim() ? l.course.trim() : '') || '—';
+            const boardStr = l.board?.boardName || l.board?.name || l.boardText || l.boardName || (typeof l.board === 'string' && l.board.trim() ? l.board.trim() : '') || '—';
+            const leadType = (l.leadType || l.type || l.leadCategory || '').toUpperCase().trim();
+            const email = (l.email || '').trim();
+            const schoolName = (l.schoolName || l.school || '').trim();
+
+            return {
+                ...l,
+                isPushed,
+                email,
+                schoolName,
+                leadType,
+                classNameStr,
+                centreStr,
+                courseStr,
+                boardStr,
+                uploaderName: l.createdBy?.name || l.marketingBy || l.leadResponsibility || 'System'
+            };
+        };
+
+        const formattedPushed = pushedLeads.map(l => formatLeadDoc(l, true));
+        const formattedUnpushed = unpushedLeads.map(l => formatLeadDoc(l, false));
+
+        const allLeads = [...formattedUnpushed, ...formattedPushed];
+
+        return res.status(200).json({
+            message: "Campaign leads fetched successfully",
+            campaign: {
+                _id: campaign._id,
+                adName: campaign.adName,
+                platform: campaign.platform,
+                creativeName: campaign.creativeName,
+                budget: campaign.budget
+            },
+            summary: {
+                total: allLeads.length,
+                pushedCount: formattedPushed.length,
+                unpushedCount: formattedUnpushed.length
+            },
+            leads: allLeads
+        });
+    } catch (err) {
+        console.error("Error fetching campaign leads details:", err);
+        return res.status(500).json({ message: "Server error", error: err.message });
     }
 };
 

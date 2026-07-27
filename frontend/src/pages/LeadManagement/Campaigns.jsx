@@ -5,9 +5,12 @@ import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
 import {
     FaArrowLeft, FaBullhorn, FaSync, FaTimes, FaEye, FaEdit, FaUpload,
-    FaPlay, FaStop, FaRedo, FaClock, FaTrash, FaPencilAlt, FaExternalLinkAlt
+    FaPlay, FaStop, FaRedo, FaClock, FaTrash, FaPencilAlt, FaExternalLinkAlt,
+    FaFileExcel, FaSearch, FaRoute
 } from "react-icons/fa";
 import { hasPermission } from "../../config/permissions";
+import { downloadExcel } from "../../utils/exportUtils";
+import LeadJourneyModal from "../../components/LeadManagement/LeadJourneyModal";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -44,6 +47,131 @@ export default function Campaigns() {
     const [submitting, setSubmitting]       = useState(false);
     const [actionLoading, setActionLoading] = useState({}); // {campaignId: true}
     const [selectedCampaign, setSelectedCampaign] = useState(null);
+
+    // ── Campaign Leads Modal State ──────────────────────────────────────────
+    const [selectedCampaignForLeads, setSelectedCampaignForLeads] = useState(null);
+    const [isLeadsModalOpen, setIsLeadsModalOpen] = useState(false);
+    const [campaignLeadsList, setCampaignLeadsList] = useState([]);
+    const [campaignLeadsSummary, setCampaignLeadsSummary] = useState({ total: 0, pushedCount: 0, unpushedCount: 0 });
+    const [loadingLeadsList, setLoadingLeadsList] = useState(false);
+
+    const [leadsSearch, setLeadsSearch] = useState("");
+    const [leadsTypeFilter, setLeadsTypeFilter] = useState("ALL");
+    const [leadsStatusFilter, setLeadsStatusFilter] = useState("ALL");
+    const [leadsCentreFilter, setLeadsCentreFilter] = useState("ALL");
+    const [leadsClassFilter, setLeadsClassFilter] = useState("ALL");
+
+    // ── Lead Journey Modal State ──────────────────────────────────────────
+    const [showJourneyModal, setShowJourneyModal] = useState(false);
+    const [journeyLeadId, setJourneyLeadId] = useState(null);
+
+    const handleViewJourney = (lead) => {
+        const targetId = lead._id || lead.phoneNumber;
+        if (!targetId) {
+            toast.error("Lead identifier not found for journey.");
+            return;
+        }
+        setJourneyLeadId(targetId);
+        setShowJourneyModal(true);
+    };
+
+    const handleOpenCampaignLeadsModal = async (campaign) => {
+        setSelectedCampaignForLeads(campaign);
+        setIsLeadsModalOpen(true);
+        setLoadingLeadsList(true);
+        setLeadsSearch("");
+        setLeadsTypeFilter("ALL");
+        setLeadsStatusFilter("ALL");
+        setLeadsCentreFilter("ALL");
+        setLeadsClassFilter("ALL");
+        setCampaignLeadsList([]);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/lead-management/campaigns/${campaign._id}/leads`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setCampaignLeadsList(data.leads || []);
+                setCampaignLeadsSummary(data.summary || { total: data.leads?.length || 0, pushedCount: 0, unpushedCount: 0 });
+            } else {
+                toast.error(data.message || "Failed to load lead details");
+            }
+        } catch (err) {
+            console.error("Error fetching campaign leads:", err);
+            toast.error("Error fetching lead details");
+        } finally {
+            setLoadingLeadsList(false);
+        }
+    };
+
+    const uniqueCentres = useMemo(() => {
+        const set = new Set();
+        (campaignLeadsList || []).forEach((lead) => {
+            if (lead.centreStr && lead.centreStr !== "—") {
+                set.add(lead.centreStr);
+            }
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [campaignLeadsList]);
+
+    const uniqueClasses = useMemo(() => {
+        const set = new Set();
+        (campaignLeadsList || []).forEach((lead) => {
+            if (lead.classNameStr && lead.classNameStr !== "—") {
+                set.add(lead.classNameStr);
+            }
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }, [campaignLeadsList]);
+
+    const handleExportCampaignLeads = () => {
+        if (!campaignLeadsList || campaignLeadsList.length === 0) {
+            toast.warn("No leads to export.");
+            return;
+        }
+        const exportData = campaignLeadsList.map((row, idx) => ({
+            "Sl No": idx + 1,
+            "Lead Name": row.name || "—",
+            "Primary Phone": row.phoneNumber || "—",
+            "Secondary Phone": row.secondPhoneNumber || "—",
+            "Email": row.email || "—",
+            "School Name": row.schoolName || "—",
+            "Class": row.classNameStr || "—",
+            "Centre": row.centreStr || "—",
+            "Course": row.courseStr || "—",
+            "Board": row.boardStr || "—",
+            "Lead Type": row.leadType || "—",
+            "Assigned To": row.leadResponsibility || row.uploaderName || "—",
+            "Push Status": row.isPushed ? "Pushed to Lead Mgmt" : "Unpushed",
+            "Created At": row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-IN') : "—"
+        }));
+        downloadExcel(exportData, `Leads_${selectedCampaignForLeads?.adName?.replace(/\s+/g, '_') || 'Campaign'}`);
+        toast.success("Campaign leads exported to Excel successfully!");
+    };
+
+    const filteredCampaignLeads = useMemo(() => {
+        return campaignLeadsList.filter((lead) => {
+            const matchesSearch = !leadsSearch || (
+                (lead.name || "").toLowerCase().includes(leadsSearch.toLowerCase()) ||
+                (lead.phoneNumber || "").includes(leadsSearch) ||
+                (lead.secondPhoneNumber || "").includes(leadsSearch) ||
+                (lead.email || "").toLowerCase().includes(leadsSearch.toLowerCase()) ||
+                (lead.schoolName || "").toLowerCase().includes(leadsSearch.toLowerCase()) ||
+                (lead.leadResponsibility || "").toLowerCase().includes(leadsSearch.toLowerCase())
+            );
+
+            const matchesType = leadsTypeFilter === "ALL" || (lead.leadType || "").toUpperCase().includes(leadsTypeFilter);
+            const matchesStatus = leadsStatusFilter === "ALL" ||
+                (leadsStatusFilter === "PUSHED" && lead.isPushed) ||
+                (leadsStatusFilter === "UNPUSHED" && !lead.isPushed);
+
+            const matchesCentre = leadsCentreFilter === "ALL" || lead.centreStr === leadsCentreFilter;
+            const matchesClass = leadsClassFilter === "ALL" || lead.classNameStr === leadsClassFilter;
+
+            return matchesSearch && matchesType && matchesStatus && matchesCentre && matchesClass;
+        });
+    }, [campaignLeadsList, leadsSearch, leadsTypeFilter, leadsStatusFilter, leadsCentreFilter, leadsClassFilter]);
     const [editForm, setEditForm] = useState({
         adName: "", platform: "Facebook", creativeName: "", duration: "",
         budget: "", cpc: "", startDate: "", endDate: "",
@@ -603,7 +731,16 @@ export default function Campaigns() {
                                                 <td className="py-4 px-2 text-right font-bold text-rose-400">{c.totalLikes || 0}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-amber-400">{c.comments || 0}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-purple-400">{c.shares || 0}</td>
-                                                <td className="py-4 px-2 text-right font-bold text-cyan-500">{c.leads}</td>
+                                                <td className="py-4 px-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenCampaignLeadsModal(c)}
+                                                        className="px-2 py-1 rounded bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-400 font-extrabold hover:text-cyan-300 hover:underline transition-all active:scale-95 cursor-pointer text-xs"
+                                                        title="Click to view uploaded lead total details for this ad"
+                                                    >
+                                                        {c.leads}
+                                                    </button>
+                                                </td>
                                                 <td className="py-4 px-2 text-right font-mono">{formatCurrency(cpl)}</td>
                                                 <td className="py-4 px-2 text-right font-bold text-green-500">{c.admission}</td>
 
@@ -960,6 +1097,256 @@ export default function Campaigns() {
                     </div>
                 )}
             </Modal>
+
+            {/* ── CAMPAIGN LEADS DETAILS MODAL ── */}
+            {isLeadsModalOpen && selectedCampaignForLeads && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+                    <div className={`relative w-full max-w-6xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
+                        {/* Modal Header */}
+                        <div className={`px-6 py-4 border-b flex flex-wrap items-center justify-between gap-4 ${isDark ? "border-gray-800 bg-[#0b0d0f]" : "border-gray-100 bg-gray-50"}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                                    <FaBullhorn className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-black uppercase tracking-tight">{selectedCampaignForLeads.adName}</h2>
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                                            {selectedCampaignForLeads.platform}
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">
+                                        Uploaded Lead Total Details ({campaignLeadsSummary.total} Total Leads)
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <div className="hidden sm:flex items-center gap-2">
+                                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        Pushed: {campaignLeadsSummary.pushedCount}
+                                    </span>
+                                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        Unpushed: {campaignLeadsSummary.unpushedCount}
+                                    </span>
+                                </div>
+
+                                <button
+                                    onClick={handleExportCampaignLeads}
+                                    disabled={loadingLeadsList || campaignLeadsList.length === 0}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+                                >
+                                    <FaFileExcel className="w-3.5 h-3.5" />
+                                    Export Excel
+                                </button>
+
+                                <button
+                                    onClick={() => setIsLeadsModalOpen(false)}
+                                    className={`p-2 rounded-xl border transition-all ${isDark ? "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-200 hover:bg-gray-100 text-gray-500 hover:text-black"}`}
+                                >
+                                    <FaTimes className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Search & Filter Bar */}
+                        <div className={`p-4 border-b flex flex-wrap gap-3 items-center justify-between ${isDark ? "border-gray-800 bg-[#0f1215]" : "border-gray-100 bg-gray-50/50"}`}>
+                            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border flex-1 min-w-[220px] ${isDark ? "bg-[#171b20] border-gray-700" : "bg-white border-gray-200"}`}>
+                                <FaSearch className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by lead name, phone, email, school, assigned user..."
+                                    value={leadsSearch}
+                                    onChange={(e) => setLeadsSearch(e.target.value)}
+                                    className={`w-full bg-transparent text-[11px] font-bold outline-none ${isDark ? "text-white placeholder-gray-500" : "text-gray-900 placeholder-gray-400"}`}
+                                />
+                                {leadsSearch && (
+                                    <button onClick={() => setLeadsSearch("")} className="text-gray-400 hover:text-white text-xs leading-none">✕</button>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <select
+                                    value={leadsCentreFilter}
+                                    onChange={(e) => setLeadsCentreFilter(e.target.value)}
+                                    className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider outline-none cursor-pointer ${isDark ? "bg-[#171b20] border-gray-700 text-white" : "bg-white border-gray-200 text-gray-800"}`}
+                                >
+                                    <option value="ALL">All Centres</option>
+                                    {uniqueCentres.map(c => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    value={leadsClassFilter}
+                                    onChange={(e) => setLeadsClassFilter(e.target.value)}
+                                    className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider outline-none cursor-pointer ${isDark ? "bg-[#171b20] border-gray-700 text-white" : "bg-white border-gray-200 text-gray-800"}`}
+                                >
+                                    <option value="ALL">All Classes</option>
+                                    {uniqueClasses.map(c => (
+                                        <option key={c} value={c}>Class {c}</option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    value={leadsTypeFilter}
+                                    onChange={(e) => setLeadsTypeFilter(e.target.value)}
+                                    className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider outline-none cursor-pointer ${isDark ? "bg-[#171b20] border-gray-700 text-white" : "bg-white border-gray-200 text-gray-800"}`}
+                                >
+                                    <option value="ALL">All Lead Types</option>
+                                    <option value="HOT LEAD">Hot Lead</option>
+                                    <option value="WARM LEAD">Warm Lead</option>
+                                    <option value="COLD LEAD">Cold Lead</option>
+                                    <option value="NEUTRAL LEAD">Neutral Lead</option>
+                                    <option value="INVALID LEAD">Invalid Lead</option>
+                                </select>
+
+                                <select
+                                    value={leadsStatusFilter}
+                                    onChange={(e) => setLeadsStatusFilter(e.target.value)}
+                                    className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider outline-none cursor-pointer ${isDark ? "bg-[#171b20] border-gray-700 text-white" : "bg-white border-gray-200 text-gray-800"}`}
+                                >
+                                    <option value="ALL">All Push Status</option>
+                                    <option value="PUSHED">Pushed</option>
+                                    <option value="UNPUSHED">Unpushed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Table Content */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {loadingLeadsList ? (
+                                <div className="flex flex-col items-center justify-center py-20">
+                                    <div className="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-4" />
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading uploaded leads...</p>
+                                </div>
+                            ) : filteredCampaignLeads.length === 0 ? (
+                                <div className="text-center py-16">
+                                    <p className="text-xs font-black uppercase tracking-widest text-gray-400">No leads match your filter or search criteria</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto border rounded-xl border-gray-800/40">
+                                    <table className="w-full text-left border-collapse min-w-[950px]">
+                                        <thead>
+                                            <tr className={`text-[10px] font-black uppercase tracking-wider border-b ${isDark ? "bg-[#0b0d0f] border-gray-800 text-gray-400" : "bg-gray-100 border-gray-200 text-gray-600"}`}>
+                                                <th className="p-3">#</th>
+                                                <th className="p-3">Lead Name</th>
+                                                <th className="p-3">Phone Number</th>
+                                                <th className="p-3">Email / School</th>
+                                                <th className="p-3">Class / Centre</th>
+                                                <th className="p-3">Course / Board</th>
+                                                <th className="p-3">Lead Type</th>
+                                                <th className="p-3">Assigned To</th>
+                                                <th className="p-3">Status</th>
+                                                <th className="p-3 text-center">Journey</th>
+                                                <th className="p-3">Uploaded Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-800/20 text-[11px] font-semibold">
+                                            {filteredCampaignLeads.map((row, idx) => {
+                                                return (
+                                                    <tr key={row._id || idx} className={`hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                                        <td className="p-3 font-mono text-[10px] text-gray-500">{idx + 1}</td>
+                                                        <td className="p-3">
+                                                            <button
+                                                                onClick={() => handleViewJourney(row)}
+                                                                className="font-bold text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer text-left flex items-center gap-1.5"
+                                                                title="Click to view lead journey timeline"
+                                                            >
+                                                                <span>{row.name || "—"}</span>
+                                                            </button>
+                                                        </td>
+                                                        <td className="p-3 font-mono text-[10px]">
+                                                            <div>{row.phoneNumber || "—"}</div>
+                                                            {row.secondPhoneNumber && (
+                                                                <div className="text-gray-500 text-[9px]">{row.secondPhoneNumber}</div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {row.email ? (
+                                                                <>
+                                                                    <div className="truncate max-w-[150px] font-bold text-cyan-400" title={row.email}>{row.email}</div>
+                                                                    {row.schoolName && <div className="text-gray-400 text-[9px] truncate max-w-[150px]" title={row.schoolName}>{row.schoolName}</div>}
+                                                                </>
+                                                            ) : (
+                                                                <div className="truncate max-w-[150px]" title={row.schoolName || '—'}>{row.schoolName || "—"}</div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div>{row.classNameStr}</div>
+                                                            <div className="text-gray-500 text-[9px]">{row.centreStr}</div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div>{row.courseStr}</div>
+                                                            {row.boardStr && row.boardStr !== "—" && (
+                                                                <div className="text-gray-500 text-[9px]">{row.boardStr}</div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+                                                                row.leadType?.includes("HOT") ? "bg-red-500/15 text-red-400 border-red-500/30" :
+                                                                row.leadType?.includes("WARM") ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                                                                row.leadType?.includes("COLD") ? "bg-blue-500/15 text-blue-400 border-blue-500/30" :
+                                                                row.leadType?.includes("NEUTRAL") ? "bg-purple-500/15 text-purple-400 border-purple-500/30" :
+                                                                row.leadType?.includes("INVALID") ? "bg-gray-500/15 text-gray-400 border-gray-500/30" :
+                                                                "bg-gray-500/10 text-gray-400 border-gray-500/20"
+                                                            }`}>
+                                                                {row.leadType || "—"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 font-bold">{row.leadResponsibility || row.uploaderName || "—"}</td>
+                                                        <td className="p-3">
+                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${row.isPushed ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"}`}>
+                                                                {row.isPushed ? "Pushed" : "Unpushed"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <button
+                                                                onClick={() => handleViewJourney(row)}
+                                                                className="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-400 hover:bg-purple-500 hover:text-white border border-purple-500/30 transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1 shadow-sm"
+                                                                title="View complete follow-up and activity journey for this lead"
+                                                            >
+                                                                <FaRoute className="w-3 h-3" />
+                                                                <span>Journey</span>
+                                                            </button>
+                                                        </td>
+                                                        <td className="p-3 font-mono text-[10px] text-gray-500">
+                                                            {row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-IN') : "—"}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className={`px-6 py-3 border-t flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-widest ${isDark ? "border-gray-800 bg-[#0b0d0f]" : "border-gray-100 bg-gray-50"}`}>
+                            <span>Showing {filteredCampaignLeads.length} of {campaignLeadsList.length} leads</span>
+                            <button
+                                onClick={() => setIsLeadsModalOpen(false)}
+                                className="px-4 py-1.5 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-all font-black cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── LEAD JOURNEY MODAL ── */}
+            {showJourneyModal && (
+                <LeadJourneyModal
+                    leadId={journeyLeadId}
+                    onClose={() => {
+                        setShowJourneyModal(false);
+                        setJourneyLeadId(null);
+                    }}
+                    isDarkMode={isDark}
+                />
+            )}
         </Layout>
     );
 }

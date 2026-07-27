@@ -25,7 +25,7 @@ import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentr
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
-import { getCampaigns, createCampaign, deleteCampaign, updateCampaign, runCampaignAction, uploadCampaignMedia, deleteCampaignMedia, replaceCampaignMedia } from "../../controllers/leadManagement/campaignController.js";
+import { getCampaigns, getCampaignLeadsDetails, createCampaign, deleteCampaign, updateCampaign, runCampaignAction, uploadCampaignMedia, deleteCampaignMedia, replaceCampaignMedia } from "../../controllers/leadManagement/campaignController.js";
 import { pushCampaignLeads } from "../../controllers/leadManagement/pushCampaignLeads.js";
 import multer from "multer";
 import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
@@ -71,6 +71,7 @@ router.post("/clean-duplicates", requireAuth, cleanDuplicates);
 
 // Campaign / Ads routes
 router.get("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "view"), getCampaigns);
+router.get("/campaigns/:id/leads", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "view"), getCampaignLeadsDetails);
 router.post("/campaigns", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "create"), upload.array('mediaFiles'), createCampaign);
 router.post("/campaigns/:id/run-action", requireAuth, runCampaignAction);
 router.delete("/campaigns/:id", requireAuth, requireGranularPermission("leadManagement", "campaignAds", "delete"), deleteCampaign);
