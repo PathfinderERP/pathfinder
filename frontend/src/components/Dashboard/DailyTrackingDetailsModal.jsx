@@ -140,6 +140,29 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
         }
     };
 
+    // Helper for category-specific labels
+    const getCategoryLabelInfo = (titleStr) => {
+        const t = (titleStr || "").toLowerCase();
+        if (t.includes("shortfall")) {
+            return { label: "Shortfall Leads", cardTitle: "Total Shortfall Leads", subtext: "Leads needing follow-up / action" };
+        }
+        if (t.includes("admission")) {
+            return { label: "Admitted Students", cardTitle: "Total Admitted Students", subtext: "Students with completed admission" };
+        }
+        if (t.includes("counsell")) {
+            return { label: "Counselled Students", cardTitle: "Total Counselled Students", subtext: "Students who received counselling" };
+        }
+        if (t.includes("walk-in") || t.includes("walkin")) {
+            return { label: "Walk-In Students", cardTitle: "Total Walk-Ins", subtext: "Students who visited centre" };
+        }
+        if (t.includes("call")) {
+            return { label: "Call Records", cardTitle: "Total Call Records", subtext: "Calls recorded by team" };
+        }
+        return { label: "Records", cardTitle: "Total Activity Records", subtext: "Recorded activity items" };
+    };
+
+    const categoryLabelInfo = getCategoryLabelInfo(title);
+
     return (
         <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
             <div className={`w-full max-w-5xl h-[88vh] flex flex-col rounded-[2px] border shadow-2xl scale-in ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -159,19 +182,26 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                             </button>
                         )}
                         <div>
-                            <h2 className={`text-xl font-black italic uppercase tracking-tighter flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                <div className="w-2 h-8 bg-cyan-500 rounded-full animate-pulse"></div>
-                                {isCollectionType
-                                    ? (selectedSubCategory
-                                        ? selectedSubCategory === "admission" ? "Admission Fee Collections" : "Installment Collections"
-                                        : "Total Collection Analysis")
-                                    : title
-                                }
-                            </h2>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <h2 className={`text-xl font-black italic uppercase tracking-tighter flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    <div className="w-2 h-8 bg-cyan-500 rounded-full animate-pulse"></div>
+                                    {isCollectionType
+                                        ? (selectedSubCategory
+                                            ? selectedSubCategory === "admission" ? "Admission Fee Collections" : "Installment Collections"
+                                            : "Total Collection Analysis")
+                                        : title
+                                    }
+                                </h2>
+                                {!loading && !isCollectionType && (
+                                    <span className={`text-xs px-2.5 py-1 rounded font-bold border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-cyan-50 text-cyan-700 border-cyan-200'}`}>
+                                        {filteredList.length} {categoryLabelInfo.label}
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em] mt-1">
                                 {isCollectionType
                                     ? `Showing collection breakdown across ${centerCollectionList.length} centres`
-                                    : "Detailed breakdown of recorded activities"
+                                    : `Showing ${filteredList.length} total ${categoryLabelInfo.label.toLowerCase()}`
                                 }
                             </p>
                         </div>
@@ -387,6 +417,29 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                         </>
                     ) : (
                         <div className="space-y-4">
+                            {!isCollectionType && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-2">
+                                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                            {categoryLabelInfo.cardTitle}
+                                        </p>
+                                        <div className={`text-2xl font-black mt-1 ${title?.toLowerCase().includes("shortfall") ? 'text-red-400' : 'text-cyan-400'}`}>
+                                            {safeData.length}
+                                        </div>
+                                        <p className="text-[9px] font-bold text-gray-500 mt-1">
+                                            {categoryLabelInfo.subtext}
+                                        </p>
+                                    </div>
+                                    {selectedTags.length > 0 && (
+                                        <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Filtered Records</p>
+                                            <div className="text-2xl font-black text-emerald-400 mt-1">{filteredList.length}</div>
+                                            <p className="text-[9px] font-bold text-gray-500 mt-1">Matching selected tag filters</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {!isCollectionType && Object.keys(tagCounts).length > 0 && (
                                 <div className={`p-4 rounded border mb-2 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">

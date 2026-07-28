@@ -708,6 +708,15 @@ const DailyCenterTracking = () => {
 
                     const kpiCardsList = [
                         {
+                            title: getCardLabel("Calls"),
+                            category: "calls",
+                            value: totalCallsSum,
+                            subtext: `Unique: ${filteredCenters.reduce((acc, curr) => acc + (curr.uniqueCalls || 0), 0)} | Same No.: ${filteredCenters.reduce((acc, curr) => acc + (curr.sameNoCalls || 0), 0)}`,
+                            icon: <FaPhoneAlt />,
+                            color: "text-yellow-500",
+                            bg: "bg-yellow-500/10"
+                        },
+                        {
                             title: getCardLabel("Walk-Ins"),
                             category: "walkins",
                             value: totalWalkInsSum.toString(),
@@ -747,21 +756,12 @@ const DailyCenterTracking = () => {
                             bg: "bg-purple-500/10"
                         },
                         {
-                            title: getCardLabel("Calls"),
-                            category: "calls",
-                            value: totalCallsSum,
-                            subtext: `Unique: ${filteredCenters.reduce((acc, curr) => acc + (curr.uniqueCalls || 0), 0)} | Same No.: ${filteredCenters.reduce((acc, curr) => acc + (curr.sameNoCalls || 0), 0)}`,
-                            icon: <FaPhoneAlt />,
-                            color: "text-yellow-500",
-                            bg: "bg-yellow-500/10"
-                        },
-                        {
                             title: getCardLabel("Conversion % from Calls to counselling"),
                             category: "counselling",
-                            value: callsToCounsPct,
+                            value: `${totalCounsellingSum.toLocaleString()} Counselled / ${totalCallsSum.toLocaleString()} Calls`,
                             subtext: (
                                 <span>
-                                    {totalCounsellingSum.toLocaleString()} Counselled / {totalCallsSum.toLocaleString()} Calls | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToCounsShortfall.toLocaleString()} ({callsToCounsShortfallPct})</span>
+                                    Conversion: {callsToCounsPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToCounsShortfall.toLocaleString()} ({callsToCounsShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -771,8 +771,8 @@ const DailyCenterTracking = () => {
                         {
                             title: getCardLabel("Shortfall % from calls to counselling"),
                             category: "shortfall_calls_counselling",
-                            value: callsToCounsShortfallPct,
-                            subtext: `${callsToCounsShortfall.toLocaleString()} Shortfall Leads / ${totalCallsSum.toLocaleString()} Calls`,
+                            value: `${callsToCounsShortfall.toLocaleString()} Shortfall / ${totalCallsSum.toLocaleString()} Calls`,
+                            subtext: `Shortfall: ${callsToCounsShortfallPct}`,
                             icon: <FaChartLine />,
                             color: "text-red-500",
                             bg: "bg-red-500/10"
@@ -780,10 +780,10 @@ const DailyCenterTracking = () => {
                         {
                             title: getCardLabel("Conversion % from counselling to admission"),
                             category: "admission",
-                            value: counsToAdmPct,
+                            value: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCounsellingSum.toLocaleString()} Counselled`,
                             subtext: (
                                 <span>
-                                    {totalAdmissionSum.toLocaleString()} Admissions / {totalCounsellingSum.toLocaleString()} Counselled | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {counsToAdmShortfall.toLocaleString()} ({counsToAdmShortfallPct})</span>
+                                    Conversion: {counsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {counsToAdmShortfall.toLocaleString()} ({counsToAdmShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -793,8 +793,8 @@ const DailyCenterTracking = () => {
                         {
                             title: getCardLabel("Shortfall % from counselling to admission"),
                             category: "shortfall_counselling_admission",
-                            value: counsToAdmShortfallPct,
-                            subtext: `${counsToAdmShortfall.toLocaleString()} Shortfall Leads / ${totalCounsellingSum.toLocaleString()} Counselled`,
+                            value: `${counsToAdmShortfall.toLocaleString()} Shortfall / ${totalCounsellingSum.toLocaleString()} Counselled`,
+                            subtext: `Shortfall: ${counsToAdmShortfallPct}`,
                             icon: <FaChartLine />,
                             color: "text-rose-500",
                             bg: "bg-rose-500/10"
@@ -802,10 +802,10 @@ const DailyCenterTracking = () => {
                         {
                             title: getCardLabel("Conversion % from calls to admission"),
                             category: "admission",
-                            value: callsToAdmPct,
+                            value: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCallsSum.toLocaleString()} Calls`,
                             subtext: (
                                 <span>
-                                    {totalAdmissionSum.toLocaleString()} Admissions / {totalCallsSum.toLocaleString()} Calls | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToAdmShortfall.toLocaleString()} ({callsToAdmShortfallPct})</span>
+                                    Conversion: {callsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToAdmShortfall.toLocaleString()} ({callsToAdmShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -815,8 +815,8 @@ const DailyCenterTracking = () => {
                         {
                             title: getCardLabel("Shortfall % from calls to admission"),
                             category: "shortfall_calls_admission",
-                            value: callsToAdmShortfallPct,
-                            subtext: `${callsToAdmShortfall.toLocaleString()} Shortfall Leads / ${totalCallsSum.toLocaleString()} Calls`,
+                            value: `${callsToAdmShortfall.toLocaleString()} Shortfall / ${totalCallsSum.toLocaleString()} Calls`,
+                            subtext: `Shortfall: ${callsToAdmShortfallPct}`,
                             icon: <FaChartLine />,
                             color: "text-pink-500",
                             bg: "bg-pink-500/10"
@@ -864,7 +864,7 @@ const DailyCenterTracking = () => {
                                                     <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400">→ View</span>
                                                 )}
                                             </div>
-                                            <h3 className={`text-xl font-bold mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis ${kpi.navigateTo ? kpi.color : ''}`}>{kpi.value}</h3>
+                                            <h3 className={`text-base md:text-lg font-bold mt-0.5 leading-snug break-words ${kpi.navigateTo ? kpi.color : ''}`}>{kpi.value}</h3>
                                             {kpi.subtext && (
                                                 <p className={`text-[10px] mt-1 font-semibold leading-normal break-words ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                     {kpi.subtext}

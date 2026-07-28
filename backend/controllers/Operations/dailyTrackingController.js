@@ -2652,7 +2652,12 @@ export const getDailyTrackingDetails = async (req, res) => {
                     };
                 }).filter(Boolean);
             }
-            return list;
+            // Exclude franchise, rkm, and phsps centres from all tracking data
+            const excludedCentrePattern = /franchise|rkm|phsps/i;
+            return list.filter(item => {
+                const cn = (item.centreName || '').toString();
+                return !excludedCentrePattern.test(cn);
+            });
         };
 
         const normalizePhone = (ph) => {
@@ -2686,25 +2691,98 @@ export const getDailyTrackingDetails = async (req, res) => {
             detailsList = Array.from(uniqueMap.values());
 
         } else if (category === "shortfall_counselling_admission") {
-            const counsList = await fetchDetailsForCategory("counselling");
-            const admsList = await fetchDetailsForCategory("admission");
-            const admittedPhones = new Set(admsList.map(a => normalizePhone(a.phone)).filter(Boolean));
+            // --- Normal counselled leads not yet admitted ---
+            const normalCounselQuery = {
+                isCounseled: true,
+                updatedAt: dateFilter
+            };
+            if (centerObjectIdList.length > 0) normalCounselQuery.centre = { $in: centerObjectIdList };
+            if (agentIds) {
+                normalCounselQuery.$or = [
+                    { createdBy: { $in: agentObjectIdList } },
+                    { followUps: { $elemMatch: { updatedBy: { $in: agentNames }, date: dateFilter } } }
+                ];
+            } else if (isRestricted) {
+                normalCounselQuery.$or = [
+                    { createdBy: req.user._id },
+                    { followUps: { $elemMatch: { updatedBy: req.user.name, date: dateFilter } } }
+                ];
+            }
+            if (leadType) normalCounselQuery.leadType = leadType;
+
+            const normalCounselLeads = await LeadManagement.find(normalCounselQuery).populate('centre').populate('createdBy').lean();
+
+            // --- Normal admissions to exclude ---
+            const normalAdmQuery = { createdAt: dateFilter };
+            if (centerNamesList.length > 0) normalAdmQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+            if (agentIds) normalAdmQuery.createdBy = { $in: agentObjectIdList };
+            else if (isRestricted) normalAdmQuery.createdBy = req.user._id;
+            const normalAdmissions = await Admission.find(normalAdmQuery).populate('student').lean();
+            const admittedNormalPhones = new Set(
+                normalAdmissions.map(a => normalizePhone(a.student?.studentsDetails?.[0]?.mobileNum)).filter(Boolean)
+            );
+
+            // --- Board counselled leads not yet admitted ---
+            const boardCounselQuery = { counselledDate: dateFilter };
+            if (centerNamesList.length > 0) boardCounselQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+            if (agentIds) boardCounselQuery.counselledBy = { $in: agentObjectIdList };
+            else if (isRestricted) boardCounselQuery.counselledBy = req.user._id;
+            const boardCounsellings = await BoardCourseCounselling.find(boardCounselQuery).populate('studentId').populate('counselledBy').lean();
+
+            // --- Board admissions to exclude ---
+            const boardAdmQuery = { createdAt: dateFilter };
+            if (centerNamesList.length > 0) boardAdmQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+            if (agentIds) boardAdmQuery.createdBy = { $in: agentObjectIdList };
+            else if (isRestricted) boardAdmQuery.createdBy = req.user._id;
+            const boardAdmissions = await BoardCourseAdmission.find(boardAdmQuery).populate('studentId').lean();
+            const admittedBoardPhones = new Set(
+                boardAdmissions.map(a => normalizePhone(a.studentId?.studentsDetails?.[0]?.mobileNum)).filter(Boolean)
+            );
 
             const uniqueMap = new Map();
-            counsList.forEach(item => {
-                const normPhone = normalizePhone(item.phone);
-                const isAlreadyAdmitted = item.isAdmission || (normPhone && admittedPhones.has(normPhone)) || (item.feedback && item.feedback.includes('(Admitted)'));
-                if (!isAlreadyAdmitted) {
-                    const key = normPhone || item.id;
-                    if (!uniqueMap.has(key)) {
-                        uniqueMap.set(key, {
-                            ...item,
-                            tag: 'COUNSEL SHORTFALL',
-                            feedback: 'Counselled lead - Admission Pending'
-                        });
-                    }
+
+            normalCounselLeads.forEach(lead => {
+                const normPhone = normalizePhone(lead.phoneNumber);
+                if (normPhone && admittedNormalPhones.has(normPhone)) return; // already admitted
+                const centreName = (lead.centre?.centreName || '').toString();
+                if (/franchise|rkm|phsps/i.test(centreName)) return; // exclude restricted centres
+                const key = lead._id.toString(); // use lead ID as key to match KPI counting
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, {
+                        id: lead._id.toString(),
+                        name: lead.name,
+                        phone: lead.phoneNumber || 'N/A',
+                        email: lead.email || 'N/A',
+                        handledBy: lead.createdBy?.name || 'System',
+                        centreName,
+                        dateTime: lead.updatedAt,
+                        tag: 'COUNSEL SHORTFALL',
+                        feedback: 'Counselled lead - Admission Pending'
+                    });
                 }
             });
+
+            boardCounsellings.forEach(bc => {
+                const normPhone = normalizePhone(bc.studentId?.studentsDetails?.[0]?.mobileNum);
+                if (normPhone && admittedBoardPhones.has(normPhone)) return; // already admitted
+                const centreName = (bc.centre || '').toString();
+                if (/franchise|rkm|phsps/i.test(centreName)) return; // exclude restricted centres
+                const key = bc._id.toString(); // use board counselling ID as key
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, {
+                        id: bc._id.toString(),
+                        name: bc.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student',
+                        phone: bc.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A',
+                        email: 'N/A',
+                        handledBy: bc.counselledBy?.name || 'System',
+                        centreName,
+                        dateTime: bc.createdAt || bc.counselledDate,
+                        tag: 'BOARD COUNSEL SHORTFALL',
+                        feedback: 'Board Counselled lead - Admission Pending'
+                    });
+                }
+            });
+
             detailsList = Array.from(uniqueMap.values());
 
         } else if (category === "shortfall_calls_admission") {
@@ -2724,6 +2802,66 @@ export const getDailyTrackingDetails = async (req, res) => {
                             tag: 'CALL ADM SHORTFALL',
                             feedback: 'Called lead - Admission Pending'
                         });
+                    }
+                }
+            });
+            detailsList = Array.from(uniqueMap.values());
+
+        } else if (category === "calls_counselling") {
+            const callsList = await fetchDetailsForCategory("calls");
+            const counsList = await fetchDetailsForCategory("counselling");
+            const calledPhones = new Set(callsList.map(c => normalizePhone(c.phone)).filter(Boolean));
+
+            const uniqueMap = new Map();
+            counsList.forEach(item => {
+                const normPhone = normalizePhone(item.phone);
+                if (normPhone && calledPhones.has(normPhone)) {
+                    const key = normPhone || item.id;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, item);
+                    }
+                }
+            });
+            detailsList = Array.from(uniqueMap.values());
+
+        } else if (category === "counselling_admission") {
+            const counsList = await fetchDetailsForCategory("counselling");
+            const admsList = await fetchDetailsForCategory("admission");
+            const counselledPhones = new Set(counsList.map(c => normalizePhone(c.phone)).filter(Boolean));
+
+            const uniqueMap = new Map();
+            counsList.forEach(item => {
+                if (item.isAdmission) {
+                    const normPhone = normalizePhone(item.phone);
+                    const key = normPhone || item.id;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, item);
+                    }
+                }
+            });
+            admsList.forEach(item => {
+                const normPhone = normalizePhone(item.phone);
+                if (normPhone && counselledPhones.has(normPhone)) {
+                    const key = normPhone || item.id;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, item);
+                    }
+                }
+            });
+            detailsList = Array.from(uniqueMap.values());
+
+        } else if (category === "calls_admission") {
+            const callsList = await fetchDetailsForCategory("calls");
+            const admsList = await fetchDetailsForCategory("admission");
+            const calledPhones = new Set(callsList.map(c => normalizePhone(c.phone)).filter(Boolean));
+
+            const uniqueMap = new Map();
+            admsList.forEach(item => {
+                const normPhone = normalizePhone(item.phone);
+                if (normPhone && calledPhones.has(normPhone)) {
+                    const key = normPhone || item.id;
+                    if (!uniqueMap.has(key)) {
+                        uniqueMap.set(key, item);
                     }
                 }
             });
