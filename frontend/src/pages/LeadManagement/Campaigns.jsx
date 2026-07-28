@@ -15,6 +15,11 @@ import LeadJourneyModal from "../../components/LeadManagement/LeadJourneyModal";
 const API_URL = import.meta.env.VITE_API_URL;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+const checkIsVideoUrl = (url) => {
+    if (!url) return false;
+    return /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?.*)?$/i.test(url) || (typeof url === 'string' && url.includes("/campaigns/") && url.includes(".mp4"));
+};
+
 const fmtDateTime = (ts) => {
     if (!ts) return null;
     const d = new Date(ts);
@@ -400,16 +405,48 @@ export default function Campaigns() {
         if (!files || files.length === 0) return;
         
         setUploadingMedia(true);
-        const formData = new FormData();
-        Array.from(files).forEach(file => formData.append("mediaFiles", file));
-
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}/upload-media`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData
+            const uploadedMediaUrls = [];
+
+            for (const file of Array.from(files)) {
+                const presignedRes = await fetch(`${API_URL}/lead-management/campaigns/presigned-upload-url`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ fileName: file.name, fileType: file.type })
+                });
+
+                if (!presignedRes.ok) {
+                    throw new Error("Failed to get presigned upload URL");
+                }
+
+                const { uploadUrl, fileUrl } = await presignedRes.json();
+
+                const directUploadRes = await fetch(uploadUrl, {
+                    method: "PUT",
+                    headers: { "Content-Type": file.type || "application/octet-stream" },
+                    body: file
+                });
+
+                if (!directUploadRes.ok) {
+                    throw new Error(`Direct upload failed for ${file.name}`);
+                }
+
+                uploadedMediaUrls.push(fileUrl);
+            }
+
+            const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ uploadedMedia: uploadedMediaUrls })
             });
+
             const data = await res.json();
             if (res.ok) {
                 toast.success("Media uploaded successfully");
@@ -490,18 +527,76 @@ export default function Campaigns() {
         setSubmitting(true);
         try {
             const token = localStorage.getItem("token");
-            const formData = new FormData();
-            Object.keys(editForm).forEach(key => formData.append(key, editForm[key]));
+            let directUploadSuccess = false;
+            const uploadedMediaUrls = [];
+
             if (editMediaFiles && editMediaFiles.length > 0) {
-                Array.from(editMediaFiles).forEach(file => formData.append("mediaFiles", file));
+                try {
+                    toast.info("Uploading media file(s)...");
+                    for (const file of Array.from(editMediaFiles)) {
+                        const presignedRes = await fetch(`${API_URL}/lead-management/campaigns/presigned-upload-url`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ fileName: file.name, fileType: file.type })
+                        });
+
+                        if (!presignedRes.ok) {
+                            const errJson = await presignedRes.json().catch(() => ({}));
+                            console.error("Presigned URL error from backend:", errJson);
+                            throw new Error(errJson.message || errJson.error || "Presigned URL endpoint failed");
+                        }
+
+                        const { uploadUrl, fileUrl } = await presignedRes.json();
+
+                        const directUploadRes = await fetch(uploadUrl, {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": file.type || "application/octet-stream"
+                            },
+                            body: file
+                        });
+
+                        if (!directUploadRes.ok) {
+                            throw new Error(`Direct upload failed for ${file.name}`);
+                        }
+
+                        uploadedMediaUrls.push(fileUrl);
+                    }
+                    directUploadSuccess = true;
+                } catch (directErr) {
+                    console.warn("Direct R2 presigned upload unavailable, using server upload fallback:", directErr);
+                }
             }
 
-            const res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}`, {
-                method: "PUT",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData
-            });
-            const data = await res.json();
+            let res, data;
+            if (directUploadSuccess || !editMediaFiles || editMediaFiles.length === 0) {
+                res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        ...editForm,
+                        uploadedMedia: uploadedMediaUrls
+                    })
+                });
+            } else {
+                const formData = new FormData();
+                Object.keys(editForm).forEach(key => formData.append(key, editForm[key]));
+                Array.from(editMediaFiles).forEach(file => formData.append("mediaFiles", file));
+
+                res = await fetch(`${API_URL}/lead-management/campaigns/${selectedCampaign._id}`, {
+                    method: "PUT",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: formData
+                });
+            }
+
+            data = await res.json();
             if (res.ok) {
                 toast.success("Campaign updated successfully!");
                 setSelectedCampaign(null);
@@ -758,24 +853,32 @@ export default function Campaigns() {
                                                     title={c.adName}
                                                 >
                                                     <div className="flex items-center gap-2 max-w-[160px]">
-                                                        {(c.imageLink || (c.uploadedMedia && c.uploadedMedia.length > 0)) ? (
-                                                            <img 
-                                                                src={c.imageLink || c.uploadedMedia[0]} 
-                                                                alt="Campaign Logo" 
-                                                                className="w-10 h-10 rounded object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700"
-                                                                onError={(e) => {
-                                                                    if (c.uploadedMedia && c.uploadedMedia[0] && e.target.src !== c.uploadedMedia[0]) {
-                                                                        e.target.src = c.uploadedMedia[0];
-                                                                    } else {
-                                                                        e.target.style.display = 'none';
-                                                                    }
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-800 flex-shrink-0 flex items-center justify-center border border-gray-300 dark:border-gray-700">
-                                                                <FaBullhorn size={16} className="text-gray-400" />
-                                                            </div>
-                                                        )}
+                                                        {(() => {
+                                                            const mediaUrl = c.imageLink || (c.uploadedMedia && c.uploadedMedia[0]) || c.videoLink;
+                                                            if (!mediaUrl) {
+                                                                return (
+                                                                    <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-800 flex-shrink-0 flex items-center justify-center border border-gray-300 dark:border-gray-700">
+                                                                        <FaBullhorn size={16} className="text-gray-400" />
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            if (checkIsVideoUrl(mediaUrl)) {
+                                                                return (
+                                                                    <div className="w-10 h-10 rounded bg-black/40 flex-shrink-0 flex items-center justify-center border border-gray-700 relative overflow-hidden">
+                                                                        <video src={mediaUrl} className="w-full h-full object-cover" muted />
+                                                                        <FaPlay size={10} className="absolute text-white/80" />
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <img 
+                                                                    src={mediaUrl} 
+                                                                    alt="Campaign Logo" 
+                                                                    className="w-10 h-10 rounded object-cover flex-shrink-0 border border-gray-200 dark:border-gray-700"
+                                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                                />
+                                                            );
+                                                        })()}
                                                         <span className="font-bold truncate text-blue-500 hover:underline hover:text-blue-600">
                                                             {c.adName}
                                                         </span>
@@ -972,7 +1075,7 @@ export default function Campaigns() {
                                         <span className="font-semibold opacity-65 uppercase tracking-wider block mb-2">Uploaded Media ({selectedCampaign.uploadedMedia.length})</span>
                                         <div className="flex flex-wrap gap-3">
                                             {selectedCampaign.uploadedMedia.map((url, i) => {
-                                                const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i);
+                                                const isVideo = checkIsVideoUrl(url);
                                                 return (
                                                     <div key={i} className="relative group w-20 h-20 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-black/20 shadow-sm">
                                                         {isVideo ? (

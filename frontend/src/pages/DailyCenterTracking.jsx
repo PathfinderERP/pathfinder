@@ -706,6 +706,8 @@ const DailyCenterTracking = () => {
                     const callsToAdmShortfall = Math.max(0, totalCallsSum - totalAdmissionSum);
                     const callsToAdmShortfallPct = totalCallsSum > 0 ? ((callsToAdmShortfall / totalCallsSum) * 100).toFixed(1) + "%" : "0.0%";
 
+                    const totalAdmissionAmountSum = filteredCenters.reduce((acc, curr) => acc + (curr.admissionAmountVal || 0), 0);
+
                     const kpiCardsList = [
                         {
                             title: getCardLabel("Calls"),
@@ -748,7 +750,7 @@ const DailyCenterTracking = () => {
                             value: totalAdmissionSum.toString(),
                             subtext: (
                                 <span>
-                                    Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}
+                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}
                                 </span>
                             ),
                             icon: <FaUserPlus />,
@@ -783,7 +785,7 @@ const DailyCenterTracking = () => {
                             value: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCounsellingSum.toLocaleString()} Counselled`,
                             subtext: (
                                 <span>
-                                    Conversion: {counsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {counsToAdmShortfall.toLocaleString()} ({counsToAdmShortfallPct})</span>
+                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Conv: {counsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {counsToAdmShortfall.toLocaleString()} ({counsToAdmShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -805,7 +807,7 @@ const DailyCenterTracking = () => {
                             value: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCallsSum.toLocaleString()} Calls`,
                             subtext: (
                                 <span>
-                                    Conversion: {callsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToAdmShortfall.toLocaleString()} ({callsToAdmShortfallPct})</span>
+                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Conv: {callsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToAdmShortfall.toLocaleString()} ({callsToAdmShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -825,7 +827,7 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Collection"),
                             category: "collection",
                             value: `₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsVal || 0), 0).toLocaleString()}`,
-                            subtext: `Admission: ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment: ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
+                            subtext: `Admission (excl. GST): ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsAdmissionVal || 0), 0).toLocaleString()} | Installment (excl. GST): ₹${filteredCenters.reduce((acc, curr) => acc + (curr.collectionsInstallmentVal || 0), 0).toLocaleString()}`,
                             icon: <FaRupeeSign />,
                             color: "text-cyan-500",
                             bg: "bg-cyan-500/10"

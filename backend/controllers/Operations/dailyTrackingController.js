@@ -713,10 +713,15 @@ export const getDailyTracking = async (req, res) => {
 
             let admissionNormalCount = 0;
             let admissionBoardCount = 0;
+            let admissionAmountVal = 0;
+
+            const normalAdmissions = await Admission.find(admissionNormalQuery).populate('student').lean();
+            const boardAdmissions = await BoardCourseAdmission.find(admissionBoardQuery).populate('studentId').lean();
+
+            let filteredNormal = normalAdmissions;
+            let filteredBoard = boardAdmissions;
 
             if (leadType) {
-                // Normal
-                const normalAdmissions = await Admission.find(admissionNormalQuery).populate('student').lean();
                 const normalPhones = normalAdmissions.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
                 const matchingNormalLeads = normalPhones.length > 0 ? await LeadManagement.find({
                     $or: [
@@ -728,13 +733,11 @@ export const getDailyTracking = async (req, res) => {
                 const matchingNormalPhones = new Set(
                     matchingNormalLeads.map(l => l.phoneNumber).concat(matchingNormalLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
                 );
-                admissionNormalCount = normalAdmissions.filter(adm => {
+                filteredNormal = normalAdmissions.filter(adm => {
                     const phone = adm.student?.studentsDetails?.[0]?.mobileNum;
                     return phone && matchingNormalPhones.has(phone);
-                }).length;
+                });
 
-                // Board
-                const boardAdmissions = await BoardCourseAdmission.find(admissionBoardQuery).populate('studentId').lean();
                 const boardPhones = boardAdmissions.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
                 const matchingBoardLeads = boardPhones.length > 0 ? await LeadManagement.find({
                     $or: [
@@ -746,14 +749,21 @@ export const getDailyTracking = async (req, res) => {
                 const matchingBoardPhones = new Set(
                     matchingBoardLeads.map(l => l.phoneNumber).concat(matchingBoardLeads.map(l => l.secondPhoneNumber)).filter(Boolean)
                 );
-                admissionBoardCount = boardAdmissions.filter(adm => {
+                filteredBoard = boardAdmissions.filter(adm => {
                     const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum;
                     return phone && matchingBoardPhones.has(phone);
-                }).length;
-            } else {
-                admissionNormalCount = await Admission.countDocuments(admissionNormalQuery);
-                admissionBoardCount = await BoardCourseAdmission.countDocuments(admissionBoardQuery);
+                });
             }
+
+            admissionNormalCount = filteredNormal.length;
+            admissionBoardCount = filteredBoard.length;
+
+            const normalVal = filteredNormal.reduce((sum, adm) => sum + Math.round((adm.downPayment || 0) / 1.18), 0);
+            const boardVal = filteredBoard.reduce((sum, adm) => {
+                const rawAmt = (adm.installments && adm.installments.length > 0) ? (adm.installments[0].paidAmount || 0) : (adm.totalPaidAmount || adm.downPayment || 0);
+                return sum + Math.round(rawAmt / 1.18);
+            }, 0);
+            admissionAmountVal = normalVal + boardVal;
 
             // --- Attendance ---
             const staffPresentCount = await EmployeeAttendance.countDocuments({
@@ -853,12 +863,31 @@ export const getDailyTracking = async (req, res) => {
                         total: { $sum: "$paidAmount" },
                         admission: {
                             $sum: {
-                                $cond: [{ $eq: ["$installmentNumber", 0] }, "$paidAmount", 0]
+                                $cond: [
+                                    {
+                                        $or: [
+                                            { $eq: ["$isAdmissionPayment", true] },
+                                            { $eq: ["$installmentNumber", 0] },
+                                            { $eq: ["$installmentNumber", 1] }
+                                        ]
+                                    },
+                                    "$paidAmount",
+                                    0
+                                ]
                             }
                         },
                         installment: {
                             $sum: {
-                                $cond: [{ $gt: ["$installmentNumber", 0] }, "$paidAmount", 0]
+                                $cond: [
+                                    {
+                                        $and: [
+                                            { $ne: ["$isAdmissionPayment", true] },
+                                            { $gt: ["$installmentNumber", 1] }
+                                        ]
+                                    },
+                                    "$paidAmount",
+                                    0
+                                ]
                             }
                         }
                     }
@@ -886,6 +915,7 @@ export const getDailyTracking = async (req, res) => {
                 counselledBoard: counselledBoardCount,
                 admissionNormal: admissionNormalCount,
                 admissionBoard: admissionBoardCount,
+                admissionAmountVal: collectionsAdmission,
                 collections: `₹${totalCollections.toLocaleString()}`,
                 collectionsVal: totalCollections,
                 collectionsAdmissionVal: collectionsAdmission,
@@ -2457,25 +2487,6 @@ export const getDailyTrackingDetails = async (req, res) => {
                         return phone && matchingPhones.has(phone);
                     });
                 }
-                const normalDetails = normalAdmissions.map(adm => {
-                    const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
-                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
-                    const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
-                    return {
-                        id: adm._id.toString(),
-                        name: studentName,
-                        phone: phone,
-                        email: email,
-                        handledBy: adm.createdBy?.name || 'System',
-                        centreName: adm.centre || 'N/A',
-                        dateTime: adm.createdAt,
-                        tag: 'NORMAL ADM',
-                        course: adm.course?.courseName || 'N/A',
-                        amount: adm.downPayment || 0,
-                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
-                    };
-                });
-
                 const boardQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) boardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
                 if (agentIds) boardQuery.createdBy = { $in: agentObjectIdList };
@@ -2497,11 +2508,68 @@ export const getDailyTrackingDetails = async (req, res) => {
                         return phone && matchingPhones.has(phone);
                     });
                 }
+
+                const normalStudentIds = normalAdmissions.map(a => a.student?._id || a.student).filter(Boolean);
+                const boardStudentIds = boardAdmissions.map(a => a.studentId?._id || a.studentId).filter(Boolean);
+                const allStudentIds = [...normalStudentIds, ...boardStudentIds];
+                const allAdmIds = [...normalAdmissions.map(a => a._id), ...boardAdmissions.map(a => a._id)];
+
+                const admPayments = await Payment.find({
+                    $and: [
+                        {
+                            $or: [
+                                { admission: { $in: allAdmIds } },
+                                { boardAdmission: { $in: allAdmIds } },
+                                { student: { $in: allStudentIds } }
+                            ]
+                        },
+                        {
+                            $or: [
+                                { isAdmissionPayment: true },
+                                { installmentNumber: 0 },
+                                { installmentNumber: 1 }
+                            ]
+                        }
+                    ]
+                }).lean();
+
+                const admPaymentMap = {};
+                admPayments.forEach(p => {
+                    if (p.admission) admPaymentMap[p.admission.toString()] = (admPaymentMap[p.admission.toString()] || 0) + (p.paidAmount || 0);
+                    if (p.boardAdmission) admPaymentMap[p.boardAdmission.toString()] = (admPaymentMap[p.boardAdmission.toString()] || 0) + (p.paidAmount || 0);
+                    if (p.student) admPaymentMap[p.student.toString()] = (admPaymentMap[p.student.toString()] || 0) + (p.paidAmount || 0);
+                });
+
+                const normalDetails = normalAdmissions.map(adm => {
+                    const studentName = adm.student?.studentsDetails?.[0]?.studentName || 'Unknown Student';
+                    const phone = adm.student?.studentsDetails?.[0]?.mobileNum || 'N/A';
+                    const email = adm.student?.studentsDetails?.[0]?.email || 'N/A';
+                    const sId = adm.student?._id ? adm.student._id.toString() : (adm.student ? adm.student.toString() : '');
+                    const rawAmt = admPaymentMap[adm._id.toString()] || (sId ? admPaymentMap[sId] : 0) || adm.downPayment || 0;
+                    const amountWithoutGst = Math.round(rawAmt / 1.18);
+                    return {
+                        id: adm._id.toString(),
+                        name: studentName,
+                        phone: phone,
+                        email: email,
+                        handledBy: adm.createdBy?.name || 'System',
+                        centreName: adm.centre || 'N/A',
+                        dateTime: adm.createdAt,
+                        tag: 'NORMAL ADM',
+                        course: adm.course?.courseName || 'N/A',
+                        amount: amountWithoutGst,
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST)`
+                    };
+                });
+
                 const boardDetails = boardAdmissions.map(adm => {
                     const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || 'Unknown Student';
                     const phone = adm.studentId?.studentsDetails?.[0]?.mobileNum || 'N/A';
                     const email = adm.studentId?.studentsDetails?.[0]?.email || 'N/A';
                     const dpAmount = (adm.installments && adm.installments.length > 0) ? (adm.installments[0].paidAmount || 0) : (adm.totalPaidAmount || 0);
+                    const sId = adm.studentId?._id ? adm.studentId._id.toString() : (adm.studentId ? adm.studentId.toString() : '');
+                    const rawAmt = admPaymentMap[adm._id.toString()] || (sId ? admPaymentMap[sId] : 0) || dpAmount || adm.downPayment || 0;
+                    const amountWithoutGst = Math.round(rawAmt / 1.18);
                     return {
                         id: adm._id.toString(),
                         name: studentName,
@@ -2512,8 +2580,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         dateTime: adm.createdAt,
                         tag: 'BOARD ADM',
                         course: adm.boardCourseName || 'N/A',
-                        amount: dpAmount,
-                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'}`
+                        amount: amountWithoutGst,
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST)`
                     };
                 });
 
@@ -2631,7 +2699,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     const admId = p.admission ? p.admission.toString() : null;
                     const admInfo = admId ? admissionMap[admId] : null;
                     const amountWithoutGst = Math.round((p.paidAmount || 0) / 1.18);
-                    const isAdmission = Boolean(p.isAdmissionPayment || p.installmentNumber === 1);
+                    const isAdmission = Boolean(p.isAdmissionPayment || p.installmentNumber === 0 || p.installmentNumber === 1);
                     const centreName = admInfo?.centreName || p.centreName || 'N/A';
 
                     return {

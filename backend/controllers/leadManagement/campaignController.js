@@ -282,13 +282,23 @@ export const deleteCampaign = async (req, res) => {
 export const updateCampaign = async (req, res) => {
     try {
         const { id } = req.params;
-        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate, totalLikes, totalViews, comments, shares, imageLink, videoLink } = req.body;
+        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate, totalLikes, totalViews, comments, shares, imageLink, videoLink, uploadedMedia } = req.body;
 
         if (!adName || !platform || budget === undefined || cpc === undefined || !startDate || !endDate) {
             return res.status(400).json({ message: "Required fields are missing." });
         }
 
         let newMediaUrls = [];
+        if (uploadedMedia) {
+            let parsed = uploadedMedia;
+            if (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch (e) { parsed = [parsed]; }
+            }
+            if (Array.isArray(parsed)) {
+                newMediaUrls = [...parsed];
+            }
+        }
+
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
                 const url = await uploadToR2(file, "campaigns");

@@ -193,9 +193,20 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                     }
                                 </h2>
                                 {!loading && !isCollectionType && (
-                                    <span className={`text-xs px-2.5 py-1 rounded font-bold border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-cyan-50 text-cyan-700 border-cyan-200'}`}>
-                                        {filteredList.length} {categoryLabelInfo.label}
-                                    </span>
+                                    <>
+                                        <span className={`text-xs px-2.5 py-1 rounded font-bold border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-cyan-50 text-cyan-700 border-cyan-200'}`}>
+                                            {filteredList.length} {categoryLabelInfo.label}
+                                        </span>
+                                        {title && title.toLowerCase().includes("admission") && (
+                                            <span className={`text-xs px-2.5 py-1 rounded font-bold border flex items-center gap-1 ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                                <FaRupeeSign size={10} />
+                                                Total Admission Amount (excl. GST): ₹{((selectedTags.length === 0 && Array.isArray(activeCenters) && activeCenters.length > 0)
+                                                    ? activeCenters.reduce((acc, curr) => acc + (curr.admissionAmountVal || curr.collectionsAdmissionVal || 0), 0)
+                                                    : filteredList.reduce((sum, item) => sum + (item.amount || 0), 0)
+                                                ).toLocaleString()}
+                                            </span>
+                                        )}
+                                    </>
                                 )}
                             </div>
                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em] mt-1">
@@ -236,7 +247,7 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                             : isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-200'
                                     }`}
                                 >
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Collection</p>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Collection (excl. GST)</p>
                                     <div className="text-2xl font-black text-cyan-400 mt-1">₹{(admissionTotal + installmentTotal).toLocaleString()}</div>
                                     <p className="text-[9px] font-bold text-gray-500 mt-1">{safeData.length} Payments Recorded</p>
                                 </div>
@@ -249,7 +260,7 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                             : isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-200'
                                     }`}
                                 >
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Admission Collection</p>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Admission Collection (excl. GST)</p>
                                     <div className="text-2xl font-black text-cyan-400 mt-1">₹{admissionTotal.toLocaleString()}</div>
                                     <p className="text-[9px] font-bold text-gray-500 mt-1">Click to filter admission fee</p>
                                 </div>
@@ -262,7 +273,7 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                             : isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-200'
                                     }`}
                                 >
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Installment Collection</p>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Installment Collection (excl. GST)</p>
                                     <div className="text-2xl font-black text-emerald-400 mt-1">₹{installmentTotal.toLocaleString()}</div>
                                     <p className="text-[9px] font-bold text-gray-500 mt-1">Click to filter recurring fee</p>
                                 </div>
@@ -309,11 +320,11 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                                 </div>
                                                 <div className="mt-2 text-[11px] space-y-1 text-gray-400">
                                                     <div className="flex justify-between">
-                                                        <span>Admission:</span>
+                                                        <span>Admission (excl. GST):</span>
                                                         <span className="font-semibold text-gray-300">₹{c.admission.toLocaleString()}</span>
                                                     </div>
                                                     <div className="flex justify-between">
-                                                        <span>Installment:</span>
+                                                        <span>Installment (excl. GST):</span>
                                                         <span className="font-semibold text-gray-300">₹{c.installment.toLocaleString()}</span>
                                                     </div>
                                                 </div>
@@ -536,6 +547,13 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                                     <div className="flex items-center gap-2 text-[11px] font-bold text-cyan-600 dark:text-cyan-400 mt-1">
                                                         <FaBookOpen className="shrink-0" />
                                                         <span>Course: {item.course}</span>
+                                                    </div>
+                                                )}
+
+                                                {item.amount !== undefined && item.amount !== null && item.amount > 0 && (
+                                                    <div className="flex items-center gap-2 text-[11px] font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                                                        <FaRupeeSign className="shrink-0" />
+                                                        <span>Admission Amount (excl. GST): ₹{Math.round(item.amount).toLocaleString()}</span>
                                                     </div>
                                                 )}
 
