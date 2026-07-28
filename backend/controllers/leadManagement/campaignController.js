@@ -3,7 +3,7 @@ import LeadManagement from "../../models/LeadManagement.js";
 import CampaignLead from "../../models/CampaignLead.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
-import { uploadToR2, getSignedFileUrl } from "../../utils/r2Upload.js";
+import { uploadToR2, getSignedFileUrl, getPresignedUploadUrl } from "../../utils/r2Upload.js";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
