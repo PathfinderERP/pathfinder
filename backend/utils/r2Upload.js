@@ -182,10 +182,6 @@ export const getSignedFileUrl = async (fileUrl) => {
  * @returns {Promise<Object>} - { uploadUrl, fileUrl, key }
  */
 export const getPresignedUploadUrl = async (fileName, fileType, folder = "campaigns") => {
-    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !process.env.S3API) {
-        throw new Error("R2 S3 credentials or S3API endpoint not configured on server");
-    }
-
     try {
         let publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
 

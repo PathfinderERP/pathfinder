@@ -22,19 +22,14 @@ const loadEnv = () => {
 
 loadEnv();
 
+const defaultEndpoint = "https://3c9d12dd00618b00795184bc5ff0c333.r2.cloudflarestorage.com";
+const r2Endpoint = (process.env.S3API || defaultEndpoint).trim();
 const r2AccessKeyId = (process.env.R2_ACCESS_KEY_ID || "").trim();
 const r2SecretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
-const r2Endpoint = (process.env.S3API || "").trim();
-const r2Bucket = (process.env.R2_BUCKET_NAME || "").trim();
-
-// console.log("--- R2 CONFIG DEBUG ---");
-// console.log("Endpoint:", r2Endpoint);
-// console.log("Bucket:", r2Bucket);
-// console.log("AccessKeyId Length:", r2AccessKeyId.length);
-// console.log("SecretAccessKey Length:", r2SecretAccessKey.length);
+const r2Bucket = (process.env.R2_BUCKET_NAME || "telecalleraudio").trim();
 
 if (!r2AccessKeyId || !r2SecretAccessKey) {
-    console.error("CRITICAL ERROR: R2 Credentials missing in r2Config.js");
+    console.warn("R2 Config: R2 Credentials missing or using default fallback in r2Config.js");
 }
 
 const s3Client = new S3Client({

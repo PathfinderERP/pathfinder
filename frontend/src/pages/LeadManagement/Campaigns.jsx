@@ -281,7 +281,9 @@ export default function Campaigns() {
                         });
 
                         if (!presignedRes.ok) {
-                            throw new Error("Presigned URL endpoint failed");
+                            const errJson = await presignedRes.json().catch(() => ({}));
+                            console.error("Presigned URL error from backend:", errJson);
+                            throw new Error(errJson.message || errJson.error || "Presigned URL endpoint failed");
                         }
 
                         const { uploadUrl, fileUrl } = await presignedRes.json();

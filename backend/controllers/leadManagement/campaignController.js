@@ -177,7 +177,10 @@ export const getCampaignPresignedUrl = async (req, res) => {
         res.status(200).json(data);
     } catch (err) {
         console.error("Error generating campaign presigned URL:", err);
-        res.status(500).json({ message: "Server error", error: err.message });
+        res.status(500).json({ 
+            message: err.message || "Failed to generate presigned upload URL", 
+            error: err.message 
+        });
     }
 };
 
