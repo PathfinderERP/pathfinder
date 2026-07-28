@@ -167,6 +167,20 @@ export const getCampaignLeadsDetails = async (req, res) => {
     }
 };
 
+export const getCampaignPresignedUrl = async (req, res) => {
+    try {
+        const { fileName, fileType } = req.body;
+        if (!fileName) {
+            return res.status(400).json({ message: "fileName is required." });
+        }
+        const data = await getPresignedUploadUrl(fileName, fileType, "campaigns");
+        res.status(200).json(data);
+    } catch (err) {
+        console.error("Error generating campaign presigned URL:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
 const checkIsVideoFile = (file, url) => {
     if (file && file.mimetype && file.mimetype.startsWith('video/')) return true;
     if (file && file.originalname && /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(file.originalname)) return true;
@@ -176,15 +190,25 @@ const checkIsVideoFile = (file, url) => {
 
 export const createCampaign = async (req, res) => {
     try {
-        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate, totalLikes, totalViews, comments, shares, imageLink, videoLink } = req.body;
+        const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate, totalLikes, totalViews, comments, shares, imageLink, videoLink, uploadedMedia } = req.body;
 
         if (!adName || !platform || budget === undefined || cpc === undefined || !startDate || !endDate) {
             return res.status(400).json({ message: "Required fields are missing." });
         }
 
         let mediaUrls = [];
-        let firstVideoUrl = "";
-        let firstImageUrl = "";
+        if (uploadedMedia) {
+            let parsed = uploadedMedia;
+            if (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch (e) { parsed = [parsed]; }
+            }
+            if (Array.isArray(parsed)) {
+                mediaUrls = [...parsed];
+            }
+        }
+
+        let firstVideoUrl = mediaUrls.find(url => checkIsVideoFile(null, url)) || "";
+        let firstImageUrl = mediaUrls.find(url => !checkIsVideoFile(null, url)) || "";
 
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {

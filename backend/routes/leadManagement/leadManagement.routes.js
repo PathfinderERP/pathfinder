@@ -25,7 +25,7 @@ import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentr
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
 import { getPlanners, createPlanner, updatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
-import { getCampaigns, getCampaignLeadsDetails, createCampaign, deleteCampaign, updateCampaign, runCampaignAction, uploadCampaignMedia, deleteCampaignMedia, replaceCampaignMedia } from "../../controllers/leadManagement/campaignController.js";
+import { getCampaigns, getCampaignLeadsDetails, createCampaign, deleteCampaign, updateCampaign, runCampaignAction, uploadCampaignMedia, deleteCampaignMedia, replaceCampaignMedia, getCampaignPresignedUrl } from "../../controllers/leadManagement/campaignController.js";
 import { pushCampaignLeads } from "../../controllers/leadManagement/pushCampaignLeads.js";
 import multer from "multer";
 import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
@@ -41,6 +41,8 @@ const upload = multer({
 router.get("/", requireAuth, getLeads);
 router.get("/distinct-schools", requireAuth, getDistinctSchools);
 router.get("/distinct-sources", requireAuth, getDistinctSources);
+
+router.post("/campaigns/presigned-upload-url", requireAuth, getCampaignPresignedUrl);
 router.get("/uploaders", requireAuth, getLeadUploaders);
 router.get("/follow-ups", requireAuth, getFollowUpLeads);
 router.get("/stats/dashboard", requireAuth, getLeadDashboardStats);

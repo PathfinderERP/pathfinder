@@ -173,3 +173,45 @@ export const getSignedFileUrl = async (fileUrl) => {
         return fileUrl;
     }
 };
+
+/**
+ * Generates a presigned PUT URL for direct client-to-R2 upload
+ * @param {String} fileName - The name of the file
+ * @param {String} fileType - MIME type of the file
+ * @param {String} folder - Destination folder in bucket
+ * @returns {Promise<Object>} - { uploadUrl, fileUrl, key }
+ */
+export const getPresignedUploadUrl = async (fileName, fileType, folder = "campaigns") => {
+    let publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+
+    if (!publicUrl) {
+        if (process.env.AccountID) {
+            publicUrl = `https://pub-${process.env.AccountID}.r2.dev`;
+        } else if (process.env.S3API) {
+            publicUrl = `${process.env.S3API.replace(/\/$/, "")}/${process.env.R2_BUCKET_NAME}`;
+        } else {
+            publicUrl = "https://pub-3c9d12dd00618b00795184bc5ff0c333.r2.dev";
+        }
+    }
+
+    const originalName = fileName || "file.bin";
+    const extension = originalName.split('.').pop();
+    const cleanBaseName = originalName
+        .split('.')[0]
+        .replace(/[^a-zA-Z0-9]/g, '_')
+        .substring(0, 50);
+
+    const key = `${folder}/${Date.now()}_${cleanBaseName}.${extension}`;
+    const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio";
+
+    const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+        ContentType: fileType || 'application/octet-stream',
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const finalUrl = `${publicUrl}/${key}`;
+
+    return { uploadUrl, fileUrl: finalUrl, key };
+};

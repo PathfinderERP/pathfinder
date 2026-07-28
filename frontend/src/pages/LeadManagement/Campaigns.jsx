@@ -264,16 +264,55 @@ export default function Campaigns() {
         setSubmitting(true);
         try {
             const token = localStorage.getItem("token");
-            const formData = new FormData();
-            Object.keys(form).forEach(key => formData.append(key, form[key]));
+            const uploadedMediaUrls = [];
+
             if (addMediaFiles && addMediaFiles.length > 0) {
-                Array.from(addMediaFiles).forEach(file => formData.append("mediaFiles", file));
+                toast.info("Uploading media file(s) directly...");
+                for (const file of Array.from(addMediaFiles)) {
+                    const presignedRes = await fetch(`${API_URL}/lead-management/campaigns/presigned-upload-url`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ fileName: file.name, fileType: file.type })
+                    });
+
+                    if (!presignedRes.ok) {
+                        const errData = await presignedRes.json().catch(() => ({}));
+                        throw new Error(errData.message || "Failed to prepare cloud storage upload");
+                    }
+
+                    const { uploadUrl, fileUrl } = await presignedRes.json();
+
+                    const directUploadRes = await fetch(uploadUrl, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": file.type || "application/octet-stream"
+                        },
+                        body: file
+                    });
+
+                    if (!directUploadRes.ok) {
+                        throw new Error(`Direct upload failed for ${file.name}`);
+                    }
+
+                    uploadedMediaUrls.push(fileUrl);
+                }
             }
+
+            const payload = {
+                ...form,
+                uploadedMedia: uploadedMediaUrls
+            };
 
             const res = await fetch(`${API_URL}/lead-management/campaigns`, {
                 method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (res.ok) {
@@ -286,7 +325,7 @@ export default function Campaigns() {
             }
         } catch (error) {
             console.error("Error creating campaign:", error);
-            toast.error("Server error");
+            toast.error(error.message || "Server error");
         } finally {
             setSubmitting(false);
         }
