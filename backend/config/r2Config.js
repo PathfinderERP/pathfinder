@@ -40,6 +40,8 @@ const s3Client = new S3Client({
         secretAccessKey: r2SecretAccessKey,
     },
     forcePathStyle: true, // Required for R2
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED"
 });
 
 export default s3Client;
