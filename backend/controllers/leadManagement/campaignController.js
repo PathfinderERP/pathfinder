@@ -167,6 +167,13 @@ export const getCampaignLeadsDetails = async (req, res) => {
     }
 };
 
+const checkIsVideoFile = (file, url) => {
+    if (file && file.mimetype && file.mimetype.startsWith('video/')) return true;
+    if (file && file.originalname && /\.(mp4|webm|ogg|mov|m4v|avi|mkv)$/i.test(file.originalname)) return true;
+    if (url && /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?.*)?$/i.test(url)) return true;
+    return false;
+};
+
 export const createCampaign = async (req, res) => {
     try {
         const { adName, platform, creativeName, duration, budget, cpc, startDate, endDate, totalLikes, totalViews, comments, shares, imageLink, videoLink } = req.body;
@@ -176,10 +183,20 @@ export const createCampaign = async (req, res) => {
         }
 
         let mediaUrls = [];
+        let firstVideoUrl = "";
+        let firstImageUrl = "";
+
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
                 const url = await uploadToR2(file, "campaigns");
-                if (url) mediaUrls.push(url);
+                if (url) {
+                    mediaUrls.push(url);
+                    if (checkIsVideoFile(file, url)) {
+                        if (!firstVideoUrl) firstVideoUrl = url;
+                    } else {
+                        if (!firstImageUrl) firstImageUrl = url;
+                    }
+                }
             }
         }
 
@@ -196,8 +213,8 @@ export const createCampaign = async (req, res) => {
             totalViews: totalViews ? Number(totalViews) : 0,
             comments: comments ? Number(comments) : 0,
             shares: shares ? Number(shares) : 0,
-            imageLink: imageLink || (mediaUrls.length > 0 && !mediaUrls[0].match(/\.(mp4|webm|ogg|mov)$/i) ? mediaUrls[0] : ""),
-            videoLink: videoLink || (mediaUrls.length > 0 && mediaUrls[0].match(/\.(mp4|webm|ogg|mov)$/i) ? mediaUrls[0] : ""),
+            imageLink: imageLink || firstImageUrl || "",
+            videoLink: videoLink || firstVideoUrl || "",
             uploadedMedia: mediaUrls,
             createdBy: req.user._id || req.user.id
         });

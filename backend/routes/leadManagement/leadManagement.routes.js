@@ -32,7 +32,10 @@ import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.
 import { checkDuplicatePhone } from "../../controllers/leadManagement/checkDuplicatePhone.js";
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 1024 * 1024 * 1024 * 1024 } // 1TB limit
+});
 
 // All lead management routes require authentication
 router.get("/", requireAuth, getLeads);

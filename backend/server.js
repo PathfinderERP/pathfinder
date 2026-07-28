@@ -104,12 +104,12 @@ import { startPaymentReminderCron } from "./services/cronService.js";
 
 const app = express();
 
-app.use(express.json({ limit: "500mb" }));
+app.use(express.json({ limit: "1000gb" }));
 app.use(cors({
     origin: ["https://pathfinder-three-mu.vercel.app", "http://localhost:5173", "http://localhost:5000", "https://pfndrerp.in", "http://localhost:8081", "http://localhost:8082", "https://app.studypathportal.in/"],
     credentials: true
 }));
-app.use(express.urlencoded({ extended: true, limit: "500mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1000gb" }));
 app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Global Logging Middleware (must be before routes)
@@ -243,6 +243,11 @@ if (isSSL) {
 }
 
 initSocket(server);
+
+// Set extended timeouts for handling large video file uploads
+server.timeout = 600000; // 10 minutes
+server.keepAliveTimeout = 120000; // 2 minutes
+server.headersTimeout = 125000;
 
 const port = process.env.SERVICE_PORT || process.env.PORT || 5000;
 server.listen(port, () => {

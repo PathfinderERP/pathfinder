@@ -1,4 +1,5 @@
 import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../config/r2Config.js";
 import multer from "multer";
@@ -6,7 +7,7 @@ import multer from "multer";
 const storage = multer.memoryStorage();
 export const upload = multer({
     storage: storage,
-    limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit to allow for larger videos
+    limits: { fileSize: 1024 * 1024 * 1024 * 1024 } // 1TB limit
 });
 
 /**
@@ -51,8 +52,18 @@ export const uploadToR2 = async (file, folder = "general") => {
     };
 
     try {
-        console.log(`R2 Upload: Starting upload for ${fileName} to bucket ${bucketName}`);
-        await s3Client.send(new PutObjectCommand(uploadParams));
+        console.log(`R2 Upload: Starting upload for ${fileName} (${file.size || file.buffer?.length || 0} bytes) to bucket ${bucketName}`);
+        
+        const parallelUploads3 = new Upload({
+            client: s3Client,
+            params: uploadParams,
+            queueSize: 4, // 4 concurrent parts
+            partSize: 5 * 1024 * 1024, // 5MB part size
+            leavePartsOnError: false,
+        });
+
+        await parallelUploads3.done();
+
         let finalUrl;
         try {
             finalUrl = await getSignedUrl(
