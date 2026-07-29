@@ -31,15 +31,15 @@ const schoolForTaskSchema = new mongoose.Schema(
         // ── Tier ──────────────────────────────────
         tier: {
             type: String,
-            enum: ["Tier-1", "Tier-2", "Tier-3", "Tier-4", "Other"],
-            default: "Tier-1",
+            enum: ["A", "B", "C", "D", "E"],
+            default: "A",
         },
 
         // ── School Access (SCHOOLACCESS) ──────────
         schoolAccess: {
             type: String,
-            enum: ["open", "restricted", "blocked"],
-            default: "open",
+            enum: ["YES", "NO"],
+            default: "YES",
         },
     },
     { timestamps: true }

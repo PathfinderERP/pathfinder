@@ -12,8 +12,8 @@ const EMPTY_FORM = {
     centerName: "",
     schoolName: "",
     board: "",
-    tier: "Tier-1",
-    schoolAccess: "open"
+    tier: "A",
+    schoolAccess: "YES"
 };
 
 // ─── Custom Multi-Select Dropdown Component ───────────────────────────────────
@@ -59,9 +59,8 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className={`w-full flex items-center justify-between bg-gray-50 dark:bg-[#131619] border rounded-lg px-3 py-2.5 text-xs font-bold transition-all focus:outline-none ${
-                    open ? "border-cyan-500 ring-1 ring-cyan-500/20" : "border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-700"
-                }`}
+                className={`w-full flex items-center justify-between bg-gray-50 dark:bg-[#131619] border rounded-lg px-3 py-2.5 text-xs font-bold transition-all focus:outline-none ${open ? "border-cyan-500 ring-1 ring-cyan-500/20" : "border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-700"
+                    }`}
             >
                 <span className={`truncate ${selected.length > 0 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>
                     {label}
@@ -115,9 +114,8 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
                                     <div
                                         key={val}
                                         onClick={() => toggleOption(val)}
-                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs cursor-pointer select-none transition-colors ${
-                                            isChecked ? "bg-cyan-500/10 text-cyan-400 font-bold" : "text-gray-300 hover:bg-white/5"
-                                        }`}
+                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs cursor-pointer select-none transition-colors ${isChecked ? "bg-cyan-500/10 text-cyan-400 font-bold" : "text-gray-300 hover:bg-white/5"
+                                            }`}
                                     >
                                         <span className="truncate">{lbl}</span>
                                         {isChecked && <FaCheck className="text-cyan-400 text-xs shrink-0 ml-2" />}
@@ -253,8 +251,8 @@ export default function MasterDataSchoolForTaskContent() {
                 centerName: record.centerName?._id || record.centerName || "",
                 schoolName: record.schoolName || "",
                 board: record.board?._id || record.board || "",
-                tier: record.tier || "Tier-1",
-                schoolAccess: record.schoolAccess || "open"
+                tier: record.tier || "A",
+                schoolAccess: record.schoolAccess || "YES"
             });
         } else {
             setCurrentRecord(null);
@@ -357,22 +355,22 @@ export default function MasterDataSchoolForTaskContent() {
     // Download Template Excel File
     const handleDownloadTemplate = () => {
         const sampleCentre = centres.length > 0 ? centres[0].centreName : "Kolkata Main";
-        const sampleBoard  = boards.length > 0 ? (boards[0].boardCourse || boards[0].name) : "CBSE";
+        const sampleBoard = boards.length > 0 ? (boards[0].boardCourse || boards[0].name) : "CBSE";
 
         const templateData = [
             {
                 "CenterName*": sampleCentre,
                 "SchoolName*": "St. Xavier's High School",
                 "Board": sampleBoard,
-                "Tier": "Tier-1",
-                "SCHOOLACCESS": "open"
+                "Tier": "A",
+                "SCHOOLACCESS": "YES"
             },
             {
                 "CenterName*": sampleCentre,
                 "SchoolName*": "Delhi Public School",
                 "Board": sampleBoard,
-                "Tier": "Tier-2",
-                "SCHOOLACCESS": "restricted"
+                "Tier": "B",
+                "SCHOOLACCESS": "NO"
             }
         ];
 
@@ -438,7 +436,7 @@ export default function MasterDataSchoolForTaskContent() {
                     const bName = row["Board"] || row["Board Name"] || row["board"];
 
                     const foundCentre = centres.find(c => c.centreName?.trim().toLowerCase() === String(cName).trim().toLowerCase());
-                    const foundBoard  = boards.find(b => (b.boardCourse || b.name)?.trim().toLowerCase() === String(bName).trim().toLowerCase());
+                    const foundBoard = boards.find(b => (b.boardCourse || b.name)?.trim().toLowerCase() === String(bName).trim().toLowerCase());
 
                     return {
                         centerName: foundCentre ? foundCentre._id : cName,
@@ -599,7 +597,7 @@ export default function MasterDataSchoolForTaskContent() {
                     <div>
                         <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Tier</label>
                         <MultiSelect
-                            options={["Tier-1", "Tier-2", "Tier-3", "Tier-4", "Other"]}
+                            options={["A", "B", "C", "D", "E"]}
                             selected={selectedTiers}
                             onChange={setSelectedTiers}
                             placeholder="All Tiers"
@@ -610,7 +608,7 @@ export default function MasterDataSchoolForTaskContent() {
                     <div>
                         <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Access Level</label>
                         <MultiSelect
-                            options={["open", "restricted", "blocked"]}
+                            options={["YES", "NO"]}
                             selected={selectedAccessLevels}
                             onChange={setSelectedAccessLevels}
                             placeholder="All Access"
@@ -666,7 +664,7 @@ export default function MasterDataSchoolForTaskContent() {
                                                 className="rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-0 cursor-pointer"
                                             />
                                         </td>
-                                        <td className="p-4 text-gray-500 font-mono">{ (page - 1) * 50 + index + 1 }</td>
+                                        <td className="p-4 text-gray-500 font-mono">{(page - 1) * 50 + index + 1}</td>
                                         <td className="p-4 font-bold text-gray-200">
                                             <span className="flex items-center gap-2">
                                                 <FaBuilding className="text-cyan-400 text-xs" />
@@ -682,9 +680,9 @@ export default function MasterDataSchoolForTaskContent() {
                                         </td>
                                         <td className="p-4">
                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                                row.tier === "Tier-1" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                                row.tier === "Tier-2" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                                                row.tier === "Tier-3" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                                row.tier === "A" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                                row.tier === "B" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                                                row.tier === "C" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
                                                 "bg-gray-500/10 text-gray-400 border border-gray-500/20"
                                             }`}>
                                                 {row.tier}
@@ -692,8 +690,7 @@ export default function MasterDataSchoolForTaskContent() {
                                         </td>
                                         <td className="p-4">
                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                                row.schoolAccess === "open" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                                row.schoolAccess === "restricted" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                                row.schoolAccess === "YES" || row.schoolAccess === "open" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
                                                 "bg-red-500/10 text-red-400 border border-red-500/20"
                                             }`}>
                                                 {row.schoolAccess}
@@ -814,11 +811,11 @@ export default function MasterDataSchoolForTaskContent() {
                                     onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
                                     className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
                                 >
-                                    <option value="Tier-1">Tier-1</option>
-                                    <option value="Tier-2">Tier-2</option>
-                                    <option value="Tier-3">Tier-3</option>
-                                    <option value="Tier-4">Tier-4</option>
-                                    <option value="Other">Other</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                    <option value="E">E</option>
                                 </select>
                             </div>
 
@@ -830,9 +827,8 @@ export default function MasterDataSchoolForTaskContent() {
                                     onChange={(e) => setFormData({ ...formData, schoolAccess: e.target.value })}
                                     className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
                                 >
-                                    <option value="open">Open</option>
-                                    <option value="restricted">Restricted</option>
-                                    <option value="blocked">Blocked</option>
+                                    <option value="YES">YES</option>
+                                    <option value="NO">NO</option>
                                 </select>
                             </div>
 
