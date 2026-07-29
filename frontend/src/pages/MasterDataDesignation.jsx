@@ -3,6 +3,7 @@ import Layout from "../components/Layout";
 import { FaPlus, FaEdit, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
 import ExcelImportExport from "../components/common/ExcelImportExport";
+import { hasPermission } from "../config/permissions";
 
 const MasterDataDesignation = () => {
     const [designations, setDesignations] = useState([]);
@@ -16,6 +17,13 @@ const MasterDataDesignation = () => {
         department: "",
         travelAmount: 0 // Added default
     });
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'designation', 'create');
+    const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'designation', 'edit');
+    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'designation', 'delete');
 
     useEffect(() => {
         fetchDesignations();
@@ -223,12 +231,14 @@ const MasterDataDesignation = () => {
                             onImport={handleBulkImport}
                             fileName="designations"
                         />
-                        <button
-                            onClick={handleAddNew}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
-                        >
-                            <FaPlus /> Add Designation
-                        </button>
+                        {canCreate && (
+                            <button
+                                onClick={handleAddNew}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                            >
+                                <FaPlus /> Add Designation
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -292,20 +302,24 @@ const MasterDataDesignation = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex gap-3">
-                                                    <button
-                                                        onClick={() => handleEdit(designation)}
-                                                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                                                        title="Edit"
-                                                    >
-                                                        <FaEdit size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(designation._id)}
-                                                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                                                        title="Delete"
-                                                    >
-                                                        <FaTrash size={18} />
-                                                    </button>
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => handleEdit(designation)}
+                                                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                            title="Edit"
+                                                        >
+                                                            <FaEdit size={18} />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button
+                                                            onClick={() => handleDelete(designation._id)}
+                                                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                            title="Delete"
+                                                        >
+                                                            <FaTrash size={18} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

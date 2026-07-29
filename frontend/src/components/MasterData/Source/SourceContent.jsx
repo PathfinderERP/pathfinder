@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import AddSourceModal from "./AddSourceModal";
 import EditSourceModal from "./EditSourceModal";
 import ExcelImportExport from "../../common/ExcelImportExport";
+import { hasPermission } from "../../../config/permissions";
 
 const SourceContent = () => {
     const [sources, setSources] = useState([]);
@@ -13,6 +14,13 @@ const SourceContent = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedSource, setSelectedSource] = useState(null);
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'source', 'create');
+    const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'source', 'edit');
+    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'source', 'delete');
 
     useEffect(() => {
         fetchSources();
@@ -152,12 +160,14 @@ const SourceContent = () => {
                         onImport={handleBulkImport}
                         fileName="sources"
                     />
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 bg-cyan-500 text-black px-4 py-2 rounded-lg font-semibold hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20"
-                    >
-                        <FaPlus /> Add Source
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="flex items-center gap-2 bg-cyan-500 text-black px-4 py-2 rounded-lg font-semibold hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20"
+                        >
+                            <FaPlus /> Add Source
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -206,18 +216,22 @@ const SourceContent = () => {
                                         <td className="px-4 py-3 text-gray-400">{source.sourceType || "N/A"}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handleEdit(source)}
-                                                    className="text-cyan-400 hover:text-cyan-300 transition-colors"
-                                                >
-                                                    <FaEdit size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(source._id)}
-                                                    className="text-red-400 hover:text-red-300 transition-colors"
-                                                >
-                                                    <FaTrash size={16} />
-                                                </button>
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => handleEdit(source)}
+                                                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                                                    >
+                                                        <FaEdit size={16} />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDelete(source._id)}
+                                                        className="text-red-400 hover:text-red-300 transition-colors"
+                                                    >
+                                                        <FaTrash size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
