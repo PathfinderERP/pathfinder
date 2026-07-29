@@ -379,9 +379,9 @@ function App() {
 
         <Route path="/master-data/designation" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataDesignation /></ProtectedRoute>} />
         <Route path="/master-data/follow-up-feedback" element={<ProtectedRoute allowedRoles={['superadmin']}><MasterDataFollowUpFeedback /></ProtectedRoute>} />
-        <Route path="/course-management" element={<ProtectedRoute allowedRoles={['superadmin', 'digital']}><MasterDataCourse /></ProtectedRoute>} />
-        <Route path="/course-management/carry-forward" element={<ProtectedRoute ><CarryForward /></ProtectedRoute>} />
-        <Route path="/course-management/course-transfer" element={<ProtectedRoute ><CourseTransfer /></ProtectedRoute>} />
+        <Route path="/course-management" element={<ProtectedRoute requiredPermissionModule="courseManagement" requiredPermissionSection="courses"><MasterDataCourse /></ProtectedRoute>} />
+        <Route path="/course-management/carry-forward" element={<ProtectedRoute requiredPermissionModule="courseManagement" requiredPermissionSection="carryForward"><CarryForward /></ProtectedRoute>} />
+        <Route path="/course-management/course-transfer" element={<ProtectedRoute requiredPermissionModule="courseManagement" requiredPermissionSection="carryForward"><CourseTransfer /></ProtectedRoute>} />
         <Route path="/enrolled-students" element={<ProtectedRoute><EnrolledStudents /></ProtectedRoute>} />
         <Route path="/admissions/batch-allocation" element={<ProtectedRoute><BatchAllocation /></ProtectedRoute>} />
         <Route path="/edit-board-subjects/:admissionId" element={<ProtectedRoute><EditBoardSubjects /></ProtectedRoute>} />

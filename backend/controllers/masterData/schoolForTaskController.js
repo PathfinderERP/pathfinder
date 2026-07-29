@@ -267,12 +267,12 @@ export const bulkImportSchoolsForTask = async (req, res) => {
 
         for (const row of rows) {
             const rawSchoolName = clean(row.schoolName || row["SchoolName"] || row["School Name"] || row["SchoolName*"] || row["School Name*"]);
-            const rawCenter     = clean(row.centerName || row["CenterName"] || row["Center Name"] || row["CenterName*"] || row["Center Name*"]);
-            const rawBoard      = clean(row.board      || row["Board"]      || row["Board Name"]);
-            const tier          = clean(row.tier       || row["Tier"])       || "A";
-            const schoolAccess  = clean(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]) || "YES";
-            const status        = clean(row.status     || row["Status"]     || row["STATUS"]) || "ONLY INFORMATION GIVEN TO STUDENTS";
-            const remarks       = clean(row.remarks    || row["Remarks"]    || row["REMARKS"]);
+            const rawCenter = clean(row.centerName || row["CenterName"] || row["Center Name"] || row["CenterName*"] || row["Center Name*"]);
+            const rawBoard = clean(row.board || row["Board"] || row["Board Name"]);
+            const tier = clean(row.tier || row["Tier"]) || "A";
+            const schoolAccess = clean(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]) || "YES";
+            const status = clean(row.status || row["Status"] || row["STATUS"]) || "ONLY INFORMATION GIVEN TO STUDENTS";
+            const remarks = clean(row.remarks || row["Remarks"] || row["REMARKS"]);
 
             // Resolve Centre ObjectId
             let centreId = null;
@@ -353,10 +353,10 @@ export const getSchoolForTaskDistinctFields = async (req, res) => {
         ]);
 
         res.status(200).json({
-            schools:      schools.filter(Boolean).sort(),
-            tiers:        tiers.filter(Boolean).sort(),
+            schools: schools.filter(Boolean).sort(),
+            tiers: tiers.filter(Boolean).sort(),
             accessLevels: accessLevels.filter(Boolean).sort(),
-            statuses:     statuses.filter(Boolean).sort(),
+            statuses: statuses.filter(Boolean).sort(),
         });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });

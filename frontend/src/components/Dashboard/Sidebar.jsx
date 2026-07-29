@@ -405,8 +405,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "courseManagement",
             subItems: [
                 { name: "Course List", path: "/course-management", permissionSection: "courses" },
-                { name: "Carry Forward", path: "/course-management/carry-forward", permissionSection: "courses" },
-                //{ name: "Course Transfer", path: "/course-management/course-transfer", permissionSection: "courses" },
+                { name: "Carry Forward", path: "/course-management/carry-forward", permissionSection: "carryForward" },
+                //{ name: "Course Transfer", path: "/course-management/course-transfer", permissionSection: "carryForward" },
             ]
         },
         {

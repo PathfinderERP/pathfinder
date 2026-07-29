@@ -480,14 +480,10 @@ export const PERMISSION_MODULES = {
                 label: "Courses",
                 operations: ["create", "edit", "delete"]
             },
-            // curriculum: {
-            //     label: "Curriculum",
-            //     operations: ["create", "edit", "delete"]
-            // },
-            // materials: {
-            //     label: "Materials",
-            //     operations: ["create", "edit", "delete"]
-            // }
+            carryForward: {
+                label: "Carry Forward",
+                operations: ["create", "edit", "delete"]
+            }
         }
     },
     dailyTrackingLog: {
