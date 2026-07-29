@@ -14,6 +14,8 @@ const CentreRank = () => {
     const [loading, setLoading] = useState(true);
     const [sessions, setSessions] = useState([]);
     const [centres, setCentres] = useState([]);
+    const [zones, setZones] = useState([]);
+    const [selectedZones, setSelectedZones] = useState([]);
 
     // Filters
     const monthNames = [
@@ -30,7 +32,6 @@ const CentreRank = () => {
     const [endDate, setEndDate] = useState("");
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [search, setSearch] = useState("");
-    const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
     const months = [
@@ -38,29 +39,15 @@ const CentreRank = () => {
         "July", "August", "September", "October", "November", "December"
     ];
 
-    useEffect(() => {
-        fetchMasterData();
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsCentreDropdownOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        fetchRankings();
-    }, [filterFinancialYear, filterYear, selectedMonths, startDate, endDate, viewMode, selectedCentres, search]);
-
     const fetchMasterData = async () => {
         try {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [sessionRes, centreRes] = await Promise.all([
+            const [sessionRes, centreRes, zoneRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
             ]);
 
             if (sessionRes.ok) {
@@ -88,10 +75,61 @@ const CentreRank = () => {
                 const sortedCentres = centerList.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
                 setCentres(sortedCentres);
             }
+
+            if (zoneRes.ok) {
+                const zoneData = await zoneRes.json();
+                const zoneList = Array.isArray(zoneData) ? zoneData : (zoneData.data || zoneData.zones || []);
+                const sortedZones = zoneList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setZones(sortedZones);
+            }
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
     };
+
+    // ── Zone Matching Helper ──────────────────────────────────────────────────
+    const zoneCentreMatchInfo = React.useMemo(() => {
+        if (!selectedZones || selectedZones.length === 0) return null;
+        const allowedIds = new Set();
+        const allowedNames = new Set();
+
+        zones.filter(z => selectedZones.includes(z._id)).forEach(z => {
+            (z.centres || []).forEach(c => {
+                const id = typeof c === 'object' ? c._id : c;
+                if (id) allowedIds.add(id.toString());
+                const name = typeof c === 'object' ? c.centreName : null;
+                if (name) allowedNames.add(name.toLowerCase().trim());
+            });
+        });
+
+        return { ids: allowedIds, names: allowedNames };
+    }, [zones, selectedZones]);
+
+    const isCentreAllowedByZone = React.useCallback((cId, cName) => {
+        if (!zoneCentreMatchInfo) return true;
+        if (!cId && !cName) return false;
+
+        const idStr = cId ? cId.toString() : "";
+        const nameStr = (cName || "").toLowerCase().trim();
+
+        if (idStr && zoneCentreMatchInfo.ids.has(idStr)) return true;
+        if (nameStr && zoneCentreMatchInfo.names.has(nameStr)) return true;
+
+        const cleanName = nameStr.replace(/phsps/gi, "").replace(/[^a-z0-9]/gi, "");
+        for (const zoneCentreName of zoneCentreMatchInfo.names) {
+            const cleanZoneCentreName = zoneCentreName.replace(/phsps/gi, "").replace(/[^a-z0-9]/gi, "");
+            if (cleanZoneCentreName && cleanName && (cleanName.includes(cleanZoneCentreName) || cleanZoneCentreName.includes(cleanName))) {
+                return true;
+            }
+        }
+
+        return false;
+    }, [zoneCentreMatchInfo]);
+
+    const availableCentres = React.useMemo(() => {
+        if (!zoneCentreMatchInfo) return centres;
+        return centres.filter(c => isCentreAllowedByZone(c._id, c.centreName));
+    }, [centres, zoneCentreMatchInfo, isCentreAllowedByZone]);
 
     const fetchRankings = async () => {
         if (!filterFinancialYear && viewMode !== "Custom") return;
@@ -116,8 +154,15 @@ const CentreRank = () => {
                 }
             }
 
+            let effectiveCentreIds = [];
             if (selectedCentres.length > 0) {
-                params.append("centreIds", selectedCentres.join(","));
+                effectiveCentreIds = selectedCentres;
+            } else if (selectedZones.length > 0) {
+                effectiveCentreIds = availableCentres.map(c => c._id);
+            }
+
+            if (effectiveCentreIds.length > 0) {
+                params.append("centreIds", effectiveCentreIds.join(","));
             }
 
             if (search) {
@@ -141,6 +186,19 @@ const CentreRank = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchMasterData();
+    }, []);
+
+    useEffect(() => {
+        fetchRankings();
+    }, [filterFinancialYear, filterYear, selectedMonths, startDate, endDate, viewMode, selectedCentres, selectedZones, availableCentres, search]);
+
+    const displayedRankings = React.useMemo(() => {
+        if (!zoneCentreMatchInfo) return rankings;
+        return rankings.filter(r => isCentreAllowedByZone(r.centreId || r._id, r.centreName));
+    }, [rankings, zoneCentreMatchInfo, isCentreAllowedByZone]);
 
     const toggleCentreSelection = (centreId) => {
         setSelectedCentres(prev =>
@@ -247,56 +305,27 @@ const CentreRank = () => {
                             <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
 
-                        <div className="relative" ref={dropdownRef}>
-                            <button
-                                onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
-                                className={`text-sm rounded-md px-3 py-2 outline-none font-bold min-w-[180px] flex justify-between items-center transition-colors border ${isDarkMode
-                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 hover:border-blue-500'
-                                    : 'bg-white border-gray-300 text-gray-800 hover:border-blue-500 shadow-sm'
-                                    }`}
-                            >
-                                <span className="truncate max-w-[140px] uppercase text-xs tracking-widest font-black">
-                                    {selectedCentres.length === 0
-                                        ? "All Centres"
-                                        : `${selectedCentres.length} Selected`}
-                                </span>
-                                <FaChevronDown size={10} className={`ml-2 transition-transform duration-200 ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {isCentreDropdownOpen && (
-                                <div className={`absolute top-full mt-2 left-0 w-60 z-20 border rounded-lg shadow-xl overflow-hidden text-left ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'
-                                    }`}>
-                                    <div className="max-h-60 overflow-y-auto p-2 space-y-1">
-                                        {centres.map(c => (
-                                            <div
-                                                key={c._id}
-                                                className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
-                                                    }`}
-                                                onClick={() => toggleCentreSelection(c._id)}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedCentres.includes(c._id)}
-                                                    readOnly
-                                                    className={`rounded w-4 h-4 ${isDarkMode ? 'border-gray-600 bg-gray-700 text-cyan-500' : 'border-gray-300 text-cyan-600'}`}
-                                                />
-                                                <span className={`text-sm truncate font-bold uppercase tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{c.centreName}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className={`p-2 border-t ${isDarkMode ? 'border-gray-700 bg-[#131619]' : 'border-gray-100 bg-gray-50'}`}>
-                                        <button
-                                            onClick={() => setSelectedCentres([])}
-                                            className="text-xs font-black uppercase tracking-widest text-cyan-500 hover:text-cyan-400 w-full text-center"
-                                        >
-                                            Clear Selection
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                        {/* Zone MultiSelect */}
+                        <div className="min-w-[150px] z-10 w-full sm:w-48 text-left">
+                            <CustomMultiSelect
+                                options={zones.map(z => ({ value: z._id, label: z.name }))}
+                                value={zones.map(z => ({ value: z._id, label: z.name })).filter(opt => selectedZones.includes(opt.value))}
+                                onChange={(selected) => setSelectedZones(selected ? selected.map(o => o.value) : [])}
+                                placeholder="All Zones"
+                                isDarkMode={isDarkMode}
+                            />
                         </div>
 
-
+                        {/* Centre MultiSelect */}
+                        <div className="min-w-[150px] z-10 w-full sm:w-48 text-left">
+                            <CustomMultiSelect
+                                options={availableCentres.map(c => ({ value: c._id, label: c.centreName }))}
+                                value={availableCentres.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))}
+                                onChange={(selected) => setSelectedCentres(selected ? selected.map(o => o.value) : [])}
+                                placeholder="All Centres"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
 
                         {viewMode === "Monthly" && (
                             <>
@@ -352,12 +381,12 @@ const CentreRank = () => {
                                     <tr>
                                         <td colSpan="7" className="px-6 py-12 text-center text-gray-400 font-medium">Calculating ranks...</td>
                                     </tr>
-                                ) : rankings.length === 0 ? (
+                                ) : displayedRankings.length === 0 ? (
                                     <tr>
                                         <td colSpan="7" className="px-6 py-12 text-center text-gray-400 font-medium">No ranking data found for this period.</td>
                                     </tr>
                                 ) : (
-                                    rankings.map((rank, index) => (
+                                    displayedRankings.map((rank, index) => (
                                         <tr key={index} className={`transition-all duration-200 cursor-default group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-blue-50/50'}`}>
                                             <td className={`px-6 py-5 font-black text-lg transition-colors ${isDarkMode ? 'text-white' : 'text-gray-800'} group-hover:text-blue-500`}>{rank.rank}</td>
                                             <td className={`px-6 py-5 font-black uppercase tracking-wide transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{rank.centreName}</td>
