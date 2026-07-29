@@ -14,10 +14,12 @@ const BatchContent = () => {
     const [currentBatch, setCurrentBatch] = useState(null);
     const [formData, setFormData] = useState({ batchName: "" });
 
-    // Mock permissions for now or import if available
-    const canCreate = true;
-    const canEdit = true;
-    const canDelete = true;
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'batch', 'create');
+    const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'batch', 'edit');
+    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'masterData', 'batch', 'delete');
 
     const fetchBatches = async () => {
         setLoading(true);
