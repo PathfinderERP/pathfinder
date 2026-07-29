@@ -367,7 +367,7 @@ function App() {
         <Route path="/master-data/subject" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="subject"><MasterDataSubject /></ProtectedRoute>} />
         <Route path="/master-data/zone" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="zone"><ZoneManagement /></ProtectedRoute>} />
         <Route path="/master-data/school-data" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="schoolData"><MasterDataSchoolData /></ProtectedRoute>} />
-        <Route path="/master-data/school-for-task" element={<ProtectedRoute requiredPermissionModule="masterData"><MasterDataSchoolForTask /></ProtectedRoute>} />
+        <Route path="/master-data/school-for-task" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="schoolForTask"><MasterDataSchoolForTask /></ProtectedRoute>} />
         <Route path="/master-data/designation" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="designation"><MasterDataDesignation /></ProtectedRoute>} />
 
         {/* Petty Cash Routes */}

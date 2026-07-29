@@ -457,6 +457,10 @@ export const PERMISSION_MODULES = {
             followUpFeedback: {
                 label: "Follow-up Feedback",
                 operations: ["create", "edit", "delete"]
+            },
+            schoolForTask: {
+                label: "School For Task",
+                operations: ["create", "edit", "delete"]
             }
         }
     },

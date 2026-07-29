@@ -7,6 +7,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { hasPermission } from "../../../config/permissions";
 
 const EMPTY_FORM = {
     centerName: "",
@@ -166,6 +167,13 @@ export default function MasterDataSchoolForTaskContent() {
     const [importing, setImporting] = useState(false);
 
     const token = localStorage.getItem("token");
+
+    // Permission checks
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isSuperAdmin = user.role === "superAdmin";
+    const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "create");
+    const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "edit");
+    const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "delete");
 
     // Fetch Centres and Boards for Dropdowns
     useEffect(() => {
@@ -519,7 +527,7 @@ export default function MasterDataSchoolForTaskContent() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                    {selectedIds.length > 0 && (
+                    {canDelete && selectedIds.length > 0 && (
                         <button
                             onClick={handleBulkDelete}
                             className="flex items-center gap-2 px-4 py-2.5 bg-red-600/20 border border-red-500/30 text-red-400 font-bold rounded-xl hover:bg-red-600/40 transition-colors uppercase text-xs tracking-widest"
@@ -539,18 +547,22 @@ export default function MasterDataSchoolForTaskContent() {
                     >
                         <FaFileExport /> Export Data
                     </button>
-                    <button
-                        onClick={() => setIsImportModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 border border-gray-700 text-cyan-400 font-bold rounded-xl hover:bg-gray-700 transition-colors uppercase text-xs tracking-widest"
-                    >
-                        <FaFileImport /> Import
-                    </button>
-                    <button
-                        onClick={() => openModal()}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-black font-black rounded-xl hover:bg-cyan-400 transition-all uppercase text-xs tracking-widest shadow-lg shadow-cyan-500/20"
-                    >
-                        <FaPlus /> Add School
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 border border-gray-700 text-cyan-400 font-bold rounded-xl hover:bg-gray-700 transition-colors uppercase text-xs tracking-widest"
+                        >
+                            <FaFileImport /> Import
+                        </button>
+                    )}
+                    {canCreate && (
+                        <button
+                            onClick={() => openModal()}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-black font-black rounded-xl hover:bg-cyan-400 transition-all uppercase text-xs tracking-widest shadow-lg shadow-cyan-500/20"
+                        >
+                            <FaPlus /> Add School
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -742,20 +754,24 @@ export default function MasterDataSchoolForTaskContent() {
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => openModal(row)}
-                                                    className="p-2 text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-colors"
-                                                    title="Edit Record"
-                                                >
-                                                    <FaEdit size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(row._id)}
-                                                    className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                                                    title="Delete Record"
-                                                >
-                                                    <FaTrash size={14} />
-                                                </button>
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => openModal(row)}
+                                                        className="p-2 text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-colors"
+                                                        title="Edit Record"
+                                                    >
+                                                        <FaEdit size={14} />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDelete(row._id)}
+                                                        className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                                                        title="Delete Record"
+                                                    >
+                                                        <FaTrash size={14} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
