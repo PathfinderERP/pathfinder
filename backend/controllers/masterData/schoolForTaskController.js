@@ -108,6 +108,34 @@ export const getSchoolsForTask = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
+//  EXPORT ALL  (no pagination, respects filters)
+// ─────────────────────────────────────────────
+export const exportAllSchoolsForTask = async (req, res) => {
+    try {
+        const query = buildFilterQuery(req.query);
+        const records = await withPopulate(
+            SchoolForTask.find(query).sort({ createdAt: -1 })
+        );
+        res.status(200).json({ data: records, totalItems: records.length });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// ─────────────────────────────────────────────
+//  GET ALL IDs  (for select-all across pages)
+// ─────────────────────────────────────────────
+export const getAllSchoolForTaskIds = async (req, res) => {
+    try {
+        const query = buildFilterQuery(req.query);
+        const records = await SchoolForTask.find(query).select("_id").lean();
+        res.status(200).json({ ids: records.map(r => r._id) });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// ─────────────────────────────────────────────
 //  READ ONE
 // ─────────────────────────────────────────────
 export const getSchoolForTaskById = async (req, res) => {

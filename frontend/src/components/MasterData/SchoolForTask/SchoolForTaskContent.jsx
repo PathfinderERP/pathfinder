@@ -165,6 +165,7 @@ export default function MasterDataSchoolForTaskContent() {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importFile, setImportFile] = useState(null);
     const [importing, setImporting] = useState(false);
+    const [isAllSelected, setIsAllSelected] = useState(false); // true = all pages selected
 
     const token = localStorage.getItem("token");
 
@@ -253,6 +254,8 @@ export default function MasterDataSchoolForTaskContent() {
 
     useEffect(() => {
         fetchSchools();
+        setSelectedIds([]);
+        setIsAllSelected(false);
     }, [page, search, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses]);
 
     // Form Modal Handlers
@@ -412,25 +415,46 @@ export default function MasterDataSchoolForTaskContent() {
         saveAs(data, "SchoolForTask_Import_Template.xlsx");
     };
 
-    // Export to Excel
-    const handleExport = () => {
-        const exportData = schools.map((s, idx) => ({
-            "SL No": idx + 1,
-            "Center Name": s.centerName?.centreName || "N/A",
-            "School Name": s.schoolName || "",
-            "Board": s.board?.boardCourse || s.board?.name || "N/A",
-            "Tier": s.tier || "",
-            "School Access": s.schoolAccess || "",
-            "Status": s.status || "",
-            "Remarks": s.remarks || ""
-        }));
+    // Export ALL data (respects current filters, fetches all pages from server)
+    const handleExport = async () => {
+        try {
+            toast.info("Preparing export...", { autoClose: 1500 });
+            const params = new URLSearchParams({
+                search,
+                schoolName: selectedSchoolNames.join(","),
+                centerName: selectedCentres.join(","),
+                board: selectedBoards.join(","),
+                tier: selectedTiers.join(","),
+                schoolAccess: selectedAccessLevels.join(","),
+                status: selectedStatuses.join(",")
+            });
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/export-all?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) { toast.error("Export failed"); return; }
+            const { data: allData } = await res.json();
 
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "SchoolsForTask");
-        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-        saveAs(data, `SchoolForTask_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            const exportData = allData.map((s, idx) => ({
+                "SL No": idx + 1,
+                "Center Name": s.centerName?.centreName || "N/A",
+                "School Name": s.schoolName || "",
+                "Board": s.board?.boardCourse || s.board?.name || "N/A",
+                "Tier": s.tier || "",
+                "School Access": s.schoolAccess || "",
+                "Status": s.status || "",
+                "Remarks": s.remarks || ""
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "SchoolsForTask");
+            const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+            const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+            saveAs(blob, `SchoolForTask_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            toast.success(`Exported ${allData.length} records`);
+        } catch (err) {
+            toast.error("Export failed");
+        }
     };
 
     // Import from Excel
@@ -499,11 +523,47 @@ export default function MasterDataSchoolForTaskContent() {
         reader.readAsBinaryString(importFile);
     };
 
-    const toggleSelectAll = () => {
-        if (selectedIds.length === schools.length) {
+    // Toggle select-all — fetches ALL matching IDs from server when selecting
+    const toggleSelectAll = async () => {
+        // If all pages are currently selected, clear everything
+        if (isAllSelected) {
             setSelectedIds([]);
+            setIsAllSelected(false);
+            return;
+        }
+        // If current page is already all selected, escalate to selecting ALL pages
+        const currentPageIds = schools.map(s => s._id);
+        const currentPageAllSelected = currentPageIds.length > 0 && currentPageIds.every(id => selectedIds.includes(id));
+        if (currentPageAllSelected && selectedIds.length < totalItems) {
+            // Fetch all IDs from server
+            try {
+                const params = new URLSearchParams({
+                    search,
+                    schoolName: selectedSchoolNames.join(","),
+                    centerName: selectedCentres.join(","),
+                    board: selectedBoards.join(","),
+                    tier: selectedTiers.join(","),
+                    schoolAccess: selectedAccessLevels.join(","),
+                    status: selectedStatuses.join(",")
+                });
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/all-ids?${params.toString()}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const { ids } = await res.json();
+                setSelectedIds(ids);
+                setIsAllSelected(true);
+                toast.success(`All ${ids.length} records selected`);
+            } catch {
+                toast.error("Failed to select all records");
+            }
+            return;
+        }
+        // Otherwise just toggle current page
+        if (currentPageAllSelected) {
+            setSelectedIds([]);
+            setIsAllSelected(false);
         } else {
-            setSelectedIds(schools.map(s => s._id));
+            setSelectedIds(prev => [...new Set([...prev, ...currentPageIds])]);
         }
     };
 
@@ -670,7 +730,7 @@ export default function MasterDataSchoolForTaskContent() {
                                 <th className="p-4 w-10">
                                     <input
                                         type="checkbox"
-                                        checked={schools.length > 0 && selectedIds.length === schools.length}
+                                        checked={schools.length > 0 && schools.every(s => selectedIds.includes(s._id))}
                                         onChange={toggleSelectAll}
                                         className="rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-0 cursor-pointer"
                                     />
@@ -686,6 +746,37 @@ export default function MasterDataSchoolForTaskContent() {
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
+                        {/* Select-all-pages banner */}
+                        {schools.every(s => selectedIds.includes(s._id)) && schools.length > 0 && !isAllSelected && selectedIds.length < totalItems && (
+                            <tbody>
+                                <tr>
+                                    <td colSpan="10" className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-2 text-center text-xs font-bold text-cyan-300">
+                                        All {schools.length} records on this page are selected.{" "}
+                                        <button
+                                            onClick={toggleSelectAll}
+                                            className="underline text-cyan-400 hover:text-white transition-colors"
+                                        >
+                                            Select all {totalItems} records
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        )}
+                        {isAllSelected && (
+                            <tbody>
+                                <tr>
+                                    <td colSpan="10" className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-2 text-center text-xs font-bold text-emerald-300">
+                                        All {selectedIds.length} records are selected.{" "}
+                                        <button
+                                            onClick={() => { setSelectedIds([]); setIsAllSelected(false); }}
+                                            className="underline text-emerald-400 hover:text-white transition-colors"
+                                        >
+                                            Clear selection
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        )}
                         <tbody className="divide-y divide-gray-800 text-xs font-semibold">
                             {loading ? (
                                 <tr>

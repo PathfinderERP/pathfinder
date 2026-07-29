@@ -9,6 +9,8 @@ import {
     bulkUpdateSchoolsForTask,
     bulkImportSchoolsForTask,
     getSchoolForTaskDistinctFields,
+    exportAllSchoolsForTask,
+    getAllSchoolForTaskIds,
 } from "../../controllers/masterData/schoolForTaskController.js";
 import { requireAuth } from "../../middleware/permissionMiddleware.js";
 
@@ -16,6 +18,8 @@ const router = express.Router();
 
 // ── Utility ───────────────────────────────────────────
 router.get("/distinct-fields", requireAuth, getSchoolForTaskDistinctFields);
+router.get("/export-all",     requireAuth, exportAllSchoolsForTask);
+router.get("/all-ids",        requireAuth, getAllSchoolForTaskIds);
 
 // ── CRUD ──────────────────────────────────────────────
 router.get("/",     requireAuth, getSchoolsForTask);
