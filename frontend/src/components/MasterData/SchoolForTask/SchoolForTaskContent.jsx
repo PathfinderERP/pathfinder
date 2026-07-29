@@ -354,13 +354,53 @@ export default function MasterDataSchoolForTaskContent() {
         }
     };
 
+    // Download Template Excel File
+    const handleDownloadTemplate = () => {
+        const sampleCentre = centres.length > 0 ? centres[0].centreName : "Kolkata Main";
+        const sampleBoard  = boards.length > 0 ? (boards[0].boardCourse || boards[0].name) : "CBSE";
+
+        const templateData = [
+            {
+                "CenterName*": sampleCentre,
+                "SchoolName*": "St. Xavier's High School",
+                "Board": sampleBoard,
+                "Tier": "Tier-1",
+                "SCHOOLACCESS": "open"
+            },
+            {
+                "CenterName*": sampleCentre,
+                "SchoolName*": "Delhi Public School",
+                "Board": sampleBoard,
+                "Tier": "Tier-2",
+                "SCHOOLACCESS": "restricted"
+            }
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(templateData);
+
+        // Auto column widths
+        ws['!cols'] = [
+            { wch: 25 },
+            { wch: 35 },
+            { wch: 20 },
+            { wch: 15 },
+            { wch: 15 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "SchoolForTask_Template");
+        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+        saveAs(data, "SchoolForTask_Import_Template.xlsx");
+    };
+
     // Export to Excel
     const handleExport = () => {
         const exportData = schools.map((s, idx) => ({
             "SL No": idx + 1,
             "Center Name": s.centerName?.centreName || "N/A",
             "School Name": s.schoolName || "",
-            "Board": s.board?.name || "N/A",
+            "Board": s.board?.boardCourse || s.board?.name || "N/A",
             "Tier": s.tier || "",
             "School Access": s.schoolAccess || ""
         }));
@@ -393,18 +433,19 @@ export default function MasterDataSchoolForTaskContent() {
 
                 // Map excel columns to CenterName / Board IDs where applicable
                 const formattedRows = data.map(row => {
-                    const cName = row["CenterName"] || row["Center Name"] || row["centerName"];
-                    const bName = row["Board"] || row["board"];
+                    const cName = row["CenterName*"] || row["CenterName"] || row["Center Name*"] || row["Center Name"] || row["centerName"];
+                    const sName = row["SchoolName*"] || row["SchoolName"] || row["School Name*"] || row["School Name"] || row["schoolName"];
+                    const bName = row["Board"] || row["Board Name"] || row["board"];
 
-                    const foundCentre = centres.find(c => c.centreName?.toLowerCase() === String(cName).trim().toLowerCase());
-                    const foundBoard = boards.find(b => b.name?.toLowerCase() === String(bName).trim().toLowerCase());
+                    const foundCentre = centres.find(c => c.centreName?.trim().toLowerCase() === String(cName).trim().toLowerCase());
+                    const foundBoard  = boards.find(b => (b.boardCourse || b.name)?.trim().toLowerCase() === String(bName).trim().toLowerCase());
 
                     return {
                         centerName: foundCentre ? foundCentre._id : cName,
-                        schoolName: row["SchoolName"] || row["School Name"] || row["schoolName"],
+                        schoolName: sName,
                         board: foundBoard ? foundBoard._id : bName,
                         tier: row["Tier"] || row["tier"] || "Tier-1",
-                        schoolAccess: row["SCHOOLACCESS"] || row["SchoolAccess"] || row["schoolAccess"] || "open"
+                        schoolAccess: row["SCHOOLACCESS"] || row["SchoolAccess"] || row["School Access"] || row["schoolAccess"] || "open"
                     };
                 });
 
@@ -473,10 +514,16 @@ export default function MasterDataSchoolForTaskContent() {
                         </button>
                     )}
                     <button
+                        onClick={handleDownloadTemplate}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 font-bold rounded-xl hover:bg-emerald-600/30 transition-colors uppercase text-xs tracking-widest"
+                    >
+                        <FaFileExport /> Download Template
+                    </button>
+                    <button
                         onClick={handleExport}
                         className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 font-bold rounded-xl hover:bg-gray-700 transition-colors uppercase text-xs tracking-widest"
                     >
-                        <FaFileExport /> Export
+                        <FaFileExport /> Export Data
                     </button>
                     <button
                         onClick={() => setIsImportModalOpen(true)}
@@ -824,16 +871,33 @@ export default function MasterDataSchoolForTaskContent() {
 
                         <form onSubmit={handleBulkImportSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-gray-400 text-xs font-bold mb-2">
-                                    Excel Columns Required: <br />
-                                    <span className="text-cyan-400 font-mono">CenterName | SchoolName | Board | Tier | SCHOOLACCESS</span>
-                                </label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-gray-400 text-xs font-bold">
+                                        Select Excel File
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={handleDownloadTemplate}
+                                        className="text-[10px] text-cyan-400 hover:underline font-bold uppercase"
+                                    >
+                                        Download Template
+                                    </button>
+                                </div>
                                 <input
                                     type="file"
                                     accept=".xlsx, .xls"
                                     onChange={(e) => setImportFile(e.target.files[0])}
                                     className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-xs text-gray-300 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-cyan-500/20 file:text-cyan-400 hover:file:bg-cyan-500/30 cursor-pointer"
                                 />
+                            </div>
+
+                            <div className="bg-[#131619] p-3 rounded-xl border border-gray-800 text-[11px] text-gray-400 space-y-1 font-semibold">
+                                <p className="text-white font-bold uppercase text-[10px] tracking-wider mb-1.5">Column Requirements:</p>
+                                <p><span className="text-emerald-400 font-bold">CenterName*</span> — Must match Master Centre name</p>
+                                <p><span className="text-emerald-400 font-bold">SchoolName*</span> — School Name</p>
+                                <p><span className="text-cyan-400 font-bold">Board</span> — Must match Master Board name (e.g. CBSE)</p>
+                                <p><span className="text-gray-300 font-bold">Tier</span> — Tier-1 / Tier-2 / Tier-3 / Tier-4 / Other</p>
+                                <p><span className="text-gray-300 font-bold">SCHOOLACCESS</span> — open / restricted / blocked</p>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4">

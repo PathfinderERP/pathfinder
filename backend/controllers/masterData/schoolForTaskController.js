@@ -1,4 +1,7 @@
+import mongoose from "mongoose";
 import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
+import Boards from "../../models/Master_data/Boards.js";
 
 // ─────────────────────────────────────────────
 //  Populate helper
@@ -238,24 +241,72 @@ export const bulkImportSchoolsForTask = async (req, res) => {
             return res.status(400).json({ message: "No data provided for import" });
         }
 
+        // Fetch active centres and boards to map names/IDs server-side
+        const [allCentres, allBoards] = await Promise.all([
+            CentreSchema.find({}, "_id centreName"),
+            Boards.find({}, "_id boardCourse name")
+        ]);
+
+        const centreMap = new Map();
+        allCentres.forEach(c => {
+            if (c.centreName) centreMap.set(c.centreName.trim().toLowerCase(), c._id);
+        });
+
+        const boardMap = new Map();
+        allBoards.forEach(b => {
+            if (b.boardCourse) boardMap.set(b.boardCourse.trim().toLowerCase(), b._id);
+            if (b.name) boardMap.set(b.name.trim().toLowerCase(), b._id);
+        });
+
         const clean = (val) => (val == null ? "" : String(val).trim());
 
         const results = { inserted: 0, failed: [], total: rows.length };
         const validRecords = [];
 
         for (const row of rows) {
-            const schoolName  = clean(row.schoolName  || row["SchoolName"]  || row["School Name"]);
-            const centerName  = row.centerName || row["CenterName"] || row["Center Name"] || null;
-            const board       = row.board      || row["Board"]      || null;
-            const tier        = clean(row.tier || row["Tier"]) || "Tier-1";
-            const schoolAccess = clean(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"]) || "open";
+            const rawSchoolName = clean(row.schoolName || row["SchoolName"] || row["School Name"] || row["SchoolName*"] || row["School Name*"]);
+            const rawCenter     = clean(row.centerName || row["CenterName"] || row["Center Name"] || row["CenterName*"] || row["Center Name*"]);
+            const rawBoard      = clean(row.board      || row["Board"]      || row["Board Name"]);
+            const tier          = clean(row.tier       || row["Tier"])       || "Tier-1";
+            const schoolAccess  = clean(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]) || "open";
 
-            if (!schoolName || !centerName) {
-                results.failed.push({ row, reason: "Missing required fields: schoolName, centerName" });
+            // Resolve Centre ObjectId
+            let centreId = null;
+            if (rawCenter) {
+                if (mongoose.Types.ObjectId.isValid(rawCenter)) {
+                    centreId = rawCenter;
+                } else {
+                    centreId = centreMap.get(rawCenter.toLowerCase()) || null;
+                }
+            }
+
+            // Resolve Board ObjectId
+            let boardId = null;
+            if (rawBoard) {
+                if (mongoose.Types.ObjectId.isValid(rawBoard)) {
+                    boardId = rawBoard;
+                } else {
+                    boardId = boardMap.get(rawBoard.toLowerCase()) || null;
+                }
+            }
+
+            if (!rawSchoolName || !centreId) {
+                results.failed.push({
+                    row,
+                    reason: !rawSchoolName
+                        ? "Missing required field: SchoolName"
+                        : `CenterName '${rawCenter}' not found in Master Centre data`
+                });
                 continue;
             }
 
-            validRecords.push({ schoolName, centerName, board: board || null, tier, schoolAccess });
+            validRecords.push({
+                schoolName: rawSchoolName,
+                centerName: centreId,
+                board: boardId,
+                tier,
+                schoolAccess
+            });
         }
 
         if (validRecords.length > 0) {
