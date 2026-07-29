@@ -277,30 +277,80 @@ export const bulkImportSchoolsForTask = async (req, res) => {
             Boards.find({}, "_id boardCourse name")
         ]);
 
+        const normalizeStr = (val) => {
+            if (!val) return "";
+            return String(val)
+                .replace(/\u00A0/g, " ")
+                .replace(/\s+/g, " ")
+                .trim()
+                .toLowerCase();
+        };
+
+        const cleanAlphaNum = (val) => {
+            return normalizeStr(val).replace(/[^a-z0-9]/gi, "");
+        };
+
         const centreMap = new Map();
+        const centreAlphaNumMap = new Map();
         allCentres.forEach(c => {
-            if (c.centreName) centreMap.set(c.centreName.trim().toLowerCase(), c._id);
+            if (c.centreName) {
+                const norm = normalizeStr(c.centreName);
+                const clean = cleanAlphaNum(c.centreName);
+                centreMap.set(norm, c._id);
+                if (clean) centreAlphaNumMap.set(clean, c._id);
+            }
         });
 
         const boardMap = new Map();
+        const boardAlphaNumMap = new Map();
         allBoards.forEach(b => {
-            if (b.boardCourse) boardMap.set(b.boardCourse.trim().toLowerCase(), b._id);
-            if (b.name) boardMap.set(b.name.trim().toLowerCase(), b._id);
+            const names = [b.boardCourse, b.name].filter(Boolean);
+            names.forEach(n => {
+                const norm = normalizeStr(n);
+                const clean = cleanAlphaNum(n);
+                boardMap.set(norm, b._id);
+                if (clean) boardAlphaNumMap.set(clean, b._id);
+            });
         });
 
-        const clean = (val) => (val == null ? "" : String(val).trim());
+        const cleanField = (val) => (val == null ? "" : String(val).trim());
+
+        const validStatuses = [
+            "MOCK TEST TIE-UP",
+            "CRP TIE-UP",
+            "(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT",
+            "ONLY INFORMATION GIVEN TO STUDENTS",
+            "OTHERS"
+        ];
 
         const results = { inserted: 0, failed: [], total: rows.length };
         const validRecords = [];
 
         for (const row of rows) {
-            const rawSchoolName = clean(row.schoolName || row["SchoolName"] || row["School Name"] || row["SchoolName*"] || row["School Name*"]);
-            const rawCenter = clean(row.centerName || row["CenterName"] || row["Center Name"] || row["CenterName*"] || row["Center Name*"]);
-            const rawBoard = clean(row.board || row["Board"] || row["Board Name"]);
-            const tier = clean(row.tier || row["Tier"]) || "A";
-            const schoolAccess = clean(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]) || "YES";
-            const status = clean(row.status || row["Status"] || row["STATUS"]) || "ONLY INFORMATION GIVEN TO STUDENTS";
-            const remarks = clean(row.remarks || row["Remarks"] || row["REMARKS"]);
+            const rawSchoolName = cleanField(row.schoolName || row["SchoolName"] || row["School Name"] || row["SchoolName*"] || row["School Name*"]);
+            const rawCenter = cleanField(row.centerName || row["CenterName"] || row["Center Name"] || row["CenterName*"] || row["Center Name*"]);
+            const rawBoard = cleanField(row.board || row["Board"] || row["Board Name"]);
+            let rawTier = cleanField(row.tier || row["Tier"]).toUpperCase();
+            let rawSchoolAccess = cleanField(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]).toUpperCase();
+            let rawStatus = cleanField(row.status || row["Status"] || row["STATUS"]);
+            const remarks = cleanField(row.remarks || row["Remarks"] || row["REMARKS"]);
+
+            // Normalize Tier (Default to "A")
+            const tier = ["A", "B", "C", "D", "E"].includes(rawTier) ? rawTier : "A";
+
+            // Normalize SchoolAccess (Default to "YES")
+            const schoolAccess = ["YES", "NO"].includes(rawSchoolAccess) ? rawSchoolAccess : "YES";
+
+            // Normalize Status
+            let status = "ONLY INFORMATION GIVEN TO STUDENTS";
+            if (rawStatus) {
+                const matchedStatus = validStatuses.find(s => normalizeStr(s) === normalizeStr(rawStatus));
+                if (matchedStatus) {
+                    status = matchedStatus;
+                } else if (normalizeStr(rawStatus).includes("other")) {
+                    status = "OTHERS";
+                }
+            }
 
             // Resolve Centre ObjectId
             let centreId = null;
@@ -308,28 +358,29 @@ export const bulkImportSchoolsForTask = async (req, res) => {
                 if (mongoose.Types.ObjectId.isValid(rawCenter)) {
                     centreId = rawCenter;
                 } else {
-                    centreId = centreMap.get(rawCenter.toLowerCase()) || null;
+                    const norm = normalizeStr(rawCenter);
+                    const clean = cleanAlphaNum(rawCenter);
+                    centreId = centreMap.get(norm) || centreAlphaNumMap.get(clean) || null;
                 }
             }
 
-            // Resolve Board ObjectId — Board is OPTIONAL
-            // If board name is provided it MUST match a master data board exactly
+            // Resolve Board ObjectId (Board is optional)
             let boardId = null;
             let boardError = null;
             if (rawBoard) {
                 if (mongoose.Types.ObjectId.isValid(rawBoard)) {
                     boardId = rawBoard;
                 } else {
-                    const resolvedId = boardMap.get(rawBoard.toLowerCase()) || null;
+                    const norm = normalizeStr(rawBoard);
+                    const clean = cleanAlphaNum(rawBoard);
+                    const resolvedId = boardMap.get(norm) || boardAlphaNumMap.get(clean) || null;
                     if (resolvedId) {
                         boardId = resolvedId;
                     } else {
-                        // Board name was given but doesn't match any master board
-                        boardError = `Board '${rawBoard}' not found in Master Board data. Leave it blank to skip, or use the exact board name.`;
+                        boardError = `Board '${rawBoard}' not found in Master Board data.`;
                     }
                 }
             }
-            // If no rawBoard at all, boardId stays null — that is allowed
 
             if (!rawSchoolName || !centreId || boardError) {
                 results.failed.push({

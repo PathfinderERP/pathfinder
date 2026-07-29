@@ -152,7 +152,9 @@ export default function MasterDataSchoolForTaskContent() {
     const [selectedAccessLevels, setSelectedAccessLevels] = useState([]);
     const [selectedStatuses, setSelectedStatuses] = useState([]);
 
-    // Selection
+    // Sorting
+    const [sortBy, setSortBy] = useState("createdAt");
+    const [sortOrder, setSortOrder] = useState("desc");
     const [selectedIds, setSelectedIds] = useState([]);
 
     // Modal state
@@ -168,15 +170,12 @@ export default function MasterDataSchoolForTaskContent() {
     const [isAllSelected, setIsAllSelected] = useState(false); // true = all pages selected
 
     const token = localStorage.getItem("token");
-
-    // Permission checks
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isSuperAdmin = user.role === "superAdmin";
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "create");
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "edit");
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "delete");
 
-    // Fetch Centres and Boards for Dropdowns
     useEffect(() => {
         const fetchCentresAndBoards = async () => {
             try {
@@ -186,7 +185,8 @@ export default function MasterDataSchoolForTaskContent() {
                 ]);
                 if (cRes.ok) {
                     const cData = await cRes.json();
-                    setCentres(cData.filter((c) => c.status !== "deactive"));
+                    const cList = Array.isArray(cData) ? cData : (cData.centres || []);
+                    setCentres(cList.filter((c) => c.status !== "deactive"));
                 }
                 if (bRes.ok) {
                     const bData = await bRes.json();
@@ -199,7 +199,6 @@ export default function MasterDataSchoolForTaskContent() {
         fetchCentresAndBoards();
     }, [token]);
 
-    // Fetch Distinct Fields
     const fetchDistinctFields = async () => {
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/distinct-fields`, {
@@ -218,7 +217,6 @@ export default function MasterDataSchoolForTaskContent() {
         fetchDistinctFields();
     }, [token]);
 
-    // Fetch Schools Data
     const fetchSchools = async () => {
         setLoading(true);
         try {
@@ -231,22 +229,22 @@ export default function MasterDataSchoolForTaskContent() {
                 board: selectedBoards.join(","),
                 tier: selectedTiers.join(","),
                 schoolAccess: selectedAccessLevels.join(","),
-                status: selectedStatuses.join(",")
+                status: selectedStatuses.join(","),
+                sortBy,
+                sortOrder
             });
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const data = await res.json();
             if (res.ok) {
+                const data = await res.json();
                 setSchools(data.data || []);
                 setTotalPages(data.totalPages || 1);
                 setTotalItems(data.totalItems || 0);
-            } else {
-                toast.error(data.message || "Failed to fetch schools");
             }
         } catch (err) {
-            toast.error("Server error loading data");
+            toast.error("Failed to load schools data");
         } finally {
             setLoading(false);
         }
@@ -254,12 +252,14 @@ export default function MasterDataSchoolForTaskContent() {
 
     useEffect(() => {
         fetchSchools();
-        setSelectedIds([]);
-        setIsAllSelected(false);
-    }, [page, search, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses]);
+    }, [page, search, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses, sortBy, sortOrder, token]);
 
-    // Form Modal Handlers
-    const openModal = (record = null) => {
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleOpenModal = (record = null) => {
         if (record) {
             setCurrentRecord(record);
             setFormData({
@@ -273,25 +273,31 @@ export default function MasterDataSchoolForTaskContent() {
             });
         } else {
             setCurrentRecord(null);
-            setFormData(EMPTY_FORM);
+            setFormData({
+                centerName: "",
+                schoolName: "",
+                board: "",
+                tier: "A",
+                schoolAccess: "YES",
+                status: "ONLY INFORMATION GIVEN TO STUDENTS",
+                remarks: ""
+            });
         }
         setIsModalOpen(true);
     };
 
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setCurrentRecord(null);
-        setFormData(EMPTY_FORM);
-    };
-
-    const handleSave = async (e) => {
-        e.preventDefault();
-        if (!formData.schoolName || !formData.centerName) {
-            toast.error("School Name and Center Name are required");
+    const handleSave = async () => {
+        if (!formData.schoolName.trim() || !formData.centerName) {
+            toast.error("Please fill required fields (School Name & Center Name)");
             return;
         }
 
-        setIsSubmitting(true);
+        const payload = {
+            ...formData,
+            board: formData.board || null,
+            remarks: formData.remarks || ""
+        };
+
         try {
             const url = currentRecord
                 ? `${import.meta.env.VITE_API_URL}/school-for-task/${currentRecord._id}`
@@ -304,45 +310,43 @@ export default function MasterDataSchoolForTaskContent() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             });
-            const data = await res.json();
 
+            const resData = await res.json();
             if (res.ok) {
-                toast.success(currentRecord ? "School updated successfully" : "School added successfully");
-                closeModal();
+                toast.success(resData.message || "Record saved successfully");
+                setIsModalOpen(false);
                 fetchSchools();
                 fetchDistinctFields();
             } else {
-                toast.error(data.message || "Failed to save record");
+                toast.error(resData.message || "Failed to save record");
             }
         } catch (err) {
-            toast.error("Server error during save");
-        } finally {
-            setIsSubmitting(false);
+            toast.error("Error connecting to server");
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this school entry?")) return;
+        if (!window.confirm("Are you sure you want to delete this school record?")) return;
+
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/${id}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
-                toast.success("School deleted successfully");
+                toast.success("School record deleted");
                 fetchSchools();
                 fetchDistinctFields();
             } else {
                 toast.error("Failed to delete record");
             }
         } catch (err) {
-            toast.error("Server error during deletion");
+            toast.error("Error deleting record");
         }
     };
 
-    // Bulk Delete
     const handleBulkDelete = async () => {
         if (selectedIds.length === 0) return;
         if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected schools?`)) return;
