@@ -6,7 +6,7 @@ import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
 const withPopulate = (query) =>
     query
         .populate("centerName", "centreName")
-        .populate("board", "name");
+        .populate("board", "boardCourse name");
 
 // ─────────────────────────────────────────────
 //  Build filter query

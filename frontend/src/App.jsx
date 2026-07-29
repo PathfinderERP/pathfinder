@@ -68,6 +68,7 @@ import MasterDataSubject from "./pages/MasterDataSubject";
 import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
 import ZoneManagement from "./pages/ZoneManagement";
 import MasterDataSchoolData from "./pages/MasterDataSchoolData";
+import MasterDataSchoolForTask from "./pages/MasterDataSchoolForTask";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
 import MasterDataBoardCourseSubject from "./pages/MasterDataBoardCourseSubject.jsx";
 import MarketingCRM from "./pages/MarketingCRM";
@@ -366,6 +367,7 @@ function App() {
         <Route path="/master-data/subject" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="subject"><MasterDataSubject /></ProtectedRoute>} />
         <Route path="/master-data/zone" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="zone"><ZoneManagement /></ProtectedRoute>} />
         <Route path="/master-data/school-data" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="schoolData"><MasterDataSchoolData /></ProtectedRoute>} />
+        <Route path="/master-data/school-for-task" element={<ProtectedRoute requiredPermissionModule="masterData"><MasterDataSchoolForTask /></ProtectedRoute>} />
         <Route path="/master-data/designation" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="designation"><MasterDataDesignation /></ProtectedRoute>} />
 
         {/* Petty Cash Routes */}

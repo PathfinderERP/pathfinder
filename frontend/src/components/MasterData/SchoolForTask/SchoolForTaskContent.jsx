@@ -1,0 +1,861 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+    FaPlus, FaEdit, FaTrash, FaSearch, FaFileImport, FaFileExport,
+    FaSchool, FaTimes, FaCheck, FaFilter, FaChevronDown, FaBuilding, FaBook
+} from "react-icons/fa";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
+const EMPTY_FORM = {
+    centerName: "",
+    schoolName: "",
+    board: "",
+    tier: "Tier-1",
+    schoolAccess: "open"
+};
+
+// ─── Custom Multi-Select Dropdown Component ───────────────────────────────────
+const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
+    const [open, setOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const ref = useRef(null);
+    const searchInputRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (open && searchInputRef.current) {
+            searchInputRef.current.focus();
+        } else {
+            setSearchQuery("");
+        }
+    }, [open]);
+
+    const toggleOption = (val) => {
+        onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
+    };
+
+    const label = selected.length === 0
+        ? placeholder
+        : selected.length === 1
+            ? (options.find(o => o.value === selected[0] || o === selected[0])?.label || selected[0])
+            : `${selected.length} selected`;
+
+    const filteredOptions = options.filter((opt) => {
+        const text = typeof opt === "object" ? opt.label : opt;
+        return text && text.toString().toLowerCase().includes(searchQuery.toLowerCase());
+    });
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className={`w-full flex items-center justify-between bg-gray-50 dark:bg-[#131619] border rounded-lg px-3 py-2.5 text-xs font-bold transition-all focus:outline-none ${
+                    open ? "border-cyan-500 ring-1 ring-cyan-500/20" : "border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-700"
+                }`}
+            >
+                <span className={`truncate ${selected.length > 0 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>
+                    {label}
+                </span>
+                <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                    {selected.length > 0 && (
+                        <span
+                            onClick={(e) => { e.stopPropagation(); onChange([]); }}
+                            className="text-[9px] bg-cyan-600/20 text-cyan-500 border border-cyan-500/30 rounded px-1 py-0.5 font-black hover:bg-red-600/20 hover:text-red-400 cursor-pointer transition-colors"
+                        >
+                            ×{selected.length}
+                        </span>
+                    )}
+                    <FaChevronDown className={`text-gray-400 text-[10px] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+                </div>
+            </button>
+
+            {open && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1f24] border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl z-50 flex flex-col max-h-64 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 shrink-0">
+                        <FaSearch className="text-gray-400 text-xs shrink-0" />
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full text-xs bg-transparent border-0 outline-none text-gray-800 dark:text-white placeholder-gray-500 p-0"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSearchQuery(""); }}
+                                className="text-gray-400 hover:text-white"
+                            >
+                                <FaTimes className="text-[10px]" />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="overflow-y-auto max-h-48 p-1">
+                        {filteredOptions.length === 0 ? (
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest p-3 text-center">No options</p>
+                        ) : (
+                            filteredOptions.map((opt) => {
+                                const val = typeof opt === "object" ? opt.value : opt;
+                                const lbl = typeof opt === "object" ? opt.label : opt;
+                                const isChecked = selected.includes(val);
+                                return (
+                                    <div
+                                        key={val}
+                                        onClick={() => toggleOption(val)}
+                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs cursor-pointer select-none transition-colors ${
+                                            isChecked ? "bg-cyan-500/10 text-cyan-400 font-bold" : "text-gray-300 hover:bg-white/5"
+                                        }`}
+                                    >
+                                        <span className="truncate">{lbl}</span>
+                                        {isChecked && <FaCheck className="text-cyan-400 text-xs shrink-0 ml-2" />}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default function MasterDataSchoolForTaskContent() {
+    const [schools, setSchools] = useState([]);
+    const [centres, setCentres] = useState([]);
+    const [boards, setBoards] = useState([]);
+    const [distinctFields, setDistinctFields] = useState({ schools: [], tiers: [], accessLevels: [] });
+    const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+
+    // Filters
+    const [search, setSearch] = useState("");
+    const [selectedSchoolNames, setSelectedSchoolNames] = useState([]);
+    const [selectedCentres, setSelectedCentres] = useState([]);
+    const [selectedBoards, setSelectedBoards] = useState([]);
+    const [selectedTiers, setSelectedTiers] = useState([]);
+    const [selectedAccessLevels, setSelectedAccessLevels] = useState([]);
+
+    // Selection
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    // Modal state
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [currentRecord, setCurrentRecord] = useState(null);
+    const [formData, setFormData] = useState(EMPTY_FORM);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Import modal
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importing, setImporting] = useState(false);
+
+    const token = localStorage.getItem("token");
+
+    // Fetch Centres and Boards for Dropdowns
+    useEffect(() => {
+        const fetchCentresAndBoards = async () => {
+            try {
+                const [cRes, bRes] = await Promise.all([
+                    fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch(`${import.meta.env.VITE_API_URL}/board`, { headers: { Authorization: `Bearer ${token}` } })
+                ]);
+                if (cRes.ok) {
+                    const cData = await cRes.json();
+                    setCentres(cData.filter((c) => c.status !== "deactive"));
+                }
+                if (bRes.ok) {
+                    const bData = await bRes.json();
+                    setBoards(Array.isArray(bData) ? bData : bData.data || []);
+                }
+            } catch (err) {
+                console.error("Failed to load options", err);
+            }
+        };
+        fetchCentresAndBoards();
+    }, [token]);
+
+    // Fetch Distinct Fields
+    const fetchDistinctFields = async () => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/distinct-fields`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setDistinctFields(data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch distinct fields", err);
+        }
+    };
+
+    useEffect(() => {
+        fetchDistinctFields();
+    }, [token]);
+
+    // Fetch Schools Data
+    const fetchSchools = async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams({
+                page,
+                limit: 50,
+                search,
+                schoolName: selectedSchoolNames.join(","),
+                centerName: selectedCentres.join(","),
+                board: selectedBoards.join(","),
+                tier: selectedTiers.join(","),
+                schoolAccess: selectedAccessLevels.join(",")
+            });
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setSchools(data.data || []);
+                setTotalPages(data.totalPages || 1);
+                setTotalItems(data.totalItems || 0);
+            } else {
+                toast.error(data.message || "Failed to fetch schools");
+            }
+        } catch (err) {
+            toast.error("Server error loading data");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchSchools();
+    }, [page, search, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels]);
+
+    // Form Modal Handlers
+    const openModal = (record = null) => {
+        if (record) {
+            setCurrentRecord(record);
+            setFormData({
+                centerName: record.centerName?._id || record.centerName || "",
+                schoolName: record.schoolName || "",
+                board: record.board?._id || record.board || "",
+                tier: record.tier || "Tier-1",
+                schoolAccess: record.schoolAccess || "open"
+            });
+        } else {
+            setCurrentRecord(null);
+            setFormData(EMPTY_FORM);
+        }
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setCurrentRecord(null);
+        setFormData(EMPTY_FORM);
+    };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        if (!formData.schoolName || !formData.centerName) {
+            toast.error("School Name and Center Name are required");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const url = currentRecord
+                ? `${import.meta.env.VITE_API_URL}/school-for-task/${currentRecord._id}`
+                : `${import.meta.env.VITE_API_URL}/school-for-task`;
+            const method = currentRecord ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(formData)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                toast.success(currentRecord ? "School updated successfully" : "School added successfully");
+                closeModal();
+                fetchSchools();
+                fetchDistinctFields();
+            } else {
+                toast.error(data.message || "Failed to save record");
+            }
+        } catch (err) {
+            toast.error("Server error during save");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this school entry?")) return;
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/${id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                toast.success("School deleted successfully");
+                fetchSchools();
+                fetchDistinctFields();
+            } else {
+                toast.error("Failed to delete record");
+            }
+        } catch (err) {
+            toast.error("Server error during deletion");
+        }
+    };
+
+    // Bulk Delete
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected schools?`)) return;
+
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/bulk-delete`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ ids: selectedIds })
+            });
+            if (res.ok) {
+                toast.success("Selected records deleted successfully");
+                setSelectedIds([]);
+                fetchSchools();
+                fetchDistinctFields();
+            } else {
+                toast.error("Failed to delete selected records");
+            }
+        } catch (err) {
+            toast.error("Server error during bulk delete");
+        }
+    };
+
+    // Export to Excel
+    const handleExport = () => {
+        const exportData = schools.map((s, idx) => ({
+            "SL No": idx + 1,
+            "Center Name": s.centerName?.centreName || "N/A",
+            "School Name": s.schoolName || "",
+            "Board": s.board?.name || "N/A",
+            "Tier": s.tier || "",
+            "School Access": s.schoolAccess || ""
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "SchoolsForTask");
+        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+        saveAs(data, `SchoolForTask_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    // Import from Excel
+    const handleBulkImportSubmit = async (e) => {
+        e.preventDefault();
+        if (!importFile) {
+            toast.error("Please select an Excel file");
+            return;
+        }
+
+        setImporting(true);
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target.result;
+                const wb = XLSX.read(bstr, { type: "binary" });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws);
+
+                // Map excel columns to CenterName / Board IDs where applicable
+                const formattedRows = data.map(row => {
+                    const cName = row["CenterName"] || row["Center Name"] || row["centerName"];
+                    const bName = row["Board"] || row["board"];
+
+                    const foundCentre = centres.find(c => c.centreName?.toLowerCase() === String(cName).trim().toLowerCase());
+                    const foundBoard = boards.find(b => b.name?.toLowerCase() === String(bName).trim().toLowerCase());
+
+                    return {
+                        centerName: foundCentre ? foundCentre._id : cName,
+                        schoolName: row["SchoolName"] || row["School Name"] || row["schoolName"],
+                        board: foundBoard ? foundBoard._id : bName,
+                        tier: row["Tier"] || row["tier"] || "Tier-1",
+                        schoolAccess: row["SCHOOLACCESS"] || row["SchoolAccess"] || row["schoolAccess"] || "open"
+                    };
+                });
+
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/bulk-import`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify(formattedRows)
+                });
+                const resData = await res.json();
+
+                if (res.ok) {
+                    toast.success(resData.message || "Bulk import complete");
+                    setIsImportModalOpen(false);
+                    setImportFile(null);
+                    fetchSchools();
+                    fetchDistinctFields();
+                } else {
+                    toast.error(resData.message || "Import failed");
+                }
+            } catch (err) {
+                toast.error("Error processing Excel file");
+            } finally {
+                setImporting(false);
+            }
+        };
+        reader.readAsBinaryString(importFile);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === schools.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(schools.map(s => s._id));
+        }
+    };
+
+    const toggleSelectId = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    };
+
+    return (
+        <div className="p-6 bg-[#131619] min-h-screen text-white">
+            <ToastContainer position="top-right" theme="dark" />
+
+            {/* Header Section */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-white uppercase tracking-tight flex items-center gap-3">
+                        <FaSchool className="text-cyan-400" /> School For Task
+                    </h2>
+                    <p className="text-gray-400 text-xs mt-1 uppercase tracking-widest font-semibold">
+                        Manage Task Schools, Tiers & Access Levels ({totalItems} Records)
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {selectedIds.length > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-red-600/20 border border-red-500/30 text-red-400 font-bold rounded-xl hover:bg-red-600/40 transition-colors uppercase text-xs tracking-widest"
+                        >
+                            <FaTrash /> Delete ({selectedIds.length})
+                        </button>
+                    )}
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 font-bold rounded-xl hover:bg-gray-700 transition-colors uppercase text-xs tracking-widest"
+                    >
+                        <FaFileExport /> Export
+                    </button>
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 border border-gray-700 text-cyan-400 font-bold rounded-xl hover:bg-gray-700 transition-colors uppercase text-xs tracking-widest"
+                    >
+                        <FaFileImport /> Import
+                    </button>
+                    <button
+                        onClick={() => openModal()}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 text-black font-black rounded-xl hover:bg-cyan-400 transition-all uppercase text-xs tracking-widest shadow-lg shadow-cyan-500/20"
+                    >
+                        <FaPlus /> Add School
+                    </button>
+                </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="bg-[#1a1f24] p-4 rounded-2xl border border-gray-800 mb-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+                    <FaFilter /> Filters & Search
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {/* General Search */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Search</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Search School..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full bg-[#131619] border border-gray-800 rounded-lg pl-8 pr-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-cyan-500"
+                            />
+                            <FaSearch className="absolute left-2.5 top-3 text-gray-500 text-xs" />
+                        </div>
+                    </div>
+
+                    {/* School Name MultiSelect */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">School Name</label>
+                        <MultiSelect
+                            options={distinctFields.schools}
+                            selected={selectedSchoolNames}
+                            onChange={setSelectedSchoolNames}
+                            placeholder="All Schools"
+                        />
+                    </div>
+
+                    {/* Center MultiSelect */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Center</label>
+                        <MultiSelect
+                            options={centres.map(c => ({ value: c._id, label: c.centreName }))}
+                            selected={selectedCentres}
+                            onChange={setSelectedCentres}
+                            placeholder="All Centers"
+                        />
+                    </div>
+
+                    {/* Board MultiSelect */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Board</label>
+                        <MultiSelect
+                            options={boards.map(b => ({ value: b._id, label: b.boardCourse || b.name }))}
+                            selected={selectedBoards}
+                            onChange={setSelectedBoards}
+                            placeholder="All Boards"
+                        />
+                    </div>
+
+                    {/* Tier MultiSelect */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Tier</label>
+                        <MultiSelect
+                            options={["Tier-1", "Tier-2", "Tier-3", "Tier-4", "Other"]}
+                            selected={selectedTiers}
+                            onChange={setSelectedTiers}
+                            placeholder="All Tiers"
+                        />
+                    </div>
+
+                    {/* School Access MultiSelect */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Access Level</label>
+                        <MultiSelect
+                            options={["open", "restricted", "blocked"]}
+                            selected={selectedAccessLevels}
+                            onChange={setSelectedAccessLevels}
+                            placeholder="All Access"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Table Container */}
+            <div className="bg-[#1a1f24] rounded-2xl border border-gray-800 overflow-hidden shadow-2xl">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-[#131619] text-gray-400 text-[10px] font-black uppercase tracking-[0.15em] border-b border-gray-800">
+                                <th className="p-4 w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={schools.length > 0 && selectedIds.length === schools.length}
+                                        onChange={toggleSelectAll}
+                                        className="rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-0 cursor-pointer"
+                                    />
+                                </th>
+                                <th className="p-4">#</th>
+                                <th className="p-4">Center Name</th>
+                                <th className="p-4">School Name</th>
+                                <th className="p-4">Board</th>
+                                <th className="p-4">Tier</th>
+                                <th className="p-4">School Access</th>
+                                <th className="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800 text-xs font-semibold">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="8" className="p-8 text-center text-gray-500 font-mono uppercase tracking-widest text-xs">
+                                        Loading Schools...
+                                    </td>
+                                </tr>
+                            ) : schools.length === 0 ? (
+                                <tr>
+                                    <td colSpan="8" className="p-8 text-center text-gray-500 italic">
+                                        No school records found matching filters
+                                    </td>
+                                </tr>
+                            ) : (
+                                schools.map((row, index) => (
+                                    <tr key={row._id} className="hover:bg-white/5 transition-all">
+                                        <td className="p-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.includes(row._id)}
+                                                onChange={() => toggleSelectId(row._id)}
+                                                className="rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-0 cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="p-4 text-gray-500 font-mono">{ (page - 1) * 50 + index + 1 }</td>
+                                        <td className="p-4 font-bold text-gray-200">
+                                            <span className="flex items-center gap-2">
+                                                <FaBuilding className="text-cyan-400 text-xs" />
+                                                {row.centerName?.centreName || "—"}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 font-bold text-white uppercase">{row.schoolName}</td>
+                                        <td className="p-4 text-gray-300">
+                                            <span className="flex items-center gap-2">
+                                                <FaBook className="text-purple-400 text-xs" />
+                                                {row.board?.boardCourse || row.board?.name || "—"}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                row.tier === "Tier-1" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                                row.tier === "Tier-2" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                                                row.tier === "Tier-3" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                                "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+                                            }`}>
+                                                {row.tier}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                row.schoolAccess === "open" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                                row.schoolAccess === "restricted" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                                "bg-red-500/10 text-red-400 border border-red-500/20"
+                                            }`}>
+                                                {row.schoolAccess}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => openModal(row)}
+                                                    className="p-2 text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-colors"
+                                                    title="Edit Record"
+                                                >
+                                                    <FaEdit size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(row._id)}
+                                                    className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                                                    title="Delete Record"
+                                                >
+                                                    <FaTrash size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination Bar */}
+                <div className="p-4 border-t border-gray-800 bg-[#131619] flex items-center justify-between text-xs font-bold text-gray-400">
+                    <div>
+                        Showing Page <span className="text-white">{page}</span> of <span className="text-white">{totalPages}</span> ({totalItems} Total Records)
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            disabled={page === 1}
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-700 text-white uppercase text-[10px]"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            disabled={page >= totalPages}
+                            onClick={() => setPage(p => p + 1)}
+                            className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-700 text-white uppercase text-[10px]"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Add / Edit Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+                    <div className="bg-[#1a1f24] p-6 rounded-2xl w-full max-w-lg border border-gray-800 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-white uppercase tracking-tight">
+                                {currentRecord ? "Edit School Record" : "Add New School"}
+                            </h3>
+                            <button onClick={closeModal} className="text-gray-500 hover:text-white">
+                                <FaTimes size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSave} className="space-y-4 text-xs font-semibold">
+                            {/* Center Select */}
+                            <div>
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">Center Name *</label>
+                                <select
+                                    required
+                                    value={formData.centerName}
+                                    onChange={(e) => setFormData({ ...formData, centerName: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
+                                >
+                                    <option value="">Select Center...</option>
+                                    {centres.map(c => (
+                                        <option key={c._id} value={c._id}>{c.centreName}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* School Name */}
+                            <div>
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">School Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Enter school name"
+                                    value={formData.schoolName}
+                                    onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold uppercase"
+                                />
+                            </div>
+
+                            {/* Board Select */}
+                            <div>
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">Board</label>
+                                <select
+                                    value={formData.board}
+                                    onChange={(e) => setFormData({ ...formData, board: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
+                                >
+                                    <option value="">Select Board...</option>
+                                    {boards.map(b => (
+                                        <option key={b._id} value={b._id}>{b.boardCourse || b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Tier */}
+                            <div>
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">Tier</label>
+                                <select
+                                    value={formData.tier}
+                                    onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
+                                >
+                                    <option value="Tier-1">Tier-1</option>
+                                    <option value="Tier-2">Tier-2</option>
+                                    <option value="Tier-3">Tier-3</option>
+                                    <option value="Tier-4">Tier-4</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            {/* Access Level */}
+                            <div>
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">School Access Level</label>
+                                <select
+                                    value={formData.schoolAccess}
+                                    onChange={(e) => setFormData({ ...formData, schoolAccess: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
+                                >
+                                    <option value="open">Open</option>
+                                    <option value="restricted">Restricted</option>
+                                    <option value="blocked">Blocked</option>
+                                </select>
+                            </div>
+
+                            {/* Modal Buttons */}
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="flex-1 py-3 bg-gray-800 text-gray-400 rounded-xl font-bold uppercase text-xs hover:bg-gray-700"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="flex-1 py-3 bg-cyan-500 text-black rounded-xl font-black uppercase text-xs hover:bg-cyan-400 shadow-lg shadow-cyan-500/20"
+                                >
+                                    {isSubmitting ? "Saving..." : currentRecord ? "Update Record" : "Save Record"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Import Excel Modal */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+                    <div className="bg-[#1a1f24] p-6 rounded-2xl w-full max-w-md border border-gray-800 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-white uppercase tracking-tight">Bulk Import Excel</h3>
+                            <button onClick={() => setIsImportModalOpen(false)} className="text-gray-500 hover:text-white">
+                                <FaTimes size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleBulkImportSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-gray-400 text-xs font-bold mb-2">
+                                    Excel Columns Required: <br />
+                                    <span className="text-cyan-400 font-mono">CenterName | SchoolName | Board | Tier | SCHOOLACCESS</span>
+                                </label>
+                                <input
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    onChange={(e) => setImportFile(e.target.files[0])}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-xs text-gray-300 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-cyan-500/20 file:text-cyan-400 hover:file:bg-cyan-500/30 cursor-pointer"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsImportModalOpen(false)}
+                                    className="flex-1 py-3 bg-gray-800 text-gray-400 rounded-xl font-bold uppercase text-xs"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={importing}
+                                    className="flex-1 py-3 bg-cyan-500 text-black rounded-xl font-black uppercase text-xs hover:bg-cyan-400"
+                                >
+                                    {importing ? "Importing..." : "Start Import"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

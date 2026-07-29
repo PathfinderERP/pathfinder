@@ -396,6 +396,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Zone Management", path: "/master-data/zone", permissionSection: "zone" },
                 { name: "Follow-up Feedback", path: "/master-data/follow-up-feedback", permissionSection: "followUpFeedback" },
                 { name: "School Data", path: "/master-data/school-data", permissionSection: "schoolData" },
+                { name: "School For Task", path: "/master-data/school-for-task", permissionSection: "schoolForTask" },
             ],
         },
         {

@@ -176,6 +176,14 @@ const MasterDataContent = () => {
             color: "border-orange-300",
             permissionSection: "schoolData"
         },
+        {
+            title: "School For Task",
+            description: "Manage task schools, tiers and access",
+            icon: <FaSchool className="text-3xl text-cyan-400" />,
+            path: "/master-data/school-for-task",
+            color: "border-cyan-400",
+            permissionSection: "schoolForTask"
+        },
     ];
 
     // Filter tiles to only show what the user has access to
