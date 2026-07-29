@@ -284,21 +284,32 @@ export const bulkImportSchoolsForTask = async (req, res) => {
                 }
             }
 
-            // Resolve Board ObjectId
+            // Resolve Board ObjectId — Board is OPTIONAL
+            // If board name is provided it MUST match a master data board exactly
             let boardId = null;
+            let boardError = null;
             if (rawBoard) {
                 if (mongoose.Types.ObjectId.isValid(rawBoard)) {
                     boardId = rawBoard;
                 } else {
-                    boardId = boardMap.get(rawBoard.toLowerCase()) || null;
+                    const resolvedId = boardMap.get(rawBoard.toLowerCase()) || null;
+                    if (resolvedId) {
+                        boardId = resolvedId;
+                    } else {
+                        // Board name was given but doesn't match any master board
+                        boardError = `Board '${rawBoard}' not found in Master Board data. Leave it blank to skip, or use the exact board name.`;
+                    }
                 }
             }
+            // If no rawBoard at all, boardId stays null — that is allowed
 
-            if (!rawSchoolName || !centreId) {
+            if (!rawSchoolName || !centreId || boardError) {
                 results.failed.push({
                     row,
                     reason: !rawSchoolName
                         ? "Missing required field: SchoolName"
+                        : boardError
+                        ? boardError
                         : `CenterName '${rawCenter}' not found in Master Centre data`
                 });
                 continue;
