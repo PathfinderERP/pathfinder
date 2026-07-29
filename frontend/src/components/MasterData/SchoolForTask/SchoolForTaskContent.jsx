@@ -13,7 +13,9 @@ const EMPTY_FORM = {
     schoolName: "",
     board: "",
     tier: "A",
-    schoolAccess: "YES"
+    schoolAccess: "YES",
+    status: "ONLY INFORMATION GIVEN TO STUDENTS",
+    remarks: ""
 };
 
 // ─── Custom Multi-Select Dropdown Component ───────────────────────────────────
@@ -147,6 +149,7 @@ export default function MasterDataSchoolForTaskContent() {
     const [selectedBoards, setSelectedBoards] = useState([]);
     const [selectedTiers, setSelectedTiers] = useState([]);
     const [selectedAccessLevels, setSelectedAccessLevels] = useState([]);
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
 
     // Selection
     const [selectedIds, setSelectedIds] = useState([]);
@@ -218,7 +221,8 @@ export default function MasterDataSchoolForTaskContent() {
                 centerName: selectedCentres.join(","),
                 board: selectedBoards.join(","),
                 tier: selectedTiers.join(","),
-                schoolAccess: selectedAccessLevels.join(",")
+                schoolAccess: selectedAccessLevels.join(","),
+                status: selectedStatuses.join(",")
             });
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task?${params.toString()}`, {
@@ -241,7 +245,7 @@ export default function MasterDataSchoolForTaskContent() {
 
     useEffect(() => {
         fetchSchools();
-    }, [page, search, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels]);
+    }, [page, search, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses]);
 
     // Form Modal Handlers
     const openModal = (record = null) => {
@@ -252,7 +256,9 @@ export default function MasterDataSchoolForTaskContent() {
                 schoolName: record.schoolName || "",
                 board: record.board?._id || record.board || "",
                 tier: record.tier || "A",
-                schoolAccess: record.schoolAccess || "YES"
+                schoolAccess: record.schoolAccess || "YES",
+                status: record.status || "ONLY INFORMATION GIVEN TO STUDENTS",
+                remarks: record.remarks || ""
             });
         } else {
             setCurrentRecord(null);
@@ -363,14 +369,18 @@ export default function MasterDataSchoolForTaskContent() {
                 "SchoolName*": "St. Xavier's High School",
                 "Board": sampleBoard,
                 "Tier": "A",
-                "SCHOOLACCESS": "YES"
+                "SCHOOLACCESS": "YES",
+                "Status": "MOCK TEST TIE-UP",
+                "Remarks": "Annual tie-up finalized"
             },
             {
                 "CenterName*": sampleCentre,
                 "SchoolName*": "Delhi Public School",
                 "Board": sampleBoard,
                 "Tier": "B",
-                "SCHOOLACCESS": "NO"
+                "SCHOOLACCESS": "NO",
+                "Status": "ONLY INFORMATION GIVEN TO STUDENTS",
+                "Remarks": "Pamphlets distributed"
             }
         ];
 
@@ -382,7 +392,9 @@ export default function MasterDataSchoolForTaskContent() {
             { wch: 35 },
             { wch: 20 },
             { wch: 15 },
-            { wch: 15 }
+            { wch: 15 },
+            { wch: 40 },
+            { wch: 30 }
         ];
 
         const wb = XLSX.utils.book_new();
@@ -400,7 +412,9 @@ export default function MasterDataSchoolForTaskContent() {
             "School Name": s.schoolName || "",
             "Board": s.board?.boardCourse || s.board?.name || "N/A",
             "Tier": s.tier || "",
-            "School Access": s.schoolAccess || ""
+            "School Access": s.schoolAccess || "",
+            "Status": s.status || "",
+            "Remarks": s.remarks || ""
         }));
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -442,8 +456,10 @@ export default function MasterDataSchoolForTaskContent() {
                         centerName: foundCentre ? foundCentre._id : cName,
                         schoolName: sName,
                         board: foundBoard ? foundBoard._id : bName,
-                        tier: row["Tier"] || row["tier"] || "Tier-1",
-                        schoolAccess: row["SCHOOLACCESS"] || row["SchoolAccess"] || row["School Access"] || row["schoolAccess"] || "open"
+                        tier: row["Tier"] || row["tier"] || "A",
+                        schoolAccess: row["SCHOOLACCESS"] || row["SchoolAccess"] || row["School Access"] || row["schoolAccess"] || "YES",
+                        status: row["Status"] || row["status"] || row["STATUS"] || "ONLY INFORMATION GIVEN TO STUDENTS",
+                        remarks: row["Remarks"] || row["remarks"] || row["REMARKS"] || ""
                     };
                 });
 
@@ -614,6 +630,22 @@ export default function MasterDataSchoolForTaskContent() {
                             placeholder="All Access"
                         />
                     </div>
+
+                    {/* Status MultiSelect */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Status</label>
+                        <MultiSelect
+                            options={[
+                                "MOCK TEST TIE-UP",
+                                "CRP TIE-UP",
+                                "(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT",
+                                "ONLY INFORMATION GIVEN TO STUDENTS"
+                            ]}
+                            selected={selectedStatuses}
+                            onChange={setSelectedStatuses}
+                            placeholder="All Statuses"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -637,19 +669,21 @@ export default function MasterDataSchoolForTaskContent() {
                                 <th className="p-4">Board</th>
                                 <th className="p-4">Tier</th>
                                 <th className="p-4">School Access</th>
+                                <th className="p-4">Status</th>
+                                <th className="p-4">Remarks</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800 text-xs font-semibold">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="8" className="p-8 text-center text-gray-500 font-mono uppercase tracking-widest text-xs">
+                                    <td colSpan="10" className="p-8 text-center text-gray-500 font-mono uppercase tracking-widest text-xs">
                                         Loading Schools...
                                     </td>
                                 </tr>
                             ) : schools.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="p-8 text-center text-gray-500 italic">
+                                    <td colSpan="10" className="p-8 text-center text-gray-500 italic">
                                         No school records found matching filters
                                     </td>
                                 </tr>
@@ -679,22 +713,32 @@ export default function MasterDataSchoolForTaskContent() {
                                             </span>
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                                row.tier === "A" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                                row.tier === "B" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                                                row.tier === "C" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
-                                                "bg-gray-500/10 text-gray-400 border border-gray-500/20"
-                                            }`}>
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${row.tier === "A" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                                    row.tier === "B" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                                                        row.tier === "C" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                                            "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+                                                }`}>
                                                 {row.tier}
                                             </span>
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                                row.schoolAccess === "YES" || row.schoolAccess === "open" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                                "bg-red-500/10 text-red-400 border border-red-500/20"
-                                            }`}>
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${row.schoolAccess === "YES" || row.schoolAccess === "open" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                                    "bg-red-500/10 text-red-400 border border-red-500/20"
+                                                }`}>
                                                 {row.schoolAccess}
                                             </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${row.status === "MOCK TEST TIE-UP" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" :
+                                                    row.status === "CRP TIE-UP" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" :
+                                                        row.status?.includes("WORKSHOP") ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                                            "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+                                                }`}>
+                                                {row.status || "—"}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-gray-400 text-xs max-w-[200px] truncate" title={row.remarks || ""}>
+                                            {row.remarks || "—"}
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-2">
@@ -832,6 +876,34 @@ export default function MasterDataSchoolForTaskContent() {
                                 </select>
                             </div>
 
+                            {/* Status */}
+                            <div>
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">Status</label>
+                                <select
+                                    value={formData.status}
+                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
+                                >
+                                    <option value="MOCK TEST TIE-UP">MOCK TEST TIE-UP</option>
+                                    <option value="CRP TIE-UP">CRP TIE-UP</option>
+                                    <option value="(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT">(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT</option>
+                                    <option value="ONLY INFORMATION GIVEN TO STUDENTS">ONLY INFORMATION GIVEN TO STUDENTS</option>
+                                    <option value="OTHERS">OTHERS</option>
+                                </select>
+                            </div>
+
+                            {/* Remarks */}
+                            <div>
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">Remarks</label>
+                                <textarea
+                                    rows="2"
+                                    placeholder="Enter remarks..."
+                                    value={formData.remarks}
+                                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold resize-none"
+                                />
+                            </div>
+
                             {/* Modal Buttons */}
                             <div className="flex justify-end gap-3 pt-4">
                                 <button
@@ -892,8 +964,10 @@ export default function MasterDataSchoolForTaskContent() {
                                 <p><span className="text-emerald-400 font-bold">CenterName*</span> — Must match Master Centre name</p>
                                 <p><span className="text-emerald-400 font-bold">SchoolName*</span> — School Name</p>
                                 <p><span className="text-cyan-400 font-bold">Board</span> — Must match Master Board name (e.g. CBSE)</p>
-                                <p><span className="text-gray-300 font-bold">Tier</span> — Tier-1 / Tier-2 / Tier-3 / Tier-4 / Other</p>
-                                <p><span className="text-gray-300 font-bold">SCHOOLACCESS</span> — open / restricted / blocked</p>
+                                <p><span className="text-gray-300 font-bold">Tier</span> — A / B / C / D / E</p>
+                                <p><span className="text-gray-300 font-bold">SCHOOLACCESS</span> — YES / NO</p>
+                                <p><span className="text-purple-400 font-bold">Status</span> — MOCK TEST TIE-UP / CRP TIE-UP / (INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT / ONLY INFORMATION GIVEN TO STUDENTS</p>
+                                <p><span className="text-gray-300 font-bold">Remarks</span> — Optional remarks</p>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4">

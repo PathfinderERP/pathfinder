@@ -41,6 +41,26 @@ const schoolForTaskSchema = new mongoose.Schema(
             enum: ["YES", "NO"],
             default: "YES",
         },
+
+        // ── Status ────────────────────────────────
+        status: {
+            type: String,
+            enum: [
+                "MOCK TEST TIE-UP",
+                "CRP TIE-UP",
+                "(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT",
+                "ONLY INFORMATION GIVEN TO STUDENTS",
+                "OTHERS"
+            ],
+            default: "ONLY INFORMATION GIVEN TO STUDENTS",
+        },
+
+        // ── Remarks ───────────────────────────────
+        remarks: {
+            type: String,
+            trim: true,
+            default: "",
+        },
     },
     { timestamps: true }
 );
@@ -53,6 +73,7 @@ schoolForTaskSchema.index({ centerName: 1 });
 schoolForTaskSchema.index({ board: 1 });
 schoolForTaskSchema.index({ tier: 1 });
 schoolForTaskSchema.index({ schoolAccess: 1 });
+schoolForTaskSchema.index({ status: 1 });
 
 const SchoolForTask = mongoose.model("SchoolForTask", schoolForTaskSchema);
 export default SchoolForTask;

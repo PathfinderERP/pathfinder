@@ -15,12 +15,13 @@ const withPopulate = (query) =>
 //  Build filter query
 // ─────────────────────────────────────────────
 const buildFilterQuery = (filters = {}) => {
-    const { search, schoolName, tier, schoolAccess, board, centerName } = filters;
+    const { search, schoolName, tier, schoolAccess, status, board, centerName } = filters;
     const query = {};
 
     if (search) {
         query.$or = [
             { schoolName: { $regex: search, $options: "i" } },
+            { remarks: { $regex: search, $options: "i" } }
         ];
     }
 
@@ -37,6 +38,7 @@ const buildFilterQuery = (filters = {}) => {
     addStringFilter("schoolName", schoolName);
     addStringFilter("tier", tier);
     addStringFilter("schoolAccess", schoolAccess);
+    addStringFilter("status", status);
 
     // ObjectId filters (comma-separated IDs)
     const addIdFilter = (field, val) => {
@@ -124,7 +126,7 @@ export const getSchoolForTaskById = async (req, res) => {
 export const updateSchoolForTask = async (req, res) => {
     try {
         const { id } = req.params;
-        const allowedFields = ["centerName", "schoolName", "board", "tier", "schoolAccess"];
+        const allowedFields = ["centerName", "schoolName", "board", "tier", "schoolAccess", "status", "remarks"];
 
         const updateDoc = {};
         for (const field of allowedFields) {
@@ -199,7 +201,7 @@ export const bulkUpdateSchoolsForTask = async (req, res) => {
             return res.status(400).json({ message: "No update fields provided" });
         }
 
-        const allowedFields = ["centerName", "board", "tier", "schoolAccess"];
+        const allowedFields = ["centerName", "board", "tier", "schoolAccess", "status", "remarks"];
         const updateDoc = {};
         for (const field of allowedFields) {
             if (updates[field] !== undefined) {
@@ -267,8 +269,10 @@ export const bulkImportSchoolsForTask = async (req, res) => {
             const rawSchoolName = clean(row.schoolName || row["SchoolName"] || row["School Name"] || row["SchoolName*"] || row["School Name*"]);
             const rawCenter     = clean(row.centerName || row["CenterName"] || row["Center Name"] || row["CenterName*"] || row["Center Name*"]);
             const rawBoard      = clean(row.board      || row["Board"]      || row["Board Name"]);
-            const tier          = clean(row.tier       || row["Tier"])       || "Tier-1";
-            const schoolAccess  = clean(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]) || "open";
+            const tier          = clean(row.tier       || row["Tier"])       || "A";
+            const schoolAccess  = clean(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]) || "YES";
+            const status        = clean(row.status     || row["Status"]     || row["STATUS"]) || "ONLY INFORMATION GIVEN TO STUDENTS";
+            const remarks       = clean(row.remarks    || row["Remarks"]    || row["REMARKS"]);
 
             // Resolve Centre ObjectId
             let centreId = null;
@@ -305,7 +309,9 @@ export const bulkImportSchoolsForTask = async (req, res) => {
                 centerName: centreId,
                 board: boardId,
                 tier,
-                schoolAccess
+                schoolAccess,
+                status,
+                remarks
             });
         }
 
@@ -339,16 +345,18 @@ export const bulkImportSchoolsForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const getSchoolForTaskDistinctFields = async (req, res) => {
     try {
-        const [schools, tiers, accessLevels] = await Promise.all([
+        const [schools, tiers, accessLevels, statuses] = await Promise.all([
             SchoolForTask.distinct("schoolName"),
             SchoolForTask.distinct("tier"),
             SchoolForTask.distinct("schoolAccess"),
+            SchoolForTask.distinct("status"),
         ]);
 
         res.status(200).json({
             schools:      schools.filter(Boolean).sort(),
             tiers:        tiers.filter(Boolean).sort(),
             accessLevels: accessLevels.filter(Boolean).sort(),
+            statuses:     statuses.filter(Boolean).sort(),
         });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
