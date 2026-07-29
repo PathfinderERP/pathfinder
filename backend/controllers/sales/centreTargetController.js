@@ -112,9 +112,9 @@ export const getCentreTargets = async (req, res) => {
         } else {
             let targetCentres;
             if (req.user.role !== 'superAdmin') {
-                targetCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id");
+                targetCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $nin: [/franchise/i, /rkm/i] } }).select("_id");
             } else {
-                targetCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id");
+                targetCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $nin: [/franchise/i, /rkm/i] } }).select("_id");
             }
             const targetIds = targetCentres.map(c => c._id);
             query.centre = { $in: targetIds.length > 0 ? targetIds : [new mongoose.Types.ObjectId()] };
@@ -167,6 +167,35 @@ export const getCentreTargets = async (req, res) => {
         const targets = await CentreTarget.find(query)
             .populate({ path: 'centre', select: 'centreName', model: 'CentreSchema' })
             .sort({ createdAt: -1 });
+
+        // Ensure active PHSPS named centres are included even if no explicit target record exists
+        let phspsCentres = [];
+        if (req.user.role !== 'superAdmin') {
+            phspsCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $regex: /phsps/i } }).select("_id centreName");
+        } else {
+            phspsCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $regex: /phsps/i } }).select("_id centreName");
+        }
+
+        const existingCentreIds = new Set(targets.map(t => t.centre && t.centre._id ? t.centre._id.toString() : (t.centre ? t.centre.toString() : "")));
+
+        phspsCentres.forEach(pCentre => {
+            if (!existingCentreIds.has(pCentre._id.toString())) {
+                targets.push({
+                    _id: `phsps_virt_${pCentre._id}`,
+                    centre: pCentre,
+                    financialYear: query.financialYear || "2026-2027",
+                    year: query.year || new Date().getFullYear(),
+                    month: typeof query.month === 'string' ? query.month : monthNames[new Date().getMonth()],
+                    targetAmount: 0,
+                    targetAmountWithGST: 0,
+                    achievedAmount: 0,
+                    achievedAmountWithGST: 0,
+                    achievedAmountExclGST: 0,
+                    isPHSPS: true,
+                    toObject: function() { return { ...this }; }
+                });
+            }
+        });
 
         // Calculate achieved amounts in a single batch aggregation
         let globalMinDate = null;
@@ -328,14 +357,20 @@ export const getCentreTargets = async (req, res) => {
                 }
                 
                 const isCustomRange = !!(startDate && endDate);
-                if (!isCustomRange && (totalWithGST !== t.achievedAmountWithGST || totalExclGST !== t.achievedAmountExclGST)) {
+                if (!isCustomRange && !t.isPHSPS && mongoose.Types.ObjectId.isValid(t._id) && (totalWithGST !== t.achievedAmountWithGST || totalExclGST !== t.achievedAmountExclGST)) {
                     await CentreTarget.updateOne(
                         { _id: t._id },
                         { $set: { achievedAmount: totalWithGST, achievedAmountWithGST: totalWithGST, achievedAmountExclGST: totalExclGST } }
                     );
                 }
 
-                const targetObj = t.toObject();
+                const targetObj = typeof t.toObject === 'function' ? t.toObject() : { ...t };
+                const isPHSPS = t.isPHSPS || (t.centre?.centreName && /phsps/i.test(t.centre.centreName));
+                if (isPHSPS) {
+                    targetObj.targetAmount = 0;
+                    targetObj.targetAmountWithGST = 0;
+                    targetObj.isPHSPS = true;
+                }
                 targetObj.achievedAmount = totalWithGST;
                 targetObj.achievedAmountWithGST = totalWithGST;
                 targetObj.achievedAmountExclGST = totalExclGST;

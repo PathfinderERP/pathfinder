@@ -19,10 +19,12 @@ const CentreTarget = () => {
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState(null); // For Edit
+    const [zones, setZones] = useState([]);
     const [centres, setCentres] = useState([]);
     const [sessions, setSessions] = useState([]);
 
     // Filters
+    const [selectedZones, setSelectedZones] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedMonths, setSelectedMonths] = useState([new Date().toLocaleString('default', { month: 'long' })]);
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
@@ -67,10 +69,18 @@ const CentreTarget = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centreRes, sessionRes] = await Promise.all([
+            const [zoneRes, centreRes, sessionRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
             ]);
+
+            if (zoneRes.ok) {
+                const zoneData = await zoneRes.json();
+                const zoneList = Array.isArray(zoneData) ? zoneData : (zoneData.data || zoneData.zones || []);
+                const sortedZones = zoneList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                setZones(sortedZones);
+            }
 
             if (centreRes.ok) {
                 const resData = await centreRes.json();
@@ -103,6 +113,105 @@ const CentreTarget = () => {
             console.error("Error fetching master data", error);
         }
     };
+
+    const zoneCentreMatchInfo = React.useMemo(() => {
+        if (!selectedZones || selectedZones.length === 0) return null;
+        const allowedIds = new Set();
+        const allowedNames = new Set();
+
+        zones.filter(z => selectedZones.includes(z._id)).forEach(z => {
+            (z.centres || []).forEach(c => {
+                const id = typeof c === 'object' ? c._id : c;
+                if (id) allowedIds.add(id.toString());
+                const name = typeof c === 'object' ? c.centreName : null;
+                if (name) allowedNames.add(name.toLowerCase().trim());
+            });
+        });
+
+        return { ids: allowedIds, names: allowedNames };
+    }, [zones, selectedZones]);
+
+    const isCentreAllowedByZone = React.useCallback((cId, cName) => {
+        if (!zoneCentreMatchInfo) return true;
+        if (!cId && !cName) return false;
+
+        const idStr = cId ? cId.toString() : "";
+        const nameStr = (cName || "").toLowerCase().trim();
+
+        if (idStr && zoneCentreMatchInfo.ids.has(idStr)) return true;
+        if (nameStr && zoneCentreMatchInfo.names.has(nameStr)) return true;
+
+        const cleanName = nameStr.replace(/phsps/gi, "").replace(/[^a-z0-9]/gi, "");
+        for (const zoneCentreName of zoneCentreMatchInfo.names) {
+            const cleanZoneCentreName = zoneCentreName.replace(/phsps/gi, "").replace(/[^a-z0-9]/gi, "");
+            if (cleanZoneCentreName && cleanName && (cleanName.includes(cleanZoneCentreName) || cleanZoneCentreName.includes(cleanName))) {
+                return true;
+            }
+        }
+
+        return false;
+    }, [zoneCentreMatchInfo]);
+
+    const availableCentres = React.useMemo(() => {
+        if (!zoneCentreMatchInfo) return centres;
+        return centres.filter(c => isCentreAllowedByZone(c._id, c.centreName));
+    }, [centres, zoneCentreMatchInfo, isCentreAllowedByZone]);
+
+    const displayedTargets = React.useMemo(() => {
+        return targets.filter(t => {
+            if (viewMode === "Monthly" && selectedMonths.length > 0 && !selectedMonths.includes(t.month)) {
+                return false;
+            }
+
+            const cId = t.centre?._id ? t.centre._id : t.centre;
+            const cName = t.centre?.centreName;
+
+            if (!isCentreAllowedByZone(cId, cName)) {
+                return false;
+            }
+
+            if (selectedCentres.length > 0) {
+                const targetCentreId = cId ? cId.toString() : "";
+                if (!selectedCentres.includes(targetCentreId)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }, [targets, viewMode, selectedMonths, zoneCentreMatchInfo, isCentreAllowedByZone, selectedCentres]);
+
+    const grandTotals = React.useMemo(() => {
+        return displayedTargets.reduce((acc, t) => {
+            const targetAmountExcl = t.targetAmount || 0;
+            const dateWiseTargetExcl = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) : 0;
+            const activeTargetExcl = viewMode === "Custom" ? dateWiseTargetExcl : targetAmountExcl;
+            const achievedExcl = t.achievedAmountExclGST || (t.achievedAmount / 1.18) || 0;
+            const shortfallExcl = Math.max(0, activeTargetExcl - achievedExcl);
+
+            const targetWithGST = viewMode === "Custom" ? dateWiseTargetExcl * 1.18 : (t.targetAmountWithGST || (targetAmountExcl * 1.18));
+            const achievedWithGST = t.achievedAmountWithGST || t.achievedAmount || 0;
+
+            acc.totalTargetExclGST += targetAmountExcl;
+            acc.totalDateWiseTargetExclGST += dateWiseTargetExcl;
+            acc.totalActiveTargetExclGST += activeTargetExcl;
+            acc.totalAchievedExclGST += achievedExcl;
+            acc.totalShortfallExclGST += shortfallExcl;
+
+            acc.totalTargetWithGST += targetWithGST;
+            acc.totalAchievedWithGST += achievedWithGST;
+
+            return acc;
+        }, {
+            totalTargetExclGST: 0,
+            totalDateWiseTargetExclGST: 0,
+            totalActiveTargetExclGST: 0,
+            totalAchievedExclGST: 0,
+            totalShortfallExclGST: 0,
+            totalTargetWithGST: 0,
+            totalAchievedWithGST: 0
+        });
+    }, [displayedTargets, viewMode, startDate, endDate]);
 
     const fetchTargets = async () => {
         if (!filterFinancialYear && viewMode !== "Custom") return;
@@ -180,7 +289,7 @@ const CentreTarget = () => {
     };
 
     const handleExport = () => {
-        const filteredTargets = targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month)));
+        const filteredTargets = displayedTargets;
 
         if (!filteredTargets || filteredTargets.length === 0) {
             toast.warn("No data to export");
@@ -188,15 +297,17 @@ const CentreTarget = () => {
         }
 
         const exportData = filteredTargets.map(t => {
+            const isPHSPS = t.isPHSPS || (t.centre?.centreName && /phsps/i.test(t.centre.centreName));
             const row = {
                 "Centre Name": t.centre?.centreName || "Unknown",
                 "Financial Year": t.financialYear,
                 "Year": t.year,
                 "Month": t.month,
-                "Target Amount": t.targetAmountWithGST || (t.targetAmount * 1.18),
+                "Target Amount": isPHSPS ? 0 : (t.targetAmountWithGST || (t.targetAmount * 1.18)),
                 "Achieved (Inc. GST)": t.achievedAmountWithGST || t.achievedAmount,
                 "Achieved (Excl. GST)": t.achievedAmountExclGST || (t.achievedAmount / 1.18).toFixed(2),
                 "Achievement %": (() => {
+                    if (isPHSPS) return "0.0%";
                     const achieved = t.achievedAmountWithGST || 0;
                     const dateWiseTargetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) * 1.18 : (t.targetAmountWithGST || (t.targetAmount * 1.18));
                     const percentage = dateWiseTargetWithGST > 0 ? (achieved / dateWiseTargetWithGST) * 100 : 0;
@@ -205,7 +316,7 @@ const CentreTarget = () => {
             };
 
             if (viewMode === "Custom" && startDate && endDate) {
-                const dateWiseExcl = calculateDateWiseTarget(t, startDate, endDate);
+                const dateWiseExcl = isPHSPS ? 0 : calculateDateWiseTarget(t, startDate, endDate);
                 row["Date Wise Target (With GST)"] = (dateWiseExcl * 1.18).toFixed(2);
                 row["Date Wise Target (Excl. GST)"] = dateWiseExcl.toFixed(2);
             }
@@ -273,34 +384,20 @@ const CentreTarget = () => {
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {(() => {
-                        const filtered = targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month)));
-                        const totals = filtered.reduce((acc, t) => {
-                            const targetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) * 1.18 : (t.targetAmountWithGST || (t.targetAmount * 1.18));
-                            const achievedWithGST = t.achievedAmountWithGST || t.achievedAmount || 0;
-                            const targetExclGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) : (t.targetAmount || 0);
-                            const achievedExclGST = t.achievedAmountExclGST || (t.achievedAmount / 1.18) || 0;
-
-                            acc.totalTargetWithGST += targetWithGST;
-                            acc.totalAchievedWithGST += achievedWithGST;
-                            acc.totalTargetExclGST += targetExclGST;
-                            acc.totalAchievedExclGST += achievedExclGST;
-                            return acc;
-                        }, { totalTargetWithGST: 0, totalAchievedWithGST: 0, totalTargetExclGST: 0, totalAchievedExclGST: 0 });
-
-                        const percentWithGST = totals.totalTargetWithGST > 0 ? (totals.totalAchievedWithGST / totals.totalTargetWithGST) * 100 : 0;
-                        const percentExclGST = totals.totalTargetExclGST > 0 ? (totals.totalAchievedExclGST / totals.totalTargetExclGST) * 100 : 0;
+                        const percentWithGST = grandTotals.totalTargetWithGST > 0 ? (grandTotals.totalAchievedWithGST / grandTotals.totalTargetWithGST) * 100 : 0;
+                        const percentExclGST = grandTotals.totalActiveTargetExclGST > 0 ? (grandTotals.totalAchievedExclGST / grandTotals.totalActiveTargetExclGST) * 100 : 0;
 
                         const cardItems = [
                             {
                                 label: "Total Target (With GST)",
-                                value: totals.totalTargetWithGST,
+                                value: grandTotals.totalTargetWithGST,
                                 color: "text-blue-500",
                                 bgColor: isDarkMode ? "bg-blue-500/10" : "bg-blue-50",
                                 iconColor: "text-blue-500"
                             },
                             {
                                 label: "Total Achieved (With GST)",
-                                value: totals.totalAchievedWithGST,
+                                value: grandTotals.totalAchievedWithGST,
                                 color: "text-emerald-500",
                                 bgColor: isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50",
                                 iconColor: "text-emerald-500",
@@ -308,14 +405,14 @@ const CentreTarget = () => {
                             },
                             {
                                 label: "Total Target (Excl. GST)",
-                                value: totals.totalTargetExclGST,
+                                value: grandTotals.totalActiveTargetExclGST,
                                 color: "text-yellow-500",
                                 bgColor: isDarkMode ? "bg-yellow-500/10" : "bg-yellow-50",
                                 iconColor: "text-yellow-500"
                             },
                             {
                                 label: "Total Achieved (Excl. GST)",
-                                value: totals.totalAchievedExclGST,
+                                value: grandTotals.totalAchievedExclGST,
                                 color: "text-purple-500",
                                 bgColor: isDarkMode ? "bg-purple-500/10" : "bg-purple-50",
                                 iconColor: "text-purple-500",
@@ -399,8 +496,18 @@ const CentreTarget = () => {
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="min-w-[200px] z-10 w-full sm:w-64">
                             <CustomMultiSelect
-                                options={centres.map(c => ({ value: c._id, label: c.centreName }))}
-                                value={centres.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))}
+                                options={zones.map(z => ({ value: z._id, label: z.name }))}
+                                value={zones.map(z => ({ value: z._id, label: z.name })).filter(opt => selectedZones.includes(opt.value))}
+                                onChange={(selected) => setSelectedZones(selected ? selected.map(o => o.value) : [])}
+                                placeholder="All Zones"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        <div className="min-w-[200px] z-10 w-full sm:w-64">
+                            <CustomMultiSelect
+                                options={availableCentres.map(c => ({ value: c._id, label: c.centreName }))}
+                                value={availableCentres.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))}
                                 onChange={(selected) => setSelectedCentres(selected ? selected.map(o => o.value) : [])}
                                 placeholder="All Centres"
                                 isDarkMode={isDarkMode}
@@ -481,7 +588,8 @@ const CentreTarget = () => {
 
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>                            <thead>
+                        <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                            <thead>
                                 <tr className={`uppercase font-black text-xs border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                     <th className={`px-6 py-4 sticky left-0 z-20 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-gray-50'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.3)' }}>Centre Name</th>
                                     <th className="px-6 py-4">Financial Year</th>
@@ -500,18 +608,19 @@ const CentreTarget = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={viewMode === "Custom" ? 10 : 8} className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
+                                        <td colSpan={viewMode === "Custom" ? 10 : 9} className="px-6 py-8 text-center text-cyan-400 font-bold">Loading targets...</td>
                                     </tr>
-                                ) : targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).length === 0 ? (
+                                ) : displayedTargets.length === 0 ? (
                                     <tr>
-                                        <td colSpan={viewMode === "Custom" ? 10 : 8} className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
+                                        <td colSpan={viewMode === "Custom" ? 10 : 9} className="px-6 py-8 text-center text-gray-500 font-medium">No targets found. Add one to get started.</td>
                                     </tr>
                                 ) : (
-                                    targets.filter(t => (viewMode !== "Monthly") || (selectedMonths.length === 0 || selectedMonths.includes(t.month))).map(target => {
-                                        const activeTargetExclGST = viewMode === "Custom" ? calculateDateWiseTarget(target, startDate, endDate) : (target.targetAmount || 0);
+                                    displayedTargets.map(target => {
+                                        const isPHSPS = target.isPHSPS || (target.centre?.centreName && /phsps/i.test(target.centre.centreName));
+                                        const activeTargetExclGST = isPHSPS ? 0 : (viewMode === "Custom" ? calculateDateWiseTarget(target, startDate, endDate) : (target.targetAmount || 0));
                                         const activeAchievedExclGST = target.achievedAmountExclGST || (target.achievedAmount / 1.18) || 0;
-                                        const shortfallExclGST = Math.max(0, activeTargetExclGST - activeAchievedExclGST);
-                                        const percentage = activeTargetExclGST > 0 ? (activeAchievedExclGST / activeTargetExclGST) * 100 : 0;
+                                        const shortfallExclGST = isPHSPS ? 0 : Math.max(0, activeTargetExclGST - activeAchievedExclGST);
+                                        const percentage = isPHSPS ? 0 : (activeTargetExclGST > 0 ? (activeAchievedExclGST / activeTargetExclGST) * 100 : 0);
 
                                         return (
                                             <tr key={target._id} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-300`}>
@@ -519,10 +628,10 @@ const CentreTarget = () => {
                                                 <td className="px-6 py-4">{target.financialYear}</td>
                                                 <td className="px-6 py-4">{target.year}</td>
                                                 <td className={`px-6 py-4 font-semibold ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'}`}>{target.month}</td>
-                                                <td className="px-6 py-4 text-yellow-500 font-bold text-center">{(target.targetAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                <td className="px-6 py-4 text-yellow-500 font-bold text-center">{(activeTargetExclGST).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 {viewMode === "Custom" && (
                                                     <td className="px-6 py-4 text-orange-400 font-bold text-center">
-                                                        {calculateDateWiseTarget(target, startDate, endDate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        {(activeTargetExclGST).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </td>
                                                 )}
                                                 <td className="px-6 py-4 text-emerald-500 font-bold text-center">{(activeAchievedExclGST).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -531,30 +640,63 @@ const CentreTarget = () => {
                                                     {percentage.toFixed(1)}%
                                                 </td>
                                                 <td className="px-6 py-4 text-right flex justify-end gap-3">
-                                                {canEdit && (
-                                                    <button
-                                                        onClick={() => { setSelectedTarget(target); setShowAddModal(true); }}
-                                                        className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-600'}`}
-                                                        title="Edit"
-                                                    >
-                                                        <FaEdit size={16} />
-                                                    </button>
-                                                )}
-                                                {canDelete && (
-                                                    <button
-                                                        onClick={() => handleDelete(target._id)}
-                                                        className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-red-400' : 'text-gray-500 hover:text-red-600'}`}
-                                                        title="Delete"
-                                                    >
-                                                        <FaTrash size={15} />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
+                                                    {canEdit && !isPHSPS && (
+                                                        <button
+                                                            onClick={() => { setSelectedTarget(target); setShowAddModal(true); }}
+                                                            className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-600'}`}
+                                                            title="Edit"
+                                                        >
+                                                            <FaEdit size={16} />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && !isPHSPS && (
+                                                        <button
+                                                            onClick={() => handleDelete(target._id)}
+                                                            className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-red-400' : 'text-gray-500 hover:text-red-600'}`}
+                                                            title="Delete"
+                                                        >
+                                                            <FaTrash size={15} />
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
+                            {!loading && displayedTargets.length > 0 && (() => {
+                                const overallPercentage = grandTotals.totalActiveTargetExclGST > 0 ? (grandTotals.totalAchievedExclGST / grandTotals.totalActiveTargetExclGST) * 100 : 0;
+                                return (
+                                    <tfoot className={`font-black text-xs uppercase tracking-wider border-t-2 transition-colors ${isDarkMode ? 'bg-[#15191d] text-white border-gray-700' : 'bg-gray-100 text-gray-900 border-gray-300'}`}>
+                                        <tr>
+                                            <td className={`px-6 py-4 sticky left-0 z-20 font-black ${isDarkMode ? 'bg-[#15191d] text-white' : 'bg-gray-100 text-gray-900'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.3)' }}>
+                                                Grand Total
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500">-</td>
+                                            <td className="px-6 py-4 text-gray-500">-</td>
+                                            <td className="px-6 py-4 text-gray-500">-</td>
+                                            <td className="px-6 py-4 text-center text-yellow-500 font-extrabold text-sm">
+                                                {(grandTotals.totalTargetExclGST).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </td>
+                                            {viewMode === "Custom" && (
+                                                <td className="px-6 py-4 text-center text-orange-400 font-extrabold text-sm">
+                                                    {(grandTotals.totalDateWiseTargetExclGST).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </td>
+                                            )}
+                                            <td className="px-6 py-4 text-center text-emerald-500 font-extrabold text-sm">
+                                                {(grandTotals.totalAchievedExclGST).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="px-6 py-4 text-center text-red-500 font-extrabold text-sm">
+                                                {(grandTotals.totalShortfallExclGST).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </td>
+                                            <td className={`px-6 py-4 text-center font-black text-sm ${overallPercentage > 50 ? "text-green-500" : overallPercentage === 50 ? "text-yellow-500" : "text-red-500"}`}>
+                                                {overallPercentage.toFixed(1)}%
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-gray-500">-</td>
+                                        </tr>
+                                    </tfoot>
+                                );
+                            })()}
                         </table>
                     </div>
                 </div>

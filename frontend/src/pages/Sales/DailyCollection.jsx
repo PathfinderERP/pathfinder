@@ -11,22 +11,32 @@ const DailyCollection = () => {
     const currentUser = storedUser ? JSON.parse(storedUser) : null;
     const isSuperAdmin = currentUser?.role?.toLowerCase()?.replace(/\s+/g, '') === 'superadmin';
 
+    const getSavedFilters = () => {
+        try {
+            const saved = localStorage.getItem("dailyCollection_filters");
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            return {};
+        }
+    };
+    const savedFilters = getSavedFilters();
+
     const [loading, setLoading] = useState(false);
-    const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [activePreset, setActivePreset] = useState("today");
+    const [date, setDate] = useState(savedFilters.date || new Date().toISOString().split("T")[0]);
+    const [startDate, setStartDate] = useState(savedFilters.startDate || "");
+    const [endDate, setEndDate] = useState(savedFilters.endDate || "");
+    const [activePreset, setActivePreset] = useState(savedFilters.activePreset || "today");
     const [dailyDetails, setDailyDetails] = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [totalCollection, setTotalCollection] = useState(0);
     const [transactionCount, setTransactionCount] = useState(0);
-    const [activeTab, setActiveTab] = useState("centers"); // "centers" or "details"
+    const [activeTab, setActiveTab] = useState(savedFilters.activeTab || "centers"); // "centers" or "details"
     const [centreTargets, setCentreTargets] = useState({});
     const [editingCentre, setEditingCentre] = useState(null);
     const [editTargetValue, setEditTargetValue] = useState("");
     const [zones, setZones] = useState([]);
     const [zonalManagers, setZonalManagers] = useState([]);
-    const [selectedZones, setSelectedZones] = useState([]);
+    const [selectedZones, setSelectedZones] = useState(savedFilters.selectedZones || []);
     const [isZoneOpen, setIsZoneOpen] = useState(false);
     const [zoneSearch, setZoneSearch] = useState("");
 
@@ -36,12 +46,12 @@ const DailyCollection = () => {
     const [departments, setDepartments] = useState([]);
     const [paymentMethodsList, setPaymentMethodsList] = useState([]);
 
-    const [selectedCentres, setSelectedCentres] = useState([]);
-    const [selectedCourses, setSelectedCourses] = useState([]);
-    const [selectedDepartments, setSelectedDepartments] = useState([]);
-    const [selectedExamTags, setSelectedExamTags] = useState([]);
-    const [selectedPaymentMethods, setSelectedPaymentMethods] = useState([]);
-    const [searchText, setSearchText] = useState("");
+    const [selectedCentres, setSelectedCentres] = useState(savedFilters.selectedCentres || []);
+    const [selectedCourses, setSelectedCourses] = useState(savedFilters.selectedCourses || []);
+    const [selectedDepartments, setSelectedDepartments] = useState(savedFilters.selectedDepartments || []);
+    const [selectedExamTags, setSelectedExamTags] = useState(savedFilters.selectedExamTags || []);
+    const [selectedPaymentMethods, setSelectedPaymentMethods] = useState(savedFilters.selectedPaymentMethods || []);
+    const [searchText, setSearchText] = useState(savedFilters.searchText || "");
 
     const [centreSearch, setCentreSearch] = useState("");
     const [courseSearch, setCourseSearch] = useState("");
@@ -60,6 +70,33 @@ const DailyCollection = () => {
     const [isPaymentMethodOpen, setIsPaymentMethodOpen] = useState(false);
 
     const { theme } = useTheme();
+
+    useEffect(() => {
+        const filtersToSave = {
+            date,
+            startDate,
+            endDate,
+            activePreset,
+            activeTab,
+            selectedZones,
+            selectedCentres,
+            selectedCourses,
+            selectedDepartments,
+            selectedExamTags,
+            selectedPaymentMethods,
+            searchText
+        };
+        localStorage.setItem("dailyCollection_filters", JSON.stringify(filtersToSave));
+    }, [date, startDate, endDate, activePreset, activeTab, selectedZones, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
+
+    useEffect(() => {
+        fetchMasterData();
+    }, []);
+
+    useEffect(() => {
+        fetchDailyCollection();
+    }, [date, startDate, endDate, activePreset, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
+
     const isDarkMode = theme === "dark";
     const filterButtonClass = isDarkMode
         ? "bg-[#15181f] border border-gray-700 text-white"
@@ -271,6 +308,7 @@ const DailyCollection = () => {
     };
 
     const resetFilters = () => {
+        localStorage.removeItem("dailyCollection_filters");
         setSelectedCentres([]);
         setSelectedCourses([]);
         setSelectedDepartments([]);
@@ -288,6 +326,7 @@ const DailyCollection = () => {
         setActivePreset("today");
         setSelectedZones([]);
         setZoneSearch("");
+        setActiveTab("centers");
         toast.info("Filters reset");
     };
 

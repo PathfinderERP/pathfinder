@@ -79,6 +79,8 @@ const FinalWeekendTarget = () => {
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [centres, setCentres] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
+    const [zones, setZones] = useState([]);
+    const [selectedZones, setSelectedZones] = useState([]);
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
 
@@ -186,30 +188,80 @@ const FinalWeekendTarget = () => {
         }
     }, [canView, user.role, navigate]);
 
-    // ── Fetch centres ─────────────────────────────────────────────────────────
+    // ── Fetch centres & zones ────────────────────────────────────────────────
     useEffect(() => {
-        const fetchCentres = async () => {
+        const fetchMasterData = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/centre`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const raw = await res.json();
+                const [resCentres, resZones] = await Promise.all([
+                    fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers: { Authorization: `Bearer ${token}` } })
+                ]);
+
+                if (resCentres.ok) {
+                    const raw = await resCentres.json();
                     let list = Array.isArray(raw) ? raw : raw.centres || [];
                     if (user.role !== "superAdmin" && user.centres) {
-                        const allowed = user.centres.map(id =>
-                            typeof id === "object" ? id._id : id
-                        );
+                        const allowed = user.centres.map(id => typeof id === "object" ? id._id : id);
                         list = list.filter(c => allowed.includes(c._id));
                     }
                     list = list.filter(c => c.status === "active");
                     setCentres(list.sort((a, b) => a.centreName.localeCompare(b.centreName)));
                 }
+
+                if (resZones.ok) {
+                    const rawZ = await resZones.json();
+                    const zList = Array.isArray(rawZ) ? rawZ : (rawZ.data || rawZ.zones || []);
+                    setZones(zList.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+                }
             } catch (e) { console.error(e); }
         };
-        fetchCentres();
+        fetchMasterData();
     }, []);
+
+    // ── Zone Matching Helper ──────────────────────────────────────────────────
+    const zoneCentreMatchInfo = React.useMemo(() => {
+        if (!selectedZones || selectedZones.length === 0) return null;
+        const allowedIds = new Set();
+        const allowedNames = new Set();
+
+        zones.filter(z => selectedZones.includes(z._id)).forEach(z => {
+            (z.centres || []).forEach(c => {
+                const id = typeof c === 'object' ? c._id : c;
+                if (id) allowedIds.add(id.toString());
+                const name = typeof c === 'object' ? c.centreName : null;
+                if (name) allowedNames.add(name.toLowerCase().trim());
+            });
+        });
+
+        return { ids: allowedIds, names: allowedNames };
+    }, [zones, selectedZones]);
+
+    const isCentreAllowedByZone = useCallback((cId, cName) => {
+        if (!zoneCentreMatchInfo) return true;
+        if (!cId && !cName) return false;
+
+        const idStr = cId ? cId.toString() : "";
+        const nameStr = (cName || "").toLowerCase().trim();
+
+        if (idStr && zoneCentreMatchInfo.ids.has(idStr)) return true;
+        if (nameStr && zoneCentreMatchInfo.names.has(nameStr)) return true;
+
+        const cleanName = nameStr.replace(/phsps/gi, "").replace(/[^a-z0-9]/gi, "");
+        for (const zoneCentreName of zoneCentreMatchInfo.names) {
+            const cleanZoneCentreName = zoneCentreName.replace(/phsps/gi, "").replace(/[^a-z0-9]/gi, "");
+            if (cleanZoneCentreName && cleanName && (cleanName.includes(cleanZoneCentreName) || cleanZoneCentreName.includes(cleanName))) {
+                return true;
+            }
+        }
+
+        return false;
+    }, [zoneCentreMatchInfo]);
+
+    const availableCentres = React.useMemo(() => {
+        if (!zoneCentreMatchInfo) return centres;
+        return centres.filter(c => isCentreAllowedByZone(c._id, c.centreName));
+    }, [centres, zoneCentreMatchInfo, isCentreAllowedByZone]);
 
     // ── Fetch week-wise data ──────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -217,7 +269,17 @@ const FinalWeekendTarget = () => {
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({ month: selectedMonth, year: selectedYear });
-            if (selectedCentres.length > 0) params.append("centre", selectedCentres.join(","));
+            
+            let effectiveCentreIds = [];
+            if (selectedCentres.length > 0) {
+                effectiveCentreIds = selectedCentres;
+            } else if (selectedZones.length > 0) {
+                effectiveCentreIds = availableCentres.map(c => c._id);
+            }
+
+            if (effectiveCentreIds.length > 0) {
+                params.append("centre", effectiveCentreIds.join(","));
+            }
 
             const res = await fetch(
                 `${import.meta.env.VITE_API_URL}/sales/final-weekend-target?${params}`,
@@ -232,15 +294,18 @@ const FinalWeekendTarget = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedMonth, selectedYear, selectedCentres]);
+    }, [selectedMonth, selectedYear, selectedCentres, selectedZones, availableCentres]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
     // ── Derive week list from first active centre ─────────────────────────────
     const weekList = data?.centres?.find(c => c.status === "active")?.weeks || [];
 
-    // ── Summary cards ─────────────────────────────────────────────────────────
-    const activeCentres = data?.centres?.filter(c => c.status === "active") || [];
+    // ── Summary cards & filtered active centres ──────────────────────────────
+    const activeCentres = React.useMemo(() => {
+        const raw = data?.centres?.filter(c => c.status === "active") || [];
+        return raw.filter(c => isCentreAllowedByZone(c.centreId, c.centreName));
+    }, [data, isCentreAllowedByZone]);
     const totalTarget = activeCentres.reduce((s, c) => s + c.monthlyTargetExclGST, 0);
     const totalAchieved = activeCentres.reduce((s, c) => s + c.totalAchievedExclGST, 0);
     const totalWeekend = activeCentres.reduce((s, c) => s + c.totalWeekendExclGST, 0);
@@ -374,7 +439,7 @@ const FinalWeekendTarget = () => {
 
                 {/* Filters */}
                 <div className={`${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-gray-200 shadow-sm"} p-5 rounded-xl border`}>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end">
                         <div className="space-y-1.5">
                             <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                                 <FaStar className="text-cyan-400" size={10} /> Period
@@ -390,19 +455,34 @@ const FinalWeekendTarget = () => {
                                 </select>
                             </div>
                         </div>
-                        <div className="md:col-span-2 space-y-1.5">
+
+                        <div className="space-y-1.5">
+                            <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                                <FaGem className="text-cyan-400" size={10} /> Zones
+                            </label>
+                            <CustomMultiSelect
+                                options={zones.map(z => ({ value: z._id, label: z.name }))}
+                                value={zones.map(z => ({ value: z._id, label: z.name })).filter(o => selectedZones.includes(o.value))}
+                                onChange={sel => setSelectedZones(sel ? sel.map(o => o.value) : [])}
+                                placeholder="All Zones"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5 sm:col-span-2 md:col-span-2">
                             <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
                                 <FaGem className="text-cyan-400" size={10} /> Centres
                             </label>
                             <CustomMultiSelect
-                                options={centres.map(c => ({ value: c._id, label: c.centreName }))}
-                                value={centres.map(c => ({ value: c._id, label: c.centreName })).filter(o => selectedCentres.includes(o.value))}
+                                options={availableCentres.map(c => ({ value: c._id, label: c.centreName }))}
+                                value={availableCentres.map(c => ({ value: c._id, label: c.centreName })).filter(o => selectedCentres.includes(o.value))}
                                 onChange={sel => setSelectedCentres(sel ? sel.map(o => o.value) : [])}
                                 placeholder="All Operational Centres"
                                 isDarkMode={isDarkMode}
                             />
                         </div>
-                        <div className="flex items-end">
+
+                        <div>
                             <button onClick={fetchData}
                                 className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${isDarkMode ? "bg-cyan-600/90 text-white hover:bg-cyan-500" : "bg-cyan-600 text-white hover:bg-cyan-700 shadow-md"}`}>
                                 <FaSync className={loading ? "animate-spin" : ""} size={13} />
