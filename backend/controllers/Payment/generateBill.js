@@ -338,7 +338,8 @@ export const generateBill = async (req, res) => {
                     receivedDate: payment.receivedDate,
                     accountHolderName: payment.accountHolderName,
                     chequeDate: payment.chequeDate,
-                    status: payment.status
+                    status: payment.status,
+                    remarks: payment.remarks || (installment ? installment.remarks : '') || (admission ? admission.remarks : '') || ''
                 },
                 amounts: {
                     courseFee: finalCourseFee,

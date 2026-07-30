@@ -376,7 +376,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             }
 
             // Remarks
-            const remarksText = billData.payment?.remarks || installment?.remarks || '';
+            const remarksText = billData.payment?.remarks || installment?.remarks || billData.remarks || admission?.remarks || '';
             const remarksH = drawRow(yPos, 'Remarks:', remarksText);
             yPos += remarksH;
 
@@ -601,6 +601,12 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                                 <div><span className="text-gray-400">Cheque Date:</span> <span className="text-white font-medium">{billData.payment.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A'}</span></div>
                                             </>
                                         )}
+                                        <div className="col-span-2 border-t border-gray-700/60 pt-2 mt-1">
+                                            <span className="text-gray-400 font-semibold">Remarks:</span>{" "}
+                                            <span className="text-cyan-300 font-medium ml-1">
+                                                {billData.payment?.remarks || installment?.remarks || billData.remarks || admission?.remarks || 'N/A'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
