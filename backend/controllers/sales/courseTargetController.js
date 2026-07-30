@@ -182,7 +182,7 @@ export const saveCourseTarget = async (req, res) => {
 // GET /sales/course-target/analysis
 export const getCourseTargetAnalysis = async (req, res) => {
     try {
-        const { centre, year, month, quarter, week, targetType, programme, sessions, classIds, courseIds } = req.query;
+        const { centre, year, month, quarter, week, targetType, programme, sessions, classIds, courseIds, courseSearch } = req.query;
 
         if (!centre || !year || !targetType) {
             return res.status(400).json({ message: "Centre(s), Year, and Target Type are required" });
@@ -447,6 +447,21 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 });
             }
 
+            // Filter by courseSearch if passed (supports multi-term combinations e.g. "online engg")
+            if (courseSearch && courseSearch.trim()) {
+                const searchTerms = courseSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+                if (searchTerms.length > 0) {
+                    filteredNormal = filteredNormal.filter(a => {
+                        const textToSearch = `${a.course?.courseName || ""} ${a.examTag?.name || a.examTag?.tagName || ""} ${a.student?.studentsDetails?.[0]?.programme || a.course?.programme || ""}`.toLowerCase();
+                        return searchTerms.every(term => textToSearch.includes(term));
+                    });
+                    filteredBoard = filteredBoard.filter(a => {
+                        const textToSearch = `${a.boardCourseName || a.boardId?.boardCourse || ""} ${a.examTag?.name || a.examTag?.tagName || ""} ${a.studentId?.studentsDetails?.[0]?.programme || a.programme || ""}`.toLowerCase();
+                        return searchTerms.every(term => textToSearch.includes(term));
+                    });
+                }
+            }
+
             // Combine and Deduplicate
             const combinedAdmissions = [];
 
@@ -565,7 +580,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
 // GET /sales/course-target/admissions
 export const getAdmissionDetails = async (req, res) => {
     try {
-        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName, classIds, courseIds } = req.query;
+        const { centreName, departmentId, startDate, endDate, programme, sessions, tagName, classIds, courseIds, courseSearch } = req.query;
 
         if (!centreName || !departmentId || !startDate || !endDate) {
             return res.status(400).json({ message: "Missing required parameters" });
@@ -628,6 +643,16 @@ export const getAdmissionDetails = async (req, res) => {
             });
         }
 
+        if (courseSearch && courseSearch.trim()) {
+            const searchTerms = courseSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            if (searchTerms.length > 0) {
+                admissions = admissions.filter(a => {
+                    const textToSearch = `${a.course?.courseName || ""} ${a.examTag?.name || a.examTag?.tagName || ""} ${a.student?.studentsDetails?.[0]?.programme || a.course?.programme || ""}`.toLowerCase();
+                    return searchTerms.every(term => textToSearch.includes(term));
+                });
+            }
+        }
+
         let normalResults = admissions.map(a => {
             const studentTag = getStudentSessionExamTag(a.student, a.academicSession);
             let origTagName = studentTag || a.examTag?.name || a.examTag?.tagName || "NORMAL";
@@ -680,6 +705,16 @@ export const getAdmissionDetails = async (req, res) => {
                 const bName = a.boardCourseName || a.boardId?.boardCourse;
                 return courseIdList.includes(bId) || courseIdList.includes(bName);
             });
+        }
+
+        if (courseSearch && courseSearch.trim()) {
+            const searchTerms = courseSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            if (searchTerms.length > 0) {
+                boardAdmissions = boardAdmissions.filter(a => {
+                    const textToSearch = `${a.boardCourseName || a.boardId?.boardCourse || ""} ${a.examTag?.name || a.examTag?.tagName || ""} ${a.studentId?.studentsDetails?.[0]?.programme || a.programme || ""}`.toLowerCase();
+                    return searchTerms.every(term => textToSearch.includes(term));
+                });
+            }
         }
 
         boardResults = boardAdmissions.map(a => {

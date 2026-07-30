@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup, FaSave } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup, FaSave, FaSearch, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
@@ -60,6 +60,10 @@ const CourseTarget = () => {
         } catch {
             return [];
         }
+    });
+    const [courseSearch, setCourseSearch] = useState(() => {
+        const saved = localStorage.getItem("courseTarget_courseSearch");
+        return saved || "";
     });
     const [availableCourses, setAvailableCourses] = useState([]);
     const [activeCardModal, setActiveCardModal] = useState(null);
@@ -264,6 +268,9 @@ const CourseTarget = () => {
             if (selectedCourses && selectedCourses.length > 0) {
                 params.append("courseIds", selectedCourses.join(','));
             }
+            if (courseSearch && courseSearch.trim()) {
+                params.append("courseSearch", courseSearch.trim());
+            }
             const res = await fetch(`${import.meta.env.VITE_API_URL}/sales/course-target/admissions?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -399,6 +406,10 @@ const CourseTarget = () => {
     useEffect(() => {
         localStorage.setItem("courseTarget_selectedCourses", JSON.stringify(selectedCourses));
     }, [selectedCourses]);
+
+    useEffect(() => {
+        localStorage.setItem("courseTarget_courseSearch", courseSearch);
+    }, [courseSearch]);
 
     useEffect(() => {
         localStorage.setItem("courseTarget_selectedZones", JSON.stringify(selectedZones));
@@ -661,6 +672,9 @@ const CourseTarget = () => {
             if (selectedCourses && selectedCourses.length > 0) {
                 params.courseIds = selectedCourses.join(',');
             }
+            if (courseSearch && courseSearch.trim()) {
+                params.courseSearch = courseSearch.trim();
+            }
 
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/sales/course-target/analysis`, {
                 params,
@@ -682,7 +696,7 @@ const CourseTarget = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCentres, selectedZones, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses, selectedCourses]);
+    }, [selectedCentres, selectedZones, selectedYear, viewMode, selectedMonth, selectedQuarter, selectedWeek, customStartDate, customEndDate, selectedProgrammes, selectedSessions, selectedClasses, selectedCourses, courseSearch]);
 
     useEffect(() => {
         fetchData();
@@ -1147,6 +1161,33 @@ const CourseTarget = () => {
                                 placeholder="Select Classes"
                                 isDarkMode={isDarkMode}
                             />
+                        </div>
+
+                        {/* Course Search Box */}
+                        <div className="relative min-w-[200px] z-20 w-full sm:w-60">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <FaSearch size={12} />
+                            </div>
+                            <input
+                                type="text"
+                                value={courseSearch}
+                                onChange={(e) => setCourseSearch(e.target.value)}
+                                placeholder="Search course name..."
+                                className={`w-full text-xs font-semibold rounded-lg pl-8 pr-8 py-2 border outline-none transition-all ${
+                                    isDarkMode
+                                        ? 'bg-[#1a1f24] border-gray-700 text-white placeholder-gray-500 focus:border-cyan-500'
+                                        : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:border-cyan-500 shadow-sm'
+                                }`}
+                            />
+                            {courseSearch && (
+                                <button
+                                    onClick={() => setCourseSearch("")}
+                                    className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-gray-200"
+                                    title="Clear search"
+                                >
+                                    <FaTimes size={12} />
+                                </button>
+                            )}
                         </div>
 
                         {/* Course Filter */}
