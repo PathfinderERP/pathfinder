@@ -27,6 +27,19 @@ const marketingPlannerSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    // Optional: ObjectId ref to SchoolForTask master data
+    // set when the task was assigned by an admin (school from master data)
+    // null when user typed the institution themselves
+    schoolRef: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SchoolForTask",
+        default: null
+    },
+    // Denormalised school status from SchoolForTask
+    schoolStatus: {
+        type: String,
+        default: ""
+    },
     owner: {
         type: String,
         required: true
@@ -99,6 +112,27 @@ const marketingPlannerSchema = new mongoose.Schema({
     approvedBy: {
         type: String,
         default: ""
+    },
+    // Whether this activity was assigned by an admin
+    isAssigned: {
+        type: Boolean,
+        default: false
+    },
+    // ObjectId of the user who assigned this task
+    assignedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+    },
+    assignedByName: {
+        type: String,
+        default: ""
+    },
+    // Reference to AssignedTask document
+    assignedTaskRef: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AssignedTask",
+        default: null
     }
 }, { timestamps: true });
 

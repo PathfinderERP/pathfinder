@@ -28,7 +28,20 @@ const tomorrowPlannerSchema = new mongoose.Schema({
             type: String,
             default: ""
         },
+        // place can be a free-text string (user's own task)
+        // or resolved school name (assigned task from master data)
         place: {
+            type: String,
+            default: ""
+        },
+        // Optional: ObjectId ref to SchoolForTask (when assigned by admin)
+        schoolRef: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "SchoolForTask",
+            default: null
+        },
+        // Denormalised school status shown to user
+        schoolStatus: {
             type: String,
             default: ""
         },
@@ -53,6 +66,27 @@ const tomorrowPlannerSchema = new mongoose.Schema({
             type: String,
             enum: ["Planned", "Completed", "Skipped"],
             default: "Planned"
+        },
+        // Whether this task was admin-assigned (vs self-planned)
+        isAssigned: {
+            type: Boolean,
+            default: false
+        },
+        // The user who assigned this task (if isAssigned = true)
+        assignedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+        assignedByName: {
+            type: String,
+            default: ""
+        },
+        // Reference to the AssignedTask document (if any)
+        assignedTaskRef: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "AssignedTask",
+            default: null
         },
         createdAt: {
             type: Date,

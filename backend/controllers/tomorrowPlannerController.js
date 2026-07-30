@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import TomorrowPlanner from "../models/TomorrowPlanner.js";
 import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
+import AssignedTask from "../models/AssignedTask.js";
 
 // Helper: convert a YYYY-MM-DD string or Date → midnight UTC for that calendar date
 const getMidnightUTC = (dateInput) => {
@@ -103,7 +104,56 @@ export const getMyPlan = async (req, res) => {
             planDate: { $gte: startRange, $lt: endRange }
         });
 
-        res.status(200).json({ plan: plan || { tasks: [] } });
+        // Fetch assigned tasks for this user on this date and merge them in
+        const assignedTasks = await AssignedTask.find({
+            assignedTo: req.user._id,
+            planDate:   { $gte: startRange, $lt: endRange },
+            status:     { $ne: "Cancelled" }
+        });
+
+        // Convert assigned tasks to the same shape as planner tasks
+        const assignedTasksMapped = assignedTasks.map(at => ({
+            _id:             at._id,
+            taskDetails:     `${at.activityType || 'School Visit'} at ${at.schoolName || 'School'}`,
+            activityType:    at.activityType || "School Visit",
+            place:           at.schoolName || "",
+            schoolRef:       at.school,
+            schoolStatus:    at.schoolStatus || "",
+            schoolTier:      at.schoolTier || "",
+            time:            at.time || "",
+            priority:        at.priority || "Medium",
+            estimatedDuration: at.estimatedDuration || "",
+            notes:           at.notes || "",
+            status:          at.status === "Completed" ? "Completed" : "Planned",
+            isAssigned:      true,
+            assignedBy:      at.assignedBy,
+            assignedByName:  at.assignedByName || "",
+            assignedTaskRef: at._id,
+            createdAt:       at.createdAt,
+        }));
+
+        if (plan) {
+            const planObj = plan.toObject();
+            // Filter out any already-merged assigned tasks to avoid duplicates on re-fetch
+            const selfTasks = (planObj.tasks || []).filter(t => !t.isAssigned);
+            planObj.tasks = [...selfTasks, ...assignedTasksMapped];
+            return res.status(200).json({ plan: planObj });
+        }
+
+        // No self-plan yet — return a synthetic plan with just assigned tasks
+        if (assignedTasksMapped.length > 0) {
+            return res.status(200).json({
+                plan: {
+                    _id:      null,
+                    user:     req.user._id,
+                    planDate: targetDate,
+                    tasks:    assignedTasksMapped,
+                    noSelfPlan: true,
+                }
+            });
+        }
+
+        res.status(200).json({ plan: { tasks: [] } });
     } catch (error) {
         console.error("Error fetching tomorrow plan:", error);
         res.status(500).json({ message: "Failed to fetch plan.", error: error.message });
@@ -297,9 +347,43 @@ export const getBoardPlans = async (req, res) => {
             }
         }
 
+        // Merge assigned tasks into each user's plan
+        const allAssignedTasks = await AssignedTask.find({
+            planDate:    { $gte: startRange, $lt: endRange },
+            assignedTo:  { $in: users.map(u => u._id) },
+            status:      { $ne: "Cancelled" },
+        });
+
+        // Group assigned tasks by assignedTo user
+        const assignedByUser = new Map();
+        for (const at of allAssignedTasks) {
+            const uid = at.assignedTo.toString();
+            if (!assignedByUser.has(uid)) assignedByUser.set(uid, []);
+            assignedByUser.get(uid).push({
+                _id:             at._id,
+                taskDetails:     `${at.activityType || 'School Visit'} at ${at.schoolName || 'School'}`,
+                activityType:    at.activityType || "School Visit",
+                place:           at.schoolName || "",
+                schoolRef:       at.school,
+                schoolStatus:    at.schoolStatus || "",
+                schoolTier:      at.schoolTier || "",
+                time:            at.time || "",
+                priority:        at.priority || "Medium",
+                estimatedDuration: at.estimatedDuration || "",
+                notes:           at.notes || "",
+                status:          at.status === "Completed" ? "Completed" : "Planned",
+                isAssigned:      true,
+                assignedBy:      at.assignedBy,
+                assignedByName:  at.assignedByName || "",
+                assignedTaskRef: at._id,
+                createdAt:       at.createdAt,
+            });
+        }
+
         const combined = users.map(user => {
             const existingPlan = planMap.get(user._id.toString());
             const primaryCentre = employeeMap.get(user._id.toString());
+            const userAssignedTasks = assignedByUser.get(user._id.toString()) || [];
 
             const formattedUser = {
                 _id: user._id,
@@ -313,6 +397,9 @@ export const getBoardPlans = async (req, res) => {
             if (existingPlan) {
                 const planObj = existingPlan.toObject ? existingPlan.toObject() : existingPlan;
                 planObj.user = formattedUser;
+                // Merge assigned tasks (avoid duplicates from already-embedded ones)
+                const selfTasks = (planObj.tasks || []).filter(t => !t.isAssigned);
+                planObj.tasks = [...selfTasks, ...userAssignedTasks];
                 return planObj;
             }
 
@@ -322,13 +409,14 @@ export const getBoardPlans = async (req, res) => {
                 userName: user.name,
                 department: user.role,
                 planDate: targetDate,
-                tasks: [],
-                noEntry: true
+                tasks: userAssignedTasks,
+                noEntry: userAssignedTasks.length === 0 ? true : false
             };
         });
 
         combined.sort((a, b) => a.userName.localeCompare(b.userName));
         res.status(200).json({ plans: combined });
+
     } catch (error) {
         console.error("Error fetching board plans:", error);
         res.status(500).json({ message: "Failed to fetch plans.", error: error.message });
