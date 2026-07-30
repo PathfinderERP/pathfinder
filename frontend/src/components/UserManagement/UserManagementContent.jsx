@@ -721,11 +721,24 @@ const UserManagementContent = () => {
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-16 h-16 rounded-full ${user.isActive === false ? 'bg-red-900/20 border-red-500/30' : isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'} flex items-center justify-center overflow-hidden border-2 shadow-lg relative`}>
-                                        {user.profileImage ? (
-                                            <img src={user.profileImage} alt={user.name} className={`w-full h-full object-cover ${user.isActive === false ? 'grayscale opacity-50' : ''}`} />
-                                        ) : (
-                                            <span className={`${user.isActive === false ? 'text-red-400' : 'text-cyan-400'} font-bold text-xl`}>{user.name.charAt(0).toUpperCase()}</span>
+                                        {user.profileImage && (
+                                            <img
+                                                src={user.profileImage}
+                                                alt={user.name}
+                                                className={`w-full h-full object-cover ${user.isActive === false ? 'grayscale opacity-50' : ''}`}
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                    const fallbackEl = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                                                    if (fallbackEl) fallbackEl.style.display = 'flex';
+                                                }}
+                                            />
                                         )}
+                                        <span
+                                            className={`avatar-fallback ${user.isActive === false ? 'text-red-400' : 'text-cyan-400'} font-bold text-xl items-center justify-center`}
+                                            style={{ display: user.profileImage ? 'none' : 'flex' }}
+                                        >
+                                            {(user.name || "U").charAt(0).toUpperCase()}
+                                        </span>
                                         {user.isActive === false && (
                                             <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 backdrop-blur-[1px]">
                                                 <span className="text-[8px] font-black uppercase tracking-tighter text-white bg-red-600 px-1 rounded-[1px] shadow-lg">OFF</span>
@@ -927,11 +940,24 @@ const UserManagementContent = () => {
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border ${isDarkMode ? 'bg-cyan-900 border-cyan-500/30' : 'bg-cyan-100 border-cyan-200'}`}>
-                                                    {user.profileImage ? (
-                                                        <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <span className="text-cyan-400 font-bold text-sm">{user.name.charAt(0).toUpperCase()}</span>
+                                                    {user.profileImage && (
+                                                        <img
+                                                            src={user.profileImage}
+                                                            alt={user.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none';
+                                                                const fallbackEl = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                                                                if (fallbackEl) fallbackEl.style.display = 'flex';
+                                                            }}
+                                                        />
                                                     )}
+                                                    <span
+                                                        className="avatar-fallback text-cyan-400 font-bold text-sm items-center justify-center"
+                                                        style={{ display: user.profileImage ? 'none' : 'flex' }}
+                                                    >
+                                                        {(user.name || "U").charAt(0).toUpperCase()}
+                                                    </span>
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className={`font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>{user.name}</span>
