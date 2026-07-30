@@ -605,7 +605,7 @@ const BoardAdmissionsContent = () => {
             const matchesStartDate = !startDate || admissionDate >= new Date(startDate);
             const matchesEndDate = !endDate || admissionDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999));
 
-            const isDeactivated = admission.studentId?.status === 'Deactivated';
+            const isDeactivated = (admission.studentId?.status === 'Deactivated') || (admission.status === 'Deactivated' || admission.status === 'DEACTIVATED');
             const matchesStatus = activeTab === "Deactivated" ? isDeactivated : !isDeactivated;
 
             // Lead By Filter
