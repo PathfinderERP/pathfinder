@@ -1602,9 +1602,18 @@ const CourseTarget = () => {
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
-                                        <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            {studentModalData.students.length} Student{studentModalData.students.length !== 1 ? 's' : ''} Found
-                                        </p>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {studentModalData.students.length} Student{studentModalData.students.length !== 1 ? 's' : ''} Found
+                                            </p>
+                                            {/* Total Amount Summary */}
+                                            <div className={`flex items-center gap-3 px-3 py-1.5 rounded-xl border ${isDarkMode ? 'bg-green-500/10 border-green-500/20' : 'bg-green-50 border-green-200'}`}>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>Total Amount</span>
+                                                <span className={`text-sm font-black ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>
+                                                    ₹{studentModalData.students.reduce((sum, s) => sum + (s.downPayment || 0), 0).toLocaleString('en-IN')}
+                                                </span>
+                                            </div>
+                                        </div>
                                         {studentModalData.students.map((s, idx) => (
                                             <div key={s._id || idx} className={`flex items-center gap-4 p-3 rounded-xl border transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 hover:border-cyan-500/30' : 'bg-gray-50 border-gray-100 hover:border-cyan-400/50'}`}>
                                                 {/* Index badge */}
@@ -1652,12 +1661,42 @@ const CourseTarget = () => {
                                 >
                                     ← Back to Breakdown
                                 </button>
-                                <button
-                                    onClick={() => setShowStudentModal(false)}
-                                    className="px-5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
-                                >
-                                    Close
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {studentModalData.students.length > 0 && (
+                                        <button
+                                            onClick={() => {
+                                                const headers = ["#", "Student Name", "Course", "Admission No.", "Admission Date", "Exam Tag", "Down Payment (₹)"];
+                                                const rows = studentModalData.students.map((s, idx) => [
+                                                    idx + 1,
+                                                    s.studentName || "-",
+                                                    s.course || "-",
+                                                    s.admissionNumber || "-",
+                                                    s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : "-",
+                                                    s.examTag || "-",
+                                                    s.downPayment || 0
+                                                ]);
+                                                const totalAmt = studentModalData.students.reduce((sum, s) => sum + (s.downPayment || 0), 0);
+                                                const totalsRow = ["", "TOTAL", "", "", "", "", totalAmt];
+                                                const wb = XLSX.utils.book_new();
+                                                const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, totalsRow]);
+                                                ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 18 }];
+                                                XLSX.utils.book_append_sheet(wb, ws, "Students");
+                                                const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+                                                saveAs(new Blob([buf], { type: "application/octet-stream" }),
+                                                    `Students_${studentModalData.centreName}_${studentModalData.deptName}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                                            }}
+                                            className={`flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 rounded-lg border transition-all ${isDarkMode ? 'border-green-600 text-green-400 hover:bg-green-500/10' : 'border-green-500 text-green-600 hover:bg-green-50'}`}
+                                        >
+                                            <FaDownload size={10} /> Export
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setShowStudentModal(false)}
+                                        className="px-5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
