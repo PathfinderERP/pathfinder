@@ -29,6 +29,7 @@ export const getTransactionReport = async (req, res) => {
             startDate,
             endDate,
             centreIds,
+            zoneIds,
             courseIds,
             examTagId,
             session, // e.g., "2025-2026"
@@ -131,20 +132,46 @@ export const getTransactionReport = async (req, res) => {
             allowedCentreNames = allCentres.map(c => c.centreName);
         }
 
+        // Resolve Zone IDs to Centre IDs/Names if zoneIds passed
+        let zoneCentreNames = null;
+        if (zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const rawZoneIds = typeof zoneIds === 'string' ? zoneIds.split(',') : zoneIds;
+            const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validZoneIds.length > 0) {
+                const zoneDocs = await Zone.find({ _id: { $in: validZoneIds } }).select("centres").lean();
+                const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
+                const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds } }).select("centreName");
+                zoneCentreNames = zoneCentres.map(c => c.centreName);
+            }
+        }
+
         if (centreIds) {
             const cIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
             const validIds = cIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim()));
             if (validIds.length > 0) {
                 const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
-                const requestedNames = requestedCentres.map(c => c.centreName);
+                let requestedNames = requestedCentres.map(c => c.centreName);
+
+                if (zoneCentreNames !== null) {
+                    requestedNames = requestedNames.filter(name => zoneCentreNames.includes(name));
+                }
 
                 if (!isSuperAdmin) {
                     const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
                     admissionMatch["admissionInfo.centre"] = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
                 } else if (requestedNames.length > 0) {
                     admissionMatch["admissionInfo.centre"] = { $in: requestedNames };
+                } else {
+                    admissionMatch["admissionInfo.centre"] = { $in: ["__NO_MATCH__"] };
                 }
             }
+        } else if (zoneCentreNames !== null) {
+            let filteredByZone = zoneCentreNames;
+            if (!isSuperAdmin) {
+                filteredByZone = filteredByZone.filter(name => allowedCentreNames.includes(name));
+            }
+            admissionMatch["admissionInfo.centre"] = { $in: filteredByZone.length > 0 ? filteredByZone : ["__NO_MATCH__"] };
         } else {
             // Default: Exclude franchise and RKM
             const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));

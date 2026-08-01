@@ -57,11 +57,13 @@ const TransactionList = () => {
     // Filters
     const [centres, setCentres] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [zones, setZones] = useState([]);
 
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [selectedDepartments, setSelectedDepartments] = useState([]);
+    const [selectedZones, setSelectedZones] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [timePeriod, setTimePeriod] = useState("Custom Range");
@@ -74,6 +76,7 @@ const TransactionList = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [centreSearch, setCentreSearch] = useState("");
     const [departmentSearch, setDepartmentSearch] = useState("");
+    const [zoneSearch, setZoneSearch] = useState("");
     const [selectedStatus, setSelectedStatus] = useState([]);
     const [billFilter, setBillFilter] = useState("all"); // "all" | "no_bill" | "with_bill"
     const [selectedBilledBy, setSelectedBilledBy] = useState([]);
@@ -97,12 +100,14 @@ const TransactionList = () => {
     const departmentDropdownRef = useRef(null);
     const statusDropdownRef = useRef(null);
     const billedByDropdownRef = useRef(null);
+    const zoneDropdownRef = useRef(null);
 
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
     const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
     const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+    const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
 
     // ---- Effects ----
     useEffect(() => {
@@ -123,6 +128,9 @@ const TransactionList = () => {
             if (billedByDropdownRef.current && !billedByDropdownRef.current.contains(event.target)) {
                 setIsBilledByDropdownOpen(false);
             }
+            if (zoneDropdownRef.current && !zoneDropdownRef.current.contains(event.target)) {
+                setIsZoneDropdownOpen(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -138,7 +146,7 @@ const TransactionList = () => {
 
         return () => clearTimeout(debounce);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCentres, selectedCourses, selectedExamTag, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm, selectedStatus]);
+    }, [selectedCentres, selectedZones, selectedCourses, selectedExamTag, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm, selectedStatus]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -146,9 +154,10 @@ const TransactionList = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, dRes] = await Promise.all([
+            const [cRes, dRes, zRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
             ]);
 
             if (cRes.ok) {
@@ -168,6 +177,12 @@ const TransactionList = () => {
                 const data = await dRes.json();
                 const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
                 setDepartments(visibleDepts);
+            }
+            if (zRes.ok) {
+                const data = await zRes.json();
+                const zoneList = Array.isArray(data) ? data : (data.data || []);
+                const activeZones = zoneList.filter(z => z.isActive !== false);
+                setZones(activeZones.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
             }
         } catch (error) {
             console.error("Error fetching master data", error);
@@ -229,6 +244,7 @@ const TransactionList = () => {
             }
 
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
+            if (selectedZones.length > 0) params.append("zoneIds", selectedZones.join(","));
             if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
             if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
             if (selectedExamTag) params.append("examTagId", selectedExamTag);
@@ -279,16 +295,47 @@ const TransactionList = () => {
         setSelectedPaymentMode([]);
         setSelectedTransactionType([]);
         setSelectedDepartments([]);
+        setSelectedZones([]);
         setSelectedStatus([]);
         setMinAmount("");
         setMaxAmount("");
         setSearchTerm("");
         setCentreSearch("");
         setDepartmentSearch("");
+        setZoneSearch("");
         setBillFilter("all");
         setSelectedBilledBy([]);
         setBilledBySearch("");
         toast.info("Filters reset");
+    };
+
+    // Derive centres filtered by selected zones for Centre dropdown
+    const zoneCentreIds = selectedZones.length > 0
+        ? new Set(
+            zones
+                .filter(z => selectedZones.includes(z._id))
+                .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+        )
+        : null;
+
+    const centresForDropdown = zoneCentreIds
+        ? centres.filter(c => zoneCentreIds.has(c._id.toString()))
+        : centres;
+
+    const toggleZoneSelection = (id) => {
+        setSelectedZones(prev => {
+            const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+            // When zone selection changes, clear centres that are no longer in scope
+            if (next.length > 0) {
+                const newZoneCentreIds = new Set(
+                    zones
+                        .filter(z => next.includes(z._id))
+                        .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+                );
+                setSelectedCentres(sc => sc.filter(cid => newZoneCentreIds.has(cid.toString())));
+            }
+            return next;
+        });
     };
 
     // --- Derived filtered data (client-side bill filter + billed by filter) ---
@@ -305,6 +352,7 @@ const TransactionList = () => {
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
     const hasActiveFilters =
         selectedCentres.length > 0 ||
+        selectedZones.length > 0 ||
         selectedCourses.length > 0 ||
         selectedExamTag !== "" ||
         selectedDepartments.length > 0 ||
@@ -559,20 +607,92 @@ const TransactionList = () => {
 
                 {/* Filters Row */}
                 <div className={`${cardBg} p-4 rounded-xl shadow-sm ${cardBorder} flex flex-wrap items-center gap-4`}>
-                    {/* Centre Logic Reuse */}
+
+                    {/* Zone Filter (MultiSelect) */}
+                    <div className="relative" ref={zoneDropdownRef}>
+                        <div
+                            onClick={() => setIsZoneDropdownOpen(!isZoneDropdownOpen)}
+                            className={`min-w-[180px] h-10 px-3 py-2 ${selectedZones.length > 0 ? (isDark ? 'bg-indigo-900/40 border border-indigo-500/60 text-indigo-300' : 'bg-indigo-50 border border-indigo-300 text-indigo-700') : btnBg} rounded-md cursor-pointer flex justify-between items-center text-sm transition-colors`}
+                        >
+                            <span className="truncate font-semibold">
+                                {selectedZones.length === 0 ? "-Select Zone-" : `${selectedZones.length} Zone${selectedZones.length > 1 ? 's' : ''} Selected`}
+                            </span>
+                            <FaChevronDown size={10} className={`transform transition-transform ${isZoneDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                        {isZoneDropdownOpen && (
+                            <div className={`absolute top-full left-0 mt-1 w-64 z-[9999] ${dropdownBg} rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden`}>
+                                <div className={`p-2 ${dropdownHdr} sticky top-0 z-10`}>
+                                    <div className="relative">
+                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Zone..."
+                                            value={zoneSearch}
+                                            onChange={(e) => setZoneSearch(e.target.value)}
+                                            className={`w-full pl-8 pr-2 py-1.5 text-xs rounded focus:border-indigo-500 outline-none font-bold uppercase ${inputBg}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                    {selectedZones.length > 0 && (
+                                        <div className="flex items-center justify-between mt-1.5 px-1">
+                                            <span className={`text-[9px] font-black ${isDark ? 'text-indigo-400' : 'text-indigo-600'} uppercase tracking-widest`}>{selectedZones.length} selected</span>
+                                            <button onClick={(e) => { e.stopPropagation(); setSelectedZones([]); setSelectedCentres([]); }} className={`text-[9px] font-black ${isDark ? 'text-red-400 hover:text-red-300' : 'text-red-500 hover:text-red-700'} uppercase tracking-widest`}>Clear</button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {zones.length === 0 && (
+                                        <div className={`p-4 text-center text-[10px] ${subText} font-black uppercase`}>No zones found</div>
+                                    )}
+                                    {zones
+                                        .filter(z => (z.name || "").toLowerCase().includes(zoneSearch.toLowerCase()))
+                                        .map(z => (
+                                            <div
+                                                key={z._id}
+                                                className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${dropdownRow}`}
+                                                onClick={() => toggleZoneSelection(z._id)}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedZones.includes(z._id)}
+                                                    readOnly
+                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                                />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className={`text-xs ${dropdownTxt} truncate font-bold uppercase`}>{z.name}</span>
+                                                    <span className={`text-[9px] ${subText} truncate`}>{(z.centres || []).length} centres</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    {zones.filter(z => (z.name || "").toLowerCase().includes(zoneSearch.toLowerCase())).length === 0 && zones.length > 0 && (
+                                        <div className={`p-4 text-center text-[10px] ${subText} font-black uppercase`}>No zones matched</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Centre Filter (filtered by zone if zones selected) */}
                     <div className="relative" ref={centreDropdownRef}>
                         <div
                             onClick={() => setIsCentreDropdownOpen(!isCentreDropdownOpen)}
                             className={`min-w-[200px] h-10 px-3 py-2 ${btnBg} rounded-md cursor-pointer flex justify-between items-center text-sm transition-colors`}
                         >
                             <span className="truncate">
-                                {selectedCentres.length === 0 ? "-Select Center-" : `${selectedCentres.length} Selected`}
+                                {selectedCentres.length === 0
+                                    ? (selectedZones.length > 0 ? `-Centres in ${selectedZones.length} Zone${selectedZones.length > 1 ? 's' : ''}-` : "-Select Center-")
+                                    : `${selectedCentres.length} Selected`}
                             </span>
                             <FaChevronDown size={10} className={`transform transition-transform ${isCentreDropdownOpen ? 'rotate-180' : ''}`} />
                         </div>
                         {isCentreDropdownOpen && (
                             <div className={`absolute top-full left-0 mt-1 w-64 z-[9999] ${dropdownBg} rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden`}>
                                 <div className={`p-2 ${dropdownHdr} sticky top-0 z-10`}>
+                                    {selectedZones.length > 0 && (
+                                        <div className={`text-[9px] font-black ${isDark ? 'text-indigo-400' : 'text-indigo-600'} uppercase tracking-widest px-1 mb-1.5`}>
+                                            Showing {centresForDropdown.length} centres from selected zone{selectedZones.length > 1 ? 's' : ''}
+                                        </div>
+                                    )}
                                     <div className="relative">
                                         <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
                                         <input
@@ -586,7 +706,7 @@ const TransactionList = () => {
                                     </div>
                                 </div>
                                 <div className="overflow-y-auto max-h-60 custom-scrollbar">
-                                    {centres
+                                    {centresForDropdown
                                         .filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase()))
                                         .map(c => (
                                             <div
@@ -598,7 +718,7 @@ const TransactionList = () => {
                                                 <span className={`text-xs ${dropdownTxt} truncate font-bold uppercase`}>{c.centreName}</span>
                                             </div>
                                         ))}
-                                    {centres.filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase())).length === 0 && (
+                                    {centresForDropdown.filter(c => c.centreName.toLowerCase().includes(centreSearch.toLowerCase())).length === 0 && (
                                         <div className={`p-4 text-center text-[10px] ${subText} font-black uppercase`}>No centres matched</div>
                                     )}
                                 </div>
