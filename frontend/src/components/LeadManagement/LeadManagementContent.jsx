@@ -785,8 +785,16 @@ const LeadManagementContent = () => {
     };
 
     const [showCounselingChoiceModal, setShowCounselingChoiceModal] = useState(false);
+    const [showWalkInRequiredModal, setShowWalkInRequiredModal] = useState(false);
 
     const handleCounseling = (lead) => {
+        const isWalkIn = lead?.isWalkIn || lead?.source?.toLowerCase() === 'walk in';
+        if (!isWalkIn) {
+            setSelectedLead(lead);
+            setShowWalkInRequiredModal(true);
+            toast.warn("Click on the Walk In button first then you can proceed with Counselling.");
+            return;
+        }
         setSelectedLead(lead);
         setShowCounselingChoiceModal(true);
     };
@@ -2206,59 +2214,108 @@ const LeadManagementContent = () => {
             {
                 showCentreAnalysisModal && (
                     <CentreAnalysisModal
-                        isOpen={showCentreAnalysisModal}
-                        onClose={() => setShowCentreAnalysisModal(false)}
-                        isDarkMode={isDarkMode}
-                        data={centreAnalysis}
-                    />
-                )
-            }
+                                                        isOpen={showCentreAnalysisModal}
+                                                        onClose={() => setShowCentreAnalysisModal(false)}
+                                                        isDarkMode={isDarkMode}
+                                                        data={centreAnalysis}
+                                                    />
+                                                )
+                                            }
 
-            {showCounselingChoiceModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className={`w-full max-w-md p-6 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <h3 className={`text-xl font-black italic tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    Select <span className="text-cyan-500">Course Type</span>
-                                </h3>
-                                <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    Choose the counselling pipeline for this lead
-                                </p>
+                                            {showCounselingChoiceModal && (
+                                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                                                    <div className={`w-full max-w-md p-6 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
+                                                        <div className="flex justify-between items-center mb-6">
+                                                            <div>
+                                                                <h3 className={`text-xl font-black italic tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                    Select <span className="text-cyan-500">Course Type</span>
+                                                                </h3>
+                                                                <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                                    Choose the counselling pipeline for this lead
+                                                                </p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => setShowCounselingChoiceModal(false)}
+                                                                className={`p-2 rounded-[2px] transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
+                                                            >
+                                                                <FaTimes />
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="space-y-4">
+                                                            <button
+                                                                onClick={handleNormalCounseling}
+                                                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100'}`}
+                                                            >
+                                                                <div className="p-3 bg-cyan-500 rounded-[2px] text-black">
+                                                                    <FaUserGraduate size={20} />
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Normal Course Counselling</h4>
+                                                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Standard admission workflow for pathway courses.</p>
+                                                                </div>
+                                                            </button>
+
+                                                            <button
+                                                                onClick={handleBoardCounseling}
+                                                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20' : 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100'}`}
+                                                            >
+                                                                <div className="p-3 bg-indigo-500 rounded-[2px] text-white group-hover:bg-indigo-600 transition-colors">
+                                                                    <FaGraduationCap size={20} />
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Board Course Counselling</h4>
+                                                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Specialized workflow for board pattern enrollments.</p>
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+            {/* Walk In Required Warning Modal Popup */}
+            {showWalkInRequiredModal && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                    <div className={`w-full max-w-md rounded-xl p-6 border shadow-2xl transition-all ${isDarkMode ? 'bg-[#15181f] border-gray-800 text-white' : 'bg-white border-gray-200 text-slate-900'}`}>
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-700/50">
+                            <div className="flex items-center gap-2 text-amber-500">
+                                <FaExclamationTriangle size={18} />
+                                <h3 className="text-sm font-black uppercase tracking-widest">Walk In Required</h3>
                             </div>
                             <button
-                                onClick={() => setShowCounselingChoiceModal(false)}
-                                className={`p-2 rounded-[2px] transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
+                                onClick={() => setShowWalkInRequiredModal(false)}
+                                className={`p-1 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
                             >
-                                <FaTimes />
+                                <FaTimes size={14} />
                             </button>
                         </div>
-
-                        <div className="space-y-4">
+                        <div className="py-5 text-center space-y-3">
+                            <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto text-2xl font-bold border border-amber-500/20">
+                                🚶
+                            </div>
+                            <h4 className="text-base font-bold">Walk In Status Missing</h4>
+                            <p className={`text-xs font-semibold px-4 ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                                Please click on the <span className="text-amber-500 font-bold uppercase">Walk In</span> button first then you can proceed with counselling.
+                            </p>
+                        </div>
+                        <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-700/50">
                             <button
-                                onClick={handleNormalCounseling}
-                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100'}`}
+                                onClick={() => setShowWalkInRequiredModal(false)}
+                                className={`px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
                             >
-                                <div className="p-3 bg-cyan-500 rounded-[2px] text-black">
-                                    <FaUserGraduate size={20} />
-                                </div>
-                                <div>
-                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Normal Course Counselling</h4>
-                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Standard admission workflow for pathway courses.</p>
-                                </div>
+                                Cancel
                             </button>
-
                             <button
-                                onClick={handleBoardCounseling}
-                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20' : 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100'}`}
+                                onClick={async () => {
+                                    if (selectedLead?._id) {
+                                        await handleTagWalkIn(selectedLead._id);
+                                        setShowWalkInRequiredModal(false);
+                                        setShowCounselingChoiceModal(true);
+                                    }
+                                }}
+                                className="px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 flex items-center gap-2"
                             >
-                                <div className="p-3 bg-indigo-500 rounded-[2px] text-white group-hover:bg-indigo-600 transition-colors">
-                                    <FaGraduationCap size={20} />
-                                </div>
-                                <div>
-                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Board Course Counselling</h4>
-                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Specialized workflow for board pattern enrollments.</p>
-                                </div>
+                                Mark Walk In Now
                             </button>
                         </div>
                     </div>
@@ -2275,8 +2332,7 @@ const LeadManagementContent = () => {
                     isDarkMode={isDarkMode}
                 />
             )}
-
-        </div >
+        </div>
     );
 };
 
