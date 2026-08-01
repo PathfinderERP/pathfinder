@@ -751,35 +751,45 @@ const CourseTarget = () => {
 
         const rows = data.map(centre => {
             const row = { "Centre Name": centre.centreName };
+            let centreTotalAmount = 0;
             uniqueDeptColumns.forEach(deptName => {
-                const { target, achieved } = getDeptStatsByName(centre, deptName);
+                const { target, achieved, totalAmount } = getDeptStatsByName(centre, deptName);
+                centreTotalAmount += (totalAmount || 0);
                 if (viewMode === "YEARLY" || viewMode === "WEEKLY") {
                     row[deptName] = `${achieved} / ${target > 0 ? target : "-"}`;
                 } else {
                     row[deptName] = achieved;
                 }
+                row[`${deptName} Amount (₹)`] = totalAmount || 0;
             });
             row["Grand Total"] = getCentreTotalAchieved(centre);
+            row["Grand Total Amount (₹)"] = centreTotalAmount;
             return row;
         });
 
         // Add a Total row at the bottom
         const totalRow = { "Centre Name": "TOTAL" };
+        let grandTotalAmountSum = 0;
         uniqueDeptColumns.forEach(deptName => {
             let deptAchievedSum = 0;
             let deptTargetSum = 0;
+            let deptAmountSum = 0;
             data.forEach(centre => {
-                const { target, achieved } = getDeptStatsByName(centre, deptName);
+                const { target, achieved, totalAmount } = getDeptStatsByName(centre, deptName);
                 deptAchievedSum += achieved;
                 deptTargetSum += target;
+                deptAmountSum += (totalAmount || 0);
             });
+            grandTotalAmountSum += deptAmountSum;
             if (viewMode === "YEARLY" || viewMode === "WEEKLY") {
                 totalRow[deptName] = `${deptAchievedSum} / ${deptTargetSum > 0 ? deptTargetSum : "-"}`;
             } else {
                 totalRow[deptName] = deptAchievedSum;
             }
+            totalRow[`${deptName} Amount (₹)`] = deptAmountSum;
         });
         totalRow["Grand Total"] = data.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0);
+        totalRow["Grand Total Amount (₹)"] = grandTotalAmountSum;
         rows.push(totalRow);
 
         const wb = XLSX.utils.book_new();
@@ -938,14 +948,15 @@ const CourseTarget = () => {
 
     // Look up stats for a specific department name within a centre's data
     const getDeptStatsByName = (centreData, deptName) => {
-        if (!centreData || !centreData.departments) return { achieved: 0, target: 0, id: null };
+        if (!centreData || !centreData.departments) return { achieved: 0, target: 0, totalAmount: 0, id: null };
         const dept = centreData.departments.find(
             d => (d.name || "").trim().toLowerCase() === (deptName || "").trim().toLowerCase()
         );
-        if (!dept) return { achieved: 0, target: 0, id: null };
+        if (!dept) return { achieved: 0, target: 0, totalAmount: 0, id: null };
         return {
             achieved: dept.achieved || 0,
             target: dept.target || 0,
+            totalAmount: dept.totalAmount || 0,
             id: dept.id,
             examTagAchieved: dept.examTagAchieved || []
         };

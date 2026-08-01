@@ -522,12 +522,18 @@ export const getCourseTargetAnalysis = async (req, res) => {
             // console.log(`Centre: ${centreName} | Normal raw: ${normalAdmissions.length} | Board raw: ${boardAdmissions.length} | Unique combined: ${uniqueAdmissions.length}`);
 
             const deptAdmissionMap = {};
+            const deptAmountMap = {};
             const deptExamTagBreakdown = {};
 
             uniqueAdmissions.forEach(item => {
                 if (item.departmentId) {
                     const dId = item.departmentId;
                     deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + 1;
+                    
+                    const amount = item.type === "normal"
+                        ? (item.raw?.downPayment || 0)
+                        : (item.raw?.totalPaidAmount || item.raw?.admissionFee || 0);
+                    deptAmountMap[dId] = (deptAmountMap[dId] || 0) + amount;
 
                     if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
                     const breakdown = deptExamTagBreakdown[dId];
@@ -554,6 +560,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
                     id: dept._id,
                     target: target,
                     achieved: deptAdmissionMap[dId] || 0,
+                    totalAmount: deptAmountMap[dId] || 0,
                     examTagAchieved: deptExamTagBreakdown[dId] || [],
                     courses: []
                 };
